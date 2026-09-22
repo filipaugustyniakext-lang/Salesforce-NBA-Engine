@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Salesforce NBA Engine</title>
+    <style>
+      :root {
+        --bg: #0b1220;
+        --panel: #131c2e;
+        --panel-2: #1b2740;
+        --border: #26334d;
+        --text: #e7edf7;
+        --muted: #9aa8c2;
+        --accent: #4f8cff;
+        --accent-2: #7c5cff;
+        --good: #2ecc71;
+        --warn: #f5a623;
+        --bad: #ff5c72;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background: radial-gradient(1200px 600px at 20% -10%, #1a2745 0%, var(--bg) 55%);
+        color: var(--text);
+        min-height: 100vh;
+      }
+      header {
+        padding: 28px 32px 8px;
+      }
+      header h1 { margin: 0; font-size: 24px; letter-spacing: 0.2px; }
+      header p { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
+      .badge {
+        display: inline-block; padding: 2px 10px; border-radius: 999px;
+        background: linear-gradient(90deg, var(--accent), var(--accent-2));
+        color: white; font-size: 11px; font-weight: 600; vertical-align: middle;
+        margin-left: 8px;
+      }
+      main {
+        display: grid;
+        grid-template-columns: 340px 1fr;
+        gap: 20px;
+        padding: 20px 32px 40px;
+        align-items: start;
+      }
+      @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 18px;
+      }
+      .card h2 { margin: 0 0 12px; font-size: 15px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+      .cust {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px;
+        background: var(--panel-2); cursor: pointer; margin-bottom: 10px;
+        transition: border-color .15s, transform .05s;
+      }
+      .cust:hover { border-color: var(--accent); }
+      .cust.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+      .cust .name { font-weight: 600; }
+      .cust .meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+      .pill { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: #223052; color: var(--muted); }
+      .risk-high { color: var(--bad); }
+      .risk-mid { color: var(--warn); }
+      .risk-low { color: var(--good); }
+      .rec {
+        border: 1px solid var(--border); border-radius: 12px; padding: 16px;
+        margin-bottom: 12px; background: var(--panel-2);
+      }
+      .rec-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+      .rec-title { font-weight: 650; font-size: 15px; }
+      .cat { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+      .score {
+        font-variant-numeric: tabular-nums; font-weight: 700; font-size: 20px;
+        background: linear-gradient(90deg, var(--accent), var(--accent-2));
+        -webkit-background-clip: text; background-clip: text; color: transparent;
+      }
+      .bar { height: 6px; border-radius: 999px; background: #223052; margin: 12px 0; overflow: hidden; }
+      .bar > span { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
+      ul.reasons { margin: 8px 0 0; padding-left: 18px; color: var(--muted); font-size: 13px; }
+      ul.reasons li { margin: 3px 0; }
+      .empty { color: var(--muted); font-style: italic; }
+      .subtitle { color: var(--muted); font-size: 13px; margin: -4px 0 14px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Salesforce NBA Engine <span class="badge">Next Best Action</span></h1>
+      <p>Pick an account to see explainable, ranked next best actions from the rule-based engine.</p>
+    </header>
+    <main>
+      <section class="card">
+        <h2>Accounts</h2>
+        <div id="customers"></div>
+      </section>
+      <section class="card">
+        <h2>Recommendations</h2>
+        <div id="selected" class="subtitle">Select an account to generate recommendations.</div>
+        <div id="recs"></div>
+      </section>
+    </main>
+
+    <script>
+      const riskClass = (r) => (r >= 0.5 ? "risk-high" : r >= 0.3 ? "risk-mid" : "risk-low");
+
+      async function loadCustomers() {
+        const res = await fetch("/api/customers");
+        const customers = await res.json();
+        const el = document.getElementById("customers");
+        el.innerHTML = "";
+        customers.forEach((c) => {
+          const div = document.createElement("div");
+          div.className = "cust";
+          div.dataset.id = c.customer_id;
+          div.innerHTML = `
+            <div>
+              <div class="name">${c.name}</div>
+              <div class="meta">
+                <span class="pill">${c.plan_tier}</span>
+                &nbsp;churn <span class="${riskClass(c.churn_risk)}">${Math.round(c.churn_risk * 100)}%</span>
+                &nbsp;· usage ${Math.round(c.usage_score * 100)}%
+              </div>
+            </div>
+            <div class="meta">$${c.monthly_spend.toLocaleString()}/mo</div>`;
+          div.addEventListener("click", () => selectCustomer(c));
+          el.appendChild(div);
+        });
+      }
+
+      async function selectCustomer(c) {
+        document.querySelectorAll(".cust").forEach((n) =>
+          n.classList.toggle("active", n.dataset.id === c.customer_id)
+        );
+        document.getElementById("selected").textContent =
+          `Next best actions for ${c.name}`;
+        const recsEl = document.getElementById("recs");
+        recsEl.innerHTML = '<div class="empty">Scoring…</div>';
+        const res = await fetch(`/api/customers/${c.customer_id}/recommend?limit=5`);
+        const data = await res.json();
+        if (!data.recommendations.length) {
+          recsEl.innerHTML = '<div class="empty">No eligible actions for this account.</div>';
+          return;
+        }
+        const max = Math.max(...data.recommendations.map((r) => r.score), 1);
+        recsEl.innerHTML = data.recommendations
+          .map(
+            (r) => `
+          <div class="rec">
+            <div class="rec-head">
+              <div>
+                <div class="rec-title">${r.title}</div>
+                <div class="cat">${r.category}</div>
+              </div>
+              <div class="score">${r.score.toFixed(1)}</div>
+            </div>
+            <div class="bar"><span style="width:${(r.score / max) * 100}%"></span></div>
+            <ul class="reasons">${r.reasons.map((x) => `<li>${x}</li>`).join("")}</ul>
+          </div>`
+          )
+          .join("");
+      }
+
+      loadCustomers();
+    </script>
+  </body>
+</html>
