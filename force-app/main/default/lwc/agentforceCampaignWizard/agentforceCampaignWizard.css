@@ -1,6 +1,70 @@
-/* --- WIZARD PROGRESS INDICATOR (lightning-progress-indicator) --- */
+/* --- WIZARD PROGRESS INDICATOR (SLDS blueprint) --- */
+/* https://v1.lightningdesignsystem.com/components/progress-indicator/ */
 .wizard-progress {
-    padding: 0.5rem 1rem 0.25rem;
+    padding: 1rem 1.5rem 2.25rem;
+    position: relative;
+}
+
+.wizard-progress .slds-progress__list {
+    position: relative;
+    z-index: 2;
+}
+
+.wizard-progress .slds-progress__item {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.wizard-progress .slds-progress__item_content {
+    padding-top: 0.5rem;
+}
+
+.wizard-step-label {
+    font-size: 0.6875rem;
+    font-weight: 500;
+    color: #706e6b;
+    display: block;
+    text-align: center;
+    line-height: 1.2;
+    white-space: normal;
+    max-width: 6.5rem;
+}
+
+.wizard-progress .slds-is-active .wizard-step-label {
+    color: #0176d3;
+    font-weight: 700;
+}
+
+.wizard-progress .slds-is-completed .wizard-step-label {
+    color: #2e844a;
+    font-weight: 600;
+}
+
+.wizard-progress .slds-progress__marker {
+    position: relative;
+    z-index: 3;
+}
+
+.wizard-progress .slds-progress__marker_icon {
+    position: relative;
+    z-index: 3;
+}
+
+.step-check-icon {
+    --slds-c-icon-color-foreground-default: #ffffff;
+}
+
+.wizard-progress .slds-progress-bar {
+    position: absolute;
+    top: calc(1rem + 0.5rem);
+    left: 1.5rem;
+    right: 1.5rem;
+    z-index: 1;
+}
+
+.wizard-progress .slds-progress-bar__value {
+    transition: width 0.3s ease;
 }
 
 .emergency-inline-toggle {

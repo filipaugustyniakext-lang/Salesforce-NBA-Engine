@@ -16,17 +16,54 @@
             <div class="custom-modal-body">
 
                 <!-- STANDARD ACTIVATION CAMPAIGN WORKSPACE (MULTI-STEP) -->
-                    <div class="wizard-progress slds-m-bottom_medium">
-                        <lightning-progress-indicator current-step={currentStepValue} type="base">
-                            <template for:each={wizardStepData} for:item="step">
-                                <lightning-progress-step
-                                    key={step.stepKey}
-                                    label={step.label}
-                                    value={step.stepKey}
-                                    onclick={handleStepClick}>
-                                </lightning-progress-step>
+                    <!-- SLDS Progress Indicator (stable blueprint; not beta lightning-progress-indicator) -->
+                    <div class="slds-progress wizard-progress">
+                        <ol class="slds-progress__list">
+                            <template for:each={wizardSteps} for:item="step">
+                                <li key={step.value} class={step.itemClass}>
+                                    <template lwc:if={step.isComplete}>
+                                        <button type="button"
+                                                class="slds-button slds-progress__marker slds-progress__marker_icon"
+                                                data-step={step.value}
+                                                title={step.assistiveText}
+                                                onclick={handleStepClick}>
+                                            <lightning-icon icon-name="utility:success"
+                                                            size="xx-small"
+                                                            alternative-text=""
+                                                            class="step-check-icon"></lightning-icon>
+                                            <span class="slds-assistive-text">{step.assistiveText}</span>
+                                        </button>
+                                    </template>
+                                    <template lwc:elseif={step.isActive}>
+                                        <button type="button"
+                                                class="slds-button slds-progress__marker"
+                                                data-step={step.value}
+                                                title={step.assistiveText}
+                                                onclick={handleStepClick}>
+                                            <span class="slds-assistive-text">{step.assistiveText}</span>
+                                        </button>
+                                    </template>
+                                    <template lwc:else>
+                                        <div class="slds-progress__marker" title={step.label}>
+                                            <span class="slds-assistive-text">{step.assistiveText}</span>
+                                        </div>
+                                    </template>
+                                    <div class="slds-progress__item_content slds-grid slds-grid_align-center">
+                                        <span class="wizard-step-label" title={step.label}>{step.label}</span>
+                                    </div>
+                                </li>
                             </template>
-                        </lightning-progress-indicator>
+                        </ol>
+                        <div class="slds-progress-bar slds-progress-bar_x-small"
+                             aria-valuemin="0"
+                             aria-valuemax="100"
+                             aria-valuenow={progressBarValue}
+                             aria-label="Campaign wizard progress"
+                             role="progressbar">
+                            <span class="slds-progress-bar__value" style={progressBarStyle}>
+                                <span class="slds-assistive-text">Progress: {progressBarValue}%</span>
+                            </span>
+                        </div>
                     </div>
 
                     <div class="properties-vertical-stack animate-fade-in slds-m-top_large">

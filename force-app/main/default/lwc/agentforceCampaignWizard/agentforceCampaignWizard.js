@@ -784,18 +784,53 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     // --- WIZARD STEP NAVIGATION ---
     // Step 3 (Copy Assignment) is a ghost placeholder until Copy Center wiring lands.
-    // stepKey is the string value expected by lightning-progress-indicator / progress-step.
     wizardStepData = [
-        { label: 'Campaign Properties', value: 1, stepKey: '1' },
-        { label: 'Topic & Offering', value: 2, stepKey: '2' },
-        { label: 'Copy Assignment', value: 3, stepKey: '3' },
-        { label: 'Priority & Exclusions', value: 4, stepKey: '4' },
-        { label: 'Scoring', value: 5, stepKey: '5' },
-        { label: 'Summary', value: 6, stepKey: '6' }
+        { label: 'Campaign Properties', value: 1 },
+        { label: 'Topic & Offering', value: 2 },
+        { label: 'Copy Assignment', value: 3 },
+        { label: 'Priority & Exclusions', value: 4 },
+        { label: 'Scoring', value: 5 },
+        { label: 'Summary', value: 6 }
     ];
 
-    get currentStepValue() {
-        return String(this.currentStep);
+    /**
+     * SLDS progress-indicator states per step:
+     * - slds-is-completed (+ marker_icon + success icon)
+     * - slds-is-active
+     * - default incomplete
+     * @see https://v1.lightningdesignsystem.com/components/progress-indicator/
+     */
+    get wizardSteps() {
+        return this.wizardStepData.map(step => {
+            const isComplete = step.value < this.currentStep;
+            const isActive = step.value === this.currentStep;
+            let itemClass = 'slds-progress__item';
+            let assistiveText = step.label;
+            if (isComplete) {
+                itemClass += ' slds-is-completed';
+                assistiveText = `${step.label} - Completed`;
+            } else if (isActive) {
+                itemClass += ' slds-is-active';
+                assistiveText = `${step.label} - Active`;
+            }
+            return {
+                ...step,
+                itemClass,
+                isComplete,
+                isActive,
+                assistiveText
+            };
+        });
+    }
+
+    get progressBarValue() {
+        const lastIndex = this.wizardStepData.length - 1;
+        if (lastIndex <= 0) return 0;
+        return Math.round(((this.currentStep - 1) / lastIndex) * 100);
+    }
+
+    get progressBarStyle() {
+        return `width: ${this.progressBarValue}%;`;
     }
 
     get isStep1() { return this.currentStep === 1; }
@@ -951,11 +986,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     handleStepClick(event) {
-        // lightning-progress-step does not officially document click, but value is available
-        // on the host when clicked. Only allow navigating back to completed / current steps.
-        const raw = event.currentTarget?.value ?? event.target?.value;
-        const step = parseInt(raw, 10);
+        const step = parseInt(event.currentTarget.dataset.step, 10);
         if (!Number.isInteger(step) || step < 1) return;
+        // Only allow navigating back to completed / current steps.
         if (step <= this.currentStep) {
             this.currentStep = step;
             this.maybeLoadOfferSummaries();
