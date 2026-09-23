@@ -72,62 +72,168 @@
                         <template lwc:if={isStep1}>
                             <div class="form-module-card slds-m-bottom_large" style="z-index: 99;">
 
-                                <!-- Activation Type + Emergency Toggle Row -->
-                                <div class="slds-grid slds-grid_vertical-align-end slds-gutters">
-                                    <div class="slds-col">
-                                        <label class="slds-form-element__label custom-label-style">Activation Type</label>
-                                        <div class="slds-button-group activation-type-group slds-m-top_xx-small" role="group" aria-label="Activation Type">
-                                            <template for:each={activationOptions} for:item="option">
-                                                <button key={option.value}
-                                                        class={option.btnClass}
-                                                        data-value={option.value}
-                                                        onclick={handleSelectActivation}
-                                                        title={option.label}
-                                                        type="button">
-                                                    <lightning-icon icon-name={option.icon} size="small" class={option.iconClass}></lightning-icon>
-                                                    <span class="activation-btn-label">{option.label}</span>
-                                                </button>
+                                <!-- Section: Basic Properties -->
+                                <div class="slds-box wizard-section-box">
+                                    <span class="module-header-title">Basic Properties</span>
+
+                                    <!-- Activation Type + Emergency Toggle Row -->
+                                    <div class="slds-grid slds-grid_vertical-align-end slds-gutters slds-m-top_medium">
+                                        <div class="slds-col">
+                                            <label class="slds-form-element__label custom-label-style">Activation Type</label>
+                                            <div class="slds-button-group activation-type-group slds-m-top_xx-small" role="group" aria-label="Activation Type">
+                                                <template for:each={activationOptions} for:item="option">
+                                                    <button key={option.value}
+                                                            class={option.btnClass}
+                                                            data-value={option.value}
+                                                            onclick={handleSelectActivation}
+                                                            title={option.label}
+                                                            type="button">
+                                                        <lightning-icon icon-name={option.icon} size="small" class={option.iconClass}></lightning-icon>
+                                                        <span class="activation-btn-label">{option.label}</span>
+                                                    </button>
+                                                </template>
+                                            </div>
+                                        </div>
+
+                                        <template lwc:if={showEmergencyToggle}>
+                                            <div class="slds-col slds-size_1-of-4 slds-p-bottom_xx-small">
+                                                <div class="slds-grid slds-grid_vertical-align-center emergency-inline-toggle">
+                                                    <button class={emergencyButtonClass}
+                                                            onclick={handleEmergencyToggle}
+                                                            title="Toggle Emergency Status">
+                                                        <lightning-icon icon-name="utility:warning" size="small" variant={emergencyIconVariant}></lightning-icon>
+                                                    </button>
+                                                    <span class="slds-m-left_small" style="font-weight: 500; color: #1b1b1b;">Is Emergency</span>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+
+                                    <!-- Campaign Group (required when the campaign type defines groups) -->
+                                    <template lwc:if={showCampaignGroup}>
+                                        <div class="slds-m-top_medium">
+                                            <lightning-combobox
+                                                name="campaignGroup"
+                                                label="Campaign Group"
+                                                placeholder="Select a campaign group..."
+                                                value={selectedCampaignGroupId}
+                                                options={campaignGroupOptions}
+                                                onchange={handleCampaignGroupChange}
+                                                required
+                                                class="custom-form-input">
+                                            </lightning-combobox>
+                                        </div>
+                                    </template>
+
+                                    <div class="slds-m-top_medium">
+                                        <lightning-input type="text" label="Campaign Name" placeholder="eg. cashloan" value={campaignName} onchange={handleNameChange} class="custom-form-input"></lightning-input>
+                                    </div>
+                                </div>
+
+                                <!-- Section: Priority & Exclusions -->
+                                <div class="slds-box wizard-section-box slds-m-top_medium">
+                                    <span class="module-header-title">Priority &amp; Exclusions</span>
+
+                                    <div class="slds-grid slds-gutters priority-exclusions-layout slds-m-top_medium">
+                                        <!-- Left: Tier column (full height) -->
+                                        <div class="slds-col slds-size_1-of-2 priority-exclusions-left">
+                                            <div class="custom-priority-picker priority-exclusions-tiers">
+                                                <div class="priority-list-container" role="listbox" aria-label="Priority Tier">
+                                                    <template for:each={priorityTierOptions} for:item="tier">
+                                                        <div key={tier.value}
+                                                             class={tier.className}
+                                                             data-value={tier.value}
+                                                             title={tier.tooltip}
+                                                             role="option"
+                                                             aria-selected={tier.isSelected}
+                                                             onclick={handlePriorityChange}>
+                                                            {tier.label}
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </div>
+
+                                            <template lwc:if={selectedTierRecord}>
+                                                <div class="tier-detail-panel slds-m-top_small animate-fade-in">
+                                                    <template lwc:if={selectedTierRecord.Description__c}>
+                                                        <p class="tier-description slds-m-bottom_small">{selectedTierRecord.Description__c}</p>
+                                                    </template>
+
+                                                    <template lwc:if={selectedTierBehaviouralBadges.length}>
+                                                        <div class="tier-badge-row slds-m-bottom_x-small">
+                                                            <span class="tier-badge-group-label">Behavioural Attributes</span>
+                                                            <div class="tier-badge-group">
+                                                                <template for:each={selectedTierBehaviouralBadges} for:item="badge">
+                                                                    <span key={badge.key} class="slds-badge tier-behaviour-badge">{badge.label}</span>
+                                                                </template>
+                                                            </div>
+                                                        </div>
+                                                    </template>
+
+                                                    <template lwc:if={selectedTierExclusionBadges.length}>
+                                                        <div class="tier-badge-row">
+                                                            <span class="tier-badge-group-label">Allowed Exclusions</span>
+                                                            <div class="tier-badge-group">
+                                                                <template for:each={selectedTierExclusionBadges} for:item="badge">
+                                                                    <span key={badge.key} class="slds-badge tier-exclusion-badge">{badge.label}</span>
+                                                                </template>
+                                                            </div>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </template>
+                                        </div>
+
+                                        <!-- Right: Exclusion settings -->
+                                        <div class="slds-col slds-size_1-of-2 priority-exclusions-right">
+                                            <span class="wizard-subsection-title">Exclusion Settings</span>
+
+                                            <div class="slds-m-top_small exclusion-option">
+                                                <lightning-input type="checkbox" label="Exclude Onboarding" checked={excludeOnboarding} onchange={handleExcludeOnboardingChange} class="custom-master-checkbox"></lightning-input>
+                                                <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small exclusion-option-help">
+                                                    Removes clients currently in the onboarding phase (Grouping Campaign: Onboarding) from this campaign's audience.
+                                                </p>
+                                            </div>
+
+                                            <template lwc:if={showExcludeOtherMarketing}>
+                                                <div class="slds-m-top_medium exclusion-option animate-fade-in">
+                                                    <lightning-input type="checkbox" label="Exclude other marketing" checked={excludeOtherMarketing} onchange={handleExcludeOtherMarketingChange} class="custom-master-checkbox"></lightning-input>
+                                                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small exclusion-option-help">
+                                                        Prevents clients from receiving any other marketing actions outside Tier 1-3 via main outbound channels. Not yet active — configuration only.
+                                                    </p>
+                                                </div>
+                                            </template>
+
+                                            <template lwc:if={showSuppressionSection}>
+                                                <div class="slds-m-top_medium suppression-section animate-fade-in">
+                                                    <span class="tier-badge-group-label slds-m-bottom_x-small">Manual Suppression Association</span>
+                                                    <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">This tier excludes manual suppressions. Associate a suppression source:</p>
+                                                    <div class="offering-pill-deck slds-m-bottom_small">
+                                                        <template for:each={suppressionTypeOptions} for:item="opt">
+                                                            <div key={opt.value} class={opt.className} data-value={opt.value} onclick={handleSuppressionTypeChange}>
+                                                                {opt.label}
+                                                            </div>
+                                                        </template>
+                                                    </div>
+                                                    <template lwc:if={suppressionType}>
+                                                        <lightning-input
+                                                            type="text"
+                                                            label="Suppression Source ID / Name"
+                                                            placeholder="Enter ID or name..."
+                                                            value={suppressionLookupValue}
+                                                            onchange={handleSuppressionLookupChange}
+                                                            class="custom-form-input animate-fade-in">
+                                                        </lightning-input>
+                                                    </template>
+                                                </div>
                                             </template>
                                         </div>
                                     </div>
-
-                                    <template lwc:if={showEmergencyToggle}>
-                                        <div class="slds-col slds-size_1-of-4 slds-p-bottom_xx-small">
-                                            <div class="slds-grid slds-grid_vertical-align-center emergency-inline-toggle">
-                                                <button class={emergencyButtonClass}
-                                                        onclick={handleEmergencyToggle}
-                                                        title="Toggle Emergency Status">
-                                                    <lightning-icon icon-name="utility:warning" size="small" variant={emergencyIconVariant}></lightning-icon>
-                                                </button>
-                                                <span class="slds-m-left_small" style="font-weight: 500; color: #1b1b1b;">Is Emergency</span>
-                                            </div>
-                                        </div>
-                                    </template>
                                 </div>
 
-                                <!-- Campaign Group (required when the campaign type defines groups) -->
-                                <template lwc:if={showCampaignGroup}>
-                                    <div class="slds-m-top_medium">
-                                        <lightning-combobox
-                                            name="campaignGroup"
-                                            label="Campaign Group"
-                                            placeholder="Select a campaign group..."
-                                            value={selectedCampaignGroupId}
-                                            options={campaignGroupOptions}
-                                            onchange={handleCampaignGroupChange}
-                                            required
-                                            class="custom-form-input">
-                                        </lightning-combobox>
-                                    </div>
-                                </template>
-
-                                <div class="slds-m-top_medium">
-                                    <lightning-input type="text" label="Campaign Name" placeholder="eg. cashloan" value={campaignName} onchange={handleNameChange} class="custom-form-input"></lightning-input>
-                                </div>
-
-                                <!-- Assigned Channels -->
-                                <div class="slds-m-top_medium">
-                                    <span class="module-header-title">Assigned Channels</span>
+                                <!-- Section: Campaign Channels -->
+                                <div class="slds-box wizard-section-box slds-m-top_medium">
+                                    <span class="module-header-title">Campaign Channels</span>
                                     <div class="slds-m-top_small slds-p-bottom_small select-all-row-divider">
                                         <lightning-input type="checkbox" label="Select All" checked={selectAllChecked} onchange={handleSelectAllChange} class="custom-master-checkbox"></lightning-input>
                                     </div>
@@ -475,121 +581,14 @@
                                     </p>
                                     <p class="slds-text-body_small slds-text-color_weak slds-m-top_small">
                                         This step is a placeholder so the full wizard flow is already in place.
-                                        You can continue to Priority &amp; Exclusions without selecting copy.
+                                        You can continue to Scoring without selecting copy.
                                     </p>
                                 </div>
                             </div>
                         </template>
 
-                        <!-- STEP 4: Priority & Exclusions -->
+                        <!-- STEP 4: Scoring Settings -->
                         <template lwc:if={isStep4}>
-                            <div class="form-module-card slds-m-bottom_large">
-                                <div class="slds-grid slds-wrap slds-gutters">
-
-                                    <!-- Priority Selection Grid Block -->
-                                    <div class="slds-col slds-size_1-of-1 custom-grid-col properties-stack-spacing">
-                                        <span class="module-header-title">Priority Settings</span>
-                                        <div class="custom-priority-picker slds-m-top_medium">
-                                            <div class="priority-list-container">
-                                                <template for:each={priorityTierOptions} for:item="tier">
-                                                    <div key={tier.value}
-                                                         class={tier.className}
-                                                         data-value={tier.value}
-                                                         title={tier.tooltip}
-                                                         onclick={handlePriorityChange}>
-                                                        {tier.label}
-                                                    </div>
-                                                </template>
-                                            </div>
-                                        </div>
-
-                                        <!-- Tier Detail Panel (shown when a tier is selected) -->
-                                        <template lwc:if={selectedTierRecord}>
-                                            <div class="tier-detail-panel slds-m-top_medium animate-fade-in">
-                                                <template lwc:if={selectedTierRecord.Description__c}>
-                                                    <p class="tier-description slds-m-bottom_small">{selectedTierRecord.Description__c}</p>
-                                                </template>
-
-                                                <!-- Behavioural Attributes -->
-                                                <template lwc:if={selectedTierBehaviouralBadges.length}>
-                                                    <div class="tier-badge-row slds-m-bottom_x-small">
-                                                        <span class="tier-badge-group-label">Behavioural Attributes</span>
-                                                        <div class="tier-badge-group">
-                                                            <template for:each={selectedTierBehaviouralBadges} for:item="badge">
-                                                                <span key={badge.key} class="slds-badge tier-behaviour-badge">{badge.label}</span>
-                                                            </template>
-                                                        </div>
-                                                    </div>
-                                                </template>
-
-                                                <!-- Allowed Exclusions -->
-                                                <template lwc:if={selectedTierExclusionBadges.length}>
-                                                    <div class="tier-badge-row">
-                                                        <span class="tier-badge-group-label">Allowed Exclusions</span>
-                                                        <div class="tier-badge-group">
-                                                            <template for:each={selectedTierExclusionBadges} for:item="badge">
-                                                                <span key={badge.key} class="slds-badge tier-exclusion-badge">{badge.label}</span>
-                                                            </template>
-                                                        </div>
-                                                    </div>
-                                                </template>
-
-                                                <!-- Manual Suppression Association -->
-                                                <template lwc:if={showSuppressionSection}>
-                                                    <div class="slds-m-top_medium suppression-section animate-fade-in">
-                                                        <span class="tier-badge-group-label slds-m-bottom_x-small">Manual Suppression Association</span>
-                                                        <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">This tier excludes manual suppressions. Associate a suppression source:</p>
-                                                        <div class="offering-pill-deck slds-m-bottom_small">
-                                                            <template for:each={suppressionTypeOptions} for:item="opt">
-                                                                <div key={opt.value} class={opt.className} data-value={opt.value} onclick={handleSuppressionTypeChange}>
-                                                                    {opt.label}
-                                                                </div>
-                                                            </template>
-                                                        </div>
-                                                        <template lwc:if={suppressionType}>
-                                                            <lightning-input
-                                                                type="text"
-                                                                label="Suppression Source ID / Name"
-                                                                placeholder="Enter ID or name..."
-                                                                value={suppressionLookupValue}
-                                                                onchange={handleSuppressionLookupChange}
-                                                                class="custom-form-input animate-fade-in">
-                                                            </lightning-input>
-                                                        </template>
-                                                    </div>
-                                                </template>
-                                            </div>
-                                        </template>
-                                    </div>
-
-                                    <div class="slds-col slds-size_1-of-1 custom-grid-col">
-                                        <span class="module-header-title">Exclusion Settings</span>
-
-                                        <!-- Exclude Onboarding (functional: persisted to Campaign.Exclude_Onboarding__c) -->
-                                        <div class="slds-m-top_medium exclusion-option">
-                                            <lightning-input type="checkbox" label="Exclude Onboarding" checked={excludeOnboarding} onchange={handleExcludeOnboardingChange} class="custom-master-checkbox"></lightning-input>
-                                            <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small exclusion-option-help">
-                                                Removes clients currently in the onboarding phase (Grouping Campaign: Onboarding) from this campaign's audience.
-                                            </p>
-                                        </div>
-
-                                        <!-- Exclude other marketing (visual only, shown for Tier 1-3) -->
-                                        <template lwc:if={showExcludeOtherMarketing}>
-                                            <div class="slds-m-top_medium exclusion-option animate-fade-in">
-                                                <lightning-input type="checkbox" label="Exclude other marketing" checked={excludeOtherMarketing} onchange={handleExcludeOtherMarketingChange} class="custom-master-checkbox"></lightning-input>
-                                                <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small exclusion-option-help">
-                                                    Prevents clients from receiving any other marketing actions outside Tier 1-3 via main outbound channels. Not yet active — configuration only.
-                                                </p>
-                                            </div>
-                                        </template>
-                                    </div>
-
-                                </div>
-                            </div>
-                        </template>
-
-                        <!-- STEP 5: Scoring Settings -->
-                        <template lwc:if={isStep5}>
                             <div class="form-module-card slds-m-bottom_large">
                                 <span class="module-header-title">Scoring Settings</span>
 
@@ -638,8 +637,8 @@
                             </div>
                         </template>
 
-                        <!-- STEP 6: Summary -->
-                        <template lwc:if={isStep6}>
+                        <!-- STEP 5: Summary -->
+                        <template lwc:if={isStep5}>
                             <div class="form-module-card slds-m-bottom_large">
                                 <span class="module-header-title">Campaign Summary</span>
                                 <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">Review all settings before saving.</p>
@@ -647,7 +646,7 @@
                                 <div class="summary-grid slds-m-top_medium">
                                     <!-- Campaign Properties -->
                                     <div class="summary-section">
-                                        <h4 class="summary-section-title">Campaign Properties</h4>
+                                        <h4 class="summary-section-title">Basic Properties</h4>
                                         <div class="summary-row">
                                             <span class="summary-label">Campaign Name</span>
                                             <span class="summary-value">{modalTitle}</span>
@@ -668,8 +667,32 @@
                                                 <span class="summary-value summary-value-highlight">Yes</span>
                                             </div>
                                         </template>
+                                    </div>
+
+                                    <!-- Priority & Exclusions -->
+                                    <div class="summary-section">
+                                        <h4 class="summary-section-title">Priority &amp; Exclusions</h4>
                                         <div class="summary-row">
-                                            <span class="summary-label">Assigned Channels</span>
+                                            <span class="summary-label">Priority Tier</span>
+                                            <span class="summary-value">{selectedPriorityTier}</span>
+                                        </div>
+                                        <div class="summary-row">
+                                            <span class="summary-label">Exclude Onboarding</span>
+                                            <span class="summary-value">{excludeOnboardingLabel}</span>
+                                        </div>
+                                        <template lwc:if={showExcludeOtherMarketing}>
+                                            <div class="summary-row">
+                                                <span class="summary-label">Exclude Other Marketing</span>
+                                                <span class="summary-value">{excludeOtherMarketingLabel}</span>
+                                            </div>
+                                        </template>
+                                    </div>
+
+                                    <!-- Campaign Channels -->
+                                    <div class="summary-section">
+                                        <h4 class="summary-section-title">Campaign Channels</h4>
+                                        <div class="summary-row">
+                                            <span class="summary-label">Channels</span>
                                             <span class="summary-value">{summaryChannels}</span>
                                         </div>
                                     </div>
@@ -698,25 +721,6 @@
                                             <span class="summary-label">Assigned Copy</span>
                                             <span class="summary-value">Not configured yet</span>
                                         </div>
-                                    </div>
-
-                                    <!-- Priority & Exclusions -->
-                                    <div class="summary-section">
-                                        <h4 class="summary-section-title">Priority &amp; Exclusions</h4>
-                                        <div class="summary-row">
-                                            <span class="summary-label">Priority Tier</span>
-                                            <span class="summary-value">{selectedPriorityTier}</span>
-                                        </div>
-                                        <div class="summary-row">
-                                            <span class="summary-label">Exclude Onboarding</span>
-                                            <span class="summary-value">{excludeOnboardingLabel}</span>
-                                        </div>
-                                        <template lwc:if={showExcludeOtherMarketing}>
-                                            <div class="summary-row">
-                                                <span class="summary-label">Exclude Other Marketing</span>
-                                                <span class="summary-value">{excludeOtherMarketingLabel}</span>
-                                            </div>
-                                        </template>
                                     </div>
 
                                     <!-- Scoring -->

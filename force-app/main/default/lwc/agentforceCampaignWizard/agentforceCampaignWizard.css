@@ -769,12 +769,62 @@
 }
 
 .priority-list-container {
-    display: grid !important;
-    grid-template-columns: 1fr 1fr !important; /* Configures exactly two equal side-by-side columns */
-    grid-template-rows: repeat(4, auto) !important; /* Forces exactly 5 rows vertically per column */
-    grid-auto-flow: column !important;          /* FIXED: Forces items to fill vertically down columns first */
-    gap: 0.5rem 1rem !important;                 /* Vertical space: 0.5rem, Horizontal space: 1rem */
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 auto !important;
+    gap: 0.5rem !important;
     width: 100% !important;
+    height: 100% !important;
+    min-height: 18rem;
+}
+
+/* Step 1 — Priority & Exclusions two-column layout */
+.wizard-section-box {
+    background: #ffffff;
+    border: 1px solid #e5e5e5;
+    border-radius: 0.5rem;
+    padding: 1rem 1.25rem 1.25rem;
+}
+
+.wizard-subsection-title {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: #514f4d;
+}
+
+.priority-exclusions-layout {
+    align-items: stretch;
+    min-height: 20rem;
+}
+
+.priority-exclusions-left,
+.priority-exclusions-right {
+    display: flex;
+    flex-direction: column;
+}
+
+.priority-exclusions-tiers {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.priority-exclusions-left .priority-list-item {
+    flex: 1 1 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.75rem;
+    border: 1px solid #dddbda;
+    border-radius: 0.375rem;
+}
+
+.priority-exclusions-right {
+    padding-left: 0.25rem;
 }
 
 .emergency-btn-inactive {

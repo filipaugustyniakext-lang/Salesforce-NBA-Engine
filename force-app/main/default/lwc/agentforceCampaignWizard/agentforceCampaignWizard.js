@@ -783,14 +783,14 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     // --- WIZARD STEP NAVIGATION ---
-    // Step 3 (Copy Assignment) is a ghost placeholder until Copy Center wiring lands.
+    // Priority & Exclusions lives on step 1. Copy Assignment (3) is a ghost placeholder.
+    // Flow: Properties → Topic & Offering → Copy Assignment → Scoring → Summary
     wizardStepData = [
         { label: 'Campaign Properties', value: 1 },
         { label: 'Topic & Offering', value: 2 },
         { label: 'Copy Assignment', value: 3 },
-        { label: 'Priority & Exclusions', value: 4 },
-        { label: 'Scoring', value: 5 },
-        { label: 'Summary', value: 6 }
+        { label: 'Scoring', value: 4 },
+        { label: 'Summary', value: 5 }
     ];
 
     /**
@@ -838,10 +838,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     get isStep3() { return this.currentStep === 3; }
     get isStep4() { return this.currentStep === 4; }
     get isStep5() { return this.currentStep === 5; }
-    get isStep6() { return this.currentStep === 6; }
-    get isLastStep() { return this.currentStep === 6; }
+    get isLastStep() { return this.currentStep === 5; }
     get showBackButton() { return this.currentStep > 1; }
-    get showNextButton() { return this.currentStep < 6; }
+    get showNextButton() { return this.currentStep < 5; }
 
     get pfSectionChevron() {
         return this.isProductFamilySectionOpen ? 'utility:chevrondown' : 'utility:chevronright';
@@ -949,7 +948,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     maybeLoadOfferSummaries() {
-        if (this.currentStep === 6) {
+        if (this.currentStep === 5) {
             this.loadOfferSummaries();
         }
     }
@@ -972,7 +971,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     handleNextStep() {
-        if (this.currentStep < 6) {
+        if (this.currentStep < 5) {
             this.currentStep++;
             this.maybeLoadOfferSummaries();
         }
@@ -1124,6 +1123,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 value: label,
                 className,
                 isDisabled: !isAllowed,
+                isSelected: this.selectedPriorityTier === label,
                 tooltip: tier.Description__c || ''
             };
         });
@@ -1233,6 +1233,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             case 1:
                 if (this.campaignName.trim() === '' || !this.parentActivationType) return true;
                 if (this.showCampaignGroup && !this.selectedCampaignGroupId) return true;
+                if (this.selectedPriorityTier === '') return true;
                 return false;
             case 2:
                 if (!this.topicName || this.topicName.trim() === '' || !this.selectedOfferingType) return true;
@@ -1247,9 +1248,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 // Copy Assignment ghost step — no validation until Copy Center is wired in.
                 return false;
             case 4:
-                if (this.selectedPriorityTier === '') return true;
-                return false;
-            case 5:
                 if (this.isScoringAPriori) {
                     const val = Number(this.aprioriOverallScore);
                     if (!this.aprioriOverallScore || !Number.isInteger(val) || val < 1 || val > 1000) return true;
@@ -1261,7 +1259,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                     if (!this.fromObjectOverallScore || !Number.isInteger(val) || val < 1 || val > 1000) return true;
                 }
                 return false;
-            case 6:
+            case 5:
                 return false;
             default:
                 return false;
