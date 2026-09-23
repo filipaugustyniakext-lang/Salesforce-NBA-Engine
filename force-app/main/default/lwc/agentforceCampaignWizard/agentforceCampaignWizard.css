@@ -1378,10 +1378,8 @@
     gap: 4px;
 }
 
-.tier-behaviour-badge {
-    background: #e8f4fd;
-    color: #0176d3;
-    border: 1px solid #afd8f8;
+.tier-behaviour-badge,
+.tier-exclusion-badge {
     font-size: 11px;
     font-weight: 500;
     border-radius: 4px;
@@ -1392,10 +1390,6 @@
     background: #fff3e0;
     color: #c23934;
     border: 1px solid #f5c6b8;
-    font-size: 11px;
-    font-weight: 500;
-    border-radius: 4px;
-    padding: 2px 8px;
 }
 
 .suppression-section {
