@@ -784,34 +784,18 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     // --- WIZARD STEP NAVIGATION ---
     // Step 3 (Copy Assignment) is a ghost placeholder until Copy Center wiring lands.
+    // stepKey is the string value expected by lightning-progress-indicator / progress-step.
     wizardStepData = [
-        { label: 'Campaign Properties', value: 1 },
-        { label: 'Topic & Offering', value: 2 },
-        { label: 'Copy Assignment', value: 3 },
-        { label: 'Priority & Exclusions', value: 4 },
-        { label: 'Scoring', value: 5 },
-        { label: 'Summary', value: 6 }
+        { label: 'Campaign Properties', value: 1, stepKey: '1' },
+        { label: 'Topic & Offering', value: 2, stepKey: '2' },
+        { label: 'Copy Assignment', value: 3, stepKey: '3' },
+        { label: 'Priority & Exclusions', value: 4, stepKey: '4' },
+        { label: 'Scoring', value: 5, stepKey: '5' },
+        { label: 'Summary', value: 6, stepKey: '6' }
     ];
 
-    get wizardSteps() {
-        return this.wizardStepData.map(step => {
-            let className = 'slds-progress__item';
-            if (step.value < this.currentStep) className += ' slds-is-completed';
-            else if (step.value === this.currentStep) className += ' slds-is-active';
-            return {
-                ...step,
-                className,
-                isComplete: step.value < this.currentStep
-            };
-        });
-    }
-
-    get progressBarValue() {
-        return ((this.currentStep - 1) / (this.wizardStepData.length - 1)) * 100;
-    }
-
-    get progressBarStyle() {
-        return `width: ${this.progressBarValue}%;`;
+    get currentStepValue() {
+        return String(this.currentStep);
     }
 
     get isStep1() { return this.currentStep === 1; }
@@ -967,7 +951,11 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     handleStepClick(event) {
-        const step = parseInt(event.currentTarget.dataset.step, 10);
+        // lightning-progress-step does not officially document click, but value is available
+        // on the host when clicked. Only allow navigating back to completed / current steps.
+        const raw = event.currentTarget?.value ?? event.target?.value;
+        const step = parseInt(raw, 10);
+        if (!Number.isInteger(step) || step < 1) return;
         if (step <= this.currentStep) {
             this.currentStep = step;
             this.maybeLoadOfferSummaries();
