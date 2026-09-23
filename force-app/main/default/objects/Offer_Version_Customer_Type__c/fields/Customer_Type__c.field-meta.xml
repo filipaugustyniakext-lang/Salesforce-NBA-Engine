@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Customer_Type__c</fullName>
-    <description>The Marketing Dictionary Customer Type audience (e.g. Retail, SME) targeted by the offer version. Restrict delete keeps a dictionary entry from being removed while offers still reference it, so the value stays a single Id-based source of truth.</description>
     <deleteConstraint>Restrict</deleteConstraint>
+    <description>The Marketing Dictionary Customer Type audience (e.g. Retail, SME) targeted by the offer version. Restrict delete keeps a dictionary entry from being removed while offers still reference it, so the value stays a single Id-based source of truth.</description>
     <inlineHelpText>Select the customer-type audience (a Marketing Dictionary Customer Type entry, e.g. Retail or SME) this offer version targets.</inlineHelpText>
     <label>Customer Type</label>
     <lookupFilter>

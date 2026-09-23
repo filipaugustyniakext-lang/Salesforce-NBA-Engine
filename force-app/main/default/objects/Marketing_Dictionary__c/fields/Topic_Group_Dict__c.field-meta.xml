@@ -20,5 +20,6 @@
     <relationshipName>Topics_by_Topic_Group</relationshipName>
     <required>false</required>
     <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
     <type>Lookup</type>
 </CustomField>

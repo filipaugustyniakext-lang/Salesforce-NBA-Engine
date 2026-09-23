@@ -3,7 +3,7 @@
     <flexiPageRegions>
         <itemInstances>
             <componentInstance>
-                <componentName>c:marketingDictionaryApp</componentName>
+                <componentName>marketingDictionaryApp</componentName>
                 <identifier>c_marketingDictionaryApp</identifier>
             </componentInstance>
         </itemInstances>

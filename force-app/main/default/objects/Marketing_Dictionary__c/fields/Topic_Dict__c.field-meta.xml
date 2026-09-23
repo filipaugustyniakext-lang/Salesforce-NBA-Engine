@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Topic_Dict__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description>For Topic records: Id-based lookup to the Topic dictionary entry this topic belongs to. Replaces the copy-by-value Topic_Name__c text field so Topic renames propagate automatically.</description>
+    <inlineHelpText>Select the related Topic.</inlineHelpText>
+    <label>Topic (Dictionary)</label>
+    <lookupFilter>
+        <active>true</active>
+        <errorMessage>Only &apos;Topic&apos; dictionary entries are allowed.</errorMessage>
+        <filterItems>
+            <field>Marketing_Dictionary__c.Topic_Group_Dict__r.Dictionary_Sub_Type__c</field>
+            <operation>equals</operation>
+            <value>Topic</value>
+        </filterItems>
+        <isOptional>false</isOptional>
+    </lookupFilter>
+    <referenceTo>Marketing_Dictionary__c</referenceTo>
+    <relationshipLabel>Topics (Topics)</relationshipLabel>
+    <relationshipName>Marketing_Dictionaries</relationshipName>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

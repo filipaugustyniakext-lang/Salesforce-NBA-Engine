@@ -2,7 +2,7 @@
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Campaign_Group_Dict__c</fullName>
     <deleteConstraint>SetNull</deleteConstraint>
-    <description>Id-based lookup to the Campaign Group dictionary entry for this campaign. Replaces the former Grouping-campaign hierarchy (Type = 'Grouping' parent records linked via ParentId). Only required when the campaign's Activation_Type__c corresponds to a Campaign Type that defines campaign groups.</description>
+    <description>Id-based lookup to the Campaign Group dictionary entry for this campaign. Replaces the former Grouping-campaign hierarchy (Type = &apos;Grouping&apos; parent records linked via ParentId). Only required when the campaign&apos;s Activation_Type__c corresponds to a Campaign Type that defines campaign groups.</description>
     <inlineHelpText>Select the Campaign Group this campaign belongs to. Only Campaign Group dictionary entries are selectable.</inlineHelpText>
     <label>Campaign Group (Dictionary)</label>
     <lookupFilter>
@@ -19,6 +19,5 @@
     <relationshipLabel>Campaigns</relationshipLabel>
     <relationshipName>Campaigns_by_Group</relationshipName>
     <required>false</required>
-    <trackHistory>false</trackHistory>
     <type>Lookup</type>
 </CustomField>

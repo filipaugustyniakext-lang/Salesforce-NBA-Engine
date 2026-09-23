@@ -67,6 +67,11 @@
                 <default>false</default>
                 <label>Audience Type</label>
             </value>
+            <value>
+                <fullName>Scoring Model</fullName>
+                <default>false</default>
+                <label>Scoring Model</label>
+            </value>
         </valueSetDefinition>
     </valueSet>
 </CustomField>

@@ -3,9 +3,12 @@
     <defaultLandingTab>Copy_Editor</defaultLandingTab>
     <description>Full-screen Copy message editor</description>
     <formFactors>Large</formFactors>
+    <isNavAutoTempTabsDisabled>false</isNavAutoTempTabsDisabled>
     <isNavPersonalizationDisabled>true</isNavPersonalizationDisabled>
+    <isNavTabPersistenceDisabled>false</isNavTabPersistenceDisabled>
+    <isOmniPinnedViewEnabled>false</isOmniPinnedViewEnabled>
     <label>Copy Editor</label>
+    <navType>Standard</navType>
     <tabs>Copy_Editor</tabs>
     <uiType>Lightning</uiType>
-    <navType>Standard</navType>
 </CustomApplication>

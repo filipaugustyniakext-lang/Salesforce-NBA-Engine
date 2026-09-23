@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
     <description>Grants access to Client Activation Center fields and classes.</description>
-    <hasActivationRequired>false</hasActivationRequired>
-    <label>Client Activation Center</label>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Campaign.Campaign_Group_Dict__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
         <field>Marketing_Dictionary__c.Campaign_Type_Dict__c</field>
@@ -45,11 +48,6 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
-        <field>Campaign.Campaign_Group_Dict__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
         <field>Offer_Version_Customer_Type__c.Offer_Version__c</field>
         <readable>true</readable>
     </fieldPermissions>
@@ -73,6 +71,8 @@
         <field>Product_Customer_Type__c.Product__c</field>
         <readable>true</readable>
     </fieldPermissions>
+    <hasActivationRequired>false</hasActivationRequired>
+    <label>Client Activation Center</label>
     <objectPermissions>
         <allowCreate>true</allowCreate>
         <allowDelete>true</allowDelete>
@@ -80,6 +80,7 @@
         <allowRead>true</allowRead>
         <modifyAllRecords>false</modifyAllRecords>
         <object>Offer_Version_Customer_Type__c</object>
+        <viewAllFields>false</viewAllFields>
         <viewAllRecords>false</viewAllRecords>
     </objectPermissions>
     <objectPermissions>
@@ -89,6 +90,7 @@
         <allowRead>true</allowRead>
         <modifyAllRecords>false</modifyAllRecords>
         <object>Product_Customer_Type__c</object>
+        <viewAllFields>false</viewAllFields>
         <viewAllRecords>false</viewAllRecords>
     </objectPermissions>
     <recordTypeVisibilities>
