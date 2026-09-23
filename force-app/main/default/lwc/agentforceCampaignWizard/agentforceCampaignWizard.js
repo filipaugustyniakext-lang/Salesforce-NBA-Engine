@@ -68,7 +68,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     @track aprioriOverallScore = '';
     @track fromObjectOverallScore = '';
 
-    @track selectAllChecked = true;
+    @track selectAllChecked = false;
     @track channels = [];
     @track channelGroups = [];
     
@@ -277,7 +277,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         if ((value || '').toLowerCase() !== 'one-off') {
             this.isEmergency = false;
         }
-        this.selectedPriorityTier = this.isEmergency ? 'Tier 1' : '';
+        this.selectedPriorityTier = this.isEmergency ? this.tierLabelForNumber(1) : '';
     }
 
     handleCampaignGroupChange(event) {
@@ -298,7 +298,11 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 if (!groupMap[type]) {
                     groupMap[type] = { type, icon, items: [] };
                 }
-                const isActive = this.editChannelValues ? this.editChannelValues.includes(rec.Name) : true;
+                // New campaigns start with channels unchecked to avoid accidental all-channel selection.
+                // Edit mode restores the campaign's previously assigned channels.
+                const isActive = this.editChannelValues
+                    ? this.editChannelValues.includes(rec.Name)
+                    : false;
                 allChannels.push({ label: rec.Name, value: rec.Name, checked: isActive });
                 groupMap[type].items.push({
                     label: rec.Name,
@@ -312,7 +316,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
             this.channelGroups = Object.values(groupMap);
             this.channels = allChannels;
-            this.selectAllChecked = allChannels.every(c => c.checked);
+            this.selectAllChecked = allChannels.length > 0 && allChannels.every(c => c.checked);
         } else if (error) {
             console.error('Error fetching channel dictionary records:', error);
         }
@@ -621,10 +625,31 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         this.isEmergency = !this.isEmergency;
         
         if (this.isEmergency) {
-            this.selectedPriorityTier = 'Tier 1';
+            this.selectedPriorityTier = this.tierLabelForNumber(1);
         } else {
-            this.selectedPriorityTier = ''; 
+            this.selectedPriorityTier = '';
         }
+    }
+
+    /** Display / picklist label for a Campaign_Tier__c row (Name is AutoNumber TIER-000). */
+    tierLabelForNumber(tierNumber) {
+        return tierNumber != null ? `Tier ${tierNumber}` : '';
+    }
+
+    tierLabel(tier) {
+        return this.tierLabelForNumber(tier && tier.Tier_Number__c);
+    }
+
+    /** Dictionary stores Supported_Campaign_Types__c as comma-separated Campaign Type names. */
+    parseSupportedCampaignTypes(raw) {
+        return (raw || '')
+            .split(/[,;]/)
+            .map(s => s.trim().toLowerCase())
+            .filter(Boolean);
+    }
+
+    isTierAttributeEnabled(value) {
+        return value === true || value === 'Yes';
     }
 
     handlePriorityChange(event) {
@@ -716,12 +741,14 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     // --- WIZARD STEP NAVIGATION ---
+    // Step 3 (Copy Assignment) is a ghost placeholder until Copy Center wiring lands.
     wizardStepData = [
         { label: 'Campaign Properties', value: 1 },
         { label: 'Topic & Offering', value: 2 },
-        { label: 'Priority & Exclusions', value: 3 },
-        { label: 'Scoring', value: 4 },
-        { label: 'Summary', value: 5 }
+        { label: 'Copy Assignment', value: 3 },
+        { label: 'Priority & Exclusions', value: 4 },
+        { label: 'Scoring', value: 5 },
+        { label: 'Summary', value: 6 }
     ];
 
     get wizardSteps() {
@@ -750,9 +777,10 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     get isStep3() { return this.currentStep === 3; }
     get isStep4() { return this.currentStep === 4; }
     get isStep5() { return this.currentStep === 5; }
-    get isLastStep() { return this.currentStep === 5; }
+    get isStep6() { return this.currentStep === 6; }
+    get isLastStep() { return this.currentStep === 6; }
     get showBackButton() { return this.currentStep > 1; }
-    get showNextButton() { return this.currentStep < 5; }
+    get showNextButton() { return this.currentStep < 6; }
 
     get pfSectionChevron() {
         return this.isProductFamilySectionOpen ? 'utility:chevrondown' : 'utility:chevronright';
@@ -806,6 +834,10 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         return this.fromObjectOverallScore || 'Not set';
     }
 
+    get summaryFallbackScoreLabel() {
+        return this.isScoringFromObject ? 'Fallback A-Priori Score' : 'Overall Score';
+    }
+
     // Only render the offer panel when a matching offer was selected during offering
     // and its summary has loaded.
     get hasSelectedOfferSummary() {
@@ -856,7 +888,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     maybeLoadOfferSummaries() {
-        if (this.currentStep === 5) {
+        if (this.currentStep === 6) {
             this.loadOfferSummaries();
         }
     }
@@ -879,7 +911,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     handleNextStep() {
-        if (this.currentStep < 5) {
+        if (this.currentStep < 6) {
             this.currentStep++;
             this.maybeLoadOfferSummaries();
         }
@@ -999,17 +1031,20 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get priorityTierOptions() {
-        const activationType = this.parentActivationType ? this.parentActivationType.toLowerCase().trim() : '';
+        const activationType = this.parentActivationType
+            ? this.parentActivationType.toLowerCase().trim()
+            : '';
 
         return this._allTiers.map(tier => {
-            const supportedRaw = tier.Supported_Campaign_Types__c || '';
-            const supported = supportedRaw.split(';').map(s => s.trim().toLowerCase());
+            const supported = this.parseSupportedCampaignTypes(tier.Supported_Campaign_Types__c);
+            const label = this.tierLabel(tier);
 
             let isAllowed = false;
             if (this.isEmergency) {
-                isAllowed = tier.Name === 'Tier 1';
+                isAllowed = Number(tier.Tier_Number__c) === 1;
             } else if (activationType) {
-                isAllowed = supported.some(s => s === activationType);
+                // Empty Supported_Campaign_Types means the tier was not scoped — treat as available.
+                isAllowed = supported.length === 0 || supported.some(s => s === activationType);
             } else {
                 isAllowed = true;
             }
@@ -1017,13 +1052,13 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             let className = 'priority-list-item';
             if (!isAllowed) {
                 className += ' tier-disabled';
-            } else if (this.selectedPriorityTier === tier.Name) {
+            } else if (this.selectedPriorityTier === label) {
                 className += ' priority-item-selected';
             }
 
             return {
-                label: tier.Name,
-                value: tier.Name,
+                label,
+                value: label,
                 className,
                 isDisabled: !isAllowed,
                 tooltip: tier.Description__c || ''
@@ -1033,7 +1068,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     get selectedTierRecord() {
         if (!this.selectedPriorityTier) return null;
-        return this._allTiers.find(t => t.Name === this.selectedPriorityTier) || null;
+        return this._allTiers.find(t => this.tierLabel(t) === this.selectedPriorityTier) || null;
     }
 
     get selectedTierBehaviouralBadges() {
@@ -1047,7 +1082,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             { field: 'Override_Random_Activation_Path__c', label: 'Override Random Activation Path' },
             { field: 'Allows_Random_Copy_Assignment__c', label: 'Allows Random Copy Assignment' }
         ];
-        return fields.filter(f => tier[f.field] === true).map(f => ({ label: f.label, key: f.field }));
+        return fields
+            .filter(f => this.isTierAttributeEnabled(tier[f.field]))
+            .map(f => ({ label: f.label, key: f.field }));
     }
 
     get selectedTierExclusionBadges() {
@@ -1144,19 +1181,24 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 }
                 return false;
             case 3:
-                if (this.selectedPriorityTier === '') return true;
+                // Copy Assignment ghost step — no validation until Copy Center is wired in.
                 return false;
             case 4:
+                if (this.selectedPriorityTier === '') return true;
+                return false;
+            case 5:
                 if (this.isScoringAPriori) {
                     const val = Number(this.aprioriOverallScore);
                     if (!this.aprioriOverallScore || !Number.isInteger(val) || val < 1 || val > 1000) return true;
                 }
                 if (this.isScoringFromObject) {
+                    // Fallback a-priori score is mandatory when a scoring model is selected
+                    // (covers customers with no row in the model output table).
                     const val = Number(this.fromObjectOverallScore);
                     if (!this.fromObjectOverallScore || !Number.isInteger(val) || val < 1 || val > 1000) return true;
                 }
                 return false;
-            case 5:
+            case 6:
                 return false;
             default:
                 return false;

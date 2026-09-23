@@ -441,8 +441,27 @@
 
                         
 
-                        <!-- STEP 3: Priority & Exclusions -->
+                        <!-- STEP 3: Copy Assignment (ghost placeholder) -->
                         <template lwc:if={isStep3}>
+                            <div class="form-module-card slds-m-bottom_large">
+                                <span class="module-header-title">Copy Assignment</span>
+                                <div class="copy-assignment-ghost slds-m-top_medium">
+                                    <lightning-icon icon-name="utility:preview" size="large" class="copy-assignment-ghost-icon"></lightning-icon>
+                                    <h3 class="slds-text-heading_small slds-m-top_small">Coming soon</h3>
+                                    <p class="slds-text-body_regular slds-text-color_weak slds-m-top_x-small">
+                                        Copy Center message variants that match this campaign’s offering settings
+                                        (product family, family of needs, and selected offers) will be assignable here.
+                                    </p>
+                                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_small">
+                                        This step is a placeholder so the full wizard flow is already in place.
+                                        You can continue to Priority &amp; Exclusions without selecting copy.
+                                    </p>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- STEP 4: Priority & Exclusions -->
+                        <template lwc:if={isStep4}>
                             <div class="form-module-card slds-m-bottom_large">
                                 <div class="slds-grid slds-wrap slds-gutters">
 
@@ -548,8 +567,8 @@
                             </div>
                         </template>
 
-                        <!-- STEP 4: Scoring Settings -->
-                        <template lwc:if={isStep4}>
+                        <!-- STEP 5: Scoring Settings -->
+                        <template lwc:if={isStep5}>
                             <div class="form-module-card slds-m-bottom_large">
                                 <span class="module-header-title">Scoring Settings</span>
 
@@ -568,19 +587,38 @@
 
                                 <template lwc:if={isScoringAPriori}>
                                     <div class="scoring-content-box animate-fade-in slds-m-top_medium">
-                                        <lightning-input type="number" label="Overall Score" placeholder="Insert Value (1-1000)" value={aprioriOverallScore} onchange={handleAprioriChange} min="1" max="1000" step="1" message-when-range-underflow="Score must be at least 1" message-when-range-overflow="Score cannot exceed 1000" message-when-step-mismatch="Score must be a whole number" class="custom-form-input"></lightning-input>
+                                        <lightning-input type="number" label="Overall Score" placeholder="Insert Value (1-1000)" value={aprioriOverallScore} onchange={handleAprioriChange} min="1" max="1000" step="1" message-when-range-underflow="Score must be at least 1" message-when-range-overflow="Score cannot exceed 1000" message-when-step-mismatch="Score must be a whole number" required class="custom-form-input"></lightning-input>
                                     </div>
                                 </template>
                                 <template lwc:if={isScoringFromObject}>
                                     <div class="scoring-content-box animate-fade-in slds-m-top_medium">
-                                        <lightning-input type="number" label="Overall Score" placeholder="Insert Value (1-1000)" value={fromObjectOverallScore} onchange={handleFromObjectChange} min="1" max="1000" step="1" message-when-range-underflow="Score must be at least 1" message-when-range-overflow="Score cannot exceed 1000" message-when-step-mismatch="Score must be a whole number" class="custom-form-input"></lightning-input>
+                                        <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
+                                            Scoring model selection from the Marketing Dictionary will be wired here next.
+                                            For now, provide a fallback a-priori score used when a customer has no score in the model output table.
+                                        </p>
+                                        <lightning-input
+                                            type="number"
+                                            label="Fallback A-Priori Score"
+                                            placeholder="Insert Value (1-1000)"
+                                            value={fromObjectOverallScore}
+                                            onchange={handleFromObjectChange}
+                                            min="1"
+                                            max="1000"
+                                            step="1"
+                                            message-when-range-underflow="Score must be at least 1"
+                                            message-when-range-overflow="Score cannot exceed 1000"
+                                            message-when-step-mismatch="Score must be a whole number"
+                                            field-level-help="Required. Applied to customers missing a score in the selected model’s output."
+                                            required
+                                            class="custom-form-input">
+                                        </lightning-input>
                                     </div>
                                 </template>
                             </div>
                         </template>
 
-                        <!-- STEP 5: Summary -->
-                        <template lwc:if={isStep5}>
+                        <!-- STEP 6: Summary -->
+                        <template lwc:if={isStep6}>
                             <div class="form-module-card slds-m-bottom_large">
                                 <span class="module-header-title">Campaign Summary</span>
                                 <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">Review all settings before saving.</p>
@@ -632,6 +670,15 @@
                                         </div>
                                     </div>
 
+                                    <!-- Copy Assignment -->
+                                    <div class="summary-section">
+                                        <h4 class="summary-section-title">Copy Assignment</h4>
+                                        <div class="summary-row">
+                                            <span class="summary-label">Assigned Copy</span>
+                                            <span class="summary-value">Not configured yet</span>
+                                        </div>
+                                    </div>
+
                                     <!-- Priority & Exclusions -->
                                     <div class="summary-section">
                                         <h4 class="summary-section-title">Priority &amp; Exclusions</h4>
@@ -659,7 +706,7 @@
                                             <span class="summary-value">{selectedScoringMethod}</span>
                                         </div>
                                         <div class="summary-row">
-                                            <span class="summary-label">Overall Score</span>
+                                            <span class="summary-label">{summaryFallbackScoreLabel}</span>
                                             <span class="summary-value">{summaryScore}</span>
                                         </div>
                                     </div>
