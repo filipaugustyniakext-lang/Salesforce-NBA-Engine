@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Exclude_Onboarding__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>When checked, clients belonging to the onboarding audience (Data Cloud segment SEG_PL_UC2_CLIENT-ONBOARDING-FLAGS) should be excluded from this campaign. The wizard captures this intent; the actual exclusion is enforced downstream by the Data Cloud segment/activation layer.</description>
+    <inlineHelpText>Check to remove clients currently in the onboarding phase from this campaign&apos;s audience. Enforced by the downstream activation layer.</inlineHelpText>
+    <label>Exclude Onboarding</label>
+    <type>Checkbox</type>
+</CustomField>

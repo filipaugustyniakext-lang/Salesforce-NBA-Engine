@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Body__c</fullName>
+    <description>The main content body of the message. Supports rich text for email/banner channels; plain text for SMS/Push. Populated by the visual editor in the Copy Center.</description>
+    <inlineHelpText>The main message content. Use the visual editor for rich text channels.</inlineHelpText>
+    <label>Body</label>
+    <length>131072</length>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Html</type>
+    <visibleLines>25</visibleLines>
+</CustomField>

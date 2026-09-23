@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Timing_Type__c</fullName>
+    <label>Timing Type</label>
+    <required>false</required>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Customer Record Creation Date</fullName>
+                <default>false</default>
+                <label>Customer Record Creation Date</label>
+            </value>
+            <value>
+                <fullName>Customer Account Activation Date</fullName>
+                <default>false</default>
+                <label>Customer Account Activation Date</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

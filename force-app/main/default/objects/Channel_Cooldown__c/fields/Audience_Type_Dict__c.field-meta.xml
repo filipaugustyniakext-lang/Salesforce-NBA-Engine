@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Audience_Type_Dict__c</fullName>
+    <description>The audience group this cooldown rule applies to. Links to the Marketing Dictionary Audience Type entry (e.g. Customer, Prospect) so the value stays a single source of truth and renames do not break this reference.</description>
+    <deleteConstraint>Restrict</deleteConstraint>
+    <inlineHelpText>Select the audience group this cooldown period applies to (a Marketing Dictionary Audience Type entry, e.g. Customer or Prospect).</inlineHelpText>
+    <label>Audience Type</label>
+    <lookupFilter>
+        <active>true</active>
+        <filterItems>
+            <field>Marketing_Dictionary__c.RecordType.DeveloperName</field>
+            <operation>equals</operation>
+            <value>Product</value>
+        </filterItems>
+        <filterItems>
+            <field>Marketing_Dictionary__c.Dictionary_Sub_Type__c</field>
+            <operation>equals</operation>
+            <value>Audience Type</value>
+        </filterItems>
+        <isOptional>false</isOptional>
+    </lookupFilter>
+    <referenceTo>Marketing_Dictionary__c</referenceTo>
+    <relationshipLabel>Audience Cooldowns</relationshipLabel>
+    <relationshipName>Audience_Cooldowns</relationshipName>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Intent_Target__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description>The target app view this intent value navigates to (e.g. Dashboard/Home, Settings).</description>
+    <inlineHelpText>Select or create the target app view this intent should open.</inlineHelpText>
+    <label>Intent Target</label>
+    <referenceTo>Channel_Banner_Intent_Target__c</referenceTo>
+    <relationshipLabel>Banner Intents</relationshipLabel>
+    <relationshipName>Banner_Intents</relationshipName>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

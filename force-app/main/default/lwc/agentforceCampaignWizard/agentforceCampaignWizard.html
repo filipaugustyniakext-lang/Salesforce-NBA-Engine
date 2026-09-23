@@ -1,0 +1,744 @@
+<template>
+    <section role="dialog" tabindex="-1" aria-modal="true" class="slds-modal slds-fade-in-open slds-modal_large custom-modal-frame" onclick={handleBackdropClick}>
+        <div class="slds-modal__container custom-modal-container" onclick={handleContainerClick}>
+
+            <template lwc:if={isLoading}>
+                <lightning-spinner alternative-text="Saving campaign..." size="medium" variant="brand"></lightning-spinner>
+            </template>
+
+            <header class="custom-modal-header">
+                <template lwc:if={isEditMode}>
+                    <span class="slds-badge slds-badge_inverse slds-m-right_small">Edit Mode</span>
+                </template>
+                <h2 class="slds-text-heading_medium">{modalTitle}</h2>
+            </header>
+
+            <div class="custom-modal-body">
+
+                <!-- STANDARD ACTIVATION CAMPAIGN WORKSPACE (MULTI-STEP) -->
+                    <!-- PROGRESS INDICATOR (SLDS Standard) -->
+                    <div class="slds-progress wizard-progress-bar">
+                        <ol class="slds-progress__list">
+                            <template for:each={wizardSteps} for:item="step">
+                                <li key={step.value} class={step.className}>
+                                    <template lwc:if={step.isComplete}>
+                                        <button class="slds-button slds-progress__marker slds-progress__marker_icon" data-step={step.value} onclick={handleStepClick}>
+                                            <lightning-icon icon-name="utility:success" size="xx-small" class="step-check-icon"></lightning-icon>
+                                            <span class="slds-assistive-text">{step.label} - Completed</span>
+                                        </button>
+                                    </template>
+                                    <template lwc:else>
+                                        <button class="slds-button slds-progress__marker" data-step={step.value} onclick={handleStepClick}>
+                                            <span class="slds-assistive-text">{step.label}</span>
+                                        </button>
+                                    </template>
+                                    <div class="slds-progress__item_content slds-grid slds-grid_align-center">
+                                        <span class="wizard-step-label">{step.label}</span>
+                                    </div>
+                                </li>
+                            </template>
+                        </ol>
+                        <div class="slds-progress-bar slds-progress-bar_x-small" aria-valuemin="0" aria-valuemax="100" aria-valuenow={progressBarValue} role="progressbar">
+                            <span class="slds-progress-bar__value" style={progressBarStyle}>
+                                <span class="slds-assistive-text">Progress: {progressBarValue}%</span>
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="properties-vertical-stack animate-fade-in slds-m-top_large">
+
+                        <!-- STEP 1: Campaign Properties -->
+                        <template lwc:if={isStep1}>
+                            <div class="form-module-card slds-m-bottom_large" style="z-index: 99;">
+
+                                <!-- Activation Type + Emergency Toggle Row -->
+                                <div class="slds-grid slds-grid_vertical-align-end slds-gutters">
+                                    <div class="slds-col">
+                                        <label class="slds-form-element__label custom-label-style">Activation Type</label>
+                                        <div class="slds-button-group activation-type-group slds-m-top_xx-small" role="group" aria-label="Activation Type">
+                                            <template for:each={activationOptions} for:item="option">
+                                                <button key={option.value}
+                                                        class={option.btnClass}
+                                                        data-value={option.value}
+                                                        onclick={handleSelectActivation}
+                                                        title={option.label}
+                                                        type="button">
+                                                    <lightning-icon icon-name={option.icon} size="small" class={option.iconClass}></lightning-icon>
+                                                    <span class="activation-btn-label">{option.label}</span>
+                                                </button>
+                                            </template>
+                                        </div>
+                                    </div>
+
+                                    <template lwc:if={showEmergencyToggle}>
+                                        <div class="slds-col slds-size_1-of-4 slds-p-bottom_xx-small">
+                                            <div class="slds-grid slds-grid_vertical-align-center emergency-inline-toggle">
+                                                <button class={emergencyButtonClass}
+                                                        onclick={handleEmergencyToggle}
+                                                        title="Toggle Emergency Status">
+                                                    <lightning-icon icon-name="utility:warning" size="small" variant={emergencyIconVariant}></lightning-icon>
+                                                </button>
+                                                <span class="slds-m-left_small" style="font-weight: 500; color: #1b1b1b;">Is Emergency</span>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+
+                                <!-- Campaign Group (required when the campaign type defines groups) -->
+                                <template lwc:if={showCampaignGroup}>
+                                    <div class="slds-m-top_medium">
+                                        <lightning-combobox
+                                            name="campaignGroup"
+                                            label="Campaign Group"
+                                            placeholder="Select a campaign group..."
+                                            value={selectedCampaignGroupId}
+                                            options={campaignGroupOptions}
+                                            onchange={handleCampaignGroupChange}
+                                            required
+                                            class="custom-form-input">
+                                        </lightning-combobox>
+                                    </div>
+                                </template>
+
+                                <div class="slds-m-top_medium">
+                                    <lightning-input type="text" label="Campaign Name" placeholder="eg. cashloan" value={campaignName} onchange={handleNameChange} class="custom-form-input"></lightning-input>
+                                </div>
+
+                                <!-- Assigned Channels -->
+                                <div class="slds-m-top_medium">
+                                    <span class="module-header-title">Assigned Channels</span>
+                                    <div class="slds-m-top_small slds-p-bottom_small select-all-row-divider">
+                                        <lightning-input type="checkbox" label="Select All" checked={selectAllChecked} onchange={handleSelectAllChange} class="custom-master-checkbox"></lightning-input>
+                                    </div>
+                                    <div class="channel-groups-container slds-m-top_small">
+                                        <template for:each={channelGroups} for:item="group">
+                                            <div key={group.type} class="channel-type-row">
+                                                <div class="slds-button-group channel-button-group" role="group">
+                                                    <template for:each={group.items} for:item="chan">
+                                                        <button key={chan.value}
+                                                                class={chan.buttonClass}
+                                                                data-value={chan.value}
+                                                                title={chan.label}
+                                                                onclick={handleChannelTileToggle}>
+                                                            <lightning-icon icon-name={chan.icon} size="xx-small" class={chan.iconClass}></lightning-icon>
+                                                            <span class="channel-btn-label">{chan.label}</span>
+                                                        </button>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- STEP 2: Topic & Offering -->
+                        <template lwc:if={isStep2}>
+                            <div class="form-module-card slds-m-bottom_large" style="z-index: 99;">
+                                
+                                <!-- Topic Name -->
+                                <div class="slds-form-element">
+                                    <label class="slds-form-element__label" for="topic-combobox">Topic Name</label>
+                                    <div class="slds-form-element__control">
+                                        
+                                        <div class="slds-combobox_container">
+                                            <div class={comboboxClass} aria-expanded={isDropdownOpen} aria-haspopup="listbox" role="combobox">
+                                                
+                                                <div class="slds-combobox__form-element slds-input-has-icon slds-input-has-icon_right" role="none">
+                                                    <input type="text" 
+                                                        id="topic-combobox"
+                                                        class="slds-input slds-combobox__input" 
+                                                        placeholder="Select or search a topic..." 
+                                                        autocomplete="off"
+                                                        role="textbox"
+                                                        value={topicName}
+                                                        onclick={handleTopicDropdownToggle} 
+                                                        oninput={handleTopicSearch} />
+                                                    <span class="slds-icon_container slds-icon-utility-down slds-input__icon slds-input__icon_right">
+                                                        <lightning-icon icon-name="utility:down" size="x-small" class="slds-icon slds-icon-text-default"></lightning-icon>
+                                                    </span>
+                                                </div>
+
+                                                <!-- Dropdown List -->
+                                                <div class="slds-dropdown slds-dropdown_fluid slds-dropdown_length-5" role="listbox">
+                                                    <ul class="slds-listbox slds-listbox_vertical" role="presentation">
+                                                        <template for:each={filteredTopicGoals} for:item="goal">
+                                                            <li key={goal} role="presentation" class="slds-listbox__item" data-value={goal} onclick={handleSelectTopic}>
+                                                                <!-- Standard SLDS entity layout (Icon on left, text on right) -->
+                                                                <div class="slds-media slds-listbox__option slds-listbox__option_entity slds-listbox__option_has-meta" role="option">
+                                                                    <span class="slds-media__figure slds-listbox__option-icon">
+                                                                        <lightning-icon icon-name="utility:topic" size="small"></lightning-icon>
+                                                                    </span>
+                                                                    <span class="slds-media__body">
+                                                                        <span class="slds-listbox__option-text slds-listbox__option-text_entity">{goal}</span>
+                                                                    </span>
+                                                                </div>
+                                                            </li>
+                                                        </template>
+                                                    </ul>
+                                                </div>
+                                                
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="slds-grid slds-wrap slds-gutters slds-m-top_medium">
+
+                                    <div class="slds-col slds-size_1-of-2">
+                                        <div class="slds-box">
+                                            <fieldset class="slds-form-element" role="radiogroup">
+                                                <legend class="slds-form-element__legend slds-form-element__label">Offering Type</legend>
+                                                <div class="slds-form-element__control">
+                                                    <div class="slds-radio_button-group">
+                                                        <template for:each={offeringTypeOptions} for:item="offering">
+                                                            <span class="slds-button slds-radio_button" key={offering.value}>
+                                                                <input 
+                                                                    name="offering-type" 
+                                                                    type="radio" 
+                                                                    id={offering.uniqueId} 
+                                                                    value={offering.value} 
+                                                                    checked={offering.isChecked} 
+                                                                    onchange={handleOfferingTypeChange} 
+                                                                />
+                                                                <!-- Removed the onclick from the label -->
+                                                                <label class="slds-radio_button__label" for={offering.uniqueId}>
+                                                                    <span class="slds-radio_faux">{offering.label}</span>
+                                                                </label>
+                                                            </span>
+                                                        </template>
+                                                    </div>
+                                                </div>
+                                            </fieldset>
+                                        
+                                            <!-- Product Family Section -->
+                                            <template lwc:if={isOfferingProductFamily}>
+                                                <div class="slds-m-top_medium animate-fade-in">
+                                                    <label class="slds-form-element__label custom-label-style">Select Target Product Families</label>
+                                                    <div class="slds-box slds-theme_default slds-m-top_xx-small" style="background: #f9f9f9;">
+                                                        <!-- Filter Bar -->
+                                                        <div class="pf-filter-bar slds-p-bottom_small" style="border-bottom: 1px solid #dddbda;">
+                                                            <div class="slds-grid slds-wrap slds-grid_vertical-align-end slds-gutters_x-small">
+                                                                <div class="slds-col slds-size_1-of-2">
+                                                                    <label class="pf-filter-label">Customer Type</label>
+                                                                    <div class="pf-filter-pills">
+                                                                        <template for:each={customerTypeFilterOptions} for:item="ctf">
+                                                                            <span key={ctf.value} class={ctf.className} data-value={ctf.value} onclick={handleCustomerTypeFilter}>{ctf.label}</span>
+                                                                        </template>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="slds-col slds-size_1-of-2">
+                                                                    <label class="pf-filter-label">Record Type</label>
+                                                                    <div class="pf-filter-pills">
+                                                                        <template for:each={recordTypeFilterBadgeOptions} for:item="rtf">
+                                                                            <span key={rtf.value} class={rtf.className} data-value={rtf.value} onclick={handleRecordTypeFilterBadge}>{rtf.label}</span>
+                                                                        </template>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <!-- Master Toggle Row -->
+                                                        <div class="slds-p-vertical_small select-all-row-divider" style="border-bottom: 1px solid #dddbda;">
+                                                            <lightning-input type="checkbox" label="Select All" checked={selectAllProductFamilies} onchange={handleSelectAllProductFamilies} class="custom-master-checkbox"></lightning-input>
+                                                        </div>
+
+                                                        <template for:each={filteredGroupedProductFamilyOptions} for:item="group">
+                                                            <div key={group.recordType} class="slds-m-top_medium">
+                                                                <span class="pf-group-header">{group.recordType}</span>
+                                                                <div class="slds-grid pf-group-body slds-wrap slds-m-top_x-small">
+                                                                    <template for:each={group.items} for:item="pf">
+                                                                        <div key={pf.value} class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-p-vertical_x-small">
+                                                                            <div class="slds-form-element">
+                                                                                <div class="slds-form-element__control">
+                                                                                    <div class="slds-checkbox">
+                                                                                        <input type="checkbox" id={pf.value} checked={pf.checked} data-value={pf.value} onchange={handleProductFamilyChange} style="position: absolute; opacity: 0; width: 0; height: 0;" />
+                                                                                        <label class="slds-checkbox__label" for={pf.value} style="display: inline-flex; align-items: flex-start; width: 100%;">
+                                                                                            <span class="slds-checkbox_faux"></span>
+                                                                                            <span class="slds-form-element__label pf-checkbox-label-wrapper" style="padding-top:0;">
+                                                                                                <span class="pf-label-text">{pf.label}</span>
+                                                                                                <span class="pf-badge-group">
+                                                                                                    <template for:each={pf.fons} for:item="fon">
+                                                                                                        <span key={fon} class="slds-badge pf-fon-badge">{fon}</span>
+                                                                                                    </template>
+                                                                                                    <template for:each={pf.customerTypes} for:item="ct">
+                                                                                                        <span key={ct} class="slds-badge pf-customer-type-badge">{ct}</span>
+                                                                                                    </template>
+                                                                                                </span>
+                                                                                            </span>
+                                                                                        </label>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </template>
+                                                                </div>
+                                                            </div>
+                                                        </template>
+                                                    </div>
+                                                </div>
+                                            </template>
+
+                                            <!-- Family of Needs Section -->
+                                            <template lwc:if={isOfferingFamilyOfNeeds}>
+                                                <div class="slds-m-top_medium animate-fade-in">
+                                                    <label class="slds-form-element__label custom-label-style">Select Target Family of Needs</label>
+                                                    <div class="slds-box slds-theme_default slds-m-top_xx-small" style="background: #f9f9f9;">
+                                                        <!-- Customer Type Filter -->
+                                                        <template lwc:if={fonCustomerTypeFilterOptions.length}>
+                                                            <div class="pf-filter-bar slds-p-bottom_small" style="border-bottom: 1px solid #dddbda;">
+                                                                <label class="pf-filter-label">Customer Type</label>
+                                                                <div class="pf-filter-pills">
+                                                                    <template for:each={fonCustomerTypeFilterOptions} for:item="ctf">
+                                                                        <span key={ctf.value} class={ctf.className} data-value={ctf.value} onclick={handleFonCustomerTypeFilter}>{ctf.label}</span>
+                                                                    </template>
+                                                                </div>
+                                                            </div>
+                                                        </template>
+
+                                                        <!-- Master Toggle Row -->
+                                                        <div class="slds-p-vertical_small select-all-row-divider" style="border-bottom: 1px solid #dddbda;">
+                                                            <lightning-input type="checkbox" label="Select All" checked={selectAllFamilyOfNeeds} onchange={handleSelectAllFamilyOfNeeds} class="custom-master-checkbox"></lightning-input>
+                                                        </div>
+
+                                                        <div class="slds-grid slds-wrap slds-m-top_small">
+                                                            <template for:each={filteredFamilyOfNeedsOptions} for:item="fon">
+                                                                <div key={fon.value} class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-p-vertical_x-small">
+                                                                    <div class="slds-form-element">
+                                                                        <div class="slds-form-element__control">
+                                                                            <div class="slds-checkbox fon-checkbox-wrapper">
+                                                                                <input type="checkbox" id={fon.value} checked={fon.checked} data-value={fon.value} onchange={handleFamilyOfNeedsChange} style="position: absolute; opacity: 0; width: 0; height: 0;" />
+                                                                                <label class="slds-checkbox__label" for={fon.value} style="display: inline-flex; align-items: flex-start; width: 100%; margin: 0;">
+                                                                                    <span class="slds-checkbox_faux"></span>
+                                                                                    <span class="slds-form-element__label pf-checkbox-label-wrapper" style="padding-top:0;">
+                                                                                        <span class="fon-label-line">
+                                                                                            <span class="pf-label-text">{fon.label}</span>
+                                                                                            <span class="fon-tooltip-container" data-tooltip={fon.tooltip} onclick={handleIconClick}>
+                                                                                                <lightning-icon icon-name="utility:info" size="x-small" class="fon-info-icon"></lightning-icon>
+                                                                                            </span>
+                                                                                        </span>
+                                                                                        <span class="pf-badge-group">
+                                                                                            <template for:each={fon.customerTypes} for:item="ct">
+                                                                                                <span key={ct} class="slds-badge pf-customer-type-badge">{ct}</span>
+                                                                                            </template>
+                                                                                        </span>
+                                                                                    </span>
+                                                                                </label>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </template>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="slds-col slds-size_1-of-2">
+                                        <div class="slds-box">
+                                            <!-- Header: title + search + live count -->
+                                            <div class="slds-p-vertical_x-small slds-p-horizontal_medium slds-shrink-none slds-theme_shade offer-list-builder-header">
+                                                <div class="slds-grid slds-grid_vertical-align-center slds-m-bottom_x-small">
+                                                    <span class="module-header-title">Matching Active Offers</span>
+                                                    <template lwc:if={isLoadingOffers}>
+                                                        <lightning-spinner size="x-small" alternative-text="Loading offers" variant="brand" class="slds-m-left_small"></lightning-spinner>
+                                                    </template>
+                                                </div>
+                                                <div class="slds-form-element">
+                                                    <label class="slds-form-element__label slds-assistive-text" for="offer-list-search">Search</label>
+                                                    <div class="slds-form-element__control">
+                                                        <div class="slds-combobox_container">
+                                                            <div class="slds-combobox slds-dropdown-trigger slds-dropdown-trigger_click">
+                                                                <div class="slds-combobox__form-element slds-input-has-icon slds-input-has-icon_right" role="none">
+                                                                    <input
+                                                                        class="slds-input slds-combobox__input custom-form-input"
+                                                                        id="offer-list-search"
+                                                                        type="text"
+                                                                        placeholder="Search offers..."
+                                                                        autocomplete="off"
+                                                                        value={offerSearchTerm}
+                                                                        oninput={handleOfferSearch} />
+                                                                    <span class="slds-icon_container slds-icon-utility-search slds-input__icon slds-input__icon_right">
+                                                                        <lightning-icon icon-name="utility:search" size="x-small" class="slds-icon-text-default"></lightning-icon>
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="slds-text-title slds-m-top_x-small" aria-live="polite">{selectedOffersCount} Item(s) Selected</div>
+                                                <div class="slds-text-title offer-list-builder-note slds-m-top_xx-small" aria-live="polite">
+                                                    <lightning-icon icon-name="utility:info" size="x-small" class="slds-m-right_xx-small"></lightning-icon>
+                                                    Only currently-active offers are shown. Deactivated or expired offers are automatically dropped from this campaign.
+                                                </div>
+                                            </div>
+
+                                            <!-- Interactive list builder table -->
+                                            <div class="slds-scrollable slds-grow offer-list-builder-scroll">
+                                                <div class="slds-scrollable_none">
+                                                    <table
+                                                        aria-multiselectable="true"
+                                                        class="slds-table slds-table_header-hidden slds-no-row-hover slds-table_bordered"
+                                                        role="grid"
+                                                        aria-label="Matching Active Offers">
+                                                        <thead class="slds-assistive-text">
+                                                            <tr class="slds-line-height_reset">
+                                                                <th scope="col" style="width:3.75rem"></th>
+                                                                <th scope="col"><div class="slds-truncate" title="Offer Name">Offer Name</div></th>
+                                                                <th scope="col" style="width:6rem"><div class="slds-truncate" title="Actions">Actions</div></th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            <template lwc:if={filteredMatchingOffers.length}>
+                                                                <template for:each={filteredMatchingOffers} for:item="offer">
+                                                                    <tr key={offer.id} aria-selected={offer.selected} class={offer.rowClass}>
+                                                                        <td class="slds-text-align_right" role="gridcell" style="width:3.75rem">
+                                                                            <button
+                                                                                class="slds-button slds-button_icon slds-button_icon-border-filled offer-add-btn"
+                                                                                data-id={offer.id}
+                                                                                title={offer.toggleTitle}
+                                                                                onclick={handleOfferToggle}>
+                                                                                <lightning-icon icon-name={offer.toggleIcon} size="xx-small"></lightning-icon>
+                                                                                <span class="slds-assistive-text">{offer.toggleAssistive}</span>
+                                                                            </button>
+                                                                        </td>
+                                                                        <td role="gridcell" class="slds-p-horizontal_medium">
+                                                                            <div class="offer-name-cell">
+                                                                                <span class="slds-truncate slds-truncate_container_75 offer-name-text" title={offer.name}>{offer.name}</span>
+                                                                                <span class="fon-tooltip-container offer-match-tooltip" data-tooltip={offer.matchReason} tabindex="0" onclick={handleIconClick}>
+                                                                                    <lightning-icon icon-name="utility:info" size="x-small" class="fon-info-icon" alternative-text="Why this offer matches"></lightning-icon>
+                                                                                </span>
+                                                                            </div>
+                                                                        </td>
+                                                                        <td class="slds-text-align_right slds-p-horizontal_x-small" role="gridcell" style="width:6rem">
+                                                                            <lightning-button data-id={offer.id} label="Modify" title="Modify Offer" icon-name="utility:new_window" class="slds-m-left_x-small"></lightning-button>
+                                                                        </td>
+                                                                    </tr>
+                                                                </template>
+                                                            </template>
+                                                            <template lwc:else>
+                                                                <tr>
+                                                                    <td colspan="3" class="slds-text-align_center slds-text-color_weak slds-p-vertical_medium">
+                                                                        <template lwc:if={isLoadingOffers}>Loading…</template>
+                                                                        <template lwc:else>No active offers currently match the selected families.</template>
+                                                                    </td>
+                                                                </tr>
+                                                            </template>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </div>
+                                
+                                
+                                
+                            </div>
+                        </template>
+
+                        
+
+                        <!-- STEP 3: Priority & Exclusions -->
+                        <template lwc:if={isStep3}>
+                            <div class="form-module-card slds-m-bottom_large">
+                                <div class="slds-grid slds-wrap slds-gutters">
+
+                                    <!-- Priority Selection Grid Block -->
+                                    <div class="slds-col slds-size_1-of-1 custom-grid-col properties-stack-spacing">
+                                        <span class="module-header-title">Priority Settings</span>
+                                        <div class="custom-priority-picker slds-m-top_medium">
+                                            <div class="priority-list-container">
+                                                <template for:each={priorityTierOptions} for:item="tier">
+                                                    <div key={tier.value}
+                                                         class={tier.className}
+                                                         data-value={tier.value}
+                                                         title={tier.tooltip}
+                                                         onclick={handlePriorityChange}>
+                                                        {tier.label}
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </div>
+
+                                        <!-- Tier Detail Panel (shown when a tier is selected) -->
+                                        <template lwc:if={selectedTierRecord}>
+                                            <div class="tier-detail-panel slds-m-top_medium animate-fade-in">
+                                                <template lwc:if={selectedTierRecord.Description__c}>
+                                                    <p class="tier-description slds-m-bottom_small">{selectedTierRecord.Description__c}</p>
+                                                </template>
+
+                                                <!-- Behavioural Attributes -->
+                                                <template lwc:if={selectedTierBehaviouralBadges.length}>
+                                                    <div class="tier-badge-row slds-m-bottom_x-small">
+                                                        <span class="tier-badge-group-label">Behavioural Attributes</span>
+                                                        <div class="tier-badge-group">
+                                                            <template for:each={selectedTierBehaviouralBadges} for:item="badge">
+                                                                <span key={badge.key} class="slds-badge tier-behaviour-badge">{badge.label}</span>
+                                                            </template>
+                                                        </div>
+                                                    </div>
+                                                </template>
+
+                                                <!-- Allowed Exclusions -->
+                                                <template lwc:if={selectedTierExclusionBadges.length}>
+                                                    <div class="tier-badge-row">
+                                                        <span class="tier-badge-group-label">Allowed Exclusions</span>
+                                                        <div class="tier-badge-group">
+                                                            <template for:each={selectedTierExclusionBadges} for:item="badge">
+                                                                <span key={badge.key} class="slds-badge tier-exclusion-badge">{badge.label}</span>
+                                                            </template>
+                                                        </div>
+                                                    </div>
+                                                </template>
+
+                                                <!-- Manual Suppression Association -->
+                                                <template lwc:if={showSuppressionSection}>
+                                                    <div class="slds-m-top_medium suppression-section animate-fade-in">
+                                                        <span class="tier-badge-group-label slds-m-bottom_x-small">Manual Suppression Association</span>
+                                                        <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">This tier excludes manual suppressions. Associate a suppression source:</p>
+                                                        <div class="offering-pill-deck slds-m-bottom_small">
+                                                            <template for:each={suppressionTypeOptions} for:item="opt">
+                                                                <div key={opt.value} class={opt.className} data-value={opt.value} onclick={handleSuppressionTypeChange}>
+                                                                    {opt.label}
+                                                                </div>
+                                                            </template>
+                                                        </div>
+                                                        <template lwc:if={suppressionType}>
+                                                            <lightning-input
+                                                                type="text"
+                                                                label="Suppression Source ID / Name"
+                                                                placeholder="Enter ID or name..."
+                                                                value={suppressionLookupValue}
+                                                                onchange={handleSuppressionLookupChange}
+                                                                class="custom-form-input animate-fade-in">
+                                                            </lightning-input>
+                                                        </template>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </template>
+                                    </div>
+
+                                    <div class="slds-col slds-size_1-of-1 custom-grid-col">
+                                        <span class="module-header-title">Exclusion Settings</span>
+
+                                        <!-- Exclude Onboarding (functional: persisted to Campaign.Exclude_Onboarding__c) -->
+                                        <div class="slds-m-top_medium exclusion-option">
+                                            <lightning-input type="checkbox" label="Exclude Onboarding" checked={excludeOnboarding} onchange={handleExcludeOnboardingChange} class="custom-master-checkbox"></lightning-input>
+                                            <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small exclusion-option-help">
+                                                Removes clients currently in the onboarding phase (Grouping Campaign: Onboarding) from this campaign's audience.
+                                            </p>
+                                        </div>
+
+                                        <!-- Exclude other marketing (visual only, shown for Tier 1-3) -->
+                                        <template lwc:if={showExcludeOtherMarketing}>
+                                            <div class="slds-m-top_medium exclusion-option animate-fade-in">
+                                                <lightning-input type="checkbox" label="Exclude other marketing" checked={excludeOtherMarketing} onchange={handleExcludeOtherMarketingChange} class="custom-master-checkbox"></lightning-input>
+                                                <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small exclusion-option-help">
+                                                    Prevents clients from receiving any other marketing actions outside Tier 1-3 via main outbound channels. Not yet active — configuration only.
+                                                </p>
+                                            </div>
+                                        </template>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- STEP 4: Scoring Settings -->
+                        <template lwc:if={isStep4}>
+                            <div class="form-module-card slds-m-bottom_large">
+                                <span class="module-header-title">Scoring Settings</span>
+
+                                <div class="slds-m-top_medium">
+                                    <label class="slds-form-element__label custom-label-style">Scoring Definition Method</label>
+                                    <div class="slds-m-top_xx-small">
+                                        <div class="segmented-control-container scoring-tabs">
+                                            <template for:each={scoringMethodOptions} for:item="method">
+                                                <div key={method.value} class={method.className} data-value={method.value} onclick={handleScoringMethodChange}>
+                                                    {method.label}
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <template lwc:if={isScoringAPriori}>
+                                    <div class="scoring-content-box animate-fade-in slds-m-top_medium">
+                                        <lightning-input type="number" label="Overall Score" placeholder="Insert Value (1-1000)" value={aprioriOverallScore} onchange={handleAprioriChange} min="1" max="1000" step="1" message-when-range-underflow="Score must be at least 1" message-when-range-overflow="Score cannot exceed 1000" message-when-step-mismatch="Score must be a whole number" class="custom-form-input"></lightning-input>
+                                    </div>
+                                </template>
+                                <template lwc:if={isScoringFromObject}>
+                                    <div class="scoring-content-box animate-fade-in slds-m-top_medium">
+                                        <lightning-input type="number" label="Overall Score" placeholder="Insert Value (1-1000)" value={fromObjectOverallScore} onchange={handleFromObjectChange} min="1" max="1000" step="1" message-when-range-underflow="Score must be at least 1" message-when-range-overflow="Score cannot exceed 1000" message-when-step-mismatch="Score must be a whole number" class="custom-form-input"></lightning-input>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+
+                        <!-- STEP 5: Summary -->
+                        <template lwc:if={isStep5}>
+                            <div class="form-module-card slds-m-bottom_large">
+                                <span class="module-header-title">Campaign Summary</span>
+                                <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">Review all settings before saving.</p>
+
+                                <div class="summary-grid slds-m-top_medium">
+                                    <!-- Campaign Properties -->
+                                    <div class="summary-section">
+                                        <h4 class="summary-section-title">Campaign Properties</h4>
+                                        <div class="summary-row">
+                                            <span class="summary-label">Campaign Name</span>
+                                            <span class="summary-value">{modalTitle}</span>
+                                        </div>
+                                        <template lwc:if={showCampaignGroup}>
+                                            <div class="summary-row">
+                                                <span class="summary-label">Campaign Group</span>
+                                                <span class="summary-value">{selectedCampaignGroupName}</span>
+                                            </div>
+                                        </template>
+                                        <div class="summary-row">
+                                            <span class="summary-label">Activation Type</span>
+                                            <span class="summary-value">{parentActivationType}</span>
+                                        </div>
+                                        <template lwc:if={isEmergency}>
+                                            <div class="summary-row">
+                                                <span class="summary-label">Emergency</span>
+                                                <span class="summary-value summary-value-highlight">Yes</span>
+                                            </div>
+                                        </template>
+                                        <div class="summary-row">
+                                            <span class="summary-label">Assigned Channels</span>
+                                            <span class="summary-value">{summaryChannels}</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Topic & Offering -->
+                                    <div class="summary-section">
+                                        <h4 class="summary-section-title">Topic & Offering</h4>
+                                        <div class="summary-row">
+                                            <span class="summary-label">Topic Name</span>
+                                            <span class="summary-value">{topicName}</span>
+                                        </div>
+                                        <div class="summary-row">
+                                            <span class="summary-label">Offering Type</span>
+                                            <span class="summary-value">{selectedOfferingType}</span>
+                                        </div>
+                                        <div class="summary-row">
+                                            <span class="summary-label">Selected Items</span>
+                                            <span class="summary-value">{summaryOfferingItems}</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Priority & Exclusions -->
+                                    <div class="summary-section">
+                                        <h4 class="summary-section-title">Priority &amp; Exclusions</h4>
+                                        <div class="summary-row">
+                                            <span class="summary-label">Priority Tier</span>
+                                            <span class="summary-value">{selectedPriorityTier}</span>
+                                        </div>
+                                        <div class="summary-row">
+                                            <span class="summary-label">Exclude Onboarding</span>
+                                            <span class="summary-value">{excludeOnboardingLabel}</span>
+                                        </div>
+                                        <template lwc:if={showExcludeOtherMarketing}>
+                                            <div class="summary-row">
+                                                <span class="summary-label">Exclude Other Marketing</span>
+                                                <span class="summary-value">{excludeOtherMarketingLabel}</span>
+                                            </div>
+                                        </template>
+                                    </div>
+
+                                    <!-- Scoring -->
+                                    <div class="summary-section">
+                                        <h4 class="summary-section-title">Scoring</h4>
+                                        <div class="summary-row">
+                                            <span class="summary-label">Scoring Method</span>
+                                            <span class="summary-value">{selectedScoringMethod}</span>
+                                        </div>
+                                        <div class="summary-row">
+                                            <span class="summary-label">Overall Score</span>
+                                            <span class="summary-value">{summaryScore}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Selected offer panel: only shown when a matching offer was chosen during offering -->
+                                <template lwc:if={hasSelectedOfferSummary}>
+                                    <div class="offer-summary-block slds-m-top_medium">
+                                        <template for:each={selectedOfferSummaries} for:item="offer">
+                                            <div key={offer.id} class="summary-section offer-summary-card slds-m-bottom_small">
+                                                <div class="offer-summary-header">
+                                                    <h4 class="summary-section-title">Selected Offer — {offer.name}</h4>
+                                                    <span class="offer-summary-status">{offer.status}</span>
+                                                </div>
+
+                                                <template for:each={offer.keyInfo} for:item="info">
+                                                    <div key={info.label} class="summary-row">
+                                                        <span class="summary-label">{info.label}</span>
+                                                        <span class="summary-value">{info.value}</span>
+                                                    </div>
+                                                </template>
+
+                                                <!-- Attractiveness & properties: collapsed by default -->
+                                                <div class={offer.paramsSectionClass}>
+                                                    <h5 class="slds-section__title">
+                                                        <button type="button"
+                                                                class="slds-button slds-section__title-action offer-params-toggle"
+                                                                data-id={offer.id}
+                                                                onclick={handleToggleOfferParams}>
+                                                            <lightning-icon icon-name={offer.paramsChevron}
+                                                                            size="x-small"
+                                                                            class="slds-m-right_x-small"></lightning-icon>
+                                                            <span>Attractiveness &amp; Properties ({offer.paramsCount})</span>
+                                                        </button>
+                                                    </h5>
+                                                    <div class="slds-section__content" aria-hidden={offer.isParamsExpanded}>
+                                                        <template lwc:if={offer.isParamsExpanded}>
+                                                            <div class="summary-row">
+                                                                <span class="summary-label">Attractiveness Score</span>
+                                                                <span class="summary-value">{offer.attractivenessScore}</span>
+                                                            </div>
+                                                            <template for:each={offer.parameters} for:item="param">
+                                                                <div key={param.label} class="summary-row">
+                                                                    <span class="summary-label">{param.label}</span>
+                                                                    <span class="summary-value">{param.value}</span>
+                                                                </div>
+                                                            </template>
+                                                        </template>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+
+                    </div>
+
+            </div>
+
+            <footer class="custom-modal-footer">
+                <div class="footer-left">
+                    <button class="pill-action-btn secondary-pill" onclick={handleSwitchToClassic}>Switch to Classic</button>
+                </div>
+                <div class="footer-right">
+                    <button class="pill-action-btn secondary-pill slds-m-right_small" onclick={handleCancel}>Cancel</button>
+                    <template lwc:if={showBackButton}>
+                        <button class="pill-action-btn secondary-pill slds-m-right_small" onclick={handlePreviousStep}>Back</button>
+                    </template>
+                    <template lwc:if={showNextButton}>
+                        <button class="pill-action-btn primary-pill" onclick={handleNextStep} disabled={isCurrentStepInvalid}>Next</button>
+                    </template>
+                    <template lwc:if={isLastStep}>
+                        <button class="pill-action-btn primary-pill" onclick={handleSave} disabled={isCurrentStepInvalid}>{saveButtonLabel}</button>
+                    </template>
+                </div>
+            </footer>
+        </div>
+    </section>
+    <div class="slds-backdrop slds-backdrop_open" role="presentation" onclick={handleBackdropClick}></div>
+</template>

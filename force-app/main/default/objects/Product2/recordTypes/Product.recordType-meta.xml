@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RecordType xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Product</fullName>
+    <active>true</active>
+    <label>Product</label>
+    <picklistValues>
+        <picklist>Customer_Type__c</picklist>
+        <values>
+            <fullName>Retail</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SME</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Family</picklist>
+        <values>
+            <fullName>BLIK P2P</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>BLIK T6</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cash Loan</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Consolidation Loan</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Credit Card</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Currency Exchange</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Current Account</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Current Account FX</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Current Account Joint</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Debit Card %28Plastic%29</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>External Inflow</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Investment Account</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Mortgage</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>None</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>POS Transaction</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SME Credit Card</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SME Current Account</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SME Current Account FX</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SME Installment Loan</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SME Investment Loan</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SME Revolving Loan</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SME Saving Account</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SME Saving Account FX</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SME Term Deposit</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SME Term Deposit FX</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Salary Inflow</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Saving Account</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Saving Account FX</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Term Deposit</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Term Deposit FX</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Transactional Limit</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>eWallet</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>QuantityUnitOfMeasure</picklist>
+        <values>
+            <fullName>Each</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+</RecordType>

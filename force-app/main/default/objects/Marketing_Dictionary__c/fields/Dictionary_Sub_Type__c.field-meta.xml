@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Dictionary_Sub_Type__c</fullName>
+    <description>Classifies a dictionary record within its record type. On Product records distinguishes Product Family rows from Family of Needs rows. On Campaign records distinguishes Topics, Sales Process Types, and Activation Paths.</description>
+    <inlineHelpText>Select the sub-category this dictionary entry belongs to within its record type.</inlineHelpText>
+    <label>Dictionary Sub-Type</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Product Family</fullName>
+                <default>false</default>
+                <label>Product Family</label>
+            </value>
+            <value>
+                <fullName>Family of Needs</fullName>
+                <default>false</default>
+                <label>Family of Needs</label>
+            </value>
+            <value>
+                <fullName>Campaign Type</fullName>
+                <default>false</default>
+                <label>Campaign Type</label>
+            </value>
+            <value>
+                <fullName>Campaign Group</fullName>
+                <default>false</default>
+                <label>Campaign Group</label>
+            </value>
+            <value>
+                <fullName>Topic Group</fullName>
+                <default>false</default>
+                <label>Topic Group</label>
+            </value>
+            <value>
+                <fullName>Topic</fullName>
+                <default>false</default>
+                <label>Topic</label>
+            </value>
+            <value>
+                <fullName>Sales Process Type</fullName>
+                <default>false</default>
+                <label>Sales Process Type</label>
+            </value>
+            <value>
+                <fullName>Activation Path</fullName>
+                <default>false</default>
+                <label>Activation Path</label>
+            </value>
+            <value>
+                <fullName>Customer Type</fullName>
+                <default>false</default>
+                <label>Customer Type</label>
+            </value>
+            <value>
+                <fullName>Product Type</fullName>
+                <default>false</default>
+                <label>Product Type</label>
+            </value>
+            <value>
+                <fullName>Audience Type</fullName>
+                <default>false</default>
+                <label>Audience Type</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Is_Recurring_Annually__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>When checked, this blackout repeats every year on the same date (day + month).</description>
+    <label>Recurring Annually</label>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>

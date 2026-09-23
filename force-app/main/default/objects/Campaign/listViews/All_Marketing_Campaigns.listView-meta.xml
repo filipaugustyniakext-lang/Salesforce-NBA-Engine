@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>All_Marketing_Campaigns</fullName>
+    <columns>CAMPAIGN.NAME</columns>
+    <columns>Activation_Type__c</columns>
+    <columns>CAMPAIGN.ID</columns>
+    <columns>CAMPAIGN.NUM_CONTACTS</columns>
+    <columns>CAMPAIGN.CAMPAIGN_TYPE</columns>
+    <columns>CAMPAIGN.STATUS</columns>
+    <columns>Priority_Tier__c</columns>
+    <columns>Scoring_Method__c</columns>
+    <columns>Overall_Score__c</columns>
+    <columns>Topic_Name__c</columns>
+    <columns>Family_of_Needs__c</columns>
+    <columns>Product_Family__c</columns>
+    <columns>Assigned_Channels__c</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>CAMPAIGN.RECORDTYPE</field>
+        <operation>equals</operation>
+        <value>Campaign.Marketing_Campaign</value>
+    </filters>
+    <label>All Marketing Campaigns</label>
+</ListView>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Picklist_Values__c</fullName>
+    <description>PICKLIST-FIX 2026-09-10: Admin-defined picklist options for an Offer attribute whose Parameter_Type__c is Picklist, one option per line. Consumed by the offer wizard to build the dropdown choices; kept separate from Parameter_Help_Text__c so option values do not corrupt end-user help text. To revert this feature, delete this field and the code marked PICKLIST-FIX 2026-09-10.</description>
+    <inlineHelpText>For Picklist parameters, enter one option per line. These become the dropdown choices shown to marketers in the offer wizard.</inlineHelpText>
+    <label>Picklist Values</label>
+    <length>32768</length>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>LongTextArea</type>
+    <visibleLines>5</visibleLines>
+</CustomField>

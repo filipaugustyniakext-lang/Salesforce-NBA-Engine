@@ -1,0 +1,567 @@
+/* ─── Layout ─────────────────────────────────────────────────────────────── */
+.offer-panel-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    align-items: flex-start;
+    border: 1px solid #e0e5ee;
+    border-radius: 0.75rem;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    padding: 1.25rem 1.5rem;
+}
+
+.offer-detail-column {
+    flex: 1 1 340px;
+    min-width: 0;
+}
+
+.offer-detail-column .slds-card {
+    border: 1px solid #e0e5ee;
+    padding: 1rem .5rem;
+}
+
+.offer-versions-column {
+    flex: 1 1 260px;
+    min-width: 0;
+    border: 1px solid #e0e5ee;
+    padding: 1rem;
+    border-radius: var(--slds-c-card-radius-border, var(--slds-s-container-radius-border, var(--slds-g-radius-border-2)));
+}
+
+/* ─── Version header ─────────────────────────────────────────────────────── */
+.version-header-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.version-header-left {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.version-name-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 0;
+}
+
+/* ─── Ring inline with version name in list ──────────────────────────────── */
+.version-name-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+    flex: 1;
+}
+
+.version-name-row .version-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+}
+
+.ver-list-ring {
+    flex-shrink: 0;
+}
+
+/* detail panel: name + ring on the same baseline row */
+.version-title-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.version-id-row {
+    font-size: 0.75rem;
+    word-break: break-all;
+}
+
+/* ─── Sort bar ───────────────────────────────────────────────────────────── */
+.sort-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin-bottom: 0.5rem;
+}
+
+.sort-combobox {
+    flex: 1;
+    min-width: 0;
+}
+
+.sort-dir-btn {
+    flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
+    border: 1px solid #dddbda;
+    border-radius: 0.25rem;
+    background: #fff;
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+.sort-dir-btn:hover {
+    background: #f3f3f3;
+}
+
+/* ─── Scrollable list wrapper (max 5 items before scrolling) ─────────────── */
+.version-list-scroll {
+    max-height: calc(5 * 6.5rem); /* ~5 items */
+    overflow-y: auto;
+    padding-right: 0.25rem;
+}
+
+.version-list-scroll::-webkit-scrollbar {
+    width: 4px;
+}
+
+.version-list-scroll::-webkit-scrollbar-thumb {
+    background: #c9c7c5;
+    border-radius: 2px;
+}
+
+/* ─── Version list ───────────────────────────────────────────────────────── */
+.versions-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.version-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.version-list-item {
+    padding: 0.625rem 0.75rem;
+    border: 1px solid #dddbda;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    background: #fff;
+    transition: box-shadow 0.15s, border-color 0.15s;
+}
+
+.version-list-item:hover {
+    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+    border-color: #0176d3;
+}
+
+.version-list-item_selected {
+    border-color: #0176d3;
+    background: #f0f8ff;
+    box-shadow: 0 2px 8px rgba(1,118,211,0.15);
+}
+
+.version-list-item_in-use {
+    border-left: 3px solid #04844b;
+}
+
+.version-list-item_scheduled {
+    border-left: 3px solid #7d4fc0;
+}
+
+.version-row-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    min-width: 0;
+    flex-wrap: wrap;
+}
+
+.version-name {
+    font-weight: 600;
+    font-size: 0.875rem;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.version-row-meta {
+    margin-top: 0.25rem;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+.version-row-actions {
+    margin-top: 0.375rem;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.25rem;
+}
+
+/* ─── Property list ──────────────────────────────────────────────────────── */
+.prop-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin: 0;
+}
+
+.prop-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.prop-label {
+    font-size: 0.72rem;
+    color: #706e6b;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    min-width: 7rem;
+    max-width: 9rem;
+    width: 9rem;
+    padding-top: 0.1rem;
+    flex-shrink: 1;
+}
+
+.prop-value {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+}
+
+.prop-value_wrap {
+    flex-wrap: wrap;
+}
+
+.prop-date-sep {
+    color: #706e6b;
+    font-size: 0.75rem;
+}
+
+/* ─── Card header with icon ──────────────────────────────────────────────── */
+.card-title-with-icon {
+    display: flex;
+    align-items: center;
+}
+
+.card-icon {
+    --sds-c-icon-color-foreground-default: #706e6b;
+}
+
+/* ─── Status badge + contextual dropdown ─────────────────────────────────── */
+.status-badge-wrap {
+    position: relative;
+    display: inline-block;
+}
+
+/* Stop the row-click handler from firing when interacting with the dropdown */
+.status-badge-wrap {
+    z-index: 1;
+}
+
+.status-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.status-dropdown-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    min-width: 9rem;
+    background: #fff;
+    border: 1px solid #dddbda;
+    border-radius: 0.375rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.14);
+    list-style: none;
+    margin: 0;
+    padding: 0.25rem 0;
+    z-index: 100;
+}
+
+/* Invisible bridge between the badge and the menu so moving the cursor
+   downward never leaves the hover target and collapses the menu. */
+.status-dropdown-menu::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: 0;
+    right: 0;
+    height: 8px;
+}
+
+.status-dropdown:hover .status-dropdown-menu {
+    display: block;
+}
+
+.status-dropdown-item {
+    display: block;
+    width: 100%;
+    padding: 0.375rem 0.75rem;
+    background: none;
+    border: none;
+    text-align: left;
+    font-size: 0.8125rem;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.status-dropdown-item:hover {
+    background: #f3f3f3;
+}
+
+.status-dropdown-item_promote {
+    color: #0176d3;
+}
+
+.status-dropdown-item_revert {
+    color: #dd7a01;
+}
+
+/* ─── Status badges ──────────────────────────────────────────────────────── */
+/* Override SLDS slds-badge_success which renders gray inside LWS */
+:host .slds-badge_success,
+.slds-badge_success {
+    background-color: #04844b !important;
+    color: #fff !important;
+}
+
+.version-badge-ready {
+    background: #0176d3;
+    color: #fff;
+    border-radius: 999px;
+    padding: 0 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.5rem;
+    display: inline-flex;
+    align-items: center;
+    cursor: default;
+}
+
+/* Draft badge — make it look clickable */
+.slds-badge_lightest {
+    cursor: pointer;
+}
+
+/* Active indicator replacing slds-badge_success */
+.ver-badge-active {
+    background: #04844b;
+    color: #fff;
+    border-radius: 999px;
+    padding: 0 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.5rem;
+    display: inline-flex;
+    align-items: center;
+}
+
+/* In Use badge — explicit green (not relying on slds-badge_success) */
+.ver-badge-in-use {
+    background: #04844b;
+    color: #fff;
+    border-radius: 999px;
+    padding: 0 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.5rem;
+    display: inline-flex;
+    align-items: center;
+}
+
+.version-num-badge {
+    background: #f4f6f9;
+    color: #444;
+    border: 1px solid #dddbda;
+}
+
+/* ─── Attractiveness ring inside version list item ───────────────────────── */
+.ver-ring-wrap {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 0.25rem;
+}
+
+/* ─── Expiry badges ──────────────────────────────────────────────────────── */
+.ver-badge-expired {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #ba0517;
+}
+
+.ver-expired-icon {
+    --slds-c-icon-color-foreground-default: #ba0517;
+    --sds-c-icon-color-foreground-default: #ba0517;
+}
+
+.ver-badge-expires-soon {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #dd7a01;
+}
+
+.ver-expires-soon-icon {
+    --slds-c-icon-color-foreground-default: #dd7a01;
+    --sds-c-icon-color-foreground-default: #dd7a01;
+}
+
+/* ─── Scheduled / Schedule_Status badges ────────────────────────────────── */
+.version-badge-scheduled {
+    background: #7d4fc0;
+    color: #fff;
+    border-radius: 999px;
+    padding: 0 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.5rem;
+    display: inline-flex;
+    align-items: center;
+}
+
+.version-badge-deactivated {
+    background: #706e6b;
+    color: #fff;
+    border-radius: 999px;
+    padding: 0 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.5rem;
+    display: inline-flex;
+    align-items: center;
+}
+
+.version-schedule-badge-activation {
+    background: #fef9e3;
+    color: #7d5800;
+    border: 1px solid #f4c842;
+    border-radius: 999px;
+    padding: 0 0.45rem;
+    font-size: 0.68rem;
+    font-weight: 600;
+    line-height: 1.4rem;
+    display: inline-flex;
+    align-items: center;
+    margin-left: 0.25rem;
+}
+
+.version-schedule-badge-deactivation {
+    background: #fef9e3;
+    color: #7d5800;
+    border: 1px solid #f4c842;
+    border-radius: 999px;
+    padding: 0 0.45rem;
+    font-size: 0.68rem;
+    font-weight: 600;
+    line-height: 1.4rem;
+    display: inline-flex;
+    align-items: center;
+    margin-left: 0.25rem;
+}
+
+/* ─── Expired notice in detail panel ────────────────────────────────────── */
+.expired-notice {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    background: #fff1f0;
+    border: 1px solid #c23934;
+    border-radius: 0.375rem;
+    color: #c23934;
+    font-size: 0.875rem;
+}
+
+/* ─── Delete icon tint ───────────────────────────────────────────────────── */
+.ver-delete-btn {
+    --slds-c-button-neutral-color-border: #c23934;
+    --sds-c-button-neutral-color-border: #c23934;
+}
+
+/* ─── Alert ──────────────────────────────────────────────────────────────── */
+.slds-notify_alert {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+}
+
+/* ─── Responsive breakpoints ─────────────────────────────────────────────── */
+
+/* Below ~720 px the two columns stack vertically (both take full width) */
+@media (max-width: 720px) {
+    .offer-panel-container {
+        padding: 0.875rem 1rem;
+        gap: 1rem;
+    }
+
+    .offer-detail-column,
+    .offer-versions-column {
+        flex-basis: 100%;
+    }
+
+    /* Detail column renders above the version list on narrow screens */
+    .offer-detail-column { order: 1; }
+    .offer-versions-column { order: 2; }
+
+    /* Prop rows stack label above value instead of side-by-side */
+    .prop-row {
+        flex-direction: column;
+        gap: 0.2rem;
+    }
+
+    .prop-label {
+        min-width: unset;
+        max-width: unset;
+        width: auto;
+    }
+
+    /* Allow the validity period badges to wrap onto a new line */
+    .prop-value {
+        flex-wrap: wrap;
+    }
+}
+
+/* Tablet range (~720-1024 px): keep side-by-side but tighten the label */
+@media (min-width: 721px) and (max-width: 1024px) {
+    .offer-panel-container {
+        padding: 1rem 1.25rem;
+    }
+
+    .prop-label {
+        min-width: 6.5rem;
+        width: 6.5rem;
+    }
+
+    /* Shrink the version list column slightly so badges have more room */
+    .offer-versions-column {
+        flex-basis: 240px;
+    }
+}

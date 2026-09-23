@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Content_Builder_Message_Path__c</fullName>
+    <description>Folder path of the message asset in MCE Content Builder. Mirrors ContentBuilderMessagePath from the MCE Data Extension.</description>
+    <externalId>false</externalId>
+    <label>Content Builder Message Path</label>
+    <length>255</length>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

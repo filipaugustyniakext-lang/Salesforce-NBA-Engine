@@ -1,0 +1,17 @@
+<apex:page standardController="Product2" recordSetVar="products" extensions="ProductMassUpdateController" lightningStylesheets="true">
+    <apex:form >
+        <apex:pageBlock title="Mass Update: Customer Type">
+            <apex:pageMessages />
+            <apex:pageBlockButtons >
+                <apex:commandButton value="Save Updates" action="{!updateCustomerTypeDict}" />
+                <apex:commandButton value="Cancel" action="{!cancel}" />
+            </apex:pageBlockButtons>
+            <apex:pageBlockSection columns="1">
+                <apex:outputText value="Select the new Customer Type for the {!selectedRecords.size} selected records:" />
+                <apex:selectList value="{!selectedCustomerTypeId}" size="1" required="true">
+                    <apex:selectOptions value="{!customerTypeOptions}" />
+                </apex:selectList>
+            </apex:pageBlockSection>
+        </apex:pageBlock>
+    </apex:form>
+</apex:page>

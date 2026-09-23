@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Channel__c</fullName>
+    <description>The parent Banner channel dictionary record this intent target belongs to.</description>
+    <inlineHelpText>Select the Banner channel this intent target is defined for.</inlineHelpText>
+    <label>Channel</label>
+    <referenceTo>Marketing_Dictionary__c</referenceTo>
+    <relationshipLabel>Banner Intent Targets</relationshipLabel>
+    <relationshipName>Channel_Banner_Intent_Targets</relationshipName>
+    <relationshipOrder>0</relationshipOrder>
+    <reparentableMasterDetail>false</reparentableMasterDetail>
+    <trackTrending>false</trackTrending>
+    <type>MasterDetail</type>
+    <writeRequiresMasterRead>false</writeRequiresMasterRead>
+</CustomField>

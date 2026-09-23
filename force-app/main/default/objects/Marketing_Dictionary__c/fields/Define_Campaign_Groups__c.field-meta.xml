@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Define_Campaign_Groups__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>For Campaign Type records (Dictionary_Sub_Type__c = 'Campaign Type'): when checked, campaigns of this activation type must pick a Campaign Group from the predefined list of Campaign Group dictionary entries tied to this type. When unchecked, no Campaign Group is required (e.g. One-off).</description>
+    <inlineHelpText>Check to require campaigns of this type to choose a Campaign Group from a predefined list.</inlineHelpText>
+    <label>Define Campaign Groups</label>
+    <trackHistory>false</trackHistory>
+    <type>Checkbox</type>
+</CustomField>

@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Topic_Group__c</fullName>
+    <label>Topic Group</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <controllingField>Topic_Goal__c</controllingField>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Activation &amp; Engagement</fullName>
+                <default>false</default>
+                <label>Activation &amp; Engagement</label>
+            </value>
+            <value>
+                <fullName>Administrative &amp; Informational</fullName>
+                <default>false</default>
+                <label>Administrative &amp; Informational</label>
+            </value>
+            <value>
+                <fullName>Relationship</fullName>
+                <default>false</default>
+                <label>Relationship</label>
+            </value>
+            <value>
+                <fullName>Cross-Sell / Upsell</fullName>
+                <default>false</default>
+                <label>Cross-Sell / Upsell</label>
+            </value>
+        </valueSetDefinition>
+        <valueSettings>
+            <controllingFieldValue>Savings Retention</controllingFieldValue>
+            <controllingFieldValue>Anti-churn</controllingFieldValue>
+            <controllingFieldValue>Relationship</controllingFieldValue>
+            <controllingFieldValue>Retention</controllingFieldValue>
+            <valueName>Relationship</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Activation</controllingFieldValue>
+            <controllingFieldValue>Engagement / Activation</controllingFieldValue>
+            <valueName>Activation &amp; Engagement</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Security</controllingFieldValue>
+            <controllingFieldValue>Formal / Administrative</controllingFieldValue>
+            <controllingFieldValue>Informational</controllingFieldValue>
+            <valueName>Administrative &amp; Informational</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Balance Growth</controllingFieldValue>
+            <controllingFieldValue>Credit Limit Increase</controllingFieldValue>
+            <controllingFieldValue>Sales</controllingFieldValue>
+            <valueName>Cross-Sell / Upsell</valueName>
+        </valueSettings>
+    </valueSet>
+</CustomField>

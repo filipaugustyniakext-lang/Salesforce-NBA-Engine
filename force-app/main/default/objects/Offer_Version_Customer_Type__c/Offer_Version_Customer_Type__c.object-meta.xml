@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <deploymentStatus>Deployed</deploymentStatus>
+    <description>Junction linking an Offer Version to each Marketing Dictionary Customer Type audience (Retail, SME) it targets. Replaces the copy-by-value multiselect so audiences stay Id-based, letting dictionary renames flow through automatically without breaking references or restricted picklists.</description>
+    <enableActivities>false</enableActivities>
+    <enableBulkApi>true</enableBulkApi>
+    <enableFeeds>false</enableFeeds>
+    <enableHistory>false</enableHistory>
+    <enableReports>false</enableReports>
+    <enableSearch>false</enableSearch>
+    <enableSharing>true</enableSharing>
+    <enableStreamingApi>true</enableStreamingApi>
+    <label>Offer Version Customer Type</label>
+    <nameField>
+        <displayFormat>OVCT-{0000}</displayFormat>
+        <label>Offer Version Customer Type Name</label>
+        <type>AutoNumber</type>
+    </nameField>
+    <pluralLabel>Offer Version Customer Types</pluralLabel>
+    <sharingModel>ReadWrite</sharingModel>
+    <visibility>Public</visibility>
+</CustomObject>

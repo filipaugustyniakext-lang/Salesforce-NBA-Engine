@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Display_Order__c</fullName>
+    <description>Controls the sequence in which this attribute appears for this product family in the offer wizard. Lower numbers appear first.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Enter a number to set the position of this attribute for this product family (lower = earlier).</inlineHelpText>
+    <label>Display Order</label>
+    <precision>3</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackTrending>false</trackTrending>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

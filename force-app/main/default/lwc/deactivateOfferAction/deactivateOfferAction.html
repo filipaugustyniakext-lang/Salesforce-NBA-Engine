@@ -1,0 +1,23 @@
+<template>
+    <template lwc:if={isLoading}>
+        <div class="slds-p-around_large slds-align_absolute-center">
+            <lightning-spinner alternative-text="Processing..." size="medium" variant="brand"></lightning-spinner>
+        </div>
+    </template>
+
+    <template lwc:else>
+        <div class="slds-p-around_medium">
+            <div class="slds-notify slds-notify_alert slds-theme_warning slds-m-bottom_medium" role="alert">
+                <lightning-icon icon-name="utility:warning" size="x-small" alternative-text="Warning" class="slds-m-right_x-small"></lightning-icon>
+                <span>This offer will stop being selected for campaign activations.</span>
+            </div>
+            <p>Setting this offer to <strong>Inactive</strong> will pause it across all assigned campaigns, even if one of its versions is currently Active.</p>
+            <p class="slds-m-top_small">The current Active version will be moved to <strong>Ready</strong> status and can be reactivated at any time.</p>
+
+            <div class="slds-m-top_large action-footer">
+                <lightning-button label="Cancel" onclick={handleCancel} class="slds-m-right_small"></lightning-button>
+                <lightning-button label="Deactivate" variant="brand" onclick={handleConfirm}></lightning-button>
+            </div>
+        </div>
+    </template>
+</template>

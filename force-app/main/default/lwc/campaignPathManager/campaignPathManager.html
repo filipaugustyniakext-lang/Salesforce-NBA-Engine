@@ -1,0 +1,113 @@
+<template>
+    <lightning-card title="Campaign Path Allocation Manager" icon-name="standard:strategy">
+        <div class="slds-p-around_medium">
+            
+            <div class="slds-grid slds-grid_align-spread slds-m-bottom_medium slds-grid_vertical-align-end">
+                <div class="slds-col slds-size_1-of-3">
+                    <lightning-input 
+                        type="search" 
+                        label="Search Allocations" 
+                        placeholder="Search by Campaign or Path Name..." 
+                        onchange={handleSearch}>
+                    </lightning-input>
+                </div>
+                <div class="slds-col">
+                    <lightning-button label="+ Add New Allocations" variant="brand" onclick={openNewModal}></lightning-button>
+                </div>
+            </div>
+
+            <template if:true={isLoadingMain}>
+                <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
+            </template>
+
+            <div style="height: 400px;">
+                <lightning-datatable
+                    key-field="Id"
+                    data={displayedData}
+                    columns={columns}
+                    hide-checkbox-column
+                    onrowaction={handleRowAction}>
+                </lightning-datatable>
+            </div>
+
+        </div>
+    </lightning-card>
+
+    <template if:true={isModalOpen}>
+        <section role="dialog" tabindex="-1" class="slds-modal slds-fade-in-open slds-modal_large" aria-modal="true">
+            <div class="slds-modal__container">
+                
+                <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse" title="Close" onclick={closeModal}>
+                    <lightning-icon icon-name="utility:close" alternative-text="close" variant="inverse" size="small"></lightning-icon>
+                    <span class="slds-assistive-text">Close</span>
+                </button>
+                <div class="slds-modal__header">
+                    <h1 class="slds-modal__title slds-hyphenate">Manage Path Allocations</h1>
+                </div>
+
+                <div class="slds-modal__content slds-p-around_medium">
+                    
+                    <template if:true={isLoadingModal}>
+                        <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
+                    </template>
+
+                    <lightning-combobox
+                        name="campaign"
+                        label="Select Campaign"
+                        value={selectedCampaignId}
+                        placeholder="Choose Campaign to Manage..."
+                        options={campaignOptions}
+                        onchange={handleCampaignChange}
+                        class="slds-m-bottom_medium"
+                        disabled={isCampaignLocked}>
+                    </lightning-combobox>
+
+                    <template if:true={selectedCampaignId}>
+                        <div class="slds-grid slds-grid_align-spread slds-m-bottom_medium slds-m-top_medium slds-border_top slds-p-top_medium">
+                            <lightning-button label="Add Path" onclick={addNewDraftPath} icon-name="utility:add"></lightning-button>
+                            <lightning-button label="Reset Distribution to Equal" onclick={setEqualProbabilities} disabled={isSetEqualDisabled}></lightning-button>
+                        </div>
+
+                        <template if:false={draftAllocations.length}>
+                            <p class="slds-text-align_center slds-text-color_weak slds-m-top_medium">Click "Add Path" to begin creating routes.</p>
+                        </template>
+
+                        <template for:each={draftDisplay} for:item="alloc">
+                            <div key={alloc.uiKey} class="slds-box slds-m-bottom_small slds-theme_shade">
+                                <div class="slds-grid slds-gutters slds-grid_vertical-align-center">
+                                    <div class="slds-col slds-size_1-of-4">
+                                        <lightning-input type="text" label="Path Name" value={alloc.Path_Name__c} data-id={alloc.uiKey} onchange={handleNameChange}></lightning-input>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-5">
+                                        <lightning-input type="toggle" label="Status" checked={alloc.Path_Status__c} data-id={alloc.uiKey} onchange={handleStatusToggle} message-toggle-active="Active" message-toggle-inactive="Inactive" class="slds-m-top_large"></lightning-input>
+                                    </div>
+                                    <div class="slds-col slds-size_2-of-5">
+                                        <template if:true={alloc.Path_Status__c}>
+                                            <lightning-slider 
+                                                label="Probability (%)" 
+                                                value={alloc.Path_Propability__c} 
+                                                data-id={alloc.uiKey} 
+                                                onchange={handleSliderChange} 
+                                                min="0" 
+                                                max="100">
+                                            </lightning-slider>
+                                        </template>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-12 slds-text-align_right">
+                                        <lightning-button-icon icon-name="utility:delete" variant="bare" alternative-text="Delete" data-id={alloc.uiKey} onclick={handleDeletePath} class="slds-m-top_large"></lightning-button-icon>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </template>
+                </div>
+
+                <div class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={closeModal} class="slds-m-right_small"></lightning-button>
+                    <lightning-button label="Done (Save)" variant="brand" onclick={handleSave} disabled={isSaveDisabled}></lightning-button>
+                </div>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open" role="presentation"></div>
+    </template>
+</template>

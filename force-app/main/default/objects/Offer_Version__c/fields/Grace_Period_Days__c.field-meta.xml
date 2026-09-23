@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Grace_Period_Days__c</fullName>
+    <label>Grace Period</label>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>short</fullName>
+                <default>false</default>
+                <label>Short</label>
+            </value>
+            <value>
+                <fullName>standard</fullName>
+                <default>false</default>
+                <label>Standard</label>
+            </value>
+            <value>
+                <fullName>long</fullName>
+                <default>false</default>
+                <label>Long</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

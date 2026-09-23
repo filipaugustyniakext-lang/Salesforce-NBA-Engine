@@ -1,0 +1,464 @@
+<template>
+    <!-- Inline offerManager wizard -->
+    <template lwc:if={showWizard}>
+        <c-offer-manager
+            record-id={recordId}
+            source-version-id={wizardSourceVersionId}
+            wizard-mode={wizardMode}
+            hosted
+            onwizardcancel={handleWizardCancel}
+            onwizardsaved={handleWizardSaved}>
+        </c-offer-manager>
+    </template>
+
+    <div class="offer-panel-card">
+
+    <!-- Alert when no version is In Use -->
+    <template lwc:if={showNoActiveVersionAlert}>
+        <div class="slds-notify slds-notify_alert slds-theme_warning slds-m-bottom_medium" role="alert">
+            <lightning-icon icon-name="utility:warning" alternative-text="Warning" size="x-small" class="slds-m-right_x-small"></lightning-icon>
+            <span><strong>No active version.</strong> None of this offer's versions are currently Active. This offer will not be selected for any content assignments until a version is activated.</span>
+        </div>
+    </template>
+
+    <div class="offer-panel-container">
+        <!-- LEFT COLUMN: Version detail view -->
+        <div class="offer-detail-column">
+            <template lwc:if={isLoading}>
+                <lightning-spinner alternative-text="Loading offer details..." size="small"></lightning-spinner>
+            </template>
+
+            <template lwc:if={displayedVersion}>
+                <!-- Version identity header -->
+                <div class="version-header slds-m-bottom_medium">
+                    <div class="version-header-row">
+                        <div class="version-header-left">
+                            <div class="version-name-block">
+                                <div class="version-title-row">
+                                    <span class="slds-text-heading_small">{displayedVersion.Name}</span>
+                                    <template lwc:if={displayedVersion.Attractiveness_Score__c}>
+                                        <c-attractiveness-ring
+                                            score={displayedVersion.Attractiveness_Score__c}
+                                            size="large">
+                                        </c-attractiveness-ring>
+                                    </template>
+                                </div>
+                                <div class="slds-m-top_xx-small">
+                                    <span class={versionStatusBadgeClass}>{displayedVersionStatusLabel}</span>
+                                    <template lwc:if={displayedVersion.Schedule_Status__c}>
+                                        <span class={displayedScheduleBadgeClass}>{displayedScheduleStatusLabel}</span>
+                                    </template>
+                                    <span class="slds-badge slds-m-left_x-small version-num-badge">v{displayedVersion.Version_Number__c}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Activate / expired notice -->
+                <template lwc:if={showActivateThisVersionButton}>
+                    <div class="slds-m-bottom_medium">
+                        <lightning-button
+                            label="Activate This Version"
+                            variant="brand"
+                            icon-name="utility:check"
+                            onclick={handleActivateThisVersion}>
+                        </lightning-button>
+                        <span class="slds-text-body_small slds-text-color_weak slds-m-left_small">
+                            (currently previewing — not active)
+                        </span>
+                    </div>
+                </template>
+                <template lwc:if={displayedVersionExpired}>
+                    <div class="slds-m-bottom_medium expired-notice">
+                        <lightning-icon icon-name="utility:ban" size="x-small" class="slds-m-right_x-small"></lightning-icon>
+                        <span>This version has <strong>expired</strong> and cannot be activated.</span>
+                    </div>
+                </template>
+
+                <!-- Basic Properties -->
+                <div class="slds-card slds-m-bottom_medium">
+                    <div class="slds-card__header slds-grid slds-grid_align-spread slds-grid_vertical-align-center">
+                        <h2 class="slds-card__header-title slds-text-heading_small card-title-with-icon">
+                            <lightning-icon icon-name="utility:info" size="x-small" class="slds-m-right_x-small card-icon"></lightning-icon>
+                            Basic Properties
+                        </h2>
+                    </div>
+                    <div class="slds-card__body slds-card__body_inner">
+                        <dl class="prop-list">
+
+                            <!-- Validity period: one row, dates as badges -->
+                            <template lwc:if={hasValidityPeriod}>
+                                <div class="prop-row">
+                                    <dt class="prop-label">Validity Period</dt>
+                                    <dd class="prop-value">
+                                        <span class="slds-badge slds-badge_lightest">{displayedValidFrom}</span>
+                                        <span class="prop-date-sep">→</span>
+                                        <span class="slds-badge slds-badge_lightest">{displayedValidTo}</span>
+                                    </dd>
+                                </div>
+                            </template>
+
+                            <template lwc:if={displayedVersion.Country_Code__c}>
+                                <div class="prop-row">
+                                    <dt class="prop-label">Country Code</dt>
+                                    <dd class="prop-value"><span class="slds-badge slds-badge_lightest">{displayedVersion.Country_Code__c}</span></dd>
+                                </div>
+                            </template>
+
+                            <template lwc:if={displayedAudience}>
+                                <div class="prop-row">
+                                    <dt class="prop-label">Target Audience</dt>
+                                    <dd class="prop-value"><span class="slds-badge slds-badge_lightest">{displayedAudience}</span></dd>
+                                </div>
+                            </template>
+
+                            <template lwc:if={displayedVersion.Product_Family_Name__c}>
+                                <div class="prop-row">
+                                    <dt class="prop-label">Product Family</dt>
+                                    <dd class="prop-value"><span class="slds-badge slds-badge_lightest">{displayedVersion.Product_Family_Name__c}</span></dd>
+                                </div>
+                            </template>
+
+                            <template lwc:if={displayedVersion.Source_Products__c}>
+                                <div class="prop-row">
+                                    <dt class="prop-label">Source Products</dt>
+                                    <dd class="prop-value prop-value_wrap">
+                                        <template for:each={sourceProductList} for:item="sp">
+                                            <span key={sp} class="slds-badge slds-badge_lightest slds-m-right_xx-small slds-m-bottom_xx-small">{sp}</span>
+                                        </template>
+                                    </dd>
+                                </div>
+                            </template>
+
+                            <template lwc:if={displayedVersion.Is_Promo__c}>
+                                <div class="prop-row">
+                                    <dt class="prop-label">Promotional</dt>
+                                    <dd class="prop-value"><span class="slds-badge slds-badge_lightest">Yes</span></dd>
+                                </div>
+                            </template>
+
+                        </dl>
+                    </div>
+                </div>
+
+                <!-- Financial Parameters — rendered dynamically via getObjectInfo -->
+                <template lwc:if={hasFinancialParams}>
+                    <div class="slds-card slds-m-bottom_medium">
+                        <div class="slds-card__header slds-grid slds-grid_vertical-align-center">
+                            <h2 class="slds-card__header-title slds-text-heading_small card-title-with-icon">
+                                <lightning-icon icon-name="utility:currency" size="x-small" class="slds-m-right_x-small card-icon"></lightning-icon>
+                                Financial Parameters
+                            </h2>
+                        </div>
+                        <div class="slds-card__body slds-card__body_inner">
+                            <dl class="prop-list">
+                                <template for:each={financialParamRows} for:item="row">
+                                    <div key={row.key} class="prop-row">
+                                        <dt class="prop-label">{row.label}</dt>
+                                        <dd class="prop-value">
+                                            <span class="slds-badge slds-badge_lightest">{row.display}</span>
+                                        </dd>
+                                    </div>
+                                </template>
+                            </dl>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- URLs -->
+                <template lwc:if={hasUrls}>
+                    <div class="slds-card slds-m-bottom_medium">
+                        <div class="slds-card__header">
+                            <h2 class="slds-card__header-title slds-text-heading_small">URLs</h2>
+                        </div>
+                        <div class="slds-card__body slds-card__body_inner">
+                            <dl class="property-grid">
+                                <template lwc:if={displayedVersion.CTA_URL__c}>
+                                    <dt>CTA URL</dt>
+                                    <dd><a href={displayedVersion.CTA_URL__c} target="_blank">{displayedVersion.CTA_URL__c}</a></dd>
+                                </template>
+                                <template lwc:if={displayedVersion.CTA_DURL__c}>
+                                    <dt>CTA DURL</dt>
+                                    <dd><a href={displayedVersion.CTA_DURL__c} target="_blank">{displayedVersion.CTA_DURL__c}</a></dd>
+                                </template>
+                                <template lwc:if={displayedVersion.Statute_URL__c}>
+                                    <dt>Statute URL</dt>
+                                    <dd><a href={displayedVersion.Statute_URL__c} target="_blank">{displayedVersion.Statute_URL__c}</a></dd>
+                                </template>
+                            </dl>
+                        </div>
+                    </div>
+                </template>
+            </template>
+
+            <template lwc:else>
+                <template lwc:if={isNotLoading}>
+                    <div class="slds-illustration slds-illustration_small slds-m-top_large">
+                        <div class="slds-illustration__figure">
+                            <lightning-icon icon-name="utility:open_folder" size="large" class="slds-illustration__svg"></lightning-icon>
+                        </div>
+                        <div class="slds-illustration__body">
+                            <p class="slds-text-body_regular slds-text-color_weak">Select a version from the list to view its details.</p>
+                        </div>
+                    </div>
+                </template>
+            </template>
+        </div>
+
+        <!-- RIGHT COLUMN: Version list -->
+        <div class="offer-versions-column">
+            <div class="versions-panel-header">
+                <h2 class="slds-text-heading_small">
+                    Offer Versions
+                    <span class="slds-badge slds-m-left_x-small">{versionCount}</span>
+                </h2>
+                <lightning-button
+                    label="New Version"
+                    variant="brand-outline"
+                    icon-name="utility:add"
+                    size="small"
+                    onclick={handleNewVersion}
+                    title="Create a new draft version based on the currently active version">
+                </lightning-button>
+            </div>
+
+            <template lwc:if={isLoadingVersions}>
+                <lightning-spinner alternative-text="Loading versions..." size="small"></lightning-spinner>
+            </template>
+
+            <!-- Sort controls -->
+            <template lwc:if={hasVersions}>
+                <div class="sort-bar">
+                    <lightning-combobox
+                        label=""
+                        placeholder="Sort by…"
+                        value={sortField}
+                        options={sortOptions}
+                        onchange={handleSortFieldChange}
+                        class="sort-combobox">
+                    </lightning-combobox>
+                    <button class="sort-dir-btn" onclick={handleSortDirToggle} title="Toggle sort direction">
+                        {sortDirLabel}
+                    </button>
+                </div>
+            </template>
+
+            <template lwc:if={hasVersions}>
+                <div class="version-list-scroll">
+                <ul class="version-list">
+                    <template for:each={versions} for:item="ver">
+                        <li key={ver.Id}
+                            class={ver.rowClass}
+                            data-version-id={ver.Id}
+                            onclick={handleVersionRowClick}>
+                            <div class="version-row-top">
+                                <div class="version-name-row">
+                                    <span class="version-name">{ver.Name}</span>
+                                    <template lwc:if={ver.Attractiveness_Score__c}>
+                                        <c-attractiveness-ring score={ver.Attractiveness_Score__c} size="small" class="ver-list-ring"></c-attractiveness-ring>
+                                    </template>
+                                </div>
+                                <!-- Status badge with contextual dropdown for Draft/Ready -->
+                                <div class="status-badge-wrap" onclick={handleBadgeAreaClick}>
+                                    <template lwc:if={ver.isDraft}>
+                                        <div class="status-dropdown">
+                                            <span class={ver.statusBadgeClass}>Draft ▾</span>
+                                            <ul class="status-dropdown-menu">
+                                                <li>
+                                                    <button class="status-dropdown-item status-dropdown-item_promote"
+                                                        data-version-id={ver.Id}
+                                                        data-action="markReady">
+                                                        Mark as Ready
+                                                    </button>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </template>
+                                    <template lwc:if={ver.isReady}>
+                                        <div class="status-dropdown">
+                                            <span class={ver.statusBadgeClass}>Ready ▾</span>
+                                            <ul class="status-dropdown-menu">
+                                                <li>
+                                                    <button class="status-dropdown-item status-dropdown-item_revert"
+                                                        data-version-id={ver.Id}
+                                                        data-action="revertDraft">
+                                                        Revert to Draft
+                                                    </button>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </template>
+                                    <template lwc:if={ver.isInUse}>
+                                        <span class={ver.statusBadgeClass}>Active</span>
+                                        <template lwc:if={ver.isScheduledDeactivation}>
+                                            <span class={ver.scheduleBadgeClass}>{ver.scheduleStatusLabel}</span>
+                                        </template>
+                                    </template>
+                                    <template lwc:if={ver.isScheduled}>
+                                        <div class="status-dropdown">
+                                            <span class={ver.statusBadgeClass}>Scheduled ▾</span>
+                                            <ul class="status-dropdown-menu">
+                                                <li>
+                                                    <button class="status-dropdown-item status-dropdown-item_revert"
+                                                        data-version-id={ver.Id}
+                                                        data-action="withdrawSchedule">
+                                                        Withdraw Schedule
+                                                    </button>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                        <template lwc:if={ver.hasScheduleBadge}>
+                                            <span class={ver.scheduleBadgeClass}>{ver.scheduleStatusLabel}</span>
+                                        </template>
+                                    </template>
+                                    <template lwc:if={ver.isDeactivated}>
+                                        <span class={ver.statusBadgeClass}>Deactivated</span>
+                                    </template>
+                                </div>
+                            </div> <!-- version-row-top -->
+                            <div class="version-row-meta">
+                                <span class="slds-text-body_small slds-text-color_weak">v{ver.Version_Number__c}</span>
+                                <template lwc:if={ver.isExpired}>
+                                    <span class="ver-badge-expired slds-m-left_x-small">
+                                        <lightning-icon icon-name="utility:expired" size="xx-small" class="ver-expired-icon"></lightning-icon>
+                                        Expired
+                                    </span>
+                                </template>
+                                <template lwc:if={ver.expiresSoon}>
+                                    <span class="ver-badge-expires-soon slds-m-left_x-small">
+                                        <lightning-icon icon-name="utility:warning" size="xx-small" class="ver-expires-soon-icon"></lightning-icon>
+                                        Expires soon
+                                    </span>
+                                </template>
+                                <template lwc:if={ver.Valid_From__c}>
+                                    <span class="slds-text-body_small slds-text-color_weak slds-m-left_small">{ver.fmtValidFrom} – {ver.fmtValidTo}</span>
+                                </template>
+                            </div>
+                            <div class="version-row-actions" onclick={handleRowActionClick}>
+                                <!-- Edit (Draft and Ready only) -->
+                                <template lwc:if={ver.isEditable}>
+                                    <lightning-button-icon
+                                        icon-name="utility:edit"
+                                        alternative-text="Edit"
+                                        title="Edit Version"
+                                        variant="border-filled"
+                                        size="small"
+                                        data-version-id={ver.Id}
+                                        data-action="edit">
+                                    </lightning-button-icon>
+                                </template>
+                                <!-- Clone (all statuses) -->
+                                <lightning-button-icon
+                                    icon-name="utility:copy"
+                                    alternative-text="Clone"
+                                    title="Clone Version"
+                                    variant="border-filled"
+                                    size="small"
+                                    data-version-id={ver.Id}
+                                    data-action="clone"
+                                    class="slds-m-left_xx-small">
+                                </lightning-button-icon>
+                                <!-- Delete (Draft and Ready only) -->
+                                <template lwc:if={ver.isDeletable}>
+                                    <lightning-button-icon
+                                        icon-name="utility:delete"
+                                        alternative-text="Delete"
+                                        title="Delete Version"
+                                        variant="border-filled"
+                                        size="small"
+                                        data-version-id={ver.Id}
+                                        data-action="delete"
+                                        class="slds-m-left_xx-small ver-delete-btn">
+                                    </lightning-button-icon>
+                                </template>
+                            </div>
+                        </li>
+                    </template>
+                </ul>
+                </div> <!-- version-list-scroll -->
+            </template>
+
+            <template lwc:else>
+                <template lwc:if={isNotLoadingVersions}>
+                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_small">No versions found.</p>
+                </template>
+            </template>
+        </div>
+    </div>
+
+    </div> <!-- offer-panel-card -->
+
+    <!-- Delete confirmation modal -->
+    <template lwc:if={showDeleteModal}>
+        <section role="dialog" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <div class="slds-modal__header">
+                    <h2 class="slds-modal__title">Delete Version</h2>
+                    <button class="slds-button slds-button_icon slds-modal__close" onclick={handleCancelDelete} title="Close">
+                        <lightning-icon icon-name="utility:close" size="small" alternative-text="Close"></lightning-icon>
+                    </button>
+                </div>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <p>Are you sure you want to permanently delete <strong>{pendingDeleteVersionName}</strong>? This cannot be undone.</p>
+                </div>
+                <div class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={handleCancelDelete}></lightning-button>
+                    <lightning-button label="Delete" variant="destructive" onclick={handleConfirmDelete} class="slds-m-left_small"></lightning-button>
+                </div>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+    <!-- Overlap warning modal -->
+    <template lwc:if={showOverlapModal}>
+        <section role="dialog" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <div class="slds-modal__header slds-theme_warning">
+                    <h2 class="slds-modal__title">
+                        <lightning-icon icon-name="utility:warning" size="x-small" class="slds-m-right_x-small" alternative-text="Warning"></lightning-icon>
+                        Validity Period Overlap Detected
+                    </h2>
+                    <button class="slds-button slds-button_icon slds-modal__close" onclick={handleCancelOverlap} title="Close">
+                        <lightning-icon icon-name="utility:close" size="small" alternative-text="Close"></lightning-icon>
+                    </button>
+                </div>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <p>{overlapWarningMessage}</p>
+                    <p class="slds-m-top_small">Do you want to proceed?</p>
+                </div>
+                <div class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={handleCancelOverlap}></lightning-button>
+                    <lightning-button label="Proceed" variant="brand" onclick={handleOverlapConfirmProceed} class="slds-m-left_small"></lightning-button>
+                </div>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+    <!-- Activate confirmation modal -->
+    <template lwc:if={showActivateModal}>
+        <section role="dialog" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <div class="slds-modal__header">
+                    <h2 class="slds-modal__title">Activate Version</h2>
+                    <button class="slds-button slds-button_icon slds-modal__close" onclick={handleCancelActivate} title="Close">
+                        <lightning-icon icon-name="utility:close" size="small" alternative-text="Close"></lightning-icon>
+                    </button>
+                </div>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <p>You are about to activate <strong>{displayedVersion.Name}</strong> (v{displayedVersion.Version_Number__c}).</p>
+                    <template lwc:if={currentInUseVersionName}>
+                        <p class="slds-m-top_small">The currently active version (<strong>{currentInUseVersionName}</strong>) will be scheduled for deactivation or immediately deactivated depending on the validity dates.</p>
+                    </template>
+                </div>
+                <div class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={handleCancelActivate}></lightning-button>
+                    <lightning-button label="Activate" variant="brand" onclick={handleConfirmActivate} class="slds-m-left_small"></lightning-button>
+                </div>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+</template>

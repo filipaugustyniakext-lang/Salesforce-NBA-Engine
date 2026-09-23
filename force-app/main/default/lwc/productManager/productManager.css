@@ -1,0 +1,97 @@
+.pm-modal-frame {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9000;
+}
+
+.pm-modal-container {
+    background: #fff;
+    border-radius: 0.75rem;
+    width: 560px;
+    max-width: 95vw;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.pm-modal-header {
+    padding: 1.25rem 1.5rem 1rem;
+    border-bottom: 1px solid #e5e5e5;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.pm-close-btn {
+    margin-left: auto;
+    color: #706e6b;
+}
+
+.pm-modal-body {
+    padding: 1.25rem 1.5rem;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.pm-modal-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid #e5e5e5;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
+.pm-hint {
+    font-size: 0.8125rem;
+    color: #706e6b;
+    margin-top: 0.25rem;
+}
+
+.pm-checkbox-row {
+    display: flex;
+    align-items: center;
+}
+
+/* Customer Type pills */
+.pm-ct-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.pm-ct-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.3rem 0.75rem;
+    border-radius: 1rem;
+    border: 1.5px solid #dddbda;
+    background: #fff;
+    font-size: 0.8125rem;
+    color: #3e3e3c;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.pm-ct-pill input[type="checkbox"] {
+    margin: 0;
+    accent-color: #0176d3;
+}
+
+.pm-ct-pill_selected {
+    background: #e8f4ff;
+    border-color: #0176d3;
+    color: #0176d3;
+    font-weight: 600;
+}
+
+.pm-ct-pill:hover {
+    border-color: #0176d3;
+}

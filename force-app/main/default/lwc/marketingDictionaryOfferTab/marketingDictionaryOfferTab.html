@@ -1,0 +1,1167 @@
+<template>
+    <div class="vtab-layout">
+
+        <nav class="vtab-sidebar" role="tablist" aria-orientation="vertical">
+            <button role="tab" class={refVtabClass} onclick={handleVtabSelect} data-tab="ref" aria-selected={isRefTab}>
+                <lightning-icon icon-name="utility:apex_alt" size="x-small" class="vtab-icon" alternative-text=""></lightning-icon>
+                Reference Values
+            </button>
+            <button role="tab" class={attrVtabClass} onclick={handleVtabSelect} data-tab="attr" aria-selected={isAttrTab}>
+                <lightning-icon icon-name="utility:activations" size="x-small" class="vtab-icon" alternative-text=""></lightning-icon>
+                Offer Attributes
+            </button>
+        </nav>
+
+        <div class="vtab-content" role="tabpanel">
+
+            <!-- ════════════════════════════════════════════════════════════════
+                 REFERENCE VALUES TAB
+                 ════════════════════════════════════════════════════════════════ -->
+            <template lwc:if={isRefTab}>
+            <div class="slds-p-around_small">
+
+                <div class="oa-toolbar slds-m-bottom_small">
+                    <div class="oa-toolbar__left">
+                        <h2 class="slds-text-heading_small">
+                            Reference Values
+                            <span class="slds-badge slds-badge_lightest slds-m-left_x-small">{refTotalCount}</span>
+                            <span class="slds-badge rv-badge-active slds-m-left_xx-small">{refActiveCount} active</span>
+                        </h2>
+                        <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">
+                            Global benchmark values (e.g. regulatory interest rates, minimum amounts) used in offer attractiveness calculations.
+                        </p>
+                    </div>
+                    <div class="oa-toolbar__right">
+                        <lightning-input type="search" label="" variant="label-hidden"
+                            placeholder="Search by name or family..."
+                            value={refSearchTerm} onchange={handleRefSearch} class="oa-search">
+                        </lightning-input>
+                        <lightning-combobox label="" variant="label-hidden"
+                            value={refFilterActive} options={filterOptions}
+                            onchange={handleRefFilterChange} class="oa-filter">
+                        </lightning-combobox>
+                        <lightning-combobox label="" variant="label-hidden"
+                            value={refFilterFamily} options={refFamilyFilterOptions}
+                            onchange={handleRefFamilyFilterChange} class="oa-filter">
+                        </lightning-combobox>
+                        <lightning-button label="+ Add Reference Attribute" variant="brand"
+                            onclick={handleNewRefValue}>
+                        </lightning-button>
+                    </div>
+                </div>
+
+                <template lwc:if={isRefLoading}>
+                    <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
+                </template>
+
+                <template lwc:elseif={hasRefRecords}>
+                    <!-- Group by attribute name -->
+                    <template for:each={groupedRefValues} for:item="group">
+                        <div key={group.name} class="rv-group slds-m-bottom_small">
+                            <div class="rv-group__header">
+                                <span class="slds-text-title_caps rv-group__name">{group.name}</span>
+                                <span class="slds-badge slds-badge_lightest slds-m-left_x-small">{group.count} famil{group.pluralSuffix}</span>
+                                <lightning-button-icon icon-name="utility:edit" variant="bare" size="small"
+                                    alternative-text="Edit attribute name and type"
+                                    title="Edit attribute name &amp; type"
+                                    data-attrname={group.name}
+                                    onclick={handleEditMasterAttr}
+                                    class="rv-group__edit-btn">
+                                </lightning-button-icon>
+                            </div>
+                            <div class="rv-table-wrap">
+                                <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_fixed-layout rv-table">
+                                    <thead>
+                                        <tr class="slds-line-height_reset">
+                                            <th scope="col" class="rv-col-family">Product Family</th>
+                                            <th scope="col" class="rv-col-value">Value</th>
+                                            <th scope="col" class="rv-col-type">Type</th>
+                                            <th scope="col" class="rv-col-desc">Description</th>
+                                            <th scope="col" class="rv-col-status">Status</th>
+                                            <th scope="col" class="rv-col-actions"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <template for:each={group.rows} for:item="row">
+                                            <tr key={row.Id} class={row.rowClass}>
+                                                <td>
+                                                    <template lwc:if={row.familyName}>
+                                                        <span class="slds-badge slds-badge_lightest rv-family-badge">{row.familyName}</span>
+                                                    </template>
+                                                    <template lwc:else>
+                                                        <span class="slds-text-color_weak">—</span>
+                                                    </template>
+                                                </td>
+                                                <td class="rv-value-cell">{row.displayValue}</td>
+                                                <td>
+                                                    <template lwc:if={row.Value_Type__c}>
+                                                        <span class="slds-badge rv-type-badge">{row.Value_Type__c}</span>
+                                                    </template>
+                                                </td>
+                                                <td class="rv-desc-cell">{row.Description__c}</td>
+                                                <td>
+                                                    <span class={row.statusBadgeClass}>{row.statusLabel}</span>
+                                                </td>
+                                                <td class="rv-actions-cell">
+                                                    <div class="slds-button-group">
+                                                        <lightning-button-icon icon-name="utility:edit"
+                                                            variant="border-filled" size="x-small"
+                                                            alternative-text="Edit" title="Edit"
+                                                            data-id={row.Id} onclick={handleEditRefValue}>
+                                                        </lightning-button-icon>
+                                                        <lightning-button-icon
+                                                            icon-name={row.toggleIcon}
+                                                            variant="border-filled" size="x-small"
+                                                            alternative-text="Toggle" title={row.toggleTitle}
+                                                            data-id={row.Id} onclick={handleToggleRefActive}
+                                                            class="slds-m-left_xx-small">
+                                                        </lightning-button-icon>
+                                                        <lightning-button-icon icon-name="utility:delete"
+                                                            variant="border-filled" size="x-small"
+                                                            alternative-text="Delete" title="Delete"
+                                                            data-id={row.Id} data-name={row.Name}
+                                                            onclick={handleDeleteRefValue}
+                                                            class="slds-m-left_xx-small">
+                                                        </lightning-button-icon>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                        <tr class="rv-add-row">
+                                            <td colspan="6">
+                                                <button class="rv-add-family-btn"
+                                                    data-attrname={group.name}
+                                                    onclick={handleAddForFamily}
+                                                    title="Add value for another product family">
+                                                    <lightning-icon icon-name="utility:add" size="xx-small"
+                                                        alternative-text="Add" class="rv-add-icon">
+                                                    </lightning-icon>
+                                                    Add value for another product family
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </template>
+                </template>
+
+                <template lwc:elseif={isRefEmpty}>
+                    <div class="slds-illustration slds-illustration_small slds-m-top_medium">
+                        <p class="slds-text-body_regular slds-text-color_weak">No reference values yet. Add your first one above.</p>
+                    </div>
+                </template>
+                <template lwc:else>
+                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_small">No reference values match the current filter.</p>
+                </template>
+
+            </div>
+            </template>
+
+            <!-- ════════════════════════════════════════════════════════════════
+                 OFFER ATTRIBUTES TAB
+                 ════════════════════════════════════════════════════════════════ -->
+            <template lwc:if={isAttrTab}>
+            <div class="slds-p-around_small">
+
+                <!-- Toolbar -->
+                <div class="oa-toolbar slds-m-bottom_small">
+                    <div class="oa-toolbar__left">
+                        <h2 class="slds-text-heading_small">
+                            Offer Attribute Definitions
+                            <span class="slds-badge slds-badge_lightest slds-m-left_x-small">{offerCount}</span>
+                            <span class="slds-badge oa-badge-active slds-m-left_xx-small">{activeCount} active</span>
+                        </h2>
+                    </div>
+                    <div class="oa-toolbar__right">
+                        <lightning-input type="search" label="" variant="label-hidden"
+                            placeholder="Search attributes..." value={searchTerm}
+                            onchange={handleSearch} class="oa-search">
+                        </lightning-input>
+                        <lightning-combobox label="" variant="label-hidden"
+                            value={filterActive} options={filterOptions}
+                            onchange={handleFilterChange} class="oa-filter">
+                        </lightning-combobox>
+                        <lightning-combobox label="" variant="label-hidden"
+                            value={filterFamily} options={listFamilyFilterOptions}
+                            onchange={handleFilterFamilyChange} class="oa-filter">
+                        </lightning-combobox>
+                        <lightning-button label="+ Add Attributes" variant="brand"
+                            onclick={handleOpenFamilyModal}>
+                        </lightning-button>
+                    </div>
+                </div>
+
+                <template lwc:if={isLoading}>
+                    <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
+                </template>
+
+                <template lwc:elseif={hasGroups}>
+                    <div class="ofa-card-grid">
+                        <template for:each={groupedByFamily} for:item="grp">
+                            <div key={grp.familyId} class="ofa-card">
+
+                                <!-- Card header -->
+                                <div class="ofa-card__header">
+                                    <span class="ofa-card__family-label">Product Family:</span>
+                                    <span class="slds-badge slds-badge_lightest ofa-card__family-badge">{grp.familyName}</span>
+                                    <span class="slds-badge slds-badge_lightest ofa-card__count">{grp.attrs.length}</span>
+                                    <template lwc:if={grp.weightSumWarning}>
+                                        <lightning-icon icon-name="utility:warning" size="xx-small"
+                                            variant="warning" alternative-text="Weight sum issue"
+                                            title={grp.weightSumWarning} class="ofa-card__warn-icon">
+                                        </lightning-icon>
+                                    </template>
+                                    <lightning-button-icon icon-name="utility:edit" variant="bare"
+                                        size="x-small" alternative-text="Edit" title="Edit attributes"
+                                        data-familyid={grp.familyId} onclick={handleOpenEditFamilyModal}
+                                        class="ofa-card__edit-btn">
+                                    </lightning-button-icon>
+                                    <lightning-button-icon icon-name="utility:delete" variant="bare"
+                                        size="x-small" alternative-text="Delete family config"
+                                        title="Delete all attributes for this product family"
+                                        data-familyid={grp.familyId} data-familyname={grp.familyName}
+                                        onclick={handleDeleteFamilyConfig}
+                                        class="ofa-card__delete-btn">
+                                    </lightning-button-icon>
+                                </div>
+
+                                <!-- Section: Impacts Attractiveness -->
+                                <template lwc:if={grp.attractAttrs.length}>
+                                    <div class="ofa-section">
+                                        <p class="ofa-section__label">Impacts Attractiveness Score</p>
+                                        <template for:each={grp.attractAttrs} for:item="attr">
+                                            <div key={attr.Id} class="ofa-attr-row">
+                                                <span class="ofa-attr-row__name">{attr.Name}</span>
+                                                <span class={attr.statusBadgeClass}>{attr.statusLabel}</span>
+                                                <template lwc:if={attr.weightBadgeLabel}>
+                                                    <span class="slds-badge oa-badge-attract">{attr.weightBadgeLabel}</span>
+                                                </template>
+                                                <template lwc:if={attr.typeBadgeLabel}>
+                                                    <span class="slds-badge slds-badge_lightest ofa-attr-meta-badge">{attr.typeBadgeLabel}</span>
+                                                </template>
+                                                <span class="slds-badge slds-badge_brand ofa-attr-meta-badge">Required</span>
+                                                <template lwc:if={attr.sourceBadgeLabel}>
+                                                    <span class={attr.sourceBadgeClass}>{attr.sourceBadgeLabel}</span>
+                                                </template>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+
+                                <!-- Section: Other Required -->
+                                <template lwc:if={grp.requiredAttrs.length}>
+                                    <div class="ofa-section">
+                                        <p class="ofa-section__label">Other Required</p>
+                                        <template for:each={grp.requiredAttrs} for:item="attr">
+                                            <div key={attr.Id} class="ofa-attr-row">
+                                                <span class="ofa-attr-row__name">{attr.Name}</span>
+                                                <span class={attr.statusBadgeClass}>{attr.statusLabel}</span>
+                                                <template lwc:if={attr.typeBadgeLabel}>
+                                                    <span class="slds-badge slds-badge_lightest ofa-attr-meta-badge">{attr.typeBadgeLabel}</span>
+                                                </template>
+                                                <span class="slds-badge slds-badge_brand ofa-attr-meta-badge">Required</span>
+                                                <template lwc:if={attr.sourceBadgeLabel}>
+                                                    <span class={attr.sourceBadgeClass}>{attr.sourceBadgeLabel}</span>
+                                                </template>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+
+                                <!-- Section: Other Optional -->
+                                <template lwc:if={grp.optionalAttrs.length}>
+                                    <div class="ofa-section">
+                                        <p class="ofa-section__label">Other Optional</p>
+                                        <template for:each={grp.optionalAttrs} for:item="attr">
+                                            <div key={attr.Id} class="ofa-attr-row">
+                                                <span class="ofa-attr-row__name">{attr.Name}</span>
+                                                <span class={attr.statusBadgeClass}>{attr.statusLabel}</span>
+                                                <template lwc:if={attr.typeBadgeLabel}>
+                                                    <span class="slds-badge slds-badge_lightest ofa-attr-meta-badge">{attr.typeBadgeLabel}</span>
+                                                </template>
+                                                <template lwc:if={attr.sourceBadgeLabel}>
+                                                    <span class={attr.sourceBadgeClass}>{attr.sourceBadgeLabel}</span>
+                                                </template>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+
+                            </div>
+                        </template>
+                    </div>
+                </template>
+
+                <template lwc:elseif={isEmpty}>
+                    <div class="slds-illustration slds-illustration_small slds-m-top_medium slds-text-align_center">
+                        <lightning-icon icon-name="utility:activations" size="large" alternative-text="" class="slds-m-bottom_medium"></lightning-icon>
+                        <p class="slds-text-body_regular slds-text-color_weak slds-m-bottom_medium">No offer attributes configured yet.</p>
+                        <lightning-button label="+ Add Attributes" variant="brand"
+                            onclick={handleOpenFamilyModal}>
+                        </lightning-button>
+                    </div>
+                </template>
+                <template lwc:else>
+                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_small">No attributes match the current filter.</p>
+                </template>
+
+            </div>
+            </template>
+
+        </div><!-- /vtab-content -->
+    </div><!-- /vtab-layout -->
+
+    <!-- ── Master Attribute Edit Modal (name + type → propagates to all children) ── -->
+    <template lwc:if={isMasterEditModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="master-modal-title"
+            class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <div class="slds-modal__header">
+                    <h2 id="master-modal-title" class="slds-modal__title">Edit Reference Attribute</h2>
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse"
+                        onclick={handleCloseMasterEditModal} title="Close">
+                        <lightning-icon icon-name="utility:close" size="small" alternative-text="Close"></lightning-icon>
+                    </button>
+                </div>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
+                        Changes to the attribute name and type will be applied to all product family values in this group.
+                    </p>
+                    <div class="slds-grid slds-gutters_small slds-wrap">
+                        <div class="slds-col slds-size_1-of-1">
+                            <lightning-input label="Attribute Name" required
+                                value={masterEdit.Name}
+                                placeholder="e.g. Nominal_Interest_Rate__c"
+                                data-field="Name" onchange={handleMasterEditFieldChange}>
+                            </lightning-input>
+                        </div>
+                        <div class="slds-col slds-size_1-of-2 slds-m-top_small">
+                            <lightning-combobox label="Value Type"
+                                value={masterEdit.Value_Type__c}
+                                options={valueTypeOptions}
+                                placeholder="Select type..."
+                                data-field="Value_Type__c" onchange={handleMasterEditFieldChange}>
+                            </lightning-combobox>
+                        </div>
+                    </div>
+                </div>
+                <div class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={handleCloseMasterEditModal}></lightning-button>
+                    <lightning-button label="Save &amp; Propagate" variant="brand" class="slds-m-left_x-small"
+                        onclick={handleSaveMasterAttr} disabled={isSaving}>
+                    </lightning-button>
+                </div>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+    <!-- ── Reference Value Modal ──────────────────────────────────────────── -->
+    <template lwc:if={isRefModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="rv-modal-title"
+            class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <div class="slds-modal__header">
+                    <h2 id="rv-modal-title" class="slds-modal__title">{refModalTitle}</h2>
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse"
+                        onclick={handleCloseRefModal} title="Close">
+                        <lightning-icon icon-name="utility:close" size="small" alternative-text="Close"></lightning-icon>
+                    </button>
+                </div>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <div class="slds-grid slds-gutters_small slds-wrap">
+                        <!-- Attribute Name: editable when creating new, locked when adding for a family -->
+                        <div class="slds-col slds-size_1-of-1">
+                            <template lwc:if={refModalLocked}>
+                                <div class="rv-locked-field">
+                                    <span class="rv-locked-label">Attribute Name</span>
+                                    <span class="rv-locked-value">{editRefValue.Name}</span>
+                                    <span class="rv-locked-hint">Name is set at master attribute level</span>
+                                </div>
+                            </template>
+                            <template lwc:else>
+                                <lightning-input label="Attribute Name" required
+                                    value={editRefValue.Name}
+                                    placeholder="e.g. Nominal_Interest_Rate__c"
+                                    data-field="Name" onchange={handleRefFieldChange}>
+                                </lightning-input>
+                                <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">
+                                    Use the same name as the corresponding offer attribute API name for easy mapping.
+                                </p>
+                            </template>
+                        </div>
+                        <!-- Product Family: multi-select picklist when creating new, locked combobox when adding for a family -->
+                        <template lwc:if={showFamilyMultiSelect}>
+                            <div class="slds-col slds-size_1-of-2 slds-m-top_small">
+                                <div class="slds-form-element">
+                                    <label class="slds-form-element__label">
+                                        <abbr class="slds-required" title="required">*</abbr>Product Family
+                                    </label>
+                                    <div class="slds-form-element__control">
+                                        <div class={familyComboboxClass} role="combobox" aria-haspopup="listbox"
+                                            aria-expanded={isFamilyDropdownOpen}>
+                                            <div class="slds-combobox__form-element slds-input-has-icon slds-input-has-icon_right"
+                                                role="none">
+                                                <button type="button" class="slds-input_faux rv-family-trigger"
+                                                    onclick={toggleFamilyDropdown}>
+                                                    <span class="rv-family-trigger__text" data-has-selection={familyTriggerHasSelection}>
+                                                        {familyTriggerLabel}
+                                                    </span>
+                                                    <lightning-icon icon-name="utility:down" size="xx-small"
+                                                        class="rv-family-trigger__icon"></lightning-icon>
+                                                </button>
+                                            </div>
+                                            <template lwc:if={isFamilyDropdownOpen}>
+                                                <div class="slds-dropdown slds-dropdown_length-5 slds-dropdown_fluid" role="listbox">
+                                                    <ul class="slds-listbox slds-listbox_vertical" role="presentation">
+                                                        <template for:each={familyDropdownOptions} for:item="opt">
+                                                            <li key={opt.value} role="presentation" class={opt.cssClass}>
+                                                                <div class="slds-media slds-listbox__option slds-listbox__option_plain slds-media_small"
+                                                                    role="option" aria-selected={opt.selected}
+                                                                    data-value={opt.value} onclick={handleFamilyOptionSelect}>
+                                                                    <span class="slds-media__figure slds-listbox__option-icon">
+                                                                        <template lwc:if={opt.selected}>
+                                                                            <lightning-icon icon-name="utility:check"
+                                                                                size="x-small" variant="brand"></lightning-icon>
+                                                                        </template>
+                                                                    </span>
+                                                                    <span class="slds-media__body">{opt.label}</span>
+                                                                </div>
+                                                            </li>
+                                                        </template>
+                                                    </ul>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </div>
+                                    <template lwc:if={isFamilyDropdownOpen}>
+                                        <div class="rv-family-backdrop" onclick={closeFamilyDropdown}></div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                        <template lwc:else>
+                            <div class="slds-col slds-size_1-of-2 slds-m-top_small">
+                                <lightning-combobox label="Product Family" required
+                                    value={editRefValue.Product_Family__c}
+                                    options={productFamilyOptions}
+                                    placeholder="Select product family..."
+                                    data-field="Product_Family__c" onchange={handleRefFieldChange}>
+                                </lightning-combobox>
+                            </div>
+                        </template>
+                        <!-- Reference Value: numeric input hidden for Picklist and Range -->
+                        <template lwc:if={showRefValueInput}>
+                            <div class="slds-col slds-size_1-of-4 slds-m-top_small">
+                                <lightning-input type="number" label="Reference Value"
+                                    value={editRefValue.Reference_Value__c}
+                                    step="0.0001" placeholder="e.g. 3.75"
+                                    data-field="Reference_Value__c" onchange={handleRefFieldChange}>
+                                </lightning-input>
+                            </div>
+                        </template>
+                        <template lwc:else>
+                            <div class="slds-col slds-size_1-of-2 slds-m-top_small"></div>
+                        </template>
+                        <!-- Value Type: editable when creating new, locked when adding for a family -->
+                        <div class="slds-col slds-size_1-of-4 slds-m-top_small">
+                            <template lwc:if={refModalLocked}>
+                                <div class="rv-locked-field">
+                                    <span class="rv-locked-label">Value Type</span>
+                                    <span class="rv-locked-value">{editRefValue.Value_Type__c}</span>
+                                    <span class="rv-locked-hint">Type is set at master attribute level</span>
+                                </div>
+                            </template>
+                            <template lwc:else>
+                                <lightning-combobox label="Value Type"
+                                    value={editRefValue.Value_Type__c}
+                                    options={valueTypeOptions}
+                                    placeholder="Select type..."
+                                    data-field="Value_Type__c" onchange={handleRefFieldChange}>
+                                </lightning-combobox>
+                            </template>
+                        </div>
+                        <!-- Picklist labels: shown when Value Type = Picklist -->
+                        <template lwc:if={isRefPicklistType}>
+                            <div class="slds-col slds-size_1-of-1 slds-m-top_small">
+                                <span class="slds-form-element__label">Picklist Labels</span>
+                                <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_xx-small">
+                                    Each label becomes a picklist option for the mapped offer attribute.
+                                </p>
+                                <template for:each={refPairs} for:item="pair">
+                                    <div key={pair._key} class="rv-pair-row">
+                                        <lightning-input variant="label-hidden" label="Picklist Label"
+                                            value={pair.key} placeholder="Picklist Label (e.g. 12M)"
+                                            data-key={pair._key}
+                                            onchange={handlePairChange} class="rv-pair-input">
+                                        </lightning-input>
+                                        <lightning-button-icon icon-name="utility:delete"
+                                            variant="border-filled" alternative-text="Remove label"
+                                            title="Remove label" data-key={pair._key}
+                                            onclick={handleRemovePair} class="rv-pair-remove">
+                                        </lightning-button-icon>
+                                    </div>
+                                </template>
+                                <lightning-button variant="neutral" label="Add Label"
+                                    icon-name="utility:add" onclick={handleAddPair}
+                                    class="slds-m-top_xx-small">
+                                </lightning-button>
+                            </div>
+                        </template>
+                        <!-- Range: dual-handle slider defining the reference min/max -->
+                        <template lwc:if={isRefRangeType}>
+                            <div class="slds-col slds-size_1-of-1 slds-m-top_small">
+                                <span class="slds-form-element__label">Reference Range</span>
+                                <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_xx-small">
+                                    Set the minimum and maximum. Offers that use this reference cannot exceed this range.
+                                </p>
+                                <c-range-slider unbounded step="0.01"
+                                    value-min={rangeMin} value-max={rangeMax}
+                                    onchange={handleRangeChange}>
+                                </c-range-slider>
+                            </div>
+                        </template>
+                        <div class="slds-col slds-size_1-of-1 slds-m-top_small">
+                            <lightning-textarea label="Description (optional)"
+                                value={editRefValue.Description__c}
+                                placeholder="e.g. NBP base rate as of Q1 2026, regulatory minimum..."
+                                data-field="Description__c" onchange={handleRefFieldChange}
+                                max-length="2000">
+                            </lightning-textarea>
+                        </div>
+                        <div class="slds-col slds-size_1-of-2 slds-m-top_small">
+                            <lightning-input type="checkbox" label="Active"
+                                checked={editRefValue.Is_Active__c}
+                                data-field="Is_Active__c" onchange={handleRefCheckboxChange}>
+                            </lightning-input>
+                        </div>
+                    </div>
+                </div>
+                <div class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={handleCloseRefModal}></lightning-button>
+                    <lightning-button label="Save" variant="brand" class="slds-m-left_x-small"
+                        onclick={handleSaveRefValue} disabled={isSaving}>
+                    </lightning-button>
+                </div>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+    <!-- ── Family-first Attribute Modal ─────────────────────────────────────── -->
+    <template lwc:if={isFamilyModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="fm-modal-title"
+            class="slds-modal slds-fade-in-open slds-modal_large">
+            <div class="slds-modal__container">
+                <div class="slds-modal__header">
+                    <h2 id="fm-modal-title" class="slds-modal__title">{fmModalTitle}</h2>
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse"
+                        onclick={handleCloseFamilyModal} title="Close">
+                        <lightning-icon icon-name="utility:close" size="small" alternative-text="Close"></lightning-icon>
+                    </button>
+                </div>
+
+                <div class="slds-modal__content slds-p-around_medium">
+
+                    <!-- ─ Step 1: Pick family ──────────────────────────────────── -->
+                    <template lwc:if={fmStep1}>
+                        <p class="slds-text-body_regular slds-m-bottom_small">
+                            Select the product family you are configuring attributes for.
+                        </p>
+                        <lightning-combobox label="Product Family" required
+                            value={fmFamilyId}
+                            options={productFamilyOptions}
+                            placeholder="Select product family..."
+                            onchange={handleFmFamilyChange}>
+                        </lightning-combobox>
+                    </template>
+
+                    <!-- ─ Step 2: Configure attributes ───────────────────────── -->
+                    <template lwc:if={fmStep2}>
+
+                        <!-- ── Weight sum feedback — pinned at top ───────────────── -->
+                        <template lwc:if={fmWeightSumInfo}>
+                            <div class={fmWeightSumClass}>
+                                <template lwc:if={fmWeightSumInfo.isOver}>
+                                    <lightning-icon icon-name="utility:warning" size="xx-small" class="slds-m-right_xx-small" alternative-text=""></lightning-icon>
+                                    Weights exceed 100% ({fmWeightSumInfo.sum}%). Reduce some weights before saving.
+                                </template>
+                                <template lwc:elseif={fmWeightSumInfo.isUnder}>
+                                    <lightning-icon icon-name="utility:info" size="xx-small" class="slds-m-right_xx-small" alternative-text=""></lightning-icon>
+                                    Current total: {fmWeightSumInfo.sum}%. Remaining: {fmWeightSumInfo.remaining}%. Must equal 100%.
+                                </template>
+                                <template lwc:elseif={fmWeightSumInfo.hasZeroActive}>
+                                    <lightning-icon icon-name="utility:warning" size="xx-small" class="slds-m-right_xx-small" alternative-text=""></lightning-icon>
+                                    Weights total 100%, but one or more active attributes are at 0%. Fix Weights to give them a share.
+                                </template>
+                                <template lwc:else>
+                                    <lightning-icon icon-name="utility:check" size="xx-small" class="slds-m-right_xx-small" alternative-text=""></lightning-icon>
+                                    Attractiveness weights sum to exactly 100%.
+                                </template>
+                            </div>
+                            <div class="fm-weight-actions">
+                                <lightning-button
+                                    label="Equalize Weights"
+                                    icon-name="utility:share"
+                                    icon-position="left"
+                                    variant="neutral"
+                                    onclick={handleFmEqualizeWeights}
+                                    title="Distribute weight equally across all active attractiveness attributes">
+                                </lightning-button>
+                                <template lwc:if={fmWeightSumInfo.needsFix}>
+                                    <lightning-button
+                                        label="Fix Weights"
+                                        icon-name="utility:settings"
+                                        icon-position="left"
+                                        variant="neutral"
+                                        onclick={handleFmFixWeights}
+                                        title="Bring total to 100% — over 100% reduces the highest weights; under 100% fills the deficit into newly added attributes; at 100% with 0% attributes, carves them a fair share from the heaviest">
+                                    </lightning-button>
+                                </template>
+                                <lightning-button
+                                    label="Reset Weights"
+                                    icon-name="utility:undo"
+                                    icon-position="left"
+                                    variant="neutral"
+                                    onclick={handleFmResetWeights}
+                                    title="Set all active attractiveness attribute weights back to 0">
+                                </lightning-button>
+                            </div>
+                        </template>
+
+                        <!-- ── Reference values section (collapsible) ────────────── -->
+                        <div class="fm-refsec slds-m-top_small">
+                            <button class="fm-refsec__header" type="button" onclick={toggleFmRefSection}
+                                aria-expanded={isFmRefSectionOpen}>
+                                <lightning-icon icon-name={fmRefSectionChevron} size="xx-small"
+                                    alternative-text="expand"></lightning-icon>
+                                <span class="fm-refsec__title">Reference Attributes</span>
+                                <template lwc:if={fmRefSectionHint}>
+                                    <span class="fm-refsec__hint">{fmRefSectionHint}</span>
+                                </template>
+                            </button>
+                            <template lwc:if={isFmRefSectionOpen}>
+                                <div class="fm-refsec__body">
+                                    <template lwc:if={fmHasRefSectionRows}>
+                                        <template for:each={fmRefSectionRows} for:item="ref">
+                                            <div key={ref.id} class={ref.cardClass}>
+                                                <div class="fm-refsec-row">
+                                                    <span class="fm-refsec-row__name">{ref.name}</span>
+                                                    <span class="slds-badge slds-badge_lightest fm-hdr-badge">{ref.valueType}</span>
+                                                    <template lwc:if={ref.showValueInput}>
+                                                        <div class="fm-refsec-row__value-input">
+                                                            <lightning-input variant="label-hidden" label="Value"
+                                                                value={ref.value} placeholder="Value"
+                                                                data-id={ref.id} onchange={handleFmRefValue}>
+                                                            </lightning-input>
+                                                        </div>
+                                                    </template>
+                                                    <template lwc:else>
+                                                        <span class="fm-refsec-row__value">{ref.displayValue}</span>
+                                                    </template>
+                                                    <span class="fm-refsec-row__spacer"></span>
+
+                                                    <!-- Use reference attribute -->
+                                                    <label class="fm-refsec-check">
+                                                        <input type="checkbox" checked={ref.use}
+                                                            data-id={ref.id} onchange={handleFmRefUse} />
+                                                        <span>Use reference attribute</span>
+                                                    </label>
+
+                                                    <!-- Impacts Attractiveness (only once used) -->
+                                                    <template lwc:if={ref.showImpactsToggle}>
+                                                        <div class="fm-hdr-toggle-wrap" title="Impacts Attractiveness Score">
+                                                            <span class="fm-hdr-toggle-label">Impacts Attractiveness Score</span>
+                                                            <label class="slds-checkbox_toggle fm-hdr-toggle">
+                                                                <input type="checkbox" checked={ref.impacts}
+                                                                    data-id={ref.id} onchange={handleFmRefImpacts} />
+                                                                <span class="slds-checkbox_faux_container">
+                                                                    <span class="slds-checkbox_faux"></span>
+                                                                </span>
+                                                            </label>
+                                                        </div>
+                                                    </template>
+                                                </div>
+
+                                                <!-- Key + Power of effect pairs -->
+                                                <template lwc:if={ref.showPowers}>
+                                                    <div class="fm-refsec-powers">
+                                                        <template for:each={ref.powerRows} for:item="prow">
+                                                            <div key={prow._key} class="rv-pair-row">
+                                                                <lightning-input variant="label-hidden" label="Picklist Label"
+                                                                    value={prow.label} disabled class="rv-pair-input">
+                                                                </lightning-input>
+                                                                <div class="rv-power-wrap rv-pair-input">
+                                                                    <input type="number" min="0" max="1" step="0.01"
+                                                                        value={prow.power} class={prow.inputClass}
+                                                                        placeholder="0.00" aria-label="Power of effect"
+                                                                        data-id={ref.id} data-label={prow.label}
+                                                                        onchange={handleFmRefPower} />
+                                                                </div>
+                                                            </div>
+                                                        </template>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </template>
+                                    </template>
+                                    <template lwc:if={fmHasRefSectionRows}>
+                                    </template>
+                                    <template lwc:else>
+                                        <p class="slds-text-body_small slds-text-color_weak">
+                                            No reference attributes exist for this product family yet.
+                                        </p>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+
+                        <!-- ── Existing / staged attribute rows ──────────────────── -->
+                        <template lwc:if={fmHasPending}>
+                            <template for:each={fmSummaryRows} for:item="row">
+                                <div key={row._key} class={row.fmRowCardClass}>
+
+                                    <!-- ① Header — always visible, click chevron area to expand/collapse -->
+                                    <div class="fm-row-card__header">
+                                        <button class="fm-chevron-btn" data-key={row._key} onclick={handleFmToggleExpand}
+                                            title="Expand / collapse">
+                                            <lightning-icon icon-name={row.chevronIcon} size="xx-small"
+                                                alternative-text="expand">
+                                            </lightning-icon>
+                                        </button>
+
+                                        <!-- Name + new badge -->
+                                        <span class="fm-row-card__name">{row._label}</span>
+                                        <template lwc:if={row._isNew}>
+                                            <span class="slds-badge fm-badge-new">New</span>
+                                        </template>
+
+                                        <!-- Active/Inactive select -->
+                                        <div class="fm-hdr-select-wrap" onclick={handleFmActionClick}>
+                                            <select class={row.activeSelectClass}
+                                                value={row.activeSelectValue}
+                                                data-key={row._key}
+                                                onchange={handleFmActiveSelect}>
+                                                <option value="active">Active</option>
+                                                <option value="inactive">Inactive</option>
+                                            </select>
+                                        </div>
+
+                                        <!-- Spacer before controls -->
+                                        <span class="fm-hdr-spacer2"></span>
+
+                                        <!-- Attractiveness toggle — immediately after name -->
+                                        <div class="fm-hdr-toggle-wrap" onclick={handleFmActionClick}
+                                            title="Impacts Attractiveness Score">
+                                            <span class="fm-hdr-toggle-label">Impact Attractiveness</span>
+                                            <label class="slds-checkbox_toggle fm-hdr-toggle">
+                                                <input type="checkbox"
+                                                    checked={row.impactsAttractiveness}
+                                                    data-key={row._key}
+                                                    onchange={handleFmAttractiveness} />
+                                                <span class="slds-checkbox_faux_container">
+                                                    <span class="slds-checkbox_faux"></span>
+                                                </span>
+                                            </label>
+                                        </div>
+
+                                        <!-- Weight number input (only when attracts) -->
+                                        <template lwc:if={row.impactsAttractiveness}>
+                                            <div class="fm-hdr-weight-wrap" onclick={handleFmActionClick}>
+                                                <input type="number" min="0" max="100" step="1"
+                                                    value={row.weightInt}
+                                                    class={row.weightInputClass}
+                                                    data-key={row._key}
+                                                    onchange={handleFmWeightInput} />
+                                                <span class="fm-weight-pct-label">%</span>
+                                            </div>
+                                        </template>
+
+                                        <!-- Required select (only when not locked by attractiveness) -->
+                                        <template lwc:if={row.showRequiredSelect}>
+                                            <div class="fm-hdr-select-wrap" onclick={handleFmActionClick}>
+                                                <select class={row.requiredSelectClass}
+                                                    value={row.requiredSelectValue}
+                                                    data-key={row._key}
+                                                    onchange={handleFmRequiredSelect}>
+                                                    <option value="required">Required</option>
+                                                    <option value="optional">Optional</option>
+                                                </select>
+                                            </div>
+                                        </template>
+                                        <template lwc:else>
+                                            <span class="slds-badge slds-badge_brand fm-hdr-badge">Required</span>
+                                        </template>
+
+                                        <!-- Type + source summary badges -->
+                                        <template lwc:if={row.isReference}>
+                                            <span class="slds-badge oa-badge-autopopulate fm-hdr-badge">Ref</span>
+                                        </template>
+                                        <template lwc:if={row.Parameter_Type__c}>
+                                            <span class="slds-badge slds-badge_lightest fm-hdr-badge">{row.Parameter_Type__c}</span>
+                                        </template>
+
+                                        <!-- Delete -->
+                                        <lightning-button-icon icon-name="utility:delete"
+                                            variant="bare" size="small"
+                                            alternative-text="Remove" title="Remove attribute"
+                                            data-key={row._key}
+                                            data-attrid={row._attrId}
+                                            data-name={row._label}
+                                            onclick={handleFmDeleteRow}
+                                            class="fm-delete-btn">
+                                        </lightning-button-icon>
+                                    </div>
+
+                                    <!-- Expandable body — config only -->
+                                    <template lwc:if={row.isExpanded}>
+
+                                        <!-- Attribute config -->
+                                        <div class="fm-config-band">
+                                            <div class="slds-grid slds-gutters_xx-small slds-wrap">
+
+                                                <!-- Creation method -->
+                                                <div class="slds-col slds-size_1-of-1 slds-m-bottom_xx-small">
+                                                    <lightning-radio-group
+                                                        name="creationMethod"
+                                                        label="Source"
+                                                        options={creationMethodOptions}
+                                                        value={row.creationMethod}
+                                                        type="button"
+                                                        variant="label-hidden"
+                                                        data-key={row._key}
+                                                        onchange={handleFmRowMethodRadio}
+                                                        class="fm-radio-group_sm">
+                                                    </lightning-radio-group>
+                                                </div>
+
+                                                <!-- Reference fields -->
+                                                <template lwc:if={row.isReference}>
+                                                    <div class="slds-col slds-size_1-of-2">
+                                                        <lightning-combobox label="Reference Attribute" required
+                                                            value={row.refValueId}
+                                                            options={fmRefAttrOptions}
+                                                            placeholder="Select..."
+                                                            data-key={row._key} onchange={handleFmRowRefAttr}>
+                                                        </lightning-combobox>
+                                                    </div>
+                                                    <div class="slds-col slds-size_1-of-2">
+                                                        <lightning-input label="Display Name"
+                                                            value={row.displayName}
+                                                            placeholder="Leave blank to use ref name"
+                                                            data-key={row._key} data-field="displayName"
+                                                            onchange={handleFmRowField}>
+                                                        </lightning-input>
+                                                    </div>
+                                                </template>
+
+                                                <!-- Custom fields -->
+                                                <template lwc:if={row.isCustom}>
+                                                    <div class="slds-col slds-size_1-of-2">
+                                                        <lightning-input label="Name" required
+                                                            value={row.Name}
+                                                            data-key={row._key} data-field="Name"
+                                                            onchange={handleFmRowField}>
+                                                        </lightning-input>
+                                                    </div>
+                                                    <div class="slds-col slds-size_1-of-2">
+                                                        <lightning-combobox label="Type" required
+                                                            value={row.Parameter_Type__c}
+                                                            options={paramTypeOptions}
+                                                            placeholder="Select type..."
+                                                            data-key={row._key} data-field="Parameter_Type__c"
+                                                            onchange={handleFmRowField}>
+                                                        </lightning-combobox>
+                                                    </div>
+                                                    <template lwc:if={row.isPicklist}>
+                                                        <div class="slds-col slds-size_1-of-1 slds-m-top_xx-small">
+                                                            <lightning-textarea label="Picklist Values (one per line)"
+                                                                value={row.picklistValues}
+                                                                placeholder="Option A&#10;Option B&#10;Option C"
+                                                                class="fm-textarea-picklist"
+                                                                data-key={row._key} data-field="picklistValues"
+                                                                onchange={handleFmRowField}>
+                                                            </lightning-textarea>
+                                                        </div>
+                                                    </template>
+                                                    <template lwc:if={row.showValueMode}>
+                                                        <div class="slds-col slds-size_1-of-1 slds-m-top_xx-small">
+                                                            <lightning-radio-group
+                                                                name="valueMode"
+                                                                label="Value Mode"
+                                                                options={valueModeOptions}
+                                                                value={row.valueMode}
+                                                                type="button"
+                                                                variant="label-hidden"
+                                                                data-key={row._key}
+                                                                onchange={handleFmRowValueModeRadio}
+                                                                class="fm-radio-group_sm">
+                                                            </lightning-radio-group>
+                                                        </div>
+                                                    </template>
+                                                    <template lwc:if={row.showPredefinedValue}>
+                                                        <div class="slds-col slds-size_1-of-2 slds-m-top_xx-small">
+                                                            <lightning-input
+                                                                label="Pre-defined Value"
+                                                                type={row.predefinedInputType}
+                                                                value={row.predefinedValue}
+                                                                placeholder={row.predefinedPlaceholder}
+                                                                data-key={row._key} data-field="predefinedValue"
+                                                                onchange={handleFmRowField}>
+                                                            </lightning-input>
+                                                        </div>
+                                                    </template>
+                                                </template>
+
+                                                <!-- Description -->
+                                                <div class="slds-col slds-size_1-of-1 slds-m-top_xx-small">
+                                                    <lightning-textarea label="Description (optional)"
+                                                        value={row.Attribute_Description__c}
+                                                        placeholder="Describe this attribute..."
+                                                        class="fm-textarea-desc"
+                                                        data-key={row._key} data-field="Attribute_Description__c"
+                                                        onchange={handleFmRowField}>
+                                                    </lightning-textarea>
+                                                </div>
+
+                                            </div>
+                                        </div>
+
+                                    </template><!-- /isExpanded -->
+
+                                </div>
+                            </template>
+
+                        </template>
+
+                        <!-- ── Add new attribute form ─────────────────────────────── -->
+                        <template lwc:if={fmFormVisible}>
+                            <div class="fm-form-card slds-m-top_small">
+                                <p class="slds-text-title_caps slds-text-color_weak slds-m-bottom_x-small">New Attribute</p>
+
+                                <lightning-radio-group
+                                    name="creationMethodNew"
+                                    label="Source"
+                                    options={creationMethodOptions}
+                                    value={fmPendingFormCreationMethod}
+                                    type="button"
+                                    variant="label-hidden"
+                                    onchange={handleFmCreationMethodRadio}>
+                                </lightning-radio-group>
+
+                                <template lwc:if={fmIsReference}>
+                                    <div class="slds-grid slds-gutters_small slds-wrap">
+                                        <div class="slds-col slds-size_1-of-2">
+                                            <lightning-combobox label="Reference Attribute" required
+                                                value={fmPendingForm.refValueId}
+                                                options={fmRefAttrOptions}
+                                                placeholder="Select reference attribute..."
+                                                onchange={handleFmRefAttrChange}>
+                                            </lightning-combobox>
+                                        </div>
+                                        <div class="slds-col slds-size_1-of-2">
+                                            <lightning-input label="Display Name (optional)"
+                                                value={fmPendingForm.displayName}
+                                                placeholder="Leave blank to use reference name"
+                                                data-field="displayName" onchange={handleFmFormField}>
+                                            </lightning-input>
+                                        </div>
+                                        <div class="slds-col slds-size_1-of-1 slds-m-top_small">
+                                            <lightning-textarea label="Description (optional)"
+                                                value={fmPendingForm.Attribute_Description__c}
+                                                data-field="Attribute_Description__c" onchange={handleFmFormField}>
+                                            </lightning-textarea>
+                                        </div>
+                                        <!-- Picklist reference: labels (grayed) + optional Power of effect -->
+                                        <template lwc:if={fmRefIsPicklist}>
+                                            <div class="slds-col slds-size_1-of-1 slds-m-top_small">
+                                                <span class="slds-form-element__label">Picklist Labels</span>
+                                                <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_xx-small">
+                                                    Inherited from the reference value.
+                                                    <template lwc:if={fmShowRefPowers}>
+                                                        Enter the Power of effect for each label.
+                                                    </template>
+                                                </p>
+                                                <template for:each={fmRefPowerRows} for:item="prow">
+                                                    <div key={prow._key} class="rv-pair-row">
+                                                        <lightning-input variant="label-hidden" label="Picklist Label"
+                                                            value={prow.label} disabled class="rv-pair-input">
+                                                        </lightning-input>
+                                                        <template lwc:if={fmShowRefPowers}>
+                                                            <div class="rv-power-wrap rv-pair-input">
+                                                                <input type="number" min="0" max="1" step="0.01"
+                                                                    value={prow.power}
+                                                                    class={prow.inputClass}
+                                                                    placeholder="0.00"
+                                                                    aria-label="Power of effect"
+                                                                    data-key={prow._key}
+                                                                    onchange={handleFmRefPowerInput} />
+                                                            </div>
+                                                        </template>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+
+                                <template lwc:if={fmIsNew}>
+                                    <div class="slds-grid slds-gutters_small slds-wrap">
+                                        <div class="slds-col slds-size_1-of-2">
+                                            <lightning-input label="Attribute Name" required
+                                                value={fmPendingForm.Name}
+                                                data-field="Name" onchange={handleFmFormField}>
+                                            </lightning-input>
+                                        </div>
+                                        <div class="slds-col slds-size_1-of-2">
+                                            <lightning-combobox label="Type" required
+                                                value={fmPendingForm.Parameter_Type__c}
+                                                options={paramTypeOptions}
+                                                placeholder="Select type..."
+                                                data-field="Parameter_Type__c" onchange={handleFmFormField}>
+                                            </lightning-combobox>
+                                        </div>
+                                        <template lwc:if={fmIsPicklist}>
+                                            <div class="slds-col slds-size_1-of-1 slds-m-top_small">
+                                                <lightning-textarea label="Picklist Values (one per line)"
+                                                    value={fmPendingForm.picklistValues}
+                                                    placeholder="Option A&#10;Option B&#10;Option C"
+                                                    class="fm-textarea-picklist"
+                                                    data-field="picklistValues" onchange={handleFmFormField}>
+                                                </lightning-textarea>
+                                            </div>
+                                        </template>
+                                        <template lwc:if={fmShowValueMode}>
+                                            <div class="slds-col slds-size_1-of-1 slds-m-top_small">
+                                                <lightning-radio-group
+                                                    name="valueModeNew"
+                                                    label="Value Mode"
+                                                    options={valueModeOptions}
+                                                    value={fmPendingFormValueMode}
+                                                    type="button"
+                                                    variant="label-hidden"
+                                                    onchange={handleFmValueModeRadio}>
+                                                </lightning-radio-group>
+                                            </div>
+                                        </template>
+                                        <template lwc:if={fmValueModeIsPredefined}>
+                                            <div class="slds-col slds-size_1-of-2 slds-m-top_small">
+                                                <lightning-input label="Pre-defined Value" required
+                                                    type={fmPredefinedInputType}
+                                                    value={fmPendingForm.predefinedValue}
+                                                    placeholder={fmPredefinedPlaceholder}
+                                                    class="fm-predefined-input"
+                                                    message-when-value-missing="Enter a pre-defined value."
+                                                    data-field="predefinedValue" onchange={handleFmFormField}>
+                                                </lightning-input>
+                                            </div>
+                                        </template>
+                                        <div class="slds-col slds-size_1-of-1 slds-m-top_small">
+                                            <lightning-textarea label="Description (optional)"
+                                                value={fmPendingForm.Attribute_Description__c}
+                                                class="fm-textarea-desc"
+                                                data-field="Attribute_Description__c" onchange={handleFmFormField}>
+                                            </lightning-textarea>
+                                        </div>
+                                    </div>
+                                </template>
+
+                                <template lwc:if={fmPendingForm.creationMethod}>
+                                    <div class="slds-m-top_small fm-toggle-row">
+                                        <span class="fm-toggle-label">Impacts Attractiveness Score</span>
+                                        <label class="slds-checkbox_toggle">
+                                            <input type="checkbox"
+                                                checked={fmPendingForm.impactsAttractiveness}
+                                                data-field="impactsAttractiveness"
+                                                onchange={handleFmFormCheckbox} />
+                                            <span class="slds-checkbox_faux_container">
+                                                <span class="slds-checkbox_faux"></span>
+                                            </span>
+                                        </label>
+                                    </div>
+                                </template>
+
+                                <div class="fm-form-actions slds-m-top_small">
+                                    <lightning-button label="Cancel" onclick={handleFmCancelForm}></lightning-button>
+                                    <lightning-button label="Add" variant="brand"
+                                        class="slds-m-left_x-small" onclick={handleFmAddToPending}>
+                                    </lightning-button>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- Add attribute / empty state -->
+                        <template lwc:if={fmFormVisible}>
+                        </template>
+                        <template lwc:else>
+                            <div class="fm-add-attr-btn">
+                                <lightning-button label="+ Add Attribute" variant="neutral"
+                                    onclick={handleFmShowForm}>
+                                </lightning-button>
+                            </div>
+                        </template>
+
+                        <template lwc:if={fmHasPending}>
+                        </template>
+                        <template lwc:else>
+                            <template lwc:if={fmFormVisible}>
+                            </template>
+                            <template lwc:else>
+                                <p class="slds-text-body_small slds-text-color_weak slds-m-top_small">
+                                    No attributes yet. Click "+ Add Attribute" to start.
+                                </p>
+                            </template>
+                        </template>
+
+                    </template><!-- /fmStep2 -->
+
+                </div><!-- /modal__content -->
+
+                <div class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={handleCloseFamilyModal}></lightning-button>
+                    <template lwc:if={fmStep1}>
+                        <lightning-button label="Next →" variant="brand" class="slds-m-left_x-small"
+                            onclick={handleFmStep1Next}>
+                        </lightning-button>
+                    </template>
+                    <template lwc:if={fmStep2}>
+                        <template lwc:if={fmShowBack}>
+                            <lightning-button label="← Back" class="slds-m-left_x-small"
+                                onclick={handleFmBack}>
+                            </lightning-button>
+                        </template>
+                        <lightning-button label="Save All" variant="brand" class="slds-m-left_x-small"
+                            onclick={handleFmSave} disabled={fmSaveDisabled}>
+                        </lightning-button>
+                    </template>
+                </div>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+    <!-- ── Delete Confirmation ───────────────────────────────────────────────── -->
+    <template lwc:if={isDeleteModalOpen}>
+        <section role="alertdialog" tabindex="-1" aria-modal="true" aria-labelledby="oa-del-title"
+            class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <div class="slds-modal__header slds-theme_warning slds-theme_alert-texture">
+                    <h2 id="oa-del-title" class="slds-modal__title">Confirm Delete</h2>
+                </div>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <p>Delete <strong>{deleteTargetName}</strong>? This cannot be undone.</p>
+                </div>
+                <div class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={closeDeleteModal}></lightning-button>
+                    <lightning-button label="Delete" variant="destructive" class="slds-m-left_x-small"
+                        onclick={handleConfirmDelete}>
+                    </lightning-button>
+                </div>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+</template>

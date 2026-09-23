@@ -1,0 +1,153 @@
+/* ── Vertical channel layout ─────────────────────────────────────── */
+
+.ch-layout {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    border: 1px solid #e0e5ee;
+    border-radius: 0.25rem;
+    background: #fff;
+    min-height: 400px;
+}
+
+.ch-sidebar {
+    flex: 0 0 200px;
+    border-right: 1px solid #e0e5ee;
+    display: flex;
+    flex-direction: column;
+    background: #f8f9fb;
+    border-radius: 0.25rem 0 0 0.25rem;
+    overflow-y: auto;
+    max-height: 700px;
+}
+
+.ch-sidebar__item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 0.6rem 0.75rem;
+    border: none;
+    border-bottom: 1px solid #e8ecf0;
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+    transition: background 0.1s;
+}
+
+.ch-sidebar__item:hover {
+    background: #eaf0f8;
+}
+
+.ch-sidebar__item_active {
+    background: #fff;
+    border-left: 3px solid #0176d3;
+    padding-left: calc(0.75rem - 3px);
+    font-weight: 600;
+}
+
+.ch-sidebar__name {
+    font-size: 0.8125rem;
+    color: #181818;
+    line-height: 1.3;
+}
+
+.ch-sidebar__type {
+    color: #706e6b;
+    font-size: 0.75rem;
+    margin-top: 0.1rem;
+}
+
+.ch-detail {
+    flex: 1;
+    min-width: 0;
+}
+
+.ch-detail__header {
+    border-bottom: 1px solid #e0e5ee;
+    padding: 0.5rem 0.75rem;
+}
+
+.ch-detail__tabs {
+    /* tabs expand to fit content */
+}
+
+.tab-content {
+    min-height: 4rem;
+}
+
+.placement-scroll-container {
+    max-height: 320px; /* ~10 rows */
+    overflow-y: auto;
+    border: 1px solid #e0e5ee;
+    border-radius: 0.25rem;
+}
+
+.placement-table {
+    font-size: 0.75rem;
+    width: 100%;
+}
+
+.placement-table thead th {
+    position: sticky;
+    top: 0;
+    background: #f3f3f3;
+    z-index: 1;
+}
+
+.sortable-col {
+    cursor: pointer;
+    user-select: none;
+}
+
+.sortable-col:hover {
+    background: #e8e8e8;
+}
+
+.action-col {
+    width: 72px;
+}
+
+.tab-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.tab-toolbar__search {
+    flex: 0 0 160px;
+}
+
+.tab-toolbar__actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+}
+
+.placement-desc {
+    white-space: normal;
+    max-width: 180px;
+}
+
+.placement-search {
+    width: 160px;
+    margin-right: 0.5rem;
+}
+
+.bt-thumb {
+    max-width: 100%;
+    max-height: 48px;
+    object-fit: contain;
+    border-radius: 0.2rem;
+    border: 1px solid #e0e5ee;
+}
+
+.intent-target-badge {
+    background-color: #1b5e97;
+    color: #fff;
+}
+
+.intent-paste-textarea textarea {
+    height: 250px;
+    min-height: 250px;
+}

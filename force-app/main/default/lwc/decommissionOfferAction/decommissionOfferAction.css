@@ -1,0 +1,16 @@
+.action-footer {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+.slds-notify_alert {
+    display: flex;
+    align-items: center;
+    padding: 0.625rem 1rem;
+    border-radius: 0.375rem;
+}
+
+.slds-list_dotted {
+    list-style: disc;
+}

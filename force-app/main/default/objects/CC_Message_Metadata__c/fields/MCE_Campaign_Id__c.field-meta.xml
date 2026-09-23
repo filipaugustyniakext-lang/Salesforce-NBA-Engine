@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>MCE_Campaign_Id__c</fullName>
+    <description>MCE internal campaign ID associated with this message variant. Mirrors the CampaignId column of the MCE Data Extension. Separate from Campaign__c which is the Core SF Campaign lookup.</description>
+    <externalId>false</externalId>
+    <label>MCE Campaign ID</label>
+    <length>255</length>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

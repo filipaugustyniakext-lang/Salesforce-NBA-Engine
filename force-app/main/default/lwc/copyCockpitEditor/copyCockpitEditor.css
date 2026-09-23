@@ -1,0 +1,1267 @@
+/* ─── Loading / error ────────────────────────────────────────────────────── */
+
+.editor-loading,
+.editor-error {
+    position: fixed;
+    inset: 0;
+    z-index: 9001;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #f3f2f2;
+    text-align: center;
+}
+
+.editor-error-icon { --sds-c-icon-color-foreground-default: #ba0517; }
+
+/* ─── Shell — full-screen overlay, covers all Salesforce chrome ──────────── */
+
+.editor-shell {
+    position: fixed;
+    inset: 0;
+    z-index: 9001;
+    display: flex;
+    flex-direction: column;
+    background: #f3f2f2;
+    overflow: hidden;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SLDS BUILDER HEADER — layout overrides only; SLDS provides the rest
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Neutralize any SLDS sticky/fixed positioning — inside our fixed shell
+   the header must stay in normal flex flow so the workspace sits below it */
+.slds-builder-header_container {
+    position: relative !important;
+    flex-shrink: 0;
+    z-index: 10;
+}
+
+/* Channel icon tint in the dark header */
+.editor-channel-icon {
+    --sds-c-icon-color-foreground-default: #7ec8e3;
+}
+
+/* Subtitle line under the record title */
+.editor-header-subtitle {
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: rgba(255,255,255,0.6);
+    display: block;
+}
+
+/* ─── Toolbar right group ─────────────────────────────────────────────────── */
+
+.toolbar-right-group {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    flex-wrap: nowrap;
+}
+
+/* Source template name badge */
+.toolbar-template-badge {
+    font-size: 0.6875rem;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex-shrink: 0;
+    border-radius: 12px;
+}
+
+/* Status select — looks like a clickable badge, same pattern as Offers Manager */
+.toolbar-status-wrapper {
+    flex-shrink: 0;
+}
+
+.toolbar-status-select {
+    appearance: none;
+    -webkit-appearance: none;
+    border: none;
+    border-radius: 12px;
+    padding: 0.2rem 1.4rem 0.2rem 0.6rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    cursor: pointer;
+    /* chevron caret */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10'%3E%3Cpath d='M5 7L1 3h8z' fill='%23706e6b'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.4rem center;
+    background-size: 10px;
+}
+
+.toolbar-status-select:hover { opacity: 0.85; }
+
+.toolbar-status-select:focus {
+    outline: 2px solid #0176d3;
+    outline-offset: 2px;
+}
+
+/* Status-specific badge colours — applied directly on the <select> element */
+.toolbar-status_active {
+    background-color: #d4edda;
+    color: #155724;
+}
+.toolbar-status_active-scheduled {
+    background-color: #c3e6cb;
+    color: #155724;
+}
+.toolbar-status_draft {
+    background-color: #e0e5ee;
+    color: #3e3e3c;
+}
+.toolbar-status_draft-scheduled {
+    background-color: #e0e5ee;
+    color: #3e3e3c;
+}
+.toolbar-status_archived {
+    background-color: #e4e4e4;
+    color: #706e6b;
+}
+.toolbar-status_deactivated {
+    background-color: #e4e4e4;
+    color: #706e6b;
+}
+
+/* Schedule-intent overrides for Active Scheduled / Draft Scheduled */
+.toolbar-status_scheduled-green {
+    background-color: #d4edda;
+    color: #155724;
+}
+.toolbar-status_scheduled-yellow {
+    background-color: #fff3cd;
+    color: #856404;
+}
+.toolbar-status_scheduled-red {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+/* Last modified timestamp */
+.toolbar-timestamp {
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
+    font-size: 0.6875rem;
+    color: #706e6b;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.toolbar-timestamp__icon {
+    --sds-c-icon-color-foreground-default: #706e6b;
+}
+
+/* Vertical divider between groups */
+.toolbar-divider {
+    width: 1px;
+    height: 1.25rem;
+    background: #d8dde6;
+    align-self: center;
+    flex-shrink: 0;
+    margin: 0 0.125rem;
+}
+
+/* Compact action buttons in the toolbar */
+.toolbar-action-btn {
+    height: 1.75rem !important;
+    min-height: 1.75rem !important;
+    display: inline-flex !important;
+    align-items: center;
+    gap: 0.2rem;
+    font-size: 0.75rem !important;
+    padding: 0 0.6rem !important;
+    white-space: nowrap;
+    line-height: 1 !important;
+}
+
+.toolbar-action-btn lightning-icon {
+    --sds-c-icon-color-foreground-default: currentColor;
+}
+
+/* Delete button — no border so it stands out purely by color */
+.toolbar-delete-btn {
+    flex-shrink: 0;
+}
+
+/* Panel-toggle selected state (toolbar) */
+.slds-builder-toolbar .slds-button_icon-border.slds-is-selected {
+    background-color: #e0e5ee;
+    border-color: #0176d3;
+    --sds-c-icon-color-foreground-default: #0176d3;
+}
+
+/* Preview panel device/theme toggle buttons — grey when inactive, white when active */
+.slds-panel__header-actions .slds-button_icon-border {
+    color: #706e6b;
+}
+.slds-panel__header-actions .slds-button_icon-border lightning-icon {
+    --sds-c-icon-color-foreground-default: #706e6b;
+}
+.slds-panel__header-actions .slds-button_icon-border.slds-is-selected {
+    background-color: #0176d3;
+    border-color: #0176d3;
+    color: #ffffff;
+}
+.slds-panel__header-actions .slds-button_icon-border.slds-is-selected lightning-icon {
+    --sds-c-icon-color-foreground-default: #ffffff;
+}
+
+/* ─── Versions modal ──────────────────────────────────────────────────────── */
+
+.versions-modal-body {
+    min-height: 20rem;
+    max-height: 65vh;
+    overflow-y: auto;
+    padding: 0 !important;
+}
+
+/* Centered state (loading / error / empty) */
+.versions-state-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 2rem;
+    text-align: center;
+}
+
+.versions-error-icon {
+    --sds-c-icon-color-foreground-default: #ba0517;
+}
+
+.versions-empty-icon {
+    --sds-c-icon-color-foreground-default: #c9c9c9;
+}
+
+/* Version list */
+.versions-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.versions-list__item {
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.versions-list__item:last-child {
+    border-bottom: none;
+}
+
+/* Version card row */
+.version-card {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.875rem 1.25rem;
+    transition: background 0.1s ease;
+}
+
+.version-card:hover {
+    background: #f8fafc;
+}
+
+.version-card__left {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.version-card__right {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+/* Status dot */
+.version-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 0.3rem;
+}
+
+.version-dot_active  { background: #2e844a; }
+.version-dot_draft   { background: #9baab7; }
+.version-dot_default { background: #c9c9c9; }
+
+/* Version card text */
+.version-card__meta {
+    min-width: 0;
+}
+
+.version-card__title {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #181818;
+    margin-bottom: 0.2rem;
+}
+
+.version-latest-badge {
+    font-size: 0.625rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 10px;
+    background: #e8f4fd;
+    color: #0176d3;
+    border: 1px solid #c7e3f9;
+}
+
+.version-card__sub {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    color: #706e6b;
+}
+
+.version-trigger-label {
+    font-weight: 500;
+    color: #3e3e3c;
+}
+
+.version-sep {
+    color: #c9c9c9;
+}
+
+.version-card__note {
+    font-size: 0.75rem;
+    color: #3e3e3c;
+    margin-top: 0.3rem;
+    font-style: italic;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.version-status-badge {
+    font-size: 0.6875rem;
+    white-space: nowrap;
+}
+
+.version-load-btn {
+    height: 1.75rem !important;
+    min-height: 1.75rem !important;
+    font-size: 0.75rem !important;
+    padding: 0 0.6rem !important;
+    display: inline-flex !important;
+    align-items: center;
+    gap: 0.2rem;
+    white-space: nowrap;
+}
+
+/* ─── Schedule modal ──────────────────────────────────────────────────────── */
+
+.schedule-modal-container {
+    max-width: 36rem !important;
+    width: 90% !important;
+}
+
+.schedule-note-textarea {
+    resize: vertical;
+    min-height: 5rem;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   WORKSPACE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.editor-workspace {
+    display: flex;
+    flex: 1 1 0;
+    overflow: hidden;
+    min-height: 0;
+    height: 0; /* forces flex child to shrink to remaining space, not content height */
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SLDS DOCKED PANELS — width transition; SLDS provides all other styles
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Override SLDS panel drawer to animate width rather than transform */
+.slds-panel_docked-left,
+.slds-panel_docked-right {
+    overflow: hidden;
+    transition: width 0.18s ease, border-width 0.18s ease;
+    flex-shrink: 0;
+}
+
+.slds-panel_docked-left {
+    width: 0;
+    border-right: 0 solid #e0e5ee;
+}
+.slds-panel_docked-left.slds-is-open {
+    width: 320px;
+    border-right-width: 1px;
+}
+
+.slds-panel_docked-right {
+    width: 0;
+    border-left: 0 solid #e0e5ee;
+}
+.slds-panel_docked-right.slds-is-open.editor-panel-right_desktop {
+    width: 700px; /* 648px mockup + padding */
+    border-left-width: 1px;
+}
+.slds-panel_docked-right.slds-is-open.editor-panel-right_mobile {
+    width: 420px; /* 375px mockup + padding */
+    border-left-width: 1px;
+}
+
+/* Keep panel header actions (device/theme toggles) from wrapping */
+.slds-panel__header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+}
+
+/* ─── Left panel: block palette ──────────────────────────────────────────── */
+
+.editor-block-section { margin-bottom: 1rem; }
+
+.editor-block-section__label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #706e6b;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.4rem;
+    display: block;
+}
+
+.block-library-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+
+.block-library-list__item { display: block; }
+
+/* Card — mirrors slds-box slds-box_link but with drag affordance */
+.block-library-card {
+    display: flex;
+    width: 100%;
+    text-align: left;
+    cursor: grab;
+    user-select: none;
+    background: #fff;
+    transition: border-color 0.1s, background 0.1s, box-shadow 0.1s;
+    align-items: stretch;
+    /* override slds-box_x-small padding so we control figure vs body separately */
+    padding: 0 !important;
+}
+
+.block-library-card:hover {
+    border-color: #0176d3;
+    background: #eaf4ff;
+    box-shadow: 0 0 0 1px #0176d3;
+}
+
+.block-library-card:active { cursor: grabbing; }
+
+.block-library-card__figure {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    flex-shrink: 0;
+    padding: 0.75rem 0.5rem;
+}
+
+/* Colour the raw SVG sprite icons */
+.block-library-card__icon svg.slds-icon {
+    fill: #0176d3;
+    width: 1.25rem;
+    height: 1.25rem;
+    display: block;
+}
+
+/* Keep lightning-icon colouring for non-palette uses */
+.block-library-card__icon {
+    --sds-c-icon-color-foreground-default: #0176d3;
+}
+
+.block-library-card__title {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #080707;
+    margin-bottom: 0.125rem;
+}
+
+.block-library-card__desc {
+    font-size: 0.75rem;
+    line-height: 1.4;
+    white-space: normal;
+}
+
+/* ─── Canvas ──────────────────────────────────────────────────────────────── */
+
+.editor-canvas {
+    flex: 1;
+    overflow-y: auto;
+    background: #f3f2f2;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.editor-canvas__scroll {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    padding: 2rem 1.5rem;
+    /* ensure the scroll area fills all available height */
+    min-height: 100%;
+}
+
+.editor-canvas__page {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    /* stretch to fill scroll container so the dropzone has full height */
+    flex: 1;
+}
+
+/* ─── Drop zones ──────────────────────────────────────────────────────────── */
+
+.editor-dropzone-empty {
+    border: 2px dashed #dddbda;
+    border-radius: 0.5rem;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    transition: border-color 0.15s, background 0.15s;
+    /* no position:relative — no stacking context */
+}
+
+.editor-dropzone-empty_drag {
+    border-color: #0176d3;
+    background: #eaf4ff;
+}
+
+/* Populated canvas drop zone — fills remaining space, blocks sit on top */
+.editor-canvas-dropzone {
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+    /* NO position:relative, NO z-index — let children stack naturally */
+}
+
+.editor-canvas-dropzone_drag {
+    outline: 2px dashed #0176d3;
+    outline-offset: -2px;
+    border-radius: 0.375rem;
+}
+
+.editor-dropzone {
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.1s, height 0.1s;
+}
+
+.editor-dropzone.editor-dropzone_active,
+.editor-dropzone:hover {
+    opacity: 1;
+    height: 32px;
+    background: #eaf4ff;
+    border: 1px dashed #0176d3;
+    border-radius: 0.25rem;
+}
+
+.editor-dropzone_between { margin: 2px 0; }
+
+.editor-dropzone__slot {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.editor-dropzone__icon { --sds-c-icon-color-foreground-default: #0176d3; }
+
+/* ─── Empty state ─────────────────────────────────────────────────────────── */
+
+/* SLDS illustration sizing inside the drop zone */
+.editor-dropzone-empty .slds-illustration__svg {
+    width: 300px;
+    height: auto;
+}
+
+/* ─── CTC Add Component dialog ────────────────────────────────────────────── */
+
+.editor-ctc-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 299;
+    background: transparent;
+}
+
+.editor-ctc-panel {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 300;
+    width: 300px;
+    display: flex;
+    flex-direction: column;
+    /* slds-popover already provides border, shadow, bg, border-radius */
+}
+
+.editor-ctc-panel__header {
+    border-bottom: 1px solid #e5e5e5;
+    margin: 0;
+    font-weight: normal;
+}
+
+.editor-ctc-panel__body {
+    padding: 0 !important;
+    max-height: 320px;
+    overflow-y: auto;
+}
+
+.editor-ctc-panel__body ul {
+    list-style: none;
+    margin: 0;
+    padding: 0.25rem 0;
+}
+
+.editor-ctc-group-item {
+    cursor: pointer;
+    padding: 0;
+}
+
+.editor-ctc-group-item:hover {
+    background: #f3f3f3;
+}
+
+.editor-ctc-item-row {
+    padding: 0.5rem 1rem;
+    font-size: 0.8125rem;
+    color: #181818;
+}
+
+.editor-ctc-item-icon {
+    --sds-c-icon-color-foreground-default: #0176d3;
+    flex-shrink: 0;
+}
+
+.editor-ctc-panel__empty {
+    padding: 0.75rem;
+    text-align: center;
+}
+
+/* ─── Always-visible Add Component row ───────────────────────────────────── */
+
+.editor-canvas__add-row {
+    display: flex;
+    justify-content: center;
+    padding: 1.25rem 0 1.5rem;
+}
+
+.editor-canvas__add-btn {
+    color: #0176d3;
+    border-color: #0176d3;
+}
+
+/* ─── Insertion slot ──────────────────────────────────────────────────────── */
+
+.slds-drop-zone_drag__slot {
+    height: 4px;
+    border-radius: 2px;
+    margin: 2px 0;
+    transition: height 0.1s, background 0.1s;
+}
+
+.slds-drop-zone_drag__slot_active {
+    height: 20px;
+    background: #eaf4ff;
+    border: 2px dashed #0176d3;
+    border-radius: 4px;
+}
+
+/* ─── Block list ─────────────────────────────────────────────────────────── */
+
+.block-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ─── Block card ─────────────────────────────────────────────────────────── */
+
+.block-canvas-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.block-card {
+    background: #fff;
+    border: 1px solid #e0e5ee;
+    border-radius: 0.375rem;
+    transition: box-shadow 0.12s, border-color 0.12s;
+}
+
+.block-card_active {
+    border-color: #0176d3;
+    box-shadow: 0 0 0 1px #0176d3;
+}
+
+.block-card_dragging { opacity: 0.4; }
+
+/* Chrome = clickable header area */
+.block-card__chrome { cursor: pointer; user-select: none; }
+
+.block-card__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.65rem 0.75rem;   
+    gap: 0.375rem;
+    min-height: 2.25rem;
+    background: #FFFFFF;
+    border: solid 1px #e0e5ee;
+    border-bottom: 1px solid #e0e5ee;
+    border-radius: 4px;
+
+}
+
+.block-card_active .block-card__header {
+    background: #e8f4ff;
+    border-bottom-color: #b0d4f5;
+    border-radius: 4px 4px 0 0; 
+}
+
+.block-card__title {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    flex: 1;
+    min-width: 0;
+    font-size: 0.8125rem;
+    color: #181818;
+    overflow: hidden;
+}
+
+.block-card__title strong {
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.block-card__title > span {
+    font-size: 0.75rem;
+    color: #706e6b;
+    flex-shrink: 0;
+}
+
+.block-card__reorder {
+    display: flex;
+    align-items: center;
+    gap: 0.125rem;
+    flex-shrink: 0;
+}
+
+/* Compact icon-only buttons in reorder + actions areas */
+.block-card__reorder .slds-button_icon-border,
+.block-card__actions .slds-button_icon-border {
+    width: 1.5rem;
+    height: 1.5rem;
+    min-height: 1.5rem;
+    padding: 0;
+    --sds-c-icon-color-foreground-default: #706e6b;
+}
+
+.block-card__delete-btn {
+    --sds-c-icon-color-foreground-default: #ba0517;
+}
+
+.drag-handle { cursor: grab; }
+.drag-handle:active { cursor: grabbing; }
+
+.block-card__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.125rem;
+    flex-shrink: 0;
+}
+
+/* ─── Block editor (tabs + panels) ──────────────────────────────────────── */
+
+
+.block-editor { background: #fff;
+        border-radius: 0 0 4px 4px;
+ }
+
+.block-editor-tabs .slds-tabs_default__nav {
+    padding: 0;
+    border-bottom: 1px solid #e0e5ee;
+    background: transparent;
+}
+
+.block-editor-tabs .slds-tabs_default__item {
+    background: transparent !important;
+    padding: 0 !important;
+}
+
+.block-editor-tab-button {
+    font-size: 0.8125rem !important;
+    padding: 0.5rem 0.875rem !important;
+    white-space: nowrap;
+    background: transparent !important;
+}
+
+.block-editor-panel { padding: 0; }
+
+/* ─── Settings panel stack ───────────────────────────────────────────────── */
+
+.settings-panel-stack { display: flex; flex-direction: column; padding: 1rem; }
+
+.settings-panel {
+    padding: 0.75rem 0.875rem;
+    border-bottom: 1px solid #e0e5ee;
+}
+.settings-panel:last-child { border-bottom: none; }
+
+.section-header {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #706e6b;
+    margin-bottom: 0.625rem;
+}
+
+/* ─── Device visibility ──────────────────────────────────────────────────── */
+
+.standard-block-settings-panel__visibility {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 0.875rem;
+}
+
+.device-visibility-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.device-visibility-row__label {
+    font-size: 0.8125rem;
+    color: #3e3e3c;
+    flex-shrink: 0;
+}
+
+.device-visibility-row__group { flex-shrink: 0; }
+
+.device-visibility-row__option {
+    font-size: 0.75rem;
+    padding: 0 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+/* ─── Padding box-model widget ──────────────────────────────────────────── */
+
+.block-spacing-box { margin-top: 0.625rem; }
+
+.block-spacing-box__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+}
+
+.block-spacing-box__title {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #3e3e3c;
+}
+
+.block-spacing-box__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+}
+
+.block-spacing-box__link {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.125rem;
+    display: flex;
+    align-items: center;
+}
+.block-spacing-box__link svg.slds-icon { fill: #706e6b; width: 0.75rem; height: 0.75rem; display: block; }
+
+.block-spacing-box__clear {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.75rem;
+    color: #0176d3;
+    padding: 0;
+    text-decoration: underline;
+}
+
+.block-spacing-box__diagram {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+        background: #f3f3f3;
+    border: 1px solid #d8dde6;
+        padding: 0.75rem;
+    border-radius: 0.25rem;
+}
+
+.block-spacing-box__middle {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    width: 100%;
+}
+
+.block-spacing-box__side {
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
+    justify-content: center;
+}
+
+.block-spacing-box__side_left,
+.block-spacing-box__side_right { flex: 0 0 auto; }
+
+.block-spacing-box__core {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px dashed #9ab6d7;
+    border-radius: 0.25rem;
+    min-height: 3.5rem;
+    background:#FFFFFF;
+}
+
+.block-spacing-box__core-label {
+    font-size: 0.6875rem;
+    color: #a8a6a4;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.block-spacing-box__input {
+    width: 3rem !important;
+    text-align: center;
+    font-size: 0.75rem !important;
+}
+
+.block-spacing-box__unit { font-size: 0.6875rem; color: #706e6b; }
+
+/* ─── Right panel: preview ────────────────────────────────────────────────── */
+
+.editor-preview-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex-wrap: nowrap;
+}
+
+.editor-preview-body {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1rem 0.75rem;
+    background: #f3f2f2;
+    height:100%;
+}
+
+.editor-preview__mock-wrap {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.editor-preview__frame {
+    border-radius: 0.5rem;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    display: flex;
+    flex-direction: column;
+    transition: width 0.2s, background 0.2s;
+}
+
+.editor-preview_desktop { width: 100%; max-width: 648px; }
+
+.editor-preview_mobile {
+    width: 288px;
+    height: 600px;
+    border-radius: 45px;
+    border: 8px solid #3e3e3c;
+}
+
+.editor-preview_light { background: #fff; }
+.editor-preview_dark  { background: #1a1a1a; }
+
+.editor-preview__browser-bar {
+    display: flex;
+    gap: 4px;
+    padding: 6px 8px;
+    background: #f3f2f2;
+    border-bottom: 1px solid #e0e5ee;
+    flex-shrink: 0;
+}
+
+.editor-preview__browser-dot { width: 7px; height: 7px; border-radius: 50%; background: #dddbda; }
+.editor-preview__browser-dot:nth-child(1) { background: #f87171; }
+.editor-preview__browser-dot:nth-child(2) { background: #fbbf24; }
+.editor-preview__browser-dot:nth-child(3) { background: #34d399; }
+
+.editor-preview__notch {
+    background: #3e3e3c;
+    flex-shrink: 0;
+    width: 90px;
+    height: 22px;
+    position: relative;
+    border-radius: 50px;
+    display: flex;
+    margin: 0 auto;
+    top: 0.5rem;
+}
+
+.editor-preview__content {
+    flex: 1;
+    padding: 1.75rem 0.5rem;
+    min-height: 200px;
+    overflow-y: auto;
+}
+
+.editor-preview_dark .editor-preview__content { color: #fff; }
+
+.editor-preview__empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 180px;
+    text-align: center;
+    padding: 1rem;
+}
+
+.editor-preview__empty-icon { --sds-c-icon-color-foreground-default: #c9c7c5; }
+.editor-preview_dark .editor-preview__empty-icon { --sds-c-icon-color-foreground-default: #706e6b; }
+
+.editor-preview-block {
+    display: flex;
+    align-items: center;
+    padding: 0.4rem 0.5rem;
+    border-bottom: 1px solid #f3f2f2;
+    font-size: 0.75rem;
+    border-left: 3px solid transparent;
+    transition: background 0.12s, border-color 0.12s;
+}
+
+.editor-preview-block_active {
+    background: #e8f4ff;
+    border-left-color: #0176d3;
+    font-weight: 600;
+}
+
+.editor-preview_dark .editor-preview-block { border-bottom-color: #2e2e2e; color: #e0e0e0; }
+.editor-preview-block__icon { --sds-c-icon-color-foreground-default: #0176d3; flex-shrink: 0; }
+
+/* ── Settings cards ──────────────────────────────── */
+.settings-card {
+    background: #ffffff;
+    border: 1px solid #e5e5e5;
+    border-radius: 4px;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+}
+.settings-card__title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #444;
+    margin: 0 0 0.75rem;
+}
+
+/* ── Visibility button groups ────────────────────── */
+.block-vis-grid {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+}
+.block-vis-grid__label {
+    font-size: 0.8125rem;
+    color: #181818;
+    flex-shrink: 0;
+    margin-right: 0.5rem;
+}
+.vis-btn {
+    font-size: 0.75rem;
+    padding: 0.2rem 0.75rem;
+    border: 1px solid #dddbda;
+    background: #ffffff;
+    color: #181818;
+    cursor: pointer;
+    transition: background 0.1s, color 0.1s;
+}
+.vis-btn_active {
+    background: #0176d3;
+    border-color: #0176d3;
+    color: #ffffff;
+    font-weight: 600;
+}
+
+/* ── Padding card header ─────────────────────────── */
+.block-pad-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0.75rem 0 0.25rem;
+}
+.block-pad-header__title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #444;
+    margin: 0;
+}
+.block-pad-header__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.block-pad-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border: 1px solid #dddbda;
+    border-radius: 3px;
+    background: #ffffff;
+    cursor: pointer;
+    color: #444;
+    transition: background 0.1s, border-color 0.1s;
+}
+.block-pad-link_active {
+    background: #0176d3;
+    border-color: #0176d3;
+}
+.block-pad-reset {
+    font-size: 0.75rem;
+    color: #0176d3;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    text-decoration: underline;
+}
+.block-pad-reset:hover { color: #014486; }
+
+/* ── Column layout picker ────────────────────────── */
+.column-layout-picker {
+    display: flex;
+    gap: 0.75rem;
+}
+.column-layout-card {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem;
+    border: 2px solid #e5e5e5;
+    border-radius: 4px;
+    cursor: pointer;
+    background: #f9f9f9;
+    transition: border-color 0.15s;
+    position: relative;
+}
+.column-layout-card:hover { border-color: #0176d3; }
+.column-layout-card_selected {
+    border-color: #0176d3;
+    background: #f0f7ff;
+}
+.column-layout-card__preview {
+    display: flex;
+    gap: 3px;
+    width: 100%;
+    height: 44px;
+}
+.column-layout-card__col {
+    flex: 1;
+    border-radius: 2px;
+    height: 100%;
+}
+.column-layout-card__col_text {
+    color: rgb(255, 255, 255);
+    background: rgb(1, 118, 211);
+    display:flex;
+    justify-content: center;
+    align-content: center;
+}
+.column-layout-card__col_image {
+    color: rgb(112, 110, 107);
+    box-shadow: rgb(221, 219, 218) 0px 0px 0px 1px inset;
+    background: rgb(243, 243, 243);
+}
+.column-layout-card__col-label {
+    font-size: 0.75rem;
+    color: #444;
+    text-align: center;
+}
+.column-layout-card__check {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    --sds-c-icon-color-foreground-default: #0176d3;
+}
+
+/* ── Column layout col preview icons ─────────────────────────────── */
+.column-layout-card__col {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.column-layout-card__col-icon {
+    flex-shrink: 0;
+}
+
+/* Active block card header — bump reorder/action icons to brand blue */
+.block-card_active .block-card__reorder .slds-button_icon-border,
+.block-card_active .block-card__actions .slds-button_icon-border:not(.block-card__delete-btn) {
+    border-color: #b0d4f5;
+}

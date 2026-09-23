@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Product_Family__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description>Links this reference value to the product family it applies to, enabling family-specific parameter benchmarks.</description>
+    <inlineHelpText>Select the product family this reference value applies to (e.g. Cash Loan, Credit Card).</inlineHelpText>
+    <label>Product Family</label>
+    <referenceTo>Marketing_Dictionary__c</referenceTo>
+    <relationshipLabel>Reference Values</relationshipLabel>
+    <relationshipName>Reference_Values</relationshipName>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

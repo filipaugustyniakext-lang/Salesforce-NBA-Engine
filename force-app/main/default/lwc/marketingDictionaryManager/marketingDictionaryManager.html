@@ -1,0 +1,168 @@
+<!-- sldsValidatorIgnore -->
+<template>
+    <section role="dialog" tabindex="-1" aria-modal="true" class="slds-modal slds-fade-in-open slds-modal_large custom-manager-modal">
+        <div class="slds-modal__container">
+            
+            <template lwc:if={isLoading}>
+                <lightning-spinner alt="Loading dictionary details..." size="medium" variant="brand"></lightning-spinner>
+            </template>
+
+            <!-- Dynamic Header based on standard record type choice -->
+            <header class="slds-modal__header">
+                <h2 class="slds-text-heading_medium slds-hyphenate">{workspaceTitle} Management Hub</h2>
+            </header>
+
+            <div class="slds-modal__content slds-p-around_medium" style="min-height: 450px; position: relative;">
+                
+                <!-- Show workspace once the category resolves -->
+                <template lwc:if={selectedCategory}>
+                    <!-- Search & Actions Header -->
+                    <div class="slds-m-bottom_medium slds-grid slds-grid_vertical-align-center slds-grid_align-spread">
+                        <div class="slds-size_1-of-3">
+                            <lightning-input 
+                                type="search" 
+                                variant="label-hidden" 
+                                placeholder={searchPlaceholder} 
+                                oninput={handleSearchFilter}
+                                class="custom-search-input">
+                            </lightning-input>
+                        </div>
+                        <div>
+                            <button class="slds-button slds-button_brand" onclick={handleOpenCreateForm}>
+                                <lightning-icon icon-name="utility:add" size="x-small" variant="inverse" class="slds-m-right_xx-small"></lightning-icon>
+                                Add New Value
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Custom Table Grid showing only fields on your page layouts -->
+                    <div class="slds-box slds-theme_default" style="border-radius: 8px; padding: 0; border: 1px solid #c9c9c9; overflow: hidden;">
+                        <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_col-bordered">
+                            <thead>
+                                <tr class="slds-line-height_reset">
+                                    <th scope="col"><div class="slds-truncate">Dictionary Name</div></th>
+                                    <template lwc:if={isChannelSelected}>
+                                        <th scope="col"><div class="slds-truncate">Channels</div></th>
+                                    </template>
+                                    <template lwc:if={isSalesProcessSelected}>
+                                        <th scope="col"><div class="slds-truncate">Sales Process Type</div></th>
+                                    </template>
+                                    <template lwc:if={isTopicSelected}>
+                                        <th scope="col"><div class="slds-truncate">Topic (Goal)</div></th>
+                                        <th scope="col"><div class="slds-truncate">Topic Group</div></th>
+                                        <th scope="col"><div class="slds-truncate">Topic Description</div></th>
+                                    </template>
+                                    <th scope="col" style="width: 100px;"><div class="slds-truncate">Actions</div></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template for:each={filteredRecords} for:item="row">
+                                    <tr key={row.Id}>
+                                        <td><div class="slds-truncate" style="font-weight: 500;">{row.Name}</div></td>
+                                        <template lwc:if={isChannelSelected}>
+                                            <td><div class="slds-truncate">{row.Channels__c}</div></td>
+                                        </template>
+                                        <template lwc:if={isSalesProcessSelected}>
+                                            <td><div class="slds-truncate">{row.Sales_Process_Type__c}</div></td>
+                                        </template>
+                                        <template lwc:if={isTopicSelected}>
+                                            <td><div class="slds-truncate">{row.Topic_Goal__c}</div></td>
+                                            <td><div class="slds-truncate">{row.Topic_Group__c}</div></td>
+                                            <td><div class="slds-truncate" style="max-width: 300px; white-space: normal;">{row.Topic_Description__c}</div></td>
+                                        </template>
+                                        <td>
+                                            <button class="slds-button slds-button_neutral" data-id={row.Id} onclick={handleOpenEditForm}>Edit</button>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </template>
+                
+                <!-- Fallback loading skeleton -->
+                <template lwc:else>
+                    <div class="slds-align_absolute-center slds-m-top_xx-large" style="height: 200px; flex-direction: column;">
+                        <lightning-spinner alt="Initializing workspace..." size="medium" variant="brand" style="position: relative; margin-bottom: 20px;"></lightning-spinner>
+                        <div class="slds-text-heading_small slds-m-top_medium" style="color: #747474;">
+                            Initializing your dictionary workspace...
+                        </div>
+                    </div>
+                </template>
+
+            </div>
+
+            <footer class="slds-modal__footer slds-grid slds-grid_align-end">
+                <button class="slds-button slds-button_neutral" onclick={handleCancel}>Cancel</button>
+            </footer>
+        </div>
+    </section>
+    <div class="slds-backdrop slds-backdrop_open" role="presentation"></div>
+
+    <!-- CREATE/EDIT OVERLAY MODAL -->
+    <template lwc:if={isFormModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true" class="slds-modal slds-fade-in-open slds-modal_small form-overlay-modal" style="z-index: 10000;">
+            <div class="slds-modal__container" style="margin-top: 80px;">
+                <header class="slds-modal__header">
+                    <h2 class="slds-text-heading_medium">{formModalTitle}</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    
+                    <lightning-record-edit-form 
+                        object-api-name="Marketing_Dictionary__c" 
+                        record-id={selectedRecordId}
+                        record-type-id={selectedRecordTypeId}
+                        onsuccess={handleFormSuccess}
+                        onerror={handleFormError}
+                        class="dictionary-edit-form">
+                        
+                        <lightning-messages></lightning-messages>
+
+                        <!-- Form fields structured exactly like your layouts -->
+                        <div class="slds-grid slds-wrap">
+                            <!-- Dictionary Name -->
+                            <div class="slds-col slds-size_1-of-1 slds-p-around_x-small">
+                                <lightning-input-field field-name="Name" required></lightning-input-field>
+                            </div>
+
+                            <!-- Channel Fields -->
+                            <template lwc:if={isChannelSelected}>
+                                <div class="slds-col slds-size_1-of-1 slds-p-around_x-small">
+                                    <lightning-input-field field-name="Channels__c" required></lightning-input-field>
+                                </div>
+                            </template>
+
+                            <!-- Sales Process Fields -->
+                            <template lwc:if={isSalesProcessSelected}>
+                                <div class="slds-col slds-size_1-of-1 slds-p-around_x-small">
+                                    <lightning-input-field field-name="Sales_Process_Type__c" required></lightning-input-field>
+                                </div>
+                            </template>
+
+                            <!-- Topic Fields -->
+                            <template lwc:if={isTopicSelected}>
+                                <div class="slds-col slds-size_1-of-1 slds-p-around_x-small">
+                                    <lightning-input-field field-name="Topic_Goal__c" required></lightning-input-field>
+                                </div>
+                                <div class="slds-col slds-size_1-of-1 slds-p-around_x-small">
+                                    <lightning-input-field field-name="Topic_Group__c"></lightning-input-field>
+                                </div>
+                                <div class="slds-col slds-size_1-of-1 slds-p-around_x-small">
+                                    <lightning-input-field field-name="Topic_Description__c"></lightning-input-field>
+                                </div>
+                            </template>
+                        </div>
+
+                        <button type="submit" class="slds-hide submit-btn-ref"></button>
+                    </lightning-record-edit-form>
+
+                </div>
+                <footer class="slds-modal__footer">
+                    <button class="slds-button slds-button_neutral" onclick={handleCloseFormModal}>Cancel</button>
+                    <button class="slds-button slds-button_brand" onclick={handleSaveForm}>Save Entry</button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open" style="z-index: 9999;" role="presentation"></div>
+    </template>
+</template>

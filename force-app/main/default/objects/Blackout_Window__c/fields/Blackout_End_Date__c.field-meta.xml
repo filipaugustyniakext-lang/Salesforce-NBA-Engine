@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Blackout_End_Date__c</fullName>
+    <description>End date of the blackout range (inclusive). Leave empty for a single-day blackout.</description>
+    <label>Blackout End Date</label>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Date</type>
+</CustomField>

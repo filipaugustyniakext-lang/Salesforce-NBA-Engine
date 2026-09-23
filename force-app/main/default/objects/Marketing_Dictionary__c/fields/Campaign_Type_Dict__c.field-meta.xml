@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Campaign_Type_Dict__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description>For Campaign Group records: Id-based lookup to the Campaign Type dictionary entry this group belongs to. Determines which campaigns (by Activation_Type__c) may select this Campaign Group.</description>
+    <inlineHelpText>Select the Campaign Type this Campaign Group belongs to. Only Campaign Type dictionary entries are selectable.</inlineHelpText>
+    <label>Campaign Type (Dictionary)</label>
+    <lookupFilter>
+        <active>true</active>
+        <errorMessage>Only Campaign Type dictionary entries are allowed.</errorMessage>
+        <filterItems>
+            <field>Marketing_Dictionary__c.Dictionary_Sub_Type__c</field>
+            <operation>equals</operation>
+            <value>Campaign Type</value>
+        </filterItems>
+        <isOptional>false</isOptional>
+    </lookupFilter>
+    <referenceTo>Marketing_Dictionary__c</referenceTo>
+    <relationshipLabel>Campaign Groups</relationshipLabel>
+    <relationshipName>Campaign_Groups_by_Type</relationshipName>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <type>Lookup</type>
+</CustomField>

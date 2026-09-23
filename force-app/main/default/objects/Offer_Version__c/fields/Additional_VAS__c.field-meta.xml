@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Additional_VAS__c</fullName>
+    <description>Rating of the range of additional value-added services included with credit card offers.</description>
+    <label>Additional VAS</label>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>none</fullName>
+                <default>false</default>
+                <label>none</label>
+            </value>
+            <value>
+                <fullName>poor</fullName>
+                <default>false</default>
+                <label>poor</label>
+            </value>
+            <value>
+                <fullName>fair</fullName>
+                <default>false</default>
+                <label>fair</label>
+            </value>
+            <value>
+                <fullName>good</fullName>
+                <default>false</default>
+                <label>good</label>
+            </value>
+            <value>
+                <fullName>excellent</fullName>
+                <default>false</default>
+                <label>excellent</label>
+            </value>
+            <value>
+                <fullName>outstanding</fullName>
+                <default>false</default>
+                <label>outstanding</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

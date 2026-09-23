@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Description__c</fullName>
+    <description>Optional context explaining the source or regulatory basis for this reference value (e.g. NBP rate, internal risk policy).</description>
+    <inlineHelpText>Optionally describe the source or reason for this value (e.g. NBP base rate, bank policy, regulatory requirement).</inlineHelpText>
+    <label>Description</label>
+    <length>2000</length>
+    <trackTrending>false</trackTrending>
+    <type>LongTextArea</type>
+    <visibleLines>3</visibleLines>
+</CustomField>

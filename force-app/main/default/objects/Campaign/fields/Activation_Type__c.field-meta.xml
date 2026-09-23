@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Activation_Type__c</fullName>
+    <label>Activation Type</label>
+    <required>false</required>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Always-on</fullName>
+                <default>false</default>
+                <label>Always-on</label>
+            </value>
+            <value>
+                <fullName>One-Off</fullName>
+                <default>false</default>
+                <label>One-Off</label>
+            </value>
+            <value>
+                <fullName>Triggered</fullName>
+                <default>false</default>
+                <label>Triggered</label>
+            </value>
+            <value>
+                <fullName>Emergency</fullName>
+                <default>false</default>
+                <label>Emergency</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

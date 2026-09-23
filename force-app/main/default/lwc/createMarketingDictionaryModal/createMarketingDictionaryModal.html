@@ -1,0 +1,96 @@
+<template>
+    <section role="dialog" tabindex="-1" aria-modal="true" class="slds-modal slds-fade-in-open slds-modal_small custom-dict-modal">
+        <div class="slds-modal__container">
+            
+            <template lwc:if={isLoading}>
+                <lightning-spinner alt="Committing dictionary row..." size="medium" variant="brand"></lightning-spinner>
+            </template>
+
+            <header class="slds-modal__header custom-modal-header">
+                <h2 class="slds-text-heading_medium header-title">New Marketing Dictionary Entry</h2>
+            </header>
+
+            <div class="slds-modal__content slds-p-around_large custom-modal-body">
+                
+                <div class="slds-form-element slds-m-bottom_large">
+                    <label class="slds-form-element__label custom-field-label">1. Select Record Type</label>
+                    <div class="record-type-pill-deck">
+                        <template for:each={recordTypeOptions} for:item="rt">
+                            <div key={rt.value} class={rt.className} data-value={rt.value} onclick={handleRecordTypeChange}>
+                                <lightning-icon icon-name={rt.icon} size="small" class="rt-pill-icon"></lightning-icon>
+                                <span class="rt-pill-label">{rt.label}</span>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <hr class="section-divider" />
+
+                <template lwc:if={selectedRecordTypeName}>
+                    <lightning-record-edit-form 
+                        object-api-name="Marketing_Dictionary__c" 
+                        record-type-id={selectedRecordTypeId}
+                        onsubmit={handleSubmit}
+                        onsuccess={handleSuccess}
+                        onerror={handleFormError}>
+                        
+                        <lightning-messages></lightning-messages>
+
+                        <div class="slds-m-bottom_medium custom-form-row">
+                            <label class="custom-input-field-label">2. Dictionary Name <abbr class="slds-required" title="required">*</abbr></label>
+                            <lightning-input-field field-name="Name" variant="label-hidden" required class="custom-form-input"></lightning-input-field>
+                        </div>
+
+                        <template lwc:if={isChannels}>
+                            <div class="slds-m-bottom_medium custom-form-row animate-fade-in">
+                                <label class="custom-input-field-label">3. Channels</label>
+                                <lightning-input-field field-name="Channels__c" variant="label-hidden" class="custom-form-input"></lightning-input-field>
+                            </div>
+                        </template>
+
+                        <template lwc:if={isSalesProcess}>
+                            <div class="slds-m-bottom_medium custom-form-row animate-fade-in">
+                                <label class="custom-input-field-label">3. Sales Process Type</label>
+                                <lightning-input-field field-name="Sales_Process_Type__c" variant="label-hidden" class="custom-form-input"></lightning-input-field>
+                            </div>
+                        </template>
+
+                        <template lwc:if={isTopics}>
+                            <div class="slds-m-bottom_medium custom-form-row animate-fade-in">
+                                <label class="custom-input-field-label">3. Topic (Goal)</label>
+                                <lightning-input-field field-name="Topic_Goal__c" variant="label-hidden" class="custom-form-input"></lightning-input-field>
+                            </div>
+
+                            <div class="slds-m-bottom_medium custom-form-row animate-fade-in">
+                                <label class="custom-input-field-label">4. Topic Description</label>
+                                <lightning-input-field field-name="Topic_Description__c" variant="label-hidden" class="custom-form-input"></lightning-input-field>
+                            </div>
+
+                            <div class="slds-m-bottom_medium custom-form-row animate-fade-in">
+                                <label class="custom-input-field-label">5. Topic Group</label>
+                                <lightning-input-field field-name="Topic_Group__c" variant="label-hidden" class="custom-form-input"></lightning-input-field>
+                            </div>
+                        </template>
+
+                        <button type="submit" class="slds-hide submit-hidden-trigger"></button>
+                    </lightning-record-edit-form>
+                </template>
+
+                <template lwc:else>
+                    <div class="fallback-empty-state">
+                        <lightning-icon icon-name="utility:assignment" size="large" class="fallback-icon"></lightning-icon>
+                        <p>Please select an operational classification track above to reveal field configurations.</p>
+                    </div>
+                </template>
+
+            </div>
+
+            <footer class="slds-modal__footer custom-modal-footer">
+                <button class="pill-action-btn secondary-pill" onclick={handleCancel}>Cancel</button>
+                <button class="pill-action-btn primary-pill slds-m-left_small" onclick={handleFormSubmitTrigger} disabled={isSaveDisabled}>Save</button>
+            </footer>
+
+        </div>
+    </section>
+    <div class="slds-backdrop slds-backdrop_open" role="presentation"></div>
+</template>

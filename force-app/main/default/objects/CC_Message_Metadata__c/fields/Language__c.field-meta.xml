@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Language__c</fullName>
+    <description>The language variant of this message copy, allowing multiple language versions of the same message to exist in parallel.</description>
+    <inlineHelpText>Select the language for this copy variant (e.g. PL, EN).</inlineHelpText>
+    <label>Language</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>PL</fullName>
+                <default>true</default>
+                <label>PL</label>
+            </value>
+            <value>
+                <fullName>EN</fullName>
+                <default>false</default>
+                <label>EN</label>
+            </value>
+            <value>
+                <fullName>ES</fullName>
+                <default>false</default>
+                <label>ES</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

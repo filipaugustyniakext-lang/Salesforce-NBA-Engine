@@ -1,0 +1,925 @@
+<template>
+    <div class="vtab-layout">
+
+        <!-- Vertical nav sidebar -->
+        <nav class="vtab-sidebar" role="tablist" aria-orientation="vertical">
+            <button role="tab" class={vtabClass.campaignTypes} data-tab="campaignTypes" onclick={handleSubTabClick}
+                aria-selected={vtabSelected.campaignTypes}>
+                <lightning-icon icon-name="utility:campaign" size="x-small" class="vtab-icon" alternative-text=""></lightning-icon>
+                Campaign Types
+            </button>
+            <button role="tab" class={vtabClass.scorings} data-tab="scorings" onclick={handleSubTabClick}
+                aria-selected={vtabSelected.scorings}>
+                <lightning-icon icon-name="utility:rating" size="x-small" class="vtab-icon" alternative-text=""></lightning-icon>
+                Scoring Models
+            </button>
+            <button role="tab" class={vtabClass.tiers} data-tab="tiers" onclick={handleSubTabClick}
+                aria-selected={vtabSelected.tiers}>
+                <lightning-icon icon-name="utility:priority" size="x-small" class="vtab-icon" alternative-text=""></lightning-icon>
+                Tiers
+            </button>
+            <button role="tab" class={vtabClass.topics} data-tab="topics" onclick={handleSubTabClick}
+                aria-selected={vtabSelected.topics}>
+                <lightning-icon icon-name="utility:topic" size="x-small" class="vtab-icon" alternative-text=""></lightning-icon>
+                Topics
+            </button>
+            <button role="tab" class={vtabClass.activationPaths} data-tab="activationPaths" onclick={handleSubTabClick}
+                aria-selected={vtabSelected.activationPaths}>
+                <lightning-icon icon-name="utility:routing_offline" size="x-small" class="vtab-icon" alternative-text=""></lightning-icon>
+                Activation Paths
+            </button>
+            <button role="tab" class={vtabClass.salesProcessTypes} data-tab="salesProcessTypes" onclick={handleSubTabClick}
+                aria-selected={vtabSelected.salesProcessTypes}>
+                <lightning-icon icon-name="utility:process" size="x-small" class="vtab-icon" alternative-text=""></lightning-icon>
+                Sales Process Types
+            </button>
+        </nav>
+
+        <!-- Content panel -->
+        <div class="vtab-content" role="tabpanel">
+
+        <!-- ══════════════════════════════════════════════════════════
+             A. CAMPAIGN TYPES
+        ══════════════════════════════════════════════════════════ -->
+        <template lwc:if={isTab.campaignTypes}>
+            <div class="slds-p-around_small">
+                <div class="cd-toolbar slds-m-bottom_small">
+                    <h2 class="slds-text-heading_small">
+                        Campaign Types
+                        <span class="slds-badge slds-badge_lightest slds-m-left_x-small">{campaignTypeCount}</span>
+                    </h2>
+                    <lightning-button label="Add Campaign Type" icon-name="utility:add" variant="brand"
+                        onclick={handleNewCampaignType}>
+                    </lightning-button>
+                </div>
+
+                <template lwc:if={isLoading}>
+                    <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
+                </template>
+                <template lwc:elseif={hasCampaignTypes}>
+                    <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_striped">
+                        <thead>
+                            <tr class="slds-line-height_reset">
+                                <th><span class="slds-truncate">Name</span></th>
+                                <th class="cd-col-flag slds-text-align_center">Include in Emergency</th>
+                                <th class="cd-col-flag slds-text-align_center">Defines Groups</th>
+                                <th class="action-col"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template for:each={campaignTypes} for:item="ct">
+                                <tr key={ct.Id}>
+                                    <td class="slds-truncate">{ct.Name}</td>
+                                    <td class="slds-text-align_center cd-col-flag">
+                                        <template lwc:if={ct.Include_In_Emergency__c}>
+                                            <lightning-icon icon-name="utility:check" size="xx-small"
+                                                alternative-text="Yes" class="cd-check-icon">
+                                            </lightning-icon>
+                                        </template>
+                                    </td>
+                                    <td class="slds-text-align_center cd-col-flag">
+                                        <template lwc:if={ct.Define_Campaign_Groups__c}>
+                                            <lightning-icon icon-name="utility:check" size="xx-small"
+                                                alternative-text="Yes" class="cd-check-icon">
+                                            </lightning-icon>
+                                        </template>
+                                    </td>
+                                    <td class="action-col">
+                                        <lightning-button-icon icon-name="utility:edit" variant="border-filled"
+                                            size="x-small" alternative-text="Edit" title="Edit"
+                                            data-id={ct.Id} onclick={handleEditCampaignType}
+                                            class="slds-m-right_xx-small">
+                                        </lightning-button-icon>
+                                        <lightning-button-icon icon-name="utility:delete" variant="border-filled"
+                                            size="x-small" alternative-text="Delete" title="Delete"
+                                            data-id={ct.Id} data-name={ct.Name} onclick={handleDeleteCampaignType}>
+                                        </lightning-button-icon>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </template>
+                <template lwc:else>
+                    <p class="slds-text-body_small slds-text-color_weak">No campaign types defined yet.</p>
+                </template>
+
+                <!-- Campaign Groups per type (only for types that define groups) -->
+                <template lwc:if={hasCampaignGroupTypes}>
+                    <div class="slds-m-top_large">
+                        <h3 class="slds-text-title_caps slds-text-color_weak slds-m-bottom_x-small">Campaign Groups</h3>
+                        <template for:each={campaignTypeGroups} for:item="ctg">
+                            <div key={ctg.Id} class="cd-group-block slds-box slds-box_x-small slds-m-bottom_x-small">
+                                <div class="cd-section-header slds-m-bottom_x-small">
+                                    <h4 class="slds-text-body_regular slds-text-title_bold">{ctg.Name}</h4>
+                                    <lightning-button label="Add Campaign Group" icon-name="utility:add" variant="neutral" size="small"
+                                        data-type-id={ctg.Id} onclick={handleNewCampaignGroup}>
+                                    </lightning-button>
+                                </div>
+                                <template lwc:if={ctg.hasGroups}>
+                                    <div class="slds-grid slds-wrap slds-gutters_xx-small">
+                                        <template for:each={ctg.groups} for:item="g">
+                                            <div key={g.Id} class="slds-col slds-no-flex slds-m-bottom_xx-small">
+                                                <span class="slds-badge cd-group-badge">
+                                                    {g.Name}
+                                                    <lightning-button-icon icon-name="utility:edit" variant="bare"
+                                                        size="xx-small" alternative-text="Edit" title="Edit group"
+                                                        data-id={g.Id} onclick={handleEditCampaignGroup}
+                                                        class="slds-m-left_xx-small cd-group-badge-action">
+                                                    </lightning-button-icon>
+                                                    <lightning-button-icon icon-name="utility:close" variant="bare"
+                                                        size="xx-small" alternative-text="Delete" title="Delete group"
+                                                        data-id={g.Id} data-name={g.Name} onclick={handleDeleteCampaignRecord}
+                                                        class="slds-m-left_xx-small cd-group-badge-action">
+                                                    </lightning-button-icon>
+                                                </span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+                                <template lwc:else>
+                                    <p class="slds-text-body_small slds-text-color_weak">No groups defined for this type yet.</p>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+            </div>
+        </template>
+
+        <!-- ══════════════════════════════════════════════════════════
+             B. Scorings
+        ══════════════════════════════════════════════════════════ -->
+        <template lwc:if={isTab.scorings}>
+            <div class="slds-p-around_small">
+                <div class="cd-toolbar slds-m-bottom_small">
+                    <h2 class="slds-text-heading_small">
+                        Campaign Scoring Models
+                        <span class="slds-badge slds-badge_lightest slds-m-left_x-small">{ScoringsCount}</span>
+                    </h2>
+                    <lightning-button label="Add Model Definition" icon-name="utility:add" variant="brand"
+                        onclick={handleNewScoring}>
+                    </lightning-button>
+                </div>
+
+                <template lwc:if={isLoading}>
+                    <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
+                </template>
+                <template lwc:elseif={hasScorings}>
+                    <p class="slds-text-body_small slds-text-color_weak">Scorings UI will occur here.</p>
+                </template>
+                <template lwc:else>
+                    <p class="slds-text-body_small slds-text-color_weak">No scorings defined yet.</p>
+                </template>
+            </div>
+        </template>
+
+        <!-- ══════════════════════════════════════════════════════════
+             C. TIERS
+        ══════════════════════════════════════════════════════════ -->
+        <template lwc:if={isTab.tiers}>
+            <div class="slds-p-around_small">
+                <div class="cd-toolbar slds-m-bottom_small">
+                    <h2 class="slds-text-heading_small">
+                        Campaign Tiers
+                        <span class="slds-badge slds-badge_lightest slds-m-left_x-small">{tierCount}</span>
+                    </h2>
+                    <lightning-button label="Add Tier" icon-name="utility:add" variant="brand"
+                        onclick={handleNewTier}>
+                    </lightning-button>
+                </div>
+
+                <template lwc:if={isLoading}>
+                    <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
+                </template>
+                <template lwc:elseif={hasTiers}>
+                    <div class="tier-grid">
+                        <template for:each={tiers} for:item="tier">
+                            <div key={tier.Id} class="tier-card">
+                                <div class="tier-card__header">
+                                    <div class="tier-card__number">Tier {tier.Tier_Number__c}</div>
+                                    <div class="tier-card__actions">
+                                        <lightning-button-icon icon-name="utility:edit" variant="bare"
+                                            size="x-small" alternative-text="Edit" title="Edit"
+                                            data-id={tier.Id} onclick={handleEditTier}>
+                                        </lightning-button-icon>
+                                        <lightning-button-icon icon-name="utility:delete" variant="bare"
+                                            size="x-small" alternative-text="Delete" title="Delete"
+                                            data-id={tier.Id} data-num={tier.Tier_Number__c} onclick={handleDeleteTier}
+                                            class="slds-m-left_xx-small">
+                                        </lightning-button-icon>
+                                    </div>
+                                </div>
+                                <template lwc:if={tier.Description__c}>
+                                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small tier-card__desc">{tier.Description__c}</p>
+                                </template>
+                                <template lwc:if={tier.hasTypes}>
+                                    <div class="tier-type-chips slds-m-top_xx-small">
+                                        <template for:each={tier.typeChips} for:item="tc">
+                                            <span key={tc} class="slds-badge slds-badge_lightest tier-type-chip">{tc}</span>
+                                        </template>
+                                    </div>
+                                </template>
+                                <div class="tier-attrs slds-m-top_x-small">
+                                    <template for:each={tier.attrRows} for:item="attr">
+                                        <div key={attr.label} class="tier-attr-row">
+                                            <span class="tier-attr-label">{attr.label}</span>
+                                            <span class={attr.badgeClass}>{attr.value}</span>
+                                        </div>
+                                    </template>
+                                </div>
+                                <template lwc:if={tier.hasExclusions}>
+                                    <div class="tier-exclusions slds-m-top_x-small">
+                                        <p class="slds-text-body_small slds-text-title_caps slds-text-color_weak">Exclusions</p>
+                                        <div class="tier-excl-chips slds-m-top_xx-small">
+                                            <template for:each={tier.exclusionChips} for:item="chip">
+                                                <span key={chip} class="slds-badge tier-excl-chip">{chip}</span>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+                <template lwc:else>
+                    <p class="slds-text-body_small slds-text-color_weak">No tiers defined yet.</p>
+                </template>
+            </div>
+        </template>
+
+        <!-- ══════════════════════════════════════════════════════════
+             D. TOPICS
+        ══════════════════════════════════════════════════════════ -->
+        <template lwc:if={isTab.topics}>
+            <div class="slds-p-around_small">
+                <!-- Topic Groups sub-section -->
+                <div class="cd-section-header slds-m-bottom_x-small">
+                    <h3 class="slds-text-title_caps slds-text-color_weak">Topic Groups</h3>
+                    <lightning-button label="Add Topic Group" icon-name="utility:add" variant="neutral" size="small"
+                        onclick={handleNewTopicGroup}>
+                    </lightning-button>
+                </div>
+                <template lwc:if={hasTopicGroups}>
+                    <div class="slds-grid slds-wrap slds-gutters_xx-small slds-m-bottom_medium">
+                        <template for:each={topicGroups} for:item="tg">
+                            <div key={tg.Id} class="slds-col slds-no-flex slds-m-bottom_xx-small">
+                                <span class="slds-badge cd-group-badge">
+                                    {tg.Name}
+                                    <lightning-button-icon icon-name="utility:edit" variant="bare"
+                                        size="xx-small" alternative-text="Edit" title="Edit group"
+                                        data-id={tg.Id} onclick={handleEditTopicGroup}
+                                        class="slds-m-left_xx-small cd-group-badge-action">
+                                    </lightning-button-icon>
+                                    <lightning-button-icon icon-name="utility:close" variant="bare"
+                                        size="xx-small" alternative-text="Delete" title="Delete group"
+                                        data-id={tg.Id} data-name={tg.Name} onclick={handleDeleteTopicGroup}
+                                        class="slds-m-left_xx-small cd-group-badge-action">
+                                    </lightning-button-icon>
+                                </span>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+                <template lwc:else>
+                    <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_medium">No topic groups yet.</p>
+                </template>
+
+                <!-- Topics list -->
+                <div class="cd-section-header slds-m-bottom_x-small">
+                    <h3 class="slds-text-title_caps slds-text-color_weak">
+                        Topics
+                        <span class="slds-badge slds-badge_lightest slds-m-left_x-small">{topicCount}</span>
+                    </h3>
+                    <div class="slds-grid slds-gutters_x-small">
+                        <div class="slds-col slds-no-flex">
+                            <lightning-input type="search" label="Filter" variant="label-hidden"
+                                placeholder="Search topics..." value={topicSearch}
+                                onchange={handleTopicSearch} class="cd-search-input">
+                            </lightning-input>
+                        </div>
+                        <div class="slds-col slds-no-flex">
+                            <lightning-button label="Add Topic" icon-name="utility:add" variant="brand"
+                                onclick={handleNewTopic}>
+                            </lightning-button>
+                        </div>
+                    </div>
+                </div>
+
+                <template lwc:if={hasTopics}>
+                    <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_striped">
+                        <thead>
+                            <tr class="slds-line-height_reset">
+                                <th style="width:28%"><span class="slds-truncate">Topic Name</span></th>
+                                <th style="width:18%"><span class="slds-truncate">Group</span></th>
+                                <th><span class="slds-truncate">Description</span></th>
+                                <th class="action-col"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template for:each={filteredTopics} for:item="tp">
+                                <tr key={tp.Id}>
+                                    <td class="slds-truncate">{tp.Name}</td>
+                                    <td>
+                                        <template lwc:if={tp.Topic_Group_Dict__r.Name}>
+                                            <span class="slds-badge cd-group-badge-sm">{tp.Topic_Group_Dict__r.Name}</span>
+                                        </template>
+                                    </td>
+                                    <td class="cd-col-desc slds-truncate">{tp.Topic_Description__c}</td>
+                                    <td class="action-col">
+                                        <lightning-button-icon icon-name="utility:edit" variant="border-filled"
+                                            size="x-small" alternative-text="Edit" title="Edit"
+                                            data-id={tp.Id} onclick={handleEditTopic}
+                                            class="slds-m-right_xx-small">
+                                        </lightning-button-icon>
+                                        <lightning-button-icon icon-name="utility:delete" variant="border-filled"
+                                            size="x-small" alternative-text="Delete" title="Delete"
+                                            data-id={tp.Id} data-name={tp.Name} onclick={handleDeleteCampaignRecord}>
+                                        </lightning-button-icon>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">{topicCountLabel}</p>
+                </template>
+                <template lwc:else>
+                    <p class="slds-text-body_small slds-text-color_weak">No topics defined yet.</p>
+                </template>
+            </div>
+        </template>
+
+        <!-- ══════════════════════════════════════════════════════════
+             E. ACTIVATION PATHS
+        ══════════════════════════════════════════════════════════ -->
+        <template lwc:if={isTab.activationPaths}>
+            <div class="slds-p-around_small">
+                <div class="cd-toolbar slds-m-bottom_small">
+                    <div>
+                        <h2 class="slds-text-heading_small">Activation Paths</h2>
+                        <p class="slds-text-body_small slds-text-color_weak">
+                            Active paths share 100% of baseline distribution.
+                            Sum of active path percentages: <strong>{activePathsSum}%</strong>
+                            <template lwc:if={pathSumWarning}>
+                                <lightning-icon icon-name="utility:warning" size="xx-small"
+                                    variant="warning" class="slds-m-left_xx-small" alternative-text="Warning">
+                                </lightning-icon>
+                                <span class="cd-warn-text"> exceeds 100%</span>
+                            </template>
+                        </p>
+                    </div>
+                    <div class="slds-grid slds-gutters_x-small">
+                        <div class="slds-col slds-no-flex">
+                            <lightning-button label="Allocate Equally" icon-name="utility:share" variant="neutral"
+                                onclick={handleAllocateEqually} disabled={noActivePaths}>
+                            </lightning-button>
+                        </div>
+                        <div class="slds-col slds-no-flex">
+                            <lightning-button label="Add Path" icon-name="utility:add" variant="brand"
+                                onclick={handleNewPath}>
+                            </lightning-button>
+                        </div>
+                    </div>
+                </div>
+
+                <template lwc:if={isLoading}>
+                    <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
+                </template>
+                <template lwc:elseif={hasPaths}>
+                    <div class="path-list">
+                        <template for:each={paths} for:item="path">
+                            <div key={path.Id} class={path.cardClass}>
+                                <div class="path-card__left">
+                                    <span class={path.statusBadgeClass}>{path.statusLabel}</span>
+                                    <span class="slds-text-body_regular slds-m-left_x-small">{path.Name}</span>
+                                </div>
+                                <div class="path-card__center">
+                                    <template lwc:if={path.Is_Active__c}>
+                                        <lightning-input type="number" label="Distribution %" variant="label-hidden"
+                                            min="0" max="100" step="0.01"
+                                            value={path.Distribution_Percent__c}
+                                            data-id={path.Id}
+                                            onchange={handlePathPercentChange}
+                                            class="path-pct-input">
+                                        </lightning-input>
+                                        <span class="slds-m-left_xx-small slds-text-body_small">%</span>
+                                    </template>
+                                    <template lwc:else>
+                                        <span class="slds-text-body_small slds-text-color_weak">—</span>
+                                    </template>
+                                </div>
+                                <div class="path-card__right">
+                                    <lightning-input type="toggle" label={path.toggleLabel}
+                                        checked={path.Is_Active__c}
+                                        data-id={path.Id} onchange={handlePathToggle}
+                                        message-toggle-active="Active" message-toggle-inactive="Inactive"
+                                        class="path-toggle">
+                                    </lightning-input>
+                                    <lightning-button-icon icon-name="utility:edit" variant="border-filled"
+                                        size="x-small" alternative-text="Edit" title="Edit"
+                                        data-id={path.Id} onclick={handleEditPath}
+                                        class="slds-m-left_x-small">
+                                    </lightning-button-icon>
+                                    <lightning-button-icon icon-name="utility:delete" variant="border-filled"
+                                        size="x-small" alternative-text="Delete" title="Delete"
+                                        data-id={path.Id} data-name={path.Name} onclick={handleDeleteCampaignRecord}
+                                        class="slds-m-left_xx-small">
+                                    </lightning-button-icon>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                    <lightning-button label="Save Distribution" variant="brand" icon-name="utility:save"
+                        onclick={handleSaveDistribution} disabled={isSaving}
+                        class="slds-m-top_small">
+                    </lightning-button>
+                </template>
+                <template lwc:else>
+                    <p class="slds-text-body_small slds-text-color_weak">No activation paths defined yet.</p>
+                </template>
+            </div>
+        </template>
+
+        <!-- ══════════════════════════════════════════════════════════
+             F. SALES PROCESS TYPES
+        ══════════════════════════════════════════════════════════ -->
+        <template lwc:if={isTab.salesProcessTypes}>
+            <div class="slds-p-around_small">
+                <div class="cd-toolbar slds-m-bottom_small">
+                    <h2 class="slds-text-heading_small">
+                        Sales Process Types
+                        <span class="slds-badge slds-badge_lightest slds-m-left_x-small">{salesProcessTypeCount}</span>
+                    </h2>
+                    <lightning-button label="Add Sales Process Type" icon-name="utility:add" variant="brand"
+                        onclick={handleNewSalesProcessType}>
+                    </lightning-button>
+                </div>
+
+                <template lwc:if={hasSalesProcessTypes}>
+                    <ul class="slds-has-dividers_top-space">
+                        <template for:each={salesProcessTypes} for:item="sp">
+                            <li key={sp.Id} class="slds-item slds-grid slds-grid_vertical-align-center slds-p-vertical_xx-small">
+                                <div class="slds-col">
+                                    <span class="slds-text-body_regular">{sp.Name}</span>
+                                    <template lwc:if={sp.Topic_Description__c}>
+                                        <p class="slds-text-body_small slds-text-color_weak">{sp.Topic_Description__c}</p>
+                                    </template>
+                                </div>
+                                <div class="slds-col slds-no-flex">
+                                    <lightning-button-icon icon-name="utility:edit" variant="border-filled"
+                                        size="x-small" alternative-text="Edit" title="Edit"
+                                        data-id={sp.Id} onclick={handleEditSalesProcessType}
+                                        class="slds-m-right_xx-small">
+                                    </lightning-button-icon>
+                                    <lightning-button-icon icon-name="utility:delete" variant="border-filled"
+                                        size="x-small" alternative-text="Delete" title="Delete"
+                                        data-id={sp.Id} data-name={sp.Name} onclick={handleDeleteCampaignRecord}>
+                                    </lightning-button-icon>
+                                </div>
+                            </li>
+                        </template>
+                    </ul>
+                </template>
+                <template lwc:else>
+                    <p class="slds-text-body_small slds-text-color_weak">No sales process types defined yet.</p>
+                </template>
+            </div>
+        </template>
+
+        </div><!-- /vtab-content -->
+    </div><!-- /vtab-layout -->
+
+    <!-- ══════════════════════════════════════════════════════════
+         CAMPAIGN TYPE MODAL
+    ══════════════════════════════════════════════════════════ -->
+    <template lwc:if={isCampaignTypeModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="ct-modal-title"
+            class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <div class="slds-modal__header">
+                    <h2 id="ct-modal-title" class="slds-modal__title">{campaignTypeModalTitle}</h2>
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse"
+                        onclick={closeCampaignTypeModal} title="Close">
+                        <lightning-icon icon-name="utility:close" size="small" alternative-text="Close"></lightning-icon>
+                    </button>
+                </div>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <lightning-input label="Campaign Type Name" required value={editCampaignType.Name}
+                        data-field="Name" onchange={handleCampaignTypeFieldChange}>
+                    </lightning-input>
+                    <lightning-input type="checkbox" label="Include in Emergency"
+                        checked={editCampaignType.Include_In_Emergency__c}
+                        data-field="Include_In_Emergency__c" onchange={handleCampaignTypeCheckboxChange}
+                        class="slds-m-top_small">
+                    </lightning-input>
+                    <lightning-input type="checkbox" label="Define Campaign Groups"
+                        field-level-help="When on, campaigns of this type must pick a Campaign Group from the predefined list below."
+                        checked={editCampaignType.Define_Campaign_Groups__c}
+                        data-field="Define_Campaign_Groups__c" onchange={handleCampaignTypeCheckboxChange}
+                        class="slds-m-top_small">
+                    </lightning-input>
+                    <lightning-input label="Campaign Type Icon" placeholder="eg. utility:send" value={editCampaignType.Icon}
+                        data-field="Icon" onchange={handleCampaignTypeFieldChange}>
+                    </lightning-input>
+                </div>
+                <div class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={closeCampaignTypeModal}></lightning-button>
+                    <lightning-button label="Save" variant="brand" class="slds-m-left_x-small"
+                        onclick={handleSaveCampaignType} disabled={isSaving}>
+                    </lightning-button>
+                </div>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+    <!-- ══════════════════════════════════════════════════════════
+         CAMPAIGN GROUP MODAL
+    ══════════════════════════════════════════════════════════ -->
+    <template lwc:if={isCampaignGroupModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="cg-modal-title"
+            class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <div class="slds-modal__header">
+                    <h2 id="cg-modal-title" class="slds-modal__title">{campaignGroupModalTitle}</h2>
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse"
+                        onclick={closeCampaignGroupModal} title="Close">
+                        <lightning-icon icon-name="utility:close" size="small" alternative-text="Close"></lightning-icon>
+                    </button>
+                </div>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <lightning-input label="Group Name" required value={editCampaignGroup.Name}
+                        data-field="Name" onchange={handleCampaignGroupFieldChange}>
+                    </lightning-input>
+                    <lightning-combobox label="Campaign Type" required value={editCampaignGroup.Campaign_Type_Dict__c}
+                        options={campaignTypeOptions} placeholder="Select campaign type..."
+                        data-field="Campaign_Type_Dict__c" onchange={handleCampaignGroupFieldChange}
+                        class="slds-m-top_small">
+                    </lightning-combobox>
+                </div>
+                <div class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={closeCampaignGroupModal}></lightning-button>
+                    <lightning-button label="Save" variant="brand" class="slds-m-left_x-small"
+                        onclick={handleSaveCampaignGroup} disabled={isSaving}>
+                    </lightning-button>
+                </div>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+    <!-- ══════════════════════════════════════════════════════════
+         SCORING MODAL
+    ══════════════════════════════════════════════════════════ -->
+
+    <template lwc:if={isScoringModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="sc-modal-title"
+            class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <div class="slds-modal__header">
+                    <h2 id="sc-modal-title" class="slds-modal__title">{scoringModelModalTitle}</h2>
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse"
+                        onclick={closeScoringModal} title="Close">
+                        <lightning-icon icon-name="utility:close" size="small" alternative-text="Close"></lightning-icon>
+                    </button>
+                </div>
+                <div class="slds-modal__content slds-p-around_medium">
+
+                    <!-- Row 1: Scoring Name + Version + Description -->
+                    <div class="slds-grid slds-wrap slds-gutters_small">
+                        <div class="slds-col slds-size_6-of-12">
+                            <lightning-input type="text" label="Model Name" required
+                                value={editScoring.Scoring_Model_Name}
+                                data-field="Scoring_Model_Name" onchange={handleScoringFieldChange}>
+                            </lightning-input>
+                        </div>
+                        <div class="slds-col slds-size_6-of-12">
+                            <lightning-input type="number" label="Model Version" required min="1" step="1"
+                                value={editScoring.Scoring_Model_Version}
+                                data-field="Scoring_Model_Version" onchange={handleScoringFieldChange}>
+                            </lightning-input>
+                        </div>
+                        <div class="slds-col slds-size_6-of-12">
+                            <lightning-input type="picklist" label="Model Group" required
+                                value={editScoring.Scoring_Model_Group_Id}
+                                data-field="Scoring_Model_Group_Id" onchange={handleScoringFieldChange}>
+                            </lightning-input>
+                        </div>
+                        <div class="slds-col slds-size_6-of-12">
+                            <lightning-textarea label="Description" value={editScoring.Scoring_Model_Description}
+                                data-field="Scoring_Model_Description" onchange={handleScoringFieldChange}
+                                max-length="500" rows="2">
+                            </lightning-textarea>
+                        </div>
+                    </div>
+                    
+                    <!-- Row 1: Model Properties -->
+                     <div class="slds-grid slds-wrap slds-gutters_small scoring-section">
+                        <div class="slds-col slds-size_6-of-12">
+                            <lightning-combobox label="Topic" value={editScoring.Topic_Dict__c}
+                                options={topicOptions} placeholder="Select topic..."
+                                data-field="Topic_Dict__c" onchange={handleScoringFieldChange}
+                                class="slds-m-top_small">
+                            </lightning-combobox>
+                        </div> 
+                        <div class="slds-col slds-size_12-of-12">
+                            <div class="slds-box slds-theme_default slds-m-top_xx-small" style="border-radius: 8px; padding: 12px; margin-top: 1rem; border: 1px solid rgb(201, 201, 201);">
+                            <label class="slds-form-element__label custom-label-style" >Offering Type</label>
+                            <div class="slds-m-top_xx-small">
+                                <div class="offering-pill-deck">
+                                    <div data-value="Product Family" class="segment-item segment-selected">Product Family</div>
+                                    <div data-value="Family of Needs" class="segment-item">Family of Needs</div>
+                                </div>
+                            </div>
+                            </div>
+
+                            
+                        </div>
+                        </div>                       
+                     </div>
+                </div>
+                <div class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={closeScoringModal}></lightning-button>
+                    <lightning-button label="Save Model" variant="brand" class="slds-m-left_x-small"
+                        onclick={handleSaveScoring} disabled={isSaving}>
+                    </lightning-button>
+                </div>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+
+    <!-- ══════════════════════════════════════════════════════════
+         TIER MODAL
+    ══════════════════════════════════════════════════════════ -->
+    <template lwc:if={isTierModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="tier-modal-title"
+            class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container tier-modal-container">
+                <div class="slds-modal__header">
+                    <h2 id="tier-modal-title" class="slds-modal__title">{tierModalTitle}</h2>
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse"
+                        onclick={closeTierModal} title="Close">
+                        <lightning-icon icon-name="utility:close" size="small" alternative-text="Close"></lightning-icon>
+                    </button>
+                </div>
+                <div class="slds-modal__content slds-p-around_medium">
+
+                    <!-- Row 1: Tier number + description -->
+                    <div class="slds-grid slds-gutters_small">
+                        <div class="slds-col slds-size_2-of-12">
+                            <lightning-input type="number" label="Tier #" required min="1" step="1"
+                                value={editTier.Tier_Number__c}
+                                data-field="Tier_Number__c" onchange={handleTierFieldChange}>
+                            </lightning-input>
+                        </div>
+                        <div class="slds-col slds-size_10-of-12">
+                            <lightning-textarea label="Description" value={editTier.Description__c}
+                                data-field="Description__c" onchange={handleTierFieldChange}
+                                max-length="500" rows="2">
+                            </lightning-textarea>
+                        </div>
+                    </div>
+
+                    <!-- Campaign Types row -->
+                    <template lwc:if={hasCampaignTypes}>
+                        <div class="slds-m-top_small tier-section">
+                            <p class="tier-section-label">Supported Campaign Types</p>
+                            <div class="slds-grid slds-wrap slds-gutters_xx-small">
+                                <template for:each={campaignTypeCheckboxes} for:item="ctc">
+                                    <div key={ctc.name} class="slds-col slds-no-flex">
+                                        <lightning-input type="checkbox" label={ctc.name}
+                                            checked={ctc.checked}
+                                            data-name={ctc.name}
+                                            onchange={handleTierCampaignTypeToggle}>
+                                        </lightning-input>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- Two-column: Attributes (left) | Exclusions (right) -->
+                    <div class="slds-grid slds-gutters_medium slds-m-top_small">
+
+                        <!-- Left: Behavioral Attributes -->
+                        <div class="slds-col">
+                            <p class="tier-section-label slds-m-bottom_x-small">Behavioral Attributes</p>
+                            <div class="tier-modal-attrs">
+                                <template for:each={tierAttrFields} for:item="af">
+                                    <div key={af.field} class="tier-modal-attr-row">
+                                        <span class="tier-modal-attr-label">{af.label}</span>
+                                        <lightning-combobox label="" variant="label-hidden"
+                                            value={af.value}
+                                            options={af.options}
+                                            data-field={af.field}
+                                            onchange={handleTierAttrChange}
+                                            class="tier-attr-combo">
+                                        </lightning-combobox>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- Right: Exclusions -->
+                        <div class="slds-col">
+                            <div class="slds-grid slds-grid_vertical-align-center slds-m-bottom_x-small">
+                                <p class="tier-section-label slds-col">Allowed Exclusions</p>
+                                <div class="slds-col slds-no-flex">
+                                    <lightning-input type="checkbox" label="Select All"
+                                        checked={allExclusionsSelected}
+                                        indeterminate={someExclusionsSelected}
+                                        onchange={handleSelectAllExclusions}
+                                        class="tier-select-all">
+                                    </lightning-input>
+                                </div>
+                            </div>
+                            <div class="tier-excl-list">
+                                <template for:each={tierExclusionFields} for:item="ef">
+                                    <div key={ef.field} class="tier-excl-item">
+                                        <lightning-input type="checkbox" label={ef.label}
+                                            checked={ef.checked}
+                                            data-field={ef.field}
+                                            onchange={handleTierExclusionChange}>
+                                        </lightning-input>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+                <div class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={closeTierModal}></lightning-button>
+                    <lightning-button label="Save Tier" variant="brand" class="slds-m-left_x-small"
+                        onclick={handleSaveTier} disabled={isSaving}>
+                    </lightning-button>
+                </div>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+    <!-- ══════════════════════════════════════════════════════════
+         TOPIC GROUP MODAL
+    ══════════════════════════════════════════════════════════ -->
+    <template lwc:if={isTopicGroupModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="tg-modal-title"
+            class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <div class="slds-modal__header">
+                    <h2 id="tg-modal-title" class="slds-modal__title">{topicGroupModalTitle}</h2>
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse"
+                        onclick={closeTopicGroupModal} title="Close">
+                        <lightning-icon icon-name="utility:close" size="small" alternative-text="Close"></lightning-icon>
+                    </button>
+                </div>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <lightning-input label="Group Name" required value={editTopicGroup.Name}
+                        data-field="Name" onchange={handleTopicGroupFieldChange}>
+                    </lightning-input>
+                </div>
+                <div class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={closeTopicGroupModal}></lightning-button>
+                    <lightning-button label="Save" variant="brand" class="slds-m-left_x-small"
+                        onclick={handleSaveTopicGroup} disabled={isSaving}>
+                    </lightning-button>
+                </div>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+    <!-- ══════════════════════════════════════════════════════════
+         TOPIC MODAL
+    ══════════════════════════════════════════════════════════ -->
+    <template lwc:if={isTopicModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="tp-modal-title"
+            class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <div class="slds-modal__header">
+                    <h2 id="tp-modal-title" class="slds-modal__title">{topicModalTitle}</h2>
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse"
+                        onclick={closeTopicModal} title="Close">
+                        <lightning-icon icon-name="utility:close" size="small" alternative-text="Close"></lightning-icon>
+                    </button>
+                </div>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <lightning-input label="Topic Name" required value={editTopic.Name}
+                        data-field="Name" onchange={handleTopicFieldChange}>
+                    </lightning-input>
+                    <lightning-combobox label="Topic Group" value={editTopic.Topic_Group_Dict__c}
+                        options={topicGroupOptions} placeholder="Select group..."
+                        data-field="Topic_Group_Dict__c" onchange={handleTopicFieldChange}
+                        class="slds-m-top_small">
+                    </lightning-combobox>
+                    <lightning-textarea label="Description (optional)" value={editTopic.Topic_Description__c}
+                        data-field="Topic_Description__c" onchange={handleTopicFieldChange}
+                        class="slds-m-top_small" max-length="1000">
+                    </lightning-textarea>
+                </div>
+                <div class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={closeTopicModal}></lightning-button>
+                    <lightning-button label="Save" variant="brand" class="slds-m-left_x-small"
+                        onclick={handleSaveTopic} disabled={isSaving}>
+                    </lightning-button>
+                </div>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+    <!-- ══════════════════════════════════════════════════════════
+         ACTIVATION PATH MODAL
+    ══════════════════════════════════════════════════════════ -->
+    <template lwc:if={isPathModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="path-modal-title"
+            class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <div class="slds-modal__header">
+                    <h2 id="path-modal-title" class="slds-modal__title">{pathModalTitle}</h2>
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse"
+                        onclick={closePathModal} title="Close">
+                        <lightning-icon icon-name="utility:close" size="small" alternative-text="Close"></lightning-icon>
+                    </button>
+                </div>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <lightning-input label="Path Name" required value={editPath.Name}
+                        data-field="Name" onchange={handlePathFieldChange}>
+                    </lightning-input>
+                    <lightning-input type="checkbox" label="Active" checked={editPath.Is_Active__c}
+                        data-field="Is_Active__c" onchange={handlePathCheckboxChange}
+                        class="slds-m-top_small">
+                    </lightning-input>
+                </div>
+                <div class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={closePathModal}></lightning-button>
+                    <lightning-button label="Save" variant="brand" class="slds-m-left_x-small"
+                        onclick={handleSavePath} disabled={isSaving}>
+                    </lightning-button>
+                </div>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+    <!-- ══════════════════════════════════════════════════════════
+         SALES PROCESS TYPE MODAL
+    ══════════════════════════════════════════════════════════ -->
+    <template lwc:if={isSalesProcessTypeModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="sp-modal-title"
+            class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <div class="slds-modal__header">
+                    <h2 id="sp-modal-title" class="slds-modal__title">{salesProcessTypeModalTitle}</h2>
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse"
+                        onclick={closeSalesProcessTypeModal} title="Close">
+                        <lightning-icon icon-name="utility:close" size="small" alternative-text="Close"></lightning-icon>
+                    </button>
+                </div>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <lightning-input label="Sales Process Type Name" required value={editSalesProcessType.Name}
+                        data-field="Name" onchange={handleSalesProcessTypeFieldChange}>
+                    </lightning-input>
+                    <lightning-textarea label="Description (optional)" value={editSalesProcessType.Topic_Description__c}
+                        data-field="Topic_Description__c" onchange={handleSalesProcessTypeFieldChange}
+                        class="slds-m-top_small">
+                    </lightning-textarea>
+                </div>
+                <div class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={closeSalesProcessTypeModal}></lightning-button>
+                    <lightning-button label="Save" variant="brand" class="slds-m-left_x-small"
+                        onclick={handleSaveSalesProcessType} disabled={isSaving}>
+                    </lightning-button>
+                </div>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+    <!-- ══════════════════════════════════════════════════════════
+         DELETE CONFIRMATION
+    ══════════════════════════════════════════════════════════ -->
+    <template lwc:if={isDeleteModalOpen}>
+        <section role="alertdialog" tabindex="-1" aria-modal="true" aria-labelledby="cd-del-title"
+            class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <div class="slds-modal__header slds-theme_warning slds-theme_alert-texture">
+                    <h2 id="cd-del-title" class="slds-modal__title">Confirm Delete</h2>
+                </div>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <p>Delete <strong>{deleteTargetName}</strong>? This cannot be undone.</p>
+                </div>
+                <div class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={closeDeleteModal}></lightning-button>
+                    <lightning-button label="Delete" variant="destructive" class="slds-m-left_x-small"
+                        onclick={handleConfirmDelete}>
+                    </lightning-button>
+                </div>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+</template>

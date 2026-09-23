@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Range_Bound__c</fullName>
+    <description>For a Range reference value, indicates whether this record holds the lower bound (Min) or the upper bound (Max) of the range. Paired with Range_Key__c to reconstruct the full range.</description>
+    <inlineHelpText>Set automatically for Range reference values: Min for the lower bound record, Max for the upper bound record.</inlineHelpText>
+    <label>Range Bound</label>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Min</fullName>
+                <default>false</default>
+                <label>Min</label>
+            </value>
+            <value>
+                <fullName>Max</fullName>
+                <default>false</default>
+                <label>Max</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Additional_Parameters__c</fullName>
+    <description>Free-form extra key/value parameters captured in the Offer wizard that are not part of the predefined product-family parameter set. Stored as a JSON array of string key/value pairs.</description>
+    <label>Additional Parameters</label>
+    <length>32768</length>
+    <trackTrending>false</trackTrending>
+    <type>LongTextArea</type>
+    <visibleLines>5</visibleLines>
+</CustomField>

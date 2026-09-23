@@ -1,0 +1,144 @@
+/* ── Vertical tab layout ──────────────────────────────────────────── */
+.vtab-layout {
+    display: flex;
+    align-items: stretch;
+    border: 1px solid #e0e5ee;
+    border-radius: 0.25rem;
+    background: #fff;
+    min-height: 400px;
+}
+.vtab-sidebar {
+    flex: 0 0 200px;
+    border-right: 1px solid #e0e5ee;
+    display: flex;
+    flex-direction: column;
+    background: #f8f9fb;
+    border-radius: 0.25rem 0 0 0.25rem;
+    overflow-y: auto;
+}
+.vtab-item {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 0.75rem;
+    border: none;
+    border-bottom: 1px solid #e8ecf0;
+    border-left: 3px solid transparent;
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+    font-size: 0.8125rem;
+    color: #3e3e3c;
+    transition: background 0.1s;
+}
+.vtab-item:hover { background: #eaf0f8; }
+.vtab-item_active {
+    background: #fff;
+    border-left-color: #0176d3;
+    padding-left: calc(0.75rem - 3px);
+    font-weight: 600;
+    color: #0176d3;
+}
+.vtab-icon {
+    flex-shrink: 0;
+    --sds-c-icon-color-foreground-default: #706e6b;
+}
+.vtab-item_active .vtab-icon { --sds-c-icon-color-foreground-default: #0176d3; }
+.vtab-item:hover .vtab-icon  { --sds-c-icon-color-foreground-default: #032d60; }
+.vtab-content { flex: 1; min-width: 0; }
+
+/* Toolbar */
+.bo-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+.bo-toolbar__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.bo-search-input {
+    min-width: 200px;
+}
+
+/* Table */
+.bo-table-scroll {
+    overflow-x: auto;
+    max-height: calc(100vh - 300px);
+    overflow-y: auto;
+}
+.bo-col-date { width: 9rem; }
+.bo-col-flag { width: 5rem; text-align: center; }
+.bo-col-desc { max-width: 240px; }
+
+.bo-type-badge {
+    background: #e8f4fd;
+    color: #0176d3;
+    border: 1px solid #a8d5f5;
+}
+.bo-icon-recurring { color: #0176d3; vertical-align: middle; }
+.bo-check-icon { color: #2e844a; }
+.action-col { width: 5rem; white-space: nowrap; }
+
+/* Week grid */
+.bo-week-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 0.75rem;
+}
+
+.bo-day-card {
+    border: 1px solid #e0e5ee;
+    border-radius: 0.5rem;
+    padding: 0.625rem 0.75rem;
+    background: #fff;
+    min-height: 90px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+.bo-day-card_weekend {
+    background: #f9f9f9;
+    border-color: #ddd;
+}
+.bo-day-card_blocked {
+    border-color: #ba0517;
+    background: #fff5f5;
+}
+.bo-day-card_partial {
+    border-color: #f4c842;
+    background: #fffce8;
+}
+
+.bo-day-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.bo-day-body {
+    flex: 1;
+    display: flex;
+    align-items: center;
+}
+
+.bo-badge-blocked {
+    background: #ffd5d5;
+    color: #ba0517;
+    border: 1px solid #f5b8b8;
+    font-size: 0.7rem;
+}
+.bo-badge-partial {
+    background: #fef9e3;
+    color: #7d5800;
+    border: 1px solid #f4c842;
+    font-size: 0.7rem;
+}
+.bo-badge-open {
+    font-size: 0.7rem;
+}

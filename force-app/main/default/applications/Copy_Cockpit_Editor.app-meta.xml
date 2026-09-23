@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomApplication xmlns="http://soap.sforce.com/2006/04/metadata">
+    <defaultLandingTab>Copy_Editor</defaultLandingTab>
+    <description>Full-screen Copy message editor</description>
+    <formFactors>Large</formFactors>
+    <isNavPersonalizationDisabled>true</isNavPersonalizationDisabled>
+    <label>Copy Editor</label>
+    <tabs>Copy_Editor</tabs>
+    <uiType>Lightning</uiType>
+    <navType>Standard</navType>
+</CustomApplication>

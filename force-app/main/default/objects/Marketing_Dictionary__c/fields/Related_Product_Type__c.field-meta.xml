@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Related_Product_Type__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description>On a Product Family record, links to the Product Type dictionary entry for this product family (1-to-1).</description>
+    <inlineHelpText>Select the Product Type that this Product Family maps to.</inlineHelpText>
+    <label>Related Product Type</label>
+    <lookupFilter>
+        <active>true</active>
+        <errorMessage>Only Product Type dictionary entries are allowed.</errorMessage>
+        <filterItems>
+            <field>Marketing_Dictionary__c.Dictionary_Sub_Type__c</field>
+            <operation>equals</operation>
+            <value>Product Type</value>
+        </filterItems>
+        <isOptional>false</isOptional>
+    </lookupFilter>
+    <referenceTo>Marketing_Dictionary__c</referenceTo>
+    <relationshipLabel>Product Families (Product Type)</relationshipLabel>
+    <relationshipName>Product_Families_by_Type</relationshipName>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

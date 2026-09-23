@@ -1,0 +1,217 @@
+<template>
+    <lightning-card title="NBA Topics" icon-name="standard:campaign">
+        
+        <div class="slds-p-around_medium">
+
+            <div class="slds-grid slds-grid_align-spread slds-m-bottom_medium slds-grid_vertical-align-end">
+                
+                <div class="slds-col slds-size_1-of-3">
+                    <lightning-input
+                        type="search"
+                        label="Search Topics"
+                        placeholder="Search by topic name or description..."
+                        onchange={handleSearch}>
+                    </lightning-input>
+                </div>
+                
+                <div class="slds-col slds-grow-none">
+                    <lightning-button 
+                        label="+ Add new NBA topic" 
+                        variant="brand" 
+                        onclick={handleNewTopic}>
+                    </lightning-button>
+                </div>
+
+            </div>
+
+            <div class="slds-border_top slds-border_bottom slds-border_left slds-border_right" style="min-height: 400px;">
+                <template if:false={isEmpty}>
+                    <lightning-tree-grid
+                        columns={gridColumns}
+                        data={gridData}
+                        key-field="Id"
+                        hide-checkbox-column="true"
+                        onrowaction={handleRowAction}>
+                    </lightning-tree-grid>
+                </template>
+
+                <template if:true={isSearchEmpty}>
+                    <div class="slds-grid slds-grid_align-center slds-grid_vertical-align-center" style="height: 400px;">
+                        <div class="slds-illustration slds-illustration_small">
+                            <svg class="slds-illustration__svg" viewBox="0 0 400 250" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+                                <g class="slds-illustration__stroke-primary" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="175" cy="115" r="62"/>
+                                    <line x1="220" y1="160" x2="270" y2="210"/>
+                                </g>
+                                <g class="slds-illustration__stroke-secondary" fill="none" stroke-width="3.5" stroke-linecap="round">
+                                    <line x1="152" y1="92" x2="198" y2="138"/>
+                                    <line x1="198" y1="92" x2="152" y2="138"/>
+                                </g>
+                            </svg>
+                            <div class="slds-text-align_center">
+                                <h3 class="slds-illustration__header slds-text-heading_medium">No Results Found</h3>
+                                <p class="slds-text-body_regular slds-m-top_x-small">
+                                    No topics match &ldquo;{searchTerm}&rdquo;. Try a different search term.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <template if:true={hasNoTopics}>
+                    <div class="slds-grid slds-grid_align-center slds-grid_vertical-align-center" style="height: 400px;">
+                        <div class="slds-illustration slds-illustration_small">
+                            <svg class="slds-illustration__svg" viewBox="0 0 400 250" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+                                <g class="slds-illustration__stroke-primary" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M130 25 L240 25 L280 65 L280 225 L130 225 Z"/>
+                                    <path d="M240 25 L240 65 L280 65"/>
+                                </g>
+                                <g class="slds-illustration__stroke-secondary" fill="none" stroke-width="3" stroke-linecap="round">
+                                    <line x1="155" y1="105" x2="255" y2="105"/>
+                                    <line x1="155" y1="130" x2="255" y2="130"/>
+                                    <line x1="155" y1="155" x2="215" y2="155"/>
+                                </g>
+                            </svg>
+                            <div class="slds-text-align_center">
+                                <h3 class="slds-illustration__header slds-text-heading_medium">No NBA Topics Yet</h3>
+                                <p class="slds-text-body_regular slds-m-top_x-small">
+                                    Get started by creating your first NBA topic.
+                                </p>
+                                <div class="slds-m-top_medium">
+                                    <lightning-button
+                                        variant="brand"
+                                        label="+ Add new NBA topic"
+                                        onclick={handleNewTopic}>
+                                    </lightning-button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </lightning-card>
+
+    <template if:true={isModalOpen}>
+        <section role="dialog" tabindex="-1" class="slds-modal slds-fade-in-open slds-modal_medium" aria-modal="true">
+            <div class="slds-modal__container">
+                
+                <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse" title="Close" onclick={closeModal}>
+                    <lightning-icon icon-name="utility:close" alternative-text="close" variant="inverse" size="small"></lightning-icon>
+                    <span class="slds-assistive-text">Close</span>
+                </button>
+                <div class="slds-modal__header">
+                    <h1 class="slds-modal__title slds-hyphenate">
+                        <template if:true={selectedTopicId}>Edit NBA Topic</template>
+                        <template if:false={selectedTopicId}>New NBA Topic</template>
+                    </h1>
+                </div>
+
+                <lightning-record-edit-form 
+                    record-id={selectedTopicId} 
+                    object-api-name="Campaign"
+                    record-type-id={topicRecordTypeId}
+                    onsuccess={handleSuccess}
+                    density="comfy">
+                    
+                    <div class="slds-modal__content slds-p-around_medium">
+                        <lightning-messages></lightning-messages>
+
+                        <div class="slds-box slds-box_x-small slds-theme_shade slds-m-bottom_medium slds-grid slds-grid_vertical-align-center slds-grid_align-spread">
+                            <div class="slds-grid slds-grid_vertical-align-center">
+                                <div class="slds-m-right_small slds-p-top_xxx-small">
+                                    <lightning-progress-ring value={calculatedProgressRing} size="small"></lightning-progress-ring>
+                                </div>
+                                <div>
+                                    <span class="slds-text-title_caps slds-text-color_weak slds-m-right_x-small">Topic Score</span>
+                                    <span class="slds-text-heading_small"><b>{currentTopicScore}</b> <span class="slds-text-color_weak">/ 7</span></span>
+                                </div>
+                            </div>
+                            <div class="slds-grid slds-grid_vertical-align-center">
+                                <span class="slds-text-title_caps slds-text-color_weak slds-m-right_small">Status</span>
+                                <lightning-input type="toggle" variant="label-hidden" checked={isActive} onchange={handleActiveChange}></lightning-input>
+                                <lightning-input-field field-name="IsActive" value={isActive} class="slds-hide"></lightning-input-field>
+                            </div>
+                        </div>
+
+                        <div class="slds-grid slds-gutters">
+                            
+                            <div class="slds-col slds-size_1-of-2">
+                                <fieldset class="slds-box">
+                                    <legend class="slds-text-title_caps slds-p-horizontal_small slds-text-color_weak">Topic Properties</legend>
+                                    <lightning-input-field field-name="Name" required></lightning-input-field>
+                                    <lightning-input-field field-name="ParentId" required></lightning-input-field>
+                                    <lightning-input-field field-name="Description"></lightning-input-field>
+                                </fieldset>
+                            </div>
+                            
+                            <div class="slds-col slds-size_1-of-2">
+                                
+                                <fieldset class="slds-box slds-m-bottom_small">
+                                    <legend class="slds-text-title_caps slds-p-horizontal_small slds-text-color_weak">Score Metrics</legend>
+                                    <lightning-input type="range" label="Loyalization score" min="1" max="7" value={loyalizationScore} onchange={handleLoyalizationChange}></lightning-input>
+                                    <lightning-input type="range" label="Ease score" min="1" max="7" value={easeScore} onchange={handleEaseChange}></lightning-input>
+                                    
+                                    <lightning-input-field field-name="Topic_Loyalization_Score__c" value={loyalizationScore} class="slds-hide"></lightning-input-field>
+                                    <lightning-input-field field-name="Topic_Ease_Score__c" value={easeScore} class="slds-hide"></lightning-input-field>
+                                </fieldset>
+
+                                <fieldset class="slds-box">
+                                    <legend class="slds-text-title_caps slds-p-horizontal_small slds-text-color_weak">Time Settings</legend>
+                                    
+                                    <div class="slds-grid slds-gutters">
+                                        <div class="slds-col slds-size_1-of-2">
+                                            <lightning-input-field field-name="Topic_Start_Window_Day__c"></lightning-input-field>
+                                        </div>
+                                        <div class="slds-col slds-size_1-of-2">
+                                            <lightning-input-field field-name="Topic_End_Window_Day__c"></lightning-input-field>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="slds-m-top_x-small">
+                                        <lightning-input-field field-name="Topic_Maximum_Duration_Days__c"></lightning-input-field>
+                                    </div>
+                                </fieldset>
+
+                            </div>
+                        </div>
+
+                        <template if:true={selectedTopicId}>
+                            <div class="slds-m-top_medium slds-border_top slds-p-top_small">
+                                <div class="slds-grid slds-wrap slds-text-color_weak slds-text-body_small">
+                                    <div class="slds-col slds-size_1-of-2">
+                                        <lightning-output-field field-name="CreatedById"></lightning-output-field>
+                                        <lightning-output-field field-name="CreatedDate"></lightning-output-field>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-2">
+                                        <lightning-output-field field-name="LastModifiedById"></lightning-output-field>
+                                        <lightning-output-field field-name="LastModifiedDate"></lightning-output-field>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    <div class="slds-modal__footer slds-grid slds-grid_align-spread">
+                        <div>
+                            <template if:true={selectedTopicId}>
+                                <lightning-button 
+                                    variant="neutral" 
+                                    label="View Topic Members" 
+                                    icon-name="utility:users" 
+                                    onclick={navigateToMembers}>
+                                </lightning-button>
+                            </template>
+                        </div>
+                        <div>
+                            <lightning-button label="Cancel" onclick={closeModal} class="slds-m-right_small"></lightning-button>
+                            <lightning-button variant="brand" type="submit" label="Save Topic"></lightning-button>
+                        </div>
+                    </div>
+
+                </lightning-record-edit-form>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open" role="presentation"></div>
+    </template>
+</template>

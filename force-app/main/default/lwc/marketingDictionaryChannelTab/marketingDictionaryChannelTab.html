@@ -1,0 +1,781 @@
+<template>
+    <div class="slds-grid slds-gutters_small slds-m-bottom_small">
+        <div class="slds-col">
+            <h2 class="slds-text-heading_small">
+                Channels
+                <span class="slds-badge slds-badge_lightest slds-m-left_x-small">{channelCount}</span>
+            </h2>
+        </div>
+        <div class="slds-col slds-no-flex">
+            <lightning-button label="New Channel" icon-name="utility:add" variant="brand" onclick={handleNewChannel}></lightning-button>
+        </div>
+    </div>
+
+    <template lwc:if={isLoading}>
+        <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
+    </template>
+
+    <template lwc:elseif={hasChannels}>
+        <div class="ch-layout">
+
+            <!-- Vertical channel list -->
+            <div class="ch-sidebar">
+                <template for:each={channels} for:item="ch">
+                    <button key={ch.Id}
+                        class={ch.sidebarClass}
+                        data-id={ch.Id}
+                        onclick={handleSelectChannel}>
+                        <template lwc:if={ch.Channel_Icon__c}>
+                            <lightning-icon icon-name={ch.Channel_Icon__c} size="x-small"
+                                alternative-text={ch.Name} class="slds-m-right_x-small">
+                            </lightning-icon>
+                        </template>
+                        <span class="ch-sidebar__name">{ch.Name}</span>
+                        <span class="ch-sidebar__type slds-text-body_small">{ch.Channel_Type__c}</span>
+                    </button>
+                </template>
+            </div>
+
+            <!-- Detail panel -->
+            <div class="ch-detail">
+                <template lwc:if={activeChannel}>
+
+                    <!-- Detail header -->
+                    <div class="ch-detail__header slds-grid slds-p-around_small">
+                        <div class="slds-media slds-media_center slds-has-flexi-truncate">
+                            <template lwc:if={activeChannel.Channel_Icon__c}>
+                                <div class="slds-media__figure slds-media__figure_fixed-width slds-align_absolute-center">
+                                    <lightning-icon icon-name={activeChannel.Channel_Icon__c} size="small" alternative-text={activeChannel.Name}></lightning-icon>
+                                </div>
+                            </template>
+                            <div class="slds-media__body">
+                                <p class="slds-text-heading_small">{activeChannel.Name}</p>
+                                <p class="slds-text-body_small slds-text-color_weak">{activeChannel.Channel_Type__c}</p>
+                            </div>
+                        </div>
+                        <div class="slds-no-flex slds-button-group">
+                            <lightning-button-icon icon-name="utility:edit" variant="bare"
+                                alternative-text="Edit channel" title="Edit channel"
+                                data-id={activeChannel.Id} onclick={handleEditChannel}>
+                            </lightning-button-icon>
+                            <lightning-button-icon icon-name="utility:delete" variant="bare"
+                                alternative-text="Delete channel" title="Delete channel"
+                                data-id={activeChannel.Id} data-name={activeChannel.Name} onclick={handleDeleteChannel}>
+                            </lightning-button-icon>
+                        </div>
+                    </div>
+
+                    <!-- Inner tabs (bound to activeChannel) -->
+                    <div class="ch-detail__tabs">
+                        <lightning-tabset active-tab-value={activeChannel.activeTab} onactive={handleTabActive} data-channelid={activeChannel.Id}>
+
+                            <!-- Cooldown Rules tab -->
+                            <lightning-tab value="cooldown" label="Cooldown Rules" data-channelid={activeChannel.Id}>
+                                <div class="tab-content slds-p-around_small">
+                                    <div class="slds-grid slds-grid_vertical-align-center slds-m-bottom_x-small">
+                                        <div class="slds-col"></div>
+                                        <div class="slds-col slds-no-flex">
+                                            <lightning-button label="Add Rule" icon-name="utility:add" variant="neutral"
+                                                size="x-small" data-channelid={activeChannel.Id} onclick={handleNewCooldown}>
+                                            </lightning-button>
+                                        </div>
+                                    </div>
+                                    <template lwc:if={activeChannel.Channel_Cooldowns__r}>
+                                        <ul class="slds-has-dividers_top-space">
+                                            <template for:each={activeChannel.Channel_Cooldowns__r} for:item="cool">
+                                                <li key={cool.Id} class="slds-item slds-grid slds-grid_vertical-align-center slds-p-vertical_xx-small">
+                                                    <div class="slds-col">
+                                                        <span class="slds-badge slds-badge_lightest slds-m-right_x-small">{cool.audienceName}</span>
+                                                        <span class="slds-text-body_small slds-text-color_weak">{cool.Cooldown_Days__c} days</span>
+                                                    </div>
+                                                    <div class="slds-col slds-no-flex">
+                                                        <lightning-button-icon icon-name="utility:edit" variant="border-filled" size="x-small"
+                                                            alternative-text="Edit" title="Edit rule"
+                                                            data-coolid={cool.Id} data-channelid={activeChannel.Id}
+                                                            onclick={handleEditCooldown} class="slds-m-right_xx-small">
+                                                        </lightning-button-icon>
+                                                        <lightning-button-icon icon-name="utility:delete" variant="border-filled" size="x-small"
+                                                            alternative-text="Delete" title="Delete rule"
+                                                            data-coolid={cool.Id} data-audience={cool.audienceName}
+                                                            onclick={handleDeleteCooldown}>
+                                                        </lightning-button-icon>
+                                                    </div>
+                                                </li>
+                                            </template>
+                                        </ul>
+                                    </template>
+                                    <template lwc:else>
+                                        <p class="slds-text-body_small slds-text-color_weak">No cooldown rules yet.</p>
+                                    </template>
+                                </div>
+                            </lightning-tab>
+
+                            <!-- Banner sub-tabs (Banner channels only) -->
+                            <template lwc:if={activeChannel.isBanner}>
+
+                                <!-- Banner Types tab -->
+                                <lightning-tab value="banner-types" label="Banner Types">
+                                    <div class="tab-content slds-p-around_small">
+                                        <div class="tab-toolbar slds-m-bottom_x-small">
+                                            <div class="tab-toolbar__actions">
+                                                <lightning-button label="Add Types" icon-name="utility:add" variant="neutral"
+                                                    size="x-small" data-channelid={activeChannel.Id} onclick={handleNewBannerType}>
+                                                </lightning-button>
+                                            </div>
+                                        </div>
+                                        <template lwc:if={activeChannel.Channel_Banner_Types__r}>
+                                            <div class="placement-scroll-container">
+                                                <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_fixed-layout placement-table">
+                                                    <thead>
+                                                        <tr class="slds-line-height_reset">
+                                                            <th style="width:22%"><div class="slds-truncate">Name</div></th>
+                                                            <th style="width:20%"><div class="slds-truncate">Image</div></th>
+                                                            <th><div class="slds-truncate">Description</div></th>
+                                                            <th class="action-col"></th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <template for:each={activeChannel.Channel_Banner_Types__r} for:item="bt">
+                                                            <tr key={bt.Id}>
+                                                                <td><div class="slds-truncate slds-text-body_small" title={bt.Name}>{bt.Name}</div></td>
+                                                                <td>
+                                                                    <template lwc:if={bt.Image_URL__c}>
+                                                                        <img src={bt.Image_URL__c} alt={bt.Name} class="bt-thumb" />
+                                                                    </template>
+                                                                    <template lwc:else>
+                                                                        <span class="slds-text-body_small slds-text-color_weak">—</span>
+                                                                    </template>
+                                                                </td>
+                                                                <td><div class="placement-desc slds-text-body_small">{bt.Description__c}</div></td>
+                                                                <td class="action-col">
+                                                                    <lightning-button-icon icon-name="utility:edit" variant="border-filled" size="x-small"
+                                                                        alternative-text="Edit" title="Edit"
+                                                                        data-btid={bt.Id} data-channelid={activeChannel.Id}
+                                                                        onclick={handleEditBannerType} class="slds-m-right_xx-small">
+                                                                    </lightning-button-icon>
+                                                                    <lightning-button-icon icon-name="utility:delete" variant="border-filled" size="x-small"
+                                                                        alternative-text="Delete" title="Delete"
+                                                                        data-btid={bt.Id} data-name={bt.Name}
+                                                                        onclick={handleDeleteBannerType}>
+                                                                    </lightning-button-icon>
+                                                                </td>
+                                                            </tr>
+                                                        </template>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </template>
+                                        <template lwc:else>
+                                            <p class="slds-text-body_small slds-text-color_weak">No banner types defined.</p>
+                                        </template>
+                                    </div>
+                                </lightning-tab>
+
+                                <!-- Placeholders tab -->
+                                <lightning-tab value="placements" label="Placeholders">
+                                    <div class="tab-content slds-p-around_small">
+                                        <div class="tab-toolbar slds-m-bottom_x-small">
+                                            <lightning-input
+                                                type="search"
+                                                variant="label-hidden"
+                                                placeholder="Search placeholders..."
+                                                value={activeChannel.placementSearch}
+                                                data-channelid={activeChannel.Id}
+                                                onchange={handlePlacementSearch}
+                                                class="tab-toolbar__search">
+                                            </lightning-input>
+                                            <div class="tab-toolbar__actions">
+                                                <lightning-button label="Edit All" icon-name="utility:edit" variant="neutral"
+                                                    size="x-small" data-channelid={activeChannel.Id} onclick={handleEditAllPlacements}>
+                                                </lightning-button>
+                                                <lightning-button label="Add Placeholders" icon-name="utility:add" variant="neutral"
+                                                    size="x-small" data-channelid={activeChannel.Id} onclick={handleNewPlacement}
+                                                    class="slds-m-left_xx-small">
+                                                </lightning-button>
+                                            </div>
+                                        </div>
+                                        <template lwc:if={activeChannel.filteredPlacements}>
+                                            <div class="placement-scroll-container">
+                                                <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_fixed-layout placement-table">
+                                                    <thead>
+                                                        <tr class="slds-line-height_reset">
+                                                            <th class="sortable-col" data-channelid={activeChannel.Id} data-col="Name" onclick={handlePlacementSort}>
+                                                                <div class="slds-grid slds-grid_vertical-align-center">
+                                                                    <span class="slds-truncate">Placeholder ID</span>
+                                                                    <lightning-icon icon-name={activeChannel.sortIconName} size="xx-small" class="slds-m-left_xx-small"></lightning-icon>
+                                                                </div>
+                                                            </th>
+                                                            <th class="sortable-col" data-channelid={activeChannel.Id} data-col="App_Screen__c" onclick={handlePlacementSort}>
+                                                                <div class="slds-grid slds-grid_vertical-align-center">
+                                                                    <span class="slds-truncate">Screen</span>
+                                                                    <lightning-icon icon-name={activeChannel.sortIconScreen} size="xx-small" class="slds-m-left_xx-small"></lightning-icon>
+                                                                </div>
+                                                            </th>
+                                                            <th class="sortable-col" data-channelid={activeChannel.Id} data-col="Banner_Type__r.Name" onclick={handlePlacementSort}>
+                                                                <div class="slds-grid slds-grid_vertical-align-center">
+                                                                    <span class="slds-truncate">Type</span>
+                                                                    <lightning-icon icon-name={activeChannel.sortIconType} size="xx-small" class="slds-m-left_xx-small"></lightning-icon>
+                                                                </div>
+                                                            </th>
+                                                            <th><div class="slds-truncate">Position</div></th>
+                                                            <th class="action-col"></th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <template for:each={activeChannel.filteredPlacements} for:item="pl">
+                                                            <tr key={pl.Id}>
+                                                                <td><div class="slds-truncate slds-text-body_small" title={pl.Name}>{pl.Name}</div></td>
+                                                                <td><div class="slds-truncate slds-text-body_small" title={pl.App_Screen__c}>{pl.App_Screen__c}</div></td>
+                                                                <td><div class="slds-truncate slds-text-body_small">{pl.Banner_Type__r.Name}</div></td>
+                                                                <td><div class="placement-desc slds-text-body_small">{pl.Position_Description__c}</div></td>
+                                                                <td class="action-col">
+                                                                    <lightning-button-icon icon-name="utility:edit" variant="border-filled" size="x-small"
+                                                                        alternative-text="Edit" title="Edit"
+                                                                        data-plid={pl.Id} data-channelid={activeChannel.Id}
+                                                                        onclick={handleEditPlacement} class="slds-m-right_xx-small">
+                                                                    </lightning-button-icon>
+                                                                    <lightning-button-icon icon-name="utility:delete" variant="border-filled" size="x-small"
+                                                                        alternative-text="Delete" title="Delete"
+                                                                        data-plid={pl.Id} data-name={pl.Name}
+                                                                        onclick={handleDeletePlacement}>
+                                                                    </lightning-button-icon>
+                                                                </td>
+                                                            </tr>
+                                                        </template>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">{activeChannel.placementCountLabel}</p>
+                                        </template>
+                                        <template lwc:else>
+                                            <p class="slds-text-body_small slds-text-color_weak">No placeholders defined yet.</p>
+                                        </template>
+                                    </div>
+                                </lightning-tab>
+
+                                <!-- Intents tab -->
+                                <lightning-tab value="intents" label="Intents">
+                                    <div class="tab-content slds-p-around_small">
+                                        <div class="tab-toolbar slds-m-bottom_x-small">
+                                            <lightning-input
+                                                type="search"
+                                                variant="label-hidden"
+                                                placeholder="Search intents..."
+                                                value={activeChannel.intentSearch}
+                                                data-channelid={activeChannel.Id}
+                                                onchange={handleIntentSearch}
+                                                class="tab-toolbar__search">
+                                            </lightning-input>
+                                            <div class="tab-toolbar__actions">
+                                                <lightning-button label="Add Targets" icon-name="utility:add" variant="neutral"
+                                                    size="x-small" data-channelid={activeChannel.Id} onclick={handleNewIntentTarget}>
+                                                </lightning-button>
+                                                <lightning-button label="Edit All" icon-name="utility:edit" variant="neutral"
+                                                    size="x-small" data-channelid={activeChannel.Id} onclick={handleEditAllIntents}
+                                                    class="slds-m-left_xx-small">
+                                                </lightning-button>
+                                                <lightning-button label="Add Intents" icon-name="utility:add" variant="neutral"
+                                                    size="x-small" data-channelid={activeChannel.Id} onclick={handleNewIntent}
+                                                    class="slds-m-left_xx-small">
+                                                </lightning-button>
+                                            </div>
+                                        </div>
+                                        <template lwc:if={activeChannel.Channel_Banner_Intent_Targets__r}>
+                                            <div class="slds-grid slds-wrap slds-gutters_xx-small slds-m-bottom_small">
+                                                <template for:each={activeChannel.Channel_Banner_Intent_Targets__r} for:item="it">
+                                                    <div key={it.Id} class="slds-col slds-no-flex slds-m-bottom_xx-small">
+                                                        <span class="slds-badge intent-target-badge">
+                                                            {it.Name}
+                                                            <lightning-button-icon icon-name="utility:close" variant="bare-inverse"
+                                                                size="xx-small" alternative-text="Remove" title="Remove"
+                                                                data-itid={it.Id} data-name={it.Name}
+                                                                onclick={handleDeleteIntentTarget} class="slds-m-left_xx-small">
+                                                            </lightning-button-icon>
+                                                        </span>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </template>
+                                        <template lwc:else>
+                                            <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">No intent targets defined.</p>
+                                        </template>
+                                        <template lwc:if={activeChannel.filteredIntents}>
+                                            <div class="placement-scroll-container">
+                                                <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_fixed-layout placement-table">
+                                                    <thead>
+                                                        <tr class="slds-line-height_reset">
+                                                            <th class="sortable-col" data-channelid={activeChannel.Id} data-col="Name" onclick={handleIntentSort}>
+                                                                <div class="slds-grid slds-grid_vertical-align-center">
+                                                                    <span class="slds-truncate">Intent Value</span>
+                                                                    <lightning-icon icon-name={activeChannel.intentSortIconValue} size="xx-small" class="slds-m-left_xx-small"></lightning-icon>
+                                                                </div>
+                                                            </th>
+                                                            <th class="sortable-col" data-channelid={activeChannel.Id} data-col="Intent_Target__r.Name" onclick={handleIntentSort}>
+                                                                <div class="slds-grid slds-grid_vertical-align-center">
+                                                                    <span class="slds-truncate">Target</span>
+                                                                    <lightning-icon icon-name={activeChannel.intentSortIconTarget} size="xx-small" class="slds-m-left_xx-small"></lightning-icon>
+                                                                </div>
+                                                            </th>
+                                                            <th class="action-col"></th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <template for:each={activeChannel.filteredIntents} for:item="intent">
+                                                            <tr key={intent.Id}>
+                                                                <td><div class="slds-truncate slds-text-body_small" title={intent.Name}>{intent.Name}</div></td>
+                                                                <td><div class="slds-truncate slds-text-body_small">{intent.Intent_Target__r.Name}</div></td>
+                                                                <td class="action-col">
+                                                                    <lightning-button-icon icon-name="utility:edit" variant="border-filled" size="x-small"
+                                                                        alternative-text="Edit" title="Edit"
+                                                                        data-intentid={intent.Id} data-channelid={activeChannel.Id}
+                                                                        onclick={handleEditIntent} class="slds-m-right_xx-small">
+                                                                    </lightning-button-icon>
+                                                                    <lightning-button-icon icon-name="utility:delete" variant="border-filled" size="x-small"
+                                                                        alternative-text="Delete" title="Delete"
+                                                                        data-intentid={intent.Id} data-name={intent.Name}
+                                                                        onclick={handleDeleteIntent}>
+                                                                    </lightning-button-icon>
+                                                                </td>
+                                                            </tr>
+                                                        </template>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">{activeChannel.intentCountLabel}</p>
+                                        </template>
+                                        <template lwc:else>
+                                            <p class="slds-text-body_small slds-text-color_weak">No intents defined yet.</p>
+                                        </template>
+                                    </div>
+                                </lightning-tab>
+
+                            </template>
+
+                        </lightning-tabset>
+                    </div>
+
+                </template>
+            </div>
+
+        </div>
+    </template>
+
+    <template lwc:else>
+        <template lwc:if={isEmpty}>
+            <p class="slds-text-body_small slds-text-color_weak">No channels defined yet.</p>
+        </template>
+    </template>
+
+    <!-- Channel modal -->
+    <template lwc:if={isChannelModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true"
+                 aria-labelledby="channel-modal-heading" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header">
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse"
+                            title="Close" onclick={handleCloseChannelModal}>
+                        <lightning-icon icon-name="utility:close" size="small" alternative-text="Close"></lightning-icon>
+                    </button>
+                    <h2 id="channel-modal-heading" class="slds-modal__title">{channelModalTitle}</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <lightning-input label="Channel Name" value={editChannel.Name} required
+                        data-field="Name" onchange={handleChannelFieldChange}>
+                    </lightning-input>
+                    <div class="slds-m-top_small">
+                        <lightning-combobox label="Channel Type" value={editChannel.Channel_Type__c}
+                            options={channelTypeOptions} placeholder="Select type..."
+                            data-field="Channel_Type__c" onchange={handleChannelFieldChange}>
+                        </lightning-combobox>
+                    </div>
+                    <div class="slds-m-top_small">
+                        <lightning-input label="Channel Icon" value={editChannel.Channel_Icon__c}
+                            placeholder="e.g. utility:email"
+                            field-level-help="Enter a valid SLDS icon name — format: category:name (e.g. utility:email)"
+                            data-field="Channel_Icon__c" onchange={handleChannelFieldChange}>
+                        </lightning-input>
+                        <template lwc:if={iconPreviewName}>
+                            <div class="slds-m-top_x-small slds-grid slds-grid_vertical-align-center">
+                                <lightning-icon icon-name={iconPreviewName} size="small"
+                                    alternative-text="Preview" class="slds-m-right_x-small">
+                                </lightning-icon>
+                                <span class="slds-text-body_small slds-text-color_weak">Preview</span>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={handleCloseChannelModal}></lightning-button>
+                    <lightning-button variant="brand" label="Save" disabled={isSaving}
+                        onclick={handleSaveChannel} class="slds-m-left_x-small">
+                    </lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open" role="presentation"></div>
+    </template>
+
+    <!-- Cooldown modal -->
+    <template lwc:if={isCooldownModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true"
+                 aria-labelledby="cooldown-modal-heading" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header">
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse"
+                            title="Close" onclick={handleCloseCooldownModal}>
+                        <lightning-icon icon-name="utility:close" size="small" alternative-text="Close"></lightning-icon>
+                    </button>
+                    <h2 id="cooldown-modal-heading" class="slds-modal__title">{cooldownModalTitle}</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <lightning-combobox label="Audience Type"
+                        value={editCooldown.Audience_Type_Dict__c}
+                        options={audienceTypeOptions}
+                        placeholder="Select an Audience Type..."
+                        required
+                        data-field="Audience_Type_Dict__c"
+                        onchange={handleCooldownFieldChange}>
+                    </lightning-combobox>
+                    <div class="slds-m-top_small">
+                        <lightning-input type="number" label="Cooldown Days" value={editCooldown.Cooldown_Days__c}
+                            min="0" step="1" required
+                            data-field="Cooldown_Days__c" onchange={handleCooldownFieldChange}>
+                        </lightning-input>
+                    </div>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={handleCloseCooldownModal}></lightning-button>
+                    <lightning-button variant="brand" label="Save" disabled={isSaving}
+                        onclick={handleSaveCooldown} class="slds-m-left_x-small">
+                    </lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open" role="presentation"></div>
+    </template>
+
+    <!-- Banner Type modal -->
+    <template lwc:if={isBannerTypeModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true"
+                 aria-labelledby="bt-modal-heading" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header">
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse"
+                            title="Close" onclick={handleCloseBannerTypeModal}>
+                        <lightning-icon icon-name="utility:close" size="small" alternative-text="Close"></lightning-icon>
+                    </button>
+                    <h2 id="bt-modal-heading" class="slds-modal__title">{bannerTypeModalTitle}</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <template lwc:if={isAddBannerTypeMode}>
+                        <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
+                            Enter one banner type name per row (e.g. mainBanner, vasBanner).
+                        </p>
+                        <template for:each={bannerTypeRows} for:item="row">
+                            <div key={row.key} class="slds-grid slds-gutters_x-small slds-m-bottom_x-small slds-grid_vertical-align-end">
+                                <div class="slds-col">
+                                    <lightning-input label={row.label} value={row.name}
+                                        placeholder="e.g. mainBanner"
+                                        data-key={row.key} onchange={handleBannerTypeRowChange}>
+                                    </lightning-input>
+                                </div>
+                                <div class="slds-col slds-no-flex slds-p-bottom_xx-small">
+                                    <lightning-button-icon icon-name="utility:close" variant="bare"
+                                        alternative-text="Remove" title="Remove"
+                                        data-key={row.key} onclick={handleRemoveBannerTypeRow}
+                                        disabled={isSingleBannerTypeRow}>
+                                    </lightning-button-icon>
+                                </div>
+                            </div>
+                        </template>
+                        <lightning-button label="Add another" icon-name="utility:add" variant="neutral"
+                            onclick={handleAddBannerTypeRow} class="slds-m-top_x-small">
+                        </lightning-button>
+                    </template>
+                    <template lwc:else>
+                        <lightning-input label="Banner Type Name" value={editBannerType.Name} required
+                            placeholder="e.g. mainBanner"
+                            data-field="Name" onchange={handleEditBannerTypeFieldChange}>
+                        </lightning-input>
+                        <div class="slds-m-top_small">
+                            <lightning-input label="Image URL" value={editBannerType.Image_URL__c}
+                                placeholder="https://…"
+                                field-level-help="URL of a representative image or mockup for this banner type."
+                                data-field="Image_URL__c" onchange={handleEditBannerTypeFieldChange}>
+                            </lightning-input>
+                        </div>
+                        <div class="slds-m-top_small">
+                            <lightning-textarea label="Description" value={editBannerType.Description__c}
+                                placeholder="Describe what this banner type is used for…"
+                                data-field="Description__c" onchange={handleEditBannerTypeFieldChange}>
+                            </lightning-textarea>
+                        </div>
+                    </template>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={handleCloseBannerTypeModal}></lightning-button>
+                    <lightning-button variant="brand" label={bannerTypeSaveLabel} disabled={isSaving}
+                        onclick={handleSaveBannerTypes} class="slds-m-left_x-small">
+                    </lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open" role="presentation"></div>
+    </template>
+
+    <!-- Banner Placeholder modal -->
+    <template lwc:if={isPlacementModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true"
+                 aria-labelledby="pl-modal-heading" class="slds-modal slds-fade-in-open slds-modal_large">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header">
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse"
+                            title="Close" onclick={handleClosePlacementModal}>
+                        <lightning-icon icon-name="utility:close" size="small" alternative-text="Close"></lightning-icon>
+                    </button>
+                    <h2 id="pl-modal-heading" class="slds-modal__title">{placementModalTitle}</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <template lwc:if={isEditOnePlacementMode}>
+                        <div class="slds-grid slds-gutters_small slds-wrap">
+                            <div class="slds-col slds-size_1-of-2">
+                                <lightning-input label="Placeholder ID" value={editPlacement.Name} required
+                                    placeholder="e.g. PH_HOME_MAIN"
+                                    data-field="Name" onchange={handlePlacementFieldChange}>
+                                </lightning-input>
+                            </div>
+                            <div class="slds-col slds-size_1-of-2">
+                                <lightning-input label="App Screen" value={editPlacement.App_Screen__c}
+                                    placeholder="e.g. HOME_PAGE"
+                                    data-field="App_Screen__c" onchange={handlePlacementFieldChange}>
+                                </lightning-input>
+                            </div>
+                            <div class="slds-col slds-size_1-of-2 slds-m-top_small">
+                                <lightning-combobox label="Banner Type" value={editPlacement.Banner_Type__c}
+                                    options={activeBannerTypeOptions} placeholder="Select..."
+                                    data-field="Banner_Type__c" onchange={handlePlacementFieldChange}>
+                                </lightning-combobox>
+                            </div>
+                            <div class="slds-col slds-size_1-of-1 slds-m-top_small">
+                                <lightning-textarea label="Position Description" value={editPlacement.Position_Description__c}
+                                    placeholder="Describe where on screen this placeholder appears..."
+                                    data-field="Position_Description__c" onchange={handlePlacementFieldChange}>
+                                </lightning-textarea>
+                            </div>
+                        </div>
+                    </template>
+                    <template lwc:else>
+                        <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
+                            <template lwc:if={isEditAllPlacementMode}>Edit existing placeholders below.</template>
+                            <template lwc:else>Enter one placeholder per row.</template>
+                        </p>
+                        <template for:each={placementRows} for:item="row">
+                            <div key={row.key} class="slds-grid slds-gutters_x-small slds-m-bottom_x-small slds-grid_vertical-align-end">
+                                <div class="slds-col slds-size_3-of-12">
+                                    <lightning-input label="Placeholder ID" value={row.placeholderId}
+                                        placeholder="PH_HOME_MAIN"
+                                        data-key={row.key} data-rowfield="placeholderId"
+                                        onchange={handlePlacementRowChange}>
+                                    </lightning-input>
+                                </div>
+                                <div class="slds-col slds-size_2-of-12">
+                                    <lightning-input label="Screen" value={row.appScreen}
+                                        placeholder="HOME_PAGE"
+                                        data-key={row.key} data-rowfield="appScreen"
+                                        onchange={handlePlacementRowChange}>
+                                    </lightning-input>
+                                </div>
+                                <div class="slds-col slds-size_3-of-12">
+                                    <lightning-combobox label="Banner Type" value={row.bannerTypeId}
+                                        options={activeBannerTypeOptions} placeholder="Select..."
+                                        data-key={row.key} data-rowfield="bannerTypeId"
+                                        onchange={handlePlacementRowChange}>
+                                    </lightning-combobox>
+                                </div>
+                                <div class="slds-col slds-size_3-of-12">
+                                    <lightning-input label="Position" value={row.description}
+                                        placeholder="Where on screen..."
+                                        data-key={row.key} data-rowfield="description"
+                                        onchange={handlePlacementRowChange}>
+                                    </lightning-input>
+                                </div>
+                                <div class="slds-col slds-no-flex slds-p-bottom_xx-small">
+                                    <lightning-button-icon icon-name="utility:close" variant="bare"
+                                        alternative-text="Remove" title="Remove"
+                                        data-key={row.key} onclick={handleRemovePlacementRow}
+                                        disabled={isSinglePlacementRow}>
+                                    </lightning-button-icon>
+                                </div>
+                            </div>
+                        </template>
+                        <lightning-button label="Add row" icon-name="utility:add" variant="neutral"
+                            onclick={handleAddPlacementRow} class="slds-m-top_x-small">
+                        </lightning-button>
+                    </template>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={handleClosePlacementModal}></lightning-button>
+                    <lightning-button variant="brand" label={placementSaveLabel} disabled={isSaving}
+                        onclick={handleSavePlacement} class="slds-m-left_x-small">
+                    </lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open" role="presentation"></div>
+    </template>
+
+    <!-- Intent Target modal -->
+    <template lwc:if={isIntentTargetModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true"
+                 aria-labelledby="it-modal-heading" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header">
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse"
+                            title="Close" onclick={handleCloseIntentTargetModal}>
+                        <lightning-icon icon-name="utility:close" size="small" alternative-text="Close"></lightning-icon>
+                    </button>
+                    <h2 id="it-modal-heading" class="slds-modal__title">Add Intent Targets</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
+                        Enter one target app view name per row (e.g. Dashboard/Home, Settings, Payment).
+                    </p>
+                    <template for:each={intentTargetRows} for:item="row">
+                        <div key={row.key} class="slds-grid slds-gutters_x-small slds-m-bottom_x-small slds-grid_vertical-align-end">
+                            <div class="slds-col">
+                                <lightning-input label={row.label} value={row.name}
+                                    placeholder="e.g. Dashboard/Home"
+                                    data-key={row.key} onchange={handleIntentTargetRowChange}>
+                                </lightning-input>
+                            </div>
+                            <div class="slds-col slds-no-flex slds-p-bottom_xx-small">
+                                <lightning-button-icon icon-name="utility:close" variant="bare"
+                                    alternative-text="Remove" title="Remove"
+                                    data-key={row.key} onclick={handleRemoveIntentTargetRow}
+                                    disabled={isSingleIntentTargetRow}>
+                                </lightning-button-icon>
+                            </div>
+                        </div>
+                    </template>
+                    <lightning-button label="Add another" icon-name="utility:add" variant="neutral"
+                        onclick={handleAddIntentTargetRow} class="slds-m-top_x-small">
+                    </lightning-button>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={handleCloseIntentTargetModal}></lightning-button>
+                    <lightning-button variant="brand" label={intentTargetSaveLabel} disabled={isSaving}
+                        onclick={handleSaveIntentTargets} class="slds-m-left_x-small">
+                    </lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open" role="presentation"></div>
+    </template>
+
+    <!-- Intent modal -->
+    <template lwc:if={isIntentModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true"
+                 aria-labelledby="intent-modal-heading" class="slds-modal slds-fade-in-open slds-modal_large">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header">
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse"
+                            title="Close" onclick={handleCloseIntentModal}>
+                        <lightning-icon icon-name="utility:close" size="small" alternative-text="Close"></lightning-icon>
+                    </button>
+                    <h2 id="intent-modal-heading" class="slds-modal__title">{intentModalTitle}</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+
+                    <!-- Add mode: pick target once, paste list of intents -->
+                    <template lwc:if={isAddIntentMode}>
+                        <div class="slds-grid slds-gutters_small slds-wrap slds-m-bottom_small">
+                            <div class="slds-col slds-size_1-of-2">
+                                <lightning-combobox label="Intent Target (applies to all intents below)"
+                                    value={intentPasteTargetId}
+                                    options={activeIntentTargetOptions}
+                                    placeholder="Select target..."
+                                    onchange={handleIntentPasteTargetChange}>
+                                </lightning-combobox>
+                            </div>
+                        </div>
+                        <lightning-textarea label="Intent Values"
+                            value={intentPasteText}
+                            placeholder="Paste one intent per line, e.g.:&#10;SHOW_DASHBOARD&#10;SHOW_HISTORY&#10;SHOW_CARDS"
+                            max-length="10000"
+                            class="intent-paste-textarea"
+                            onchange={handleIntentPasteTextChange}>
+                        </lightning-textarea>
+                        <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">
+                            Each line becomes one intent record mapped to the target above.
+                        </p>
+                    </template>
+
+                    <!-- Edit-all mode: one editable row per existing intent -->
+                    <template lwc:else>
+                        <template for:each={intentRows} for:item="row">
+                            <div key={row.key} class="slds-grid slds-gutters_x-small slds-m-bottom_x-small slds-grid_vertical-align-end">
+                                <div class="slds-col slds-size_5-of-12">
+                                    <lightning-input label="Intent Value" value={row.intentValue}
+                                        placeholder="e.g. SHOW_DASHBOARD"
+                                        data-key={row.key} data-rowfield="intentValue"
+                                        onchange={handleIntentRowChange}>
+                                    </lightning-input>
+                                </div>
+                                <div class="slds-col slds-size_5-of-12">
+                                    <lightning-combobox label="Intent Target" value={row.intentTargetId}
+                                        options={activeIntentTargetOptions} placeholder="Select target..."
+                                        data-key={row.key} data-rowfield="intentTargetId"
+                                        onchange={handleIntentRowChange}>
+                                    </lightning-combobox>
+                                </div>
+                                <div class="slds-col slds-no-flex slds-p-bottom_xx-small">
+                                    <lightning-button-icon icon-name="utility:close" variant="bare"
+                                        alternative-text="Remove" title="Remove"
+                                        data-key={row.key} onclick={handleRemoveIntentRow}
+                                        disabled={isSingleIntentRow}>
+                                    </lightning-button-icon>
+                                </div>
+                            </div>
+                        </template>
+                        <lightning-button label="Add row" icon-name="utility:add" variant="neutral"
+                            onclick={handleAddIntentRow} class="slds-m-top_x-small">
+                        </lightning-button>
+                    </template>
+
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={handleCloseIntentModal}></lightning-button>
+                    <lightning-button variant="brand" label={intentSaveLabel} disabled={isSaving}
+                        onclick={handleSaveIntents} class="slds-m-left_x-small">
+                    </lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open" role="presentation"></div>
+    </template>
+
+    <!-- Delete confirmation -->
+    <template lwc:if={isDeleteModalOpen}>
+        <section role="alertdialog" tabindex="-1" aria-modal="true" aria-label="Delete confirmation"
+                 class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header slds-theme_warning">
+                    <lightning-icon icon-name="utility:warning" variant="inverse" size="small"
+                        class="slds-m-right_x-small" alternative-text="Warning">
+                    </lightning-icon>
+                    <h2 class="slds-modal__title">Delete {pendingDeleteName}?</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <p>{deleteModalMessage}</p>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={handleCancelDelete}></lightning-button>
+                    <lightning-button variant="destructive" label="Delete"
+                        onclick={handleConfirmDelete} class="slds-m-left_x-small">
+                    </lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open" role="presentation"></div>
+    </template>
+</template>

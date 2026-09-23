@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Parameter_Help_Text__c</fullName>
+    <description>End-user guidance shown as a tooltip or helper text beneath the input field in the offer wizard. Should explain what value to enter and any constraints (e.g. allowed range, format).</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Enter the help text that will be shown to marketers when filling in this parameter in the offer wizard.</inlineHelpText>
+    <label>Parameter Help Text</label>
+    <length>255</length>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Family_of_Needs_Dict__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <label>Family of Needs (Dictionary)</label>
+    <lookupFilter>
+        <active>true</active>
+        <errorMessage>Only Family of Needs dictionary entries are allowed.</errorMessage>
+        <filterItems>
+            <field>Marketing_Dictionary__c.Dictionary_Sub_Type__c</field>
+            <operation>equals</operation>
+            <value>Family of Needs</value>
+        </filterItems>
+        <isOptional>false</isOptional>
+    </lookupFilter>
+    <referenceTo>Marketing_Dictionary__c</referenceTo>
+    <relationshipLabel>Products (Family of Needs)</relationshipLabel>
+    <relationshipName>Products_by_Family_of_Needs</relationshipName>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <type>Lookup</type>
+</CustomField>

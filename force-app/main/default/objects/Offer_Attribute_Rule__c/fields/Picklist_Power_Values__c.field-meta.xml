@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Picklist_Power_Values__c</fullName>
+    <description>Stores the per-label &quot;Power of effect&quot; decimal values as JSON for a Picklist reference attribute that impacts attractiveness on this family. Maps each reference value picklist label to its weighting factor.</description>
+    <inlineHelpText>Populated automatically when a Picklist reference attribute impacts attractiveness. Holds each picklist label&apos;s Power of effect decimal as JSON.</inlineHelpText>
+    <label>Picklist Power Values</label>
+    <length>32768</length>
+    <trackTrending>false</trackTrending>
+    <type>LongTextArea</type>
+    <visibleLines>6</visibleLines>
+</CustomField>

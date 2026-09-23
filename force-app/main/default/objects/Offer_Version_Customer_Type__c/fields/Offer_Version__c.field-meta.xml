@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Offer_Version__c</fullName>
+    <description>The Offer Version this audience assignment belongs to. When the offer version is deleted, its audience junction rows are cleaned up (SetNull).</description>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <inlineHelpText>The offer version this customer-type audience row applies to.</inlineHelpText>
+    <label>Offer Version</label>
+    <referenceTo>Offer_Version__c</referenceTo>
+    <relationshipLabel>Customer Types</relationshipLabel>
+    <relationshipName>Customer_Types</relationshipName>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

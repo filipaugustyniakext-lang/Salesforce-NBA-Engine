@@ -1,0 +1,147 @@
+<template>
+    <section role="dialog" tabindex="-1" aria-modal="true" class="pm-modal-frame" onclick={handleBackdropClick}>
+        <div class="pm-modal-container" onclick={handleContainerClick}>
+
+            <template lwc:if={isLoading}>
+                <lightning-spinner alternative-text="Loading..." size="medium" variant="brand"></lightning-spinner>
+            </template>
+
+            <header class="pm-modal-header">
+                <h2 class="slds-text-heading_medium">{modalTitle}</h2>
+                <button class="slds-button slds-button_icon slds-modal__close pm-close-btn" onclick={handleClose}>
+                    <lightning-icon icon-name="utility:close" size="x-small"></lightning-icon>
+                </button>
+            </header>
+
+            <div class="pm-modal-body">
+
+                <!-- Product Name -->
+                <div class="slds-form-element slds-m-bottom_small">
+                    <label class="slds-form-element__label">
+                        <abbr class="slds-required" title="required">*</abbr>Product Name
+                    </label>
+                    <div class="slds-form-element__control">
+                        <input type="text" class="slds-input" value={draft.Name}
+                               placeholder="e.g. Cash Loan Classic"
+                               data-field="Name" oninput={handleFieldInput} />
+                    </div>
+                </div>
+
+                <!-- Product Type -->
+                <div class="slds-form-element slds-m-bottom_small">
+                    <label class="slds-form-element__label">Product Type</label>
+                    <div class="slds-form-element__control">
+                        <div class="slds-select_container">
+                            <select class="slds-select" data-field="Product_Type_Dict__c" onchange={handleSelectChange}>
+                                <option value="">— Select Product Type —</option>
+                                <template for:each={productTypeOptions} for:item="opt">
+                                    <option key={opt.value} value={opt.value} selected={opt.selected}>{opt.label}</option>
+                                </template>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Family of Needs -->
+                <div class="slds-form-element slds-m-bottom_small">
+                    <label class="slds-form-element__label">Family of Needs</label>
+                    <div class="slds-form-element__control">
+                        <div class="slds-select_container">
+                            <select class="slds-select" data-field="Family_of_Needs_Dict__c" onchange={handleFonChange}>
+                                <option value="">— Select Family of Needs —</option>
+                                <template for:each={familyOfNeedsOptions} for:item="opt">
+                                    <option key={opt.value} value={opt.value} selected={opt.selected}>{opt.label}</option>
+                                </template>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Product Family (filtered by selected FoN) -->
+                <div class="slds-form-element slds-m-bottom_small">
+                    <label class="slds-form-element__label">Product Family</label>
+                    <template lwc:if={hasFonSelected}>
+                        <div class="slds-form-element__control">
+                            <div class="slds-select_container">
+                                <select class="slds-select" data-field="Product_Family_Dict__c" onchange={handleSelectChange}>
+                                    <option value="">— Select Product Family —</option>
+                                    <template for:each={filteredProductFamilyOptions} for:item="opt">
+                                        <option key={opt.value} value={opt.value} selected={opt.selected}>{opt.label}</option>
+                                    </template>
+                                </select>
+                            </div>
+                        </div>
+                        <template lwc:if={noFamiliesForFon}>
+                            <p class="pm-hint">No product families linked to this Family of Needs in the Marketing Dictionary.</p>
+                        </template>
+                    </template>
+                    <template lwc:else>
+                        <p class="pm-hint">Select a Family of Needs first to filter Product Families.</p>
+                    </template>
+                </div>
+
+                <!-- Product Code -->
+                <div class="slds-form-element slds-m-bottom_small">
+                    <label class="slds-form-element__label">Product Code</label>
+                    <div class="slds-form-element__control">
+                        <input type="text" class="slds-input" value={draft.ProductCode}
+                               placeholder="e.g. CL-001"
+                               data-field="ProductCode" oninput={handleFieldInput} />
+                    </div>
+                </div>
+
+                <!-- Description -->
+                <div class="slds-form-element slds-m-bottom_medium">
+                    <label class="slds-form-element__label">Description</label>
+                    <div class="slds-form-element__control">
+                        <textarea class="slds-textarea" rows="3" value={draft.Description}
+                                  placeholder="Optional description..."
+                                  data-field="Description" oninput={handleFieldInput}></textarea>
+                    </div>
+                </div>
+
+                <!-- Active -->
+                <div class="slds-form-element slds-m-bottom_medium pm-checkbox-row">
+                    <label class="slds-checkbox_toggle slds-grid">
+                        <span class="slds-form-element__label slds-m-bottom_none">Active</span>
+                        <input type="checkbox" checked={draft.IsActive} onchange={handleActiveToggle} />
+                        <span class="slds-checkbox_faux_container" aria-live="assertive">
+                            <span class="slds-checkbox_faux"></span>
+                            <span class="slds-checkbox_on">Active</span>
+                            <span class="slds-checkbox_off">Inactive</span>
+                        </span>
+                    </label>
+                </div>
+
+                <!-- Customer Types (multi-select) -->
+                <div class="slds-form-element slds-m-bottom_small">
+                    <label class="slds-form-element__label">Customer Types</label>
+                    <template lwc:if={hasCustomerTypes}>
+                        <div class="pm-ct-grid">
+                            <template for:each={customerTypeList} for:item="ct">
+                                <label key={ct.Id} class={ct.pillClass}>
+                                    <input type="checkbox" checked={ct.checked}
+                                           data-ct-id={ct.Id} onchange={handleCtToggle} />
+                                    {ct.Name}
+                                </label>
+                            </template>
+                        </div>
+                    </template>
+                    <template lwc:else>
+                        <p class="pm-hint">No customer types defined in the Marketing Dictionary yet.</p>
+                    </template>
+                </div>
+
+            </div>
+
+            <footer class="pm-modal-footer">
+                <button class="slds-button slds-button_neutral" onclick={handleClose} disabled={isSaving}>Cancel</button>
+                <button class="slds-button slds-button_brand" onclick={handleSave} disabled={isSaving}>
+                    <template lwc:if={isSaving}>Saving...</template>
+                    <template lwc:else>Save</template>
+                </button>
+            </footer>
+
+        </div>
+    </section>
+</template>

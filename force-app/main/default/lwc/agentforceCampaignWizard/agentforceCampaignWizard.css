@@ -1,0 +1,1381 @@
+/* --- WIZARD PROGRESS INDICATOR (SLDS Standard) --- */
+.wizard-progress-bar {
+    padding: 1rem 2rem 2rem 2rem;
+    position: relative;
+}
+
+.wizard-progress-bar .slds-progress__list {
+    position: relative;
+    z-index: 2;
+    gap: 2rem;
+    justify-content: space-between;
+}
+
+.wizard-progress-bar .slds-progress__item {
+    position: relative;
+    flex: 1;
+}
+
+.wizard-progress-bar .slds-progress__item_content {
+    padding-top: 0.7rem;
+}
+
+.wizard-step-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: #706e6b;
+    display: block;
+    white-space: nowrap;
+}
+
+.wizard-progress-bar .slds-is-active .wizard-step-label {
+    color: #0176d3;
+    font-weight: 700;
+}
+
+.wizard-progress-bar .slds-is-completed .wizard-step-label {
+    color: #2e844a;
+    font-weight: 600;
+}
+
+.wizard-progress-bar .slds-progress__marker {
+    position: relative;
+    z-index: 3;
+}
+
+.wizard-progress-bar .slds-progress__marker_icon {
+    position: relative;
+    z-index: 3;
+    width: var(--slds-g-sizing-5);
+    height: var(--slds-g-sizing-5);
+}
+
+.step-check-icon {
+    --slds-c-icon-color-foreground-default: #ffffff;
+}
+
+.wizard-progress-bar .slds-progress-bar {
+    position: absolute;
+    top: calc(1rem + 0.5rem);
+    left: 2rem;
+    right: 2rem;
+    z-index: 1;
+}
+
+.wizard-progress-bar .slds-progress-bar__value {
+    transition: width 0.3s ease;
+}
+
+.emergency-inline-toggle {
+    height: 100%;
+    padding-bottom: 2px;
+}
+
+/* --- EXPANDABLE SECTIONS --- */
+.slds-section__title {
+    border: none !important;
+    background: transparent !important;
+}
+
+.slds-section__title-action {
+    padding: 0.5rem 0 !important;
+    color: #1b1b1b !important;
+}
+
+.slds-section__content {
+    padding-top: 0;
+}
+
+/* --- BASE DIALOG LAYOUT --- */
+.custom-modal-frame .custom-modal-container {
+    overflow: visible !important; /* Allows close circle button to cleanly pop out */
+    max-width: 75rem !important;
+    width: 90% !important;
+    position: relative;
+}
+
+/* --- ACCENTED ROUNDED MODAL FRAME ELEMENTS --- */
+.custom-modal-header {
+    background-color: #ffffff;
+    padding: 1.5rem;
+    text-align: center;
+    border-top-left-radius: 24px;
+    border-top-right-radius: 24px;
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.custom-label-style{
+    width:100%;
+}
+
+.custom-modal-header h2 {
+    color: #001e4e !important; 
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.custom-modal-body {
+    background-color: #ffffff;
+    padding: 2rem !important;
+    max-height: 75vh; /* INCREASED: Expanded from 65vh to 75vh to show more form fields without scrolling */
+    overflow-y: auto;
+}
+
+/* --- REFINED TOP PROGRESS INDICATOR --- */
+.progress-bar-top-wrapper {
+    background-color: #ffffff;
+    border-bottom: 1px solid #f0f0f0;
+    margin: -2rem -2rem 3rem -2rem; /* Pulls to edges of modal padding */
+    padding: 2rem 5rem 3.5rem 5rem !important; /* Aligns dots over selection cards */
+}
+
+.custom-step-progress-container {
+    position: relative;
+    width: 100%;
+}
+
+/* CRITICAL ANCHOR FIX: Ties each label to its specific dot wrapper */
+.custom-step-progress-container .slds-progress__item {
+    position: relative !important; 
+}
+
+/* Progress Underlay Track Lines */
+.progress-track-underlay {
+    background-color: #e5e5e5 !important;
+}
+
+.progress-track-fill {
+    background-color: #1b66ec !important;
+    transition: width 0.3s ease-in-out;
+}
+
+/* Marker Dot Formats */
+.custom-generic-dot {
+    background-color: #ffffff !important;
+    border: 2px solid #aeaeae !important;
+    width: 14px !important;
+    height: 14px !important;
+    z-index: 5;
+}
+
+.slds-progress__item.slds-is-active .custom-generic-dot {
+    border-color: #1b66ec !important;
+    background-color: #1b66ec !important;
+    box-shadow: 0 0 0 4px rgba(27, 102, 236, 0.15);
+}
+
+.custom-success-dot {
+    background-color: #1b66ec !important;
+    border: none !important;
+    width: 16px !important;
+    height: 16px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 50%;
+    z-index: 5;
+}
+
+.white-checkmark-svg {
+    --slds-c-icon-color-foreground-default: #ffffff !important;
+}
+
+/* Step Labels Absolute-Centered Directly Below Each Node */
+.custom-step-progress-container .custom-step-title-under {
+    position: absolute !important;
+    top: 28px !important; /* Shifts text clearly below the horizontal tracking track */
+    left: 50% !important;
+    transform: translateX(-50%) !important; /* Centers text horizontally underneath the dot marker */
+    white-space: nowrap !important;
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    color: #6a6a6a !important;
+    text-align: center !important;
+}
+
+/* Highlights the text label of the current active step */
+.custom-step-progress-container .slds-progress__item.slds-is-active .custom-step-title-under {
+    color: #1b66ec !important;
+    font-weight: 700 !important;
+}
+
+/* Keeps completed step labels dark and readable */
+.custom-step-progress-container .slds-progress__item.slds-is-completed .custom-step-title-under {
+    color: #001e4e !important;
+}
+
+/* --- FOOTER LAYOUT (Buttons only) --- */
+.custom-modal-footer {
+    background-color: #ffffff;
+    padding: 1.25rem 2rem;
+    border-top: 1px solid #e5e5e5;
+    border-bottom-left-radius: 24px;
+    border-bottom-right-radius: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.footer-left {
+    flex: 1;
+    display: flex;
+    justify-content: flex-start;
+}
+
+.footer-right {
+    flex: 1;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+
+/* --- PILL BUTTONS --- */
+.pill-action-btn {
+    font-size: 0.9rem;
+    font-weight: 700;
+    padding: 0.5rem 1.75rem;
+    height: 38px;
+    border-radius: 50px; 
+    cursor: pointer;
+    transition: all 0.15s ease-in-out;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.primary-pill {
+    background-color: #1b66ec;
+    color: #ffffff;
+    border: none;
+    box-shadow: 0 2px 4px rgba(27, 102, 236, 0.2);
+}
+
+.primary-pill:hover:not([disabled]) {
+    background-color: #0b52d6;
+}
+
+.primary-pill[disabled] {
+    background-color: #c9c9c9;
+    color: #ffffff;
+    cursor: not-allowed;
+}
+
+.secondary-pill {
+    background-color: #ffffff;
+    color: #1b66ec;
+    border: 1px solid #aeaeae;
+}
+
+.secondary-pill:hover {
+    background-color: #f4f6f9;
+    border-color: #1b66ec;
+}
+
+/* --- STEP 1 CARD CENTERING ENGINE --- */
+/* --- STEP 1 VISUAL PICKER MATRIX ENGINE --- */
+/* ── Activation Type Button Group ── */
+.activation-type-group {
+    display: inline-flex !important;
+    gap: 0 !important;
+    margin-top: 0.25rem !important;
+}
+
+.activation-btn {
+    display: inline-flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.375rem !important;
+    min-width: 120px !important;
+    height: 72px !important;
+    padding: 0.625rem 1.25rem !important;
+    background: #ffffff !important;
+    border: 1px solid #dddbda !important;
+    border-radius: 0 !important;
+    cursor: pointer;
+    transition: background 0.12s ease, border-color 0.12s ease;
+    position: relative;
+    z-index: 0;
+}
+
+.activation-type-group .activation-btn:first-child {
+    border-radius: 0.25rem 0 0 0.25rem !important;
+}
+
+.activation-type-group .activation-btn:last-child {
+    border-radius: 0 0.25rem 0.25rem 0 !important;
+}
+
+.activation-type-group .activation-btn + .activation-btn {
+    border-left: none !important;
+}
+
+.activation-btn:hover {
+    background: #f3f2f2 !important;
+    z-index: 1;
+}
+
+.activation-btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px #0176d3;
+    z-index: 2;
+}
+
+.activation-btn--selected {
+    background: #eef4ff !important;
+    border-color: #0176d3 !important;
+    z-index: 2;
+    box-shadow: inset 0 0 0 1px #0176d3 !important;
+}
+
+.activation-btn--selected + .activation-btn {
+    border-left-color: #0176d3 !important;
+}
+
+.activation-btn-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #3e3e3c;
+    white-space: nowrap;
+    line-height: 1;
+}
+
+.activation-btn--selected .activation-btn-label {
+    color: #0176d3;
+}
+
+.activation-btn-icon--alwayson {
+    --slds-c-icon-color-foreground-default: #0176d3;
+}
+
+.activation-btn-icon--oneoff {
+    --slds-c-icon-color-foreground-default: #9053c7;
+}
+
+.activation-btn-icon--triggered {
+    --slds-c-icon-color-foreground-default: #f39c12;
+}
+
+.slds-progress__item.slds-is-active .custom-step-title-under {
+    color: #1b66ec !important;
+    font-weight: 700 !important;
+}
+
+/* --- RESPONSIVE CARD STACK BASE --- */
+.properties-vertical-stack {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 0.5rem;
+}
+
+/* Modifying the card element to support natural variable-height expansion */
+.form-module-card {
+    background: #fdfdfd;
+    border: 1px solid #e2e2e2;
+    border-radius: 12px;
+    padding: 1rem !important;
+    width: 100% !important;
+    height: auto !important; /* Forces the card container to grow with inner fields */
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+/* Clear out historical static card-height boundaries completely */
+.standard-module-height, 
+.scoring-offering-height {
+    height: auto !important;
+}
+
+
+/* --- PRIORITY ITEM BASE INTERFACE --- */
+.priority-list-item {
+    padding: 1rem 1rem;
+    cursor: pointer;
+    transition: all 0.15s ease-in-out;
+    background-color: #ffffff;
+    color: #001e4e;
+    font-weight: 600;
+}
+
+.priority-list-item:hover:not(.is-disabled) {
+    border-color: #1b66ec;
+    background-color: #f4f6f9;
+}
+
+.priority-item-selected {
+    border: 2px solid #1b66ec !important;
+    background-color: rgba(27, 102, 236, 0.04) !important;
+    color: #1b66ec !important;
+    font-weight: 700;
+}
+
+/* --- NEW: GREYED OUT / DISABLED STATE FOR TIER 1 --- */
+.priority-list-item.is-disabled {
+    background-color: #f3f3f3 !important;
+    color: #969492 !important; /* Muted grey text */
+    border-color: #e5e5e5 !important;
+    cursor: not-allowed !important; /* Shows the universal "cannot click" circle slash icon */
+    pointer-events: none !important; /* Completely deactivates click listeners on the DOM element */
+    opacity: 0.65;
+}
+
+
+/* Hover Actions */
+.scoring-tabs .segment-item:hover:not(.segment-selected),
+.offering-pill-deck .segment-item:hover:not(.segment-selected){
+    background-color: #f3f3f3 !important;
+    color: #014486 !important;
+    z-index: 2 !important; /* Pulls the hovered boundary line forward */
+}
+
+/* High-fidelity Active / Selected Button Group Item State */
+.scoring-tabs .segment-item.segment-selected,
+.offering-pill-deck .segment-item.segment-selected{
+    background-color: #0176d3 !important; /* Solid brand background block fill */
+    border-color: #0176d3 !important;
+    color: #ffffff !important; /* Flips text cleanly to white */
+    z-index: 3 !important; /* Maximizes frame depth layers over neighboring buttons */
+    font-weight: 700 !important;
+}
+
+/* --- HIGH FIDELITY TOOLTIP ENGINE  --- */
+.priority-list-item {
+    position: relative; /* Base anchor point for absolute positioning */
+}
+
+/* 1. The Multi-Line Text Bubble */
+.priority-list-item::after {
+    content: attr(data-tooltip); /* Pulls text from your JavaScript matrix mapping */
+    position: absolute;
+    bottom: 135%; /* Floats perfectly above the button item row */
+    left: -12px; /* Pulls bubble slightly left to frame the pointer nicely */
+    right: auto;
+    width: 290px !important; /* Wide structural bounds matching image_a0eda6.png */
+    white-space: normal !important; /* CRITICAL: Enables multi-line paragraph text wrapping */
+    text-align: left !important; /* CRITICAL: Left-aligns text blocks */
+    background-color: #002b66 !important; /* Deep navy blue matching the image popover */
+    color: #ffffff !important;
+    padding: 0.85rem 1.1rem !important;
+    border-radius: 8px !important; /* Smooth clean rounded box borders */
+    font-size: 0.775rem !important;
+    font-weight: 500 !important;
+    line-height: 1.45 !important;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(6px); /* Start transition slightly offset down */
+    transition: all 0.15s ease-in-out;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15); /* Soft drop shadow frame depth */
+    z-index: 10000;
+}
+
+/* 2. The Bottom-Left Triangle Pointer Nub */
+.priority-list-item::before {
+    content: '';
+    position: absolute;
+    bottom: 116%;
+    left: 20px; /* FIXED: Anchors the pointer to the bottom-left edge */
+    right: auto;
+    border-width: 9px 8px 0 8px; /* Proportional pointer scaling dimensions */
+    border-style: solid;
+    border-color: #002b66 transparent transparent transparent;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(6px);
+    transition: all 0.15s ease-in-out;
+    z-index: 10000;
+}
+
+
+/* 3. Smooth Fade-In and Float Elevation Trigger on Hover */
+.priority-list-item:hover::after,
+.priority-list-item:hover::before {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0); /* Glides smoothly up to its target resting point */
+}
+
+/* --- FIXED: CUSTOM DISABLED STATE INDEPENDENT OF FRAMEWORK INTERACTION BLOCKS --- */
+.priority-list-item.tier-disabled {
+    background-color: #f3f3f3 !important;
+    color: #969492 !important; 
+    border-color: #e5e5e5 !important;
+    cursor: not-allowed !important; 
+    opacity: 0.65;
+    /* FORCE HOVER RECEPTIVITY: Forces browser renderer engine to capture mouse hover tracks */
+    pointer-events: auto !important; 
+}
+
+/* Ensure the cards stack nicely down the modal page */
+.properties-vertical-stack {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 0.75rem;
+}
+
+/* Base structural card layout rules */
+.form-module-card {
+    background: #fdfdfd;
+    border: 1px solid #e2e2e2;
+    border-radius: 12px;
+    padding: 1.5rem !important;
+    width: 100% !important;
+    height: auto !important; /* Lets cards scale dynamically around internal elements */
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+/* Clears old layout constraints */
+.composite-card-height {
+    min-height: unset !important;
+    height: auto !important;
+}
+
+/* --- ASSIGNED CHANNELS LAYOUT DECK --- */
+.select-all-row-divider {
+    border-bottom: 1px dashed #e8e8e8 !important;
+    width: 100% !important;
+}
+
+/* FIXED: Moved the styling hooks inside the curly braces where they belong */
+.custom-master-checkbox {
+    --slds-c-checkbox-label-font-weight: 600 !important;
+    --slds-c-checkbox-label-color: #001e4e !important;
+}
+
+.custom-channel-checkbox {
+    --slds-c-checkbox-label-font-weight: 600 !important;
+    --slds-c-checkbox-label-color: #514f4d !important;
+}
+
+.module-header-title{
+    font-weight: 600 !important;
+}
+
+/* --- PERIOD RANGE INFO NOTE BANNER (MATCHING image_112e72.png) --- */
+.period-range-note-box {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    background-color: #f1f3f6 !important; /* Muted background tint */
+    border: 1px solid #dcdfe4 !important; /* Soft framing border */
+    border-radius: 12px !important;
+    padding: 0.85rem 1.25rem !important;
+    width: 100% !important;
+}
+
+.period-range-note-box .note-text-content {
+    color: #69707d !important; /* Image gray layout typography color */
+    font-size: 0.775rem !important;
+    line-height: 1.45 !important;
+    padding-right: 1.25rem !important;
+}
+
+.period-range-note-box .note-text-content em {
+    font-style: italic !important;
+}
+
+/* Rounded right-aligned structural icon badge asset */
+.period-range-note-box .note-icon-container {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background-color: #c2cbd6 !important; 
+    border-radius: 50% !important;
+}
+
+.custom-note-info-svg {
+    --slds-c-icon-color-foreground-default: #ffffff !important; /* Forces info symbol to draw clean white */
+}
+
+/* --- RESPONSIVE 1100PX CARD BREAKPOINT CONTROLLER --- */
+
+/* Default Stacked Configuration (Screens below 1100px) */
+.custom-grid-col {
+    flex: 0 0 100% !important;
+    max-width: 100% !important;
+}
+
+/* Vertical separation margin added when items are stacked */
+.properties-stack-spacing {
+    margin-bottom: 2rem !important;
+}
+
+/* Side-by-Side Dual-Column Layout (Screens 1100px or wider) */
+@media screen and (min-width: 1100px) {
+    .custom-grid-col {
+        flex: 0 0 50% !important;
+        max-width: 50% !important;
+    }
+    
+    /* Safely zeroes out vertical spacing when columns sit horizontally */
+    .properties-stack-spacing {
+        margin-bottom: 0rem !important;
+    }
+}
+
+/* --- CUSTOM SCANNABLE PICKLIST CONTAINER ARCHITECTURE --- */
+.custom-dropdown-container {
+    position: relative;
+    width: 100%;
+}
+
+.custom-dropdown-input {
+    cursor: pointer !important;
+}
+
+/* --- CUSTOM DROPDOWN LOOKUP PANEL --- */
+.custom-picklist-dropdown {
+    position: absolute !important;
+    top: 100% !important;
+    right: 0 !important;
+    width: 100% !important;
+    z-index: 9999 !important;
+    background: #ffffff !important;
+    border: 1px solid #c9c9c9 !important;
+    border-top: none !important;
+    border-radius: 0 0 8px 8px !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    display: none;
+    max-height: 300px !important;
+    overflow-y: hidden !important;
+    flex-direction: column;
+}
+
+.dropdown-scrollable-list {
+    max-height: 220px !important;
+    overflow-y: auto !important;
+    flex: 1 1 auto;
+}
+
+.dropdown-sticky-footer {
+    border-top: 1px solid #e5e5e5;
+    background-color: #ffffff;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.dropdown-sticky-footer:hover {
+    background-color: #e2edfc;
+}
+
+.custom-dropdown-container.slds-is-open .custom-picklist-dropdown {
+    display: flex !important;
+}
+
+.topic-dropdown-panel {
+    max-height: 250px !important;
+    overflow-y: auto !important;
+}
+
+.slds-listbox__option {
+    display: flex;
+    align-items: center;
+}
+
+/* Individual list item layout row elements */
+.custom-option-item {
+    width: 100% !important;
+}
+
+.custom-dropdown-row {
+    padding: 0.6rem 1rem !important;
+    display: flex !important;
+    align-items: center !important;
+    transition: background-color 0.1s ease !important;
+}
+
+/* Row interaction background tint style from image_8f8964.png */
+.custom-dropdown-row:hover {
+    background-color: #e2edfc !important;
+}
+
+.list-campaign-title {
+    color: #181818 !important;
+    font-size: 0.9rem !important;
+    font-weight: 500 !important;
+    padding-left: 0.25rem;
+}
+
+/* Align and frame campaign purple svg icon rules */
+.dynamic-icon-wrapper {
+    margin-right: 0.5rem !important;
+    display: inline-flex !important;
+}
+
+.campaign-purple-badge {
+    --slds-c-icon-radius-border: 50% !important; /* Perfect circle background badge frame */
+}
+
+/* --- THE BLUE ACCENT BOX ACTION BUTTON ROW (MATCHING image_8f8964.png) --- */
+.custom-action-item-container {
+    padding: 0.5rem !important;
+    background-color: #ffffff !important;
+}
+
+.add-new-grouping-pill-box {
+    border: 2px solid #0176d3 !important; /* Thick bright primary blue border frame */
+    border-radius: 12px !important;       /* Noticeable rounded framing corners */
+    background-color: #ffffff !important;
+    padding: 0.85rem 1.25rem !important;
+    cursor: pointer !important;
+    transition: background-color 0.15s ease;
+}
+
+.add-new-grouping-pill-box:hover {
+    background-color: #f4f8fe !important;
+}
+
+.add-new-grouping-trigger-btn {
+    color: #0176d3 !important;
+    font-weight: 600 !important;
+    font-size: 0.95rem !important;
+    display: block !important;
+    width: 100% !important;
+}
+/* --- SCORING HOVER ACCENT OVERLAYS --- */
+.scoring-card-wrapper {
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Gray styling and interactive block applied when prerequisite validation states are missing */
+.scoring-engine-locked {
+    background-color: #f4f6f9 !important;
+    border: 1px dashed #d8dde6 !important;
+    opacity: 0.65;
+    pointer-events: none; /* Disables all clicking, inputs, and tab modifications */
+}
+
+/* Lock notification banner text formatting */
+.lock-notification-banner {
+    display: flex;
+    align-items: center;
+    background-color: #fff1f1;
+    border: 1px solid #ffccd2;
+    color: #c23934;
+    padding: 0.6rem 1rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+}
+
+.lock-banner-icon {
+    --slds-c-icon-color-foreground: #c23934;
+}
+
+.priority-list-container {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important; /* Configures exactly two equal side-by-side columns */
+    grid-template-rows: repeat(4, auto) !important; /* Forces exactly 5 rows vertically per column */
+    grid-auto-flow: column !important;          /* FIXED: Forces items to fill vertically down columns first */
+    gap: 0.5rem 1rem !important;                 /* Vertical space: 0.5rem, Horizontal space: 1rem */
+    width: 100% !important;
+}
+
+.emergency-btn-inactive {
+    background-color: #ffffff !important;
+    border: 1px solid #dddbda !important;
+    min-width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: .25rem;
+}
+
+.emergency-btn-active {
+    border: 2px solid #ca8a04 !important;
+    background-color: #ffffff !important;
+    box-shadow: 0 0 4px rgba(202, 138, 4, 0.25) !important;
+    min-width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: .25rem;
+}
+
+/* FIXED: Forces tooltip pseudo-elements to render text in white */
+.priority-list-item:hover::after,
+.priority-list-item:hover::before {
+    color: #ffffff !important;
+    font-weight: normal !important;
+    font-size: 12px !important;
+}
+
+/* Dynamic Activation Icons in Dropdown */
+.grouping-icon-default {
+    --slds-c-icon-color-foreground-default: #747474;
+}
+.grouping-icon-alwayson {
+    --slds-c-icon-color-foreground-default: #0176d3; /* Blue */
+}
+.grouping-icon-oneoff {
+    --slds-c-icon-color-foreground-default: #9053c7; /* Purple */
+}
+.grouping-icon-triggered {
+    --slds-c-icon-color-foreground-default: #f39c12; /* Orange */
+}
+.grouping-icon-emergency {
+    --slds-c-icon-color-foreground-default: #ea001e; /* Red */
+}
+.pf-group-header {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #514f4d;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #e5e5e5;
+    display: block;
+}
+
+
+/* Responsive Product Family & FoN Badge Flex layout */
+.pf-checkbox-label-wrapper {
+    display: inline-flex !important;
+    flex-wrap: wrap !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
+    gap: 6px !important;
+    width: calc(100% - 20px) !important;
+    padding-left: 8px !important;
+    margin: 0 !important;
+}
+
+.pf-label-text {
+    font-weight: 500;
+    color: #1b1b1b;
+    white-space: normal;
+}
+
+.pf-badge-group {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.pf-fon-badge {
+    font-size: 10px !important;
+    padding: 1px 6px !important;
+    line-height: 1.4 !important;
+    text-transform: none !important;
+    font-weight: normal !important;
+    margin: 2px 0 !important;
+    background-color: #f3f3f3 !important;
+    border: 1px solid #e0e0e0 !important;
+}
+
+/* --- PRODUCT FAMILY FILTER BAR --- */
+.pf-filter-bar {
+    padding-bottom: 10px;
+    margin-bottom: 4px;
+}
+
+.pf-filter-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #706e6b;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    display: block;
+    margin-bottom: 4px;
+}
+
+.pf-filter-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.pf-filter-pill {
+    font-size: 12px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    cursor: pointer;
+    border: 1px solid #c9c9c9;
+    background-color: #ffffff;
+    color: #3e3e3c;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+
+.pf-filter-pill:hover {
+    background-color: #f3f3f3;
+}
+
+.pf-filter-pill-active {
+    background-color: #0176d3 !important;
+    color: #ffffff !important;
+    border-color: #0176d3 !important;
+}
+
+.pf-filter-select {
+    font-size: 12px !important;
+    height: 28px !important;
+    padding: 2px 8px !important;
+    border-radius: 6px !important;
+}
+
+.pf-customer-type-badge {
+    font-size: 10px !important;
+    padding: 1px 6px !important;
+    line-height: 1.4 !important;
+    text-transform: none !important;
+    font-weight: normal !important;
+    margin: 2px 0 !important;
+    background-color: #eaf5fe !important;
+    border: 1px solid #90cdf4 !important;
+    color: #0b5cab !important;
+}
+
+/* Keeps the FoN label text and its info icon glued together as one inline unit,
+   so the icon reads as belonging to this FoN rather than drifting to the cell edge. */
+.fon-label-line {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex-wrap: nowrap;
+}
+
+/* Container ensures standard SLDS checkbox occupies 100% of the grid cell width */
+.fon-checkbox-wrapper {
+    width: 100% !important;
+}
+
+/* Tooltip container matches icon size */
+.fon-tooltip-container {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+/* Neutral grey styling for the info icon matching badge colors */
+.fon-info-icon {
+    --slds-c-icon-color-foreground-default: #747474 !important;
+    transition: transform 0.1s ease-in-out, --slds-c-icon-color-foreground-default 0.1s ease-in-out;
+}
+
+/* Darker contrast grey on hover */
+.fon-info-icon:hover {
+    --slds-c-icon-color-foreground-default: #3e3e3c !important;
+    transform: scale(1.15);
+}
+
+/* Custom Tooltip bubble centered above the icon */
+.fon-tooltip-container::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 140%; 
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #001e3d !important;
+    color: #ffffff !important;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 11px !important;
+    font-weight: normal !important;
+    white-space: normal;
+    width: 250px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease-in-out;
+    z-index: 99999;
+    text-align: center;
+    line-height: 1.4;
+}
+
+/* Tooltip pointer arrow */
+.fon-tooltip-container::before {
+    content: "";
+    position: absolute;
+    bottom: 120%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 6px;
+    border-style: solid;
+    border-color: #001e3d transparent transparent transparent;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease-in-out;
+    z-index: 99999;
+}
+
+/* Hover behaviors */
+.fon-tooltip-container:hover::after,
+.fon-tooltip-container:hover::before {
+    opacity: 1;
+}
+
+/* Keyboard focus reveals the tooltip for accessibility */
+.fon-tooltip-container:focus::after,
+.fon-tooltip-container:focus::before {
+    opacity: 1;
+}
+
+.fon-tooltip-container:focus {
+    outline: 2px solid #0176d3;
+    outline-offset: 1px;
+    border-radius: 3px;
+}
+
+/* --- MATCHING OFFERS: name cell + match-reason tooltip --- */
+.offer-name-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    max-width: 100%;
+}
+
+.offer-name-text {
+    min-width: 0;
+}
+
+/* Multi-line, left-aligned tooltip for the "why does this match?" explanation.
+   Rendered to the RIGHT of the icon and vertically centered so it stays inside the
+   offer row and the scrollable list instead of being clipped above the container. */
+.offer-match-tooltip::after {
+    white-space: pre-line;
+    text-align: left;
+    width: 240px;
+    left: 150%;
+    right: auto;
+    bottom: auto;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+/* Arrow points left, toward the icon */
+.offer-match-tooltip::before {
+    left: 120%;
+    right: auto;
+    bottom: auto;
+    top: 50%;
+    transform: translateY(-50%);
+    border-color: transparent #001e3d transparent transparent;
+}
+
+.offer-modify-btn {
+    --slds-c-button-text-color: #0176d3;
+}
+
+/* --- EXCLUSION SETTINGS (Step 3) --- */
+.exclusion-option {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.exclusion-option:last-child {
+    border-bottom: none;
+}
+
+.exclusion-option-help {
+    padding-left: 1.6rem;
+    line-height: 1.4;
+}
+
+/* --- SUMMARY STEP STYLES --- */
+.summary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+}
+
+.summary-section {
+    background: #f8f9fa;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+}
+
+.summary-section-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #514f4d;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.summary-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 0.35rem 0;
+}
+
+.summary-label {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #706e6b;
+    flex-shrink: 0;
+    margin-right: 1rem;
+}
+
+.summary-value {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #1b1b1b;
+    text-align: right;
+    word-break: break-word;
+    max-width: 60%;
+}
+
+.summary-value-highlight {
+    color: #ca8a04;
+    font-weight: 700;
+}
+
+/* --- SELECTED OFFER PANEL (Summary step) --- */
+.offer-summary-card {
+    border-left: 3px solid #0176d3;
+}
+
+.offer-summary-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.offer-summary-status {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #0176d3;
+    flex-shrink: 0;
+}
+
+.offer-params-section {
+    margin-top: 0.5rem;
+    border-top: 1px solid #e5e5e5;
+    padding-top: 0.5rem;
+}
+
+.offer-params-toggle {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #514f4d;
+}
+
+/* --- CHANNEL BUTTON GROUP --- */
+.channel-groups-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    align-items: center;
+}
+
+.channel-type-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    width: 100%;
+}
+
+.channel-type-label-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    flex-shrink: 0;
+}
+
+.channel-type-icon {
+    --slds-c-icon-color-foreground-default: #706e6b;
+}
+
+.channel-type-icon-sized {
+    width: var(--slds-g-sizing-6) !important;
+    height: var(--slds-g-sizing-6) !important;
+}
+
+.channel-type-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #514f4d;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.channel-button-group {
+    gap: 0 !important;
+}
+
+.channel-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    padding: 0.25rem 0.65rem !important;
+    font-size: 0.75rem !important;
+    font-weight: 500 !important;
+    height: 28px !important;
+    border-radius: 0 !important;
+    transition: all 0.12s ease !important;
+    white-space: nowrap !important;
+}
+
+.slds-button-group .channel-btn:first-child {
+    border-radius: 4px 0 0 4px !important;
+}
+
+.slds-button-group .channel-btn:last-child {
+    border-radius: 0 4px 4px 0 !important;
+}
+
+.slds-button-group .channel-btn:only-child {
+    border-radius: 4px !important;
+}
+
+.channel-btn-active {
+    background-color: #0176d3 !important;
+    border-color: #0176d3 !important;
+    color: #ffffff !important;
+    border-right: 1.5px solid #ffffff !important;
+}
+
+.channel-btn-active:last-child {
+    border-right-color: #0176d3 !important;
+}
+
+.channel-btn-active:hover {
+    background-color: #014486 !important;
+    border-color: #014486 !important;
+    color: #ffffff !important;
+    border-right-color: #ffffff !important;
+}
+
+.channel-btn-active:last-child:hover {
+    border-right-color: #014486 !important;
+}
+
+.channel-btn-inactive {
+    background-color: #ffffff !important;
+    border-color: #c9c9c9 !important;
+    color: #706e6b !important;
+}
+
+.channel-btn-inactive:hover {
+    background-color: #f3f3f3 !important;
+}
+
+.channel-btn-label {
+    margin-left: 5px;
+}
+
+.channel-icon-active {
+    --slds-c-icon-color-foreground-default: #ffffff;
+}
+
+.channel-icon-inactive {
+    --slds-c-icon-color-foreground-default: #706e6b;
+}
+.offer-list-builder-card {
+    border: 1px solid #dddbda;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.offer-list-builder-header {
+    border-bottom: 1px solid #dddbda;
+    background: transparent;
+    padding: 1rem 0;
+}
+
+.offer-list-builder-scroll {
+    overflow-y: auto;
+    padding: .5rem 0;
+}
+
+.offer-list-builder-note {
+    display: flex;
+    align-items: center;
+    color: #514f4d;
+}
+
+.offer-row-selected {
+    background-color: #eef4ff;
+}
+
+.offer-add-btn {
+    --slds-c-icon-color-foreground-default: #0176d3;
+}
+
+.offer-row-selected .offer-add-btn {
+    --sds-c-button-color-background: #0176d3;
+    --slds-c-icon-color-foreground-default: #ffffff;
+    background-color: #0176d3;
+    border-color: #0176d3;
+}
+
+/* --- TIER DETAIL PANEL --- */
+.tier-detail-panel {
+    background: #f9f9f9;
+    border: 1px solid #dddbda;
+    border-radius: 8px;
+    padding: 12px 16px;
+}
+
+.tier-description {
+    font-size: 13px;
+    color: #444;
+    font-style: italic;
+    border-bottom: 1px solid #e0e0e0;
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+}
+
+.tier-badge-row {
+    margin-bottom: 8px;
+}
+
+.tier-badge-group-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    color: #706e6b;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+}
+
+.tier-badge-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.tier-behaviour-badge {
+    background: #e8f4fd;
+    color: #0176d3;
+    border: 1px solid #afd8f8;
+    font-size: 11px;
+    font-weight: 500;
+    border-radius: 4px;
+    padding: 2px 8px;
+}
+
+.tier-exclusion-badge {
+    background: #fff3e0;
+    color: #c23934;
+    border: 1px solid #f5c6b8;
+    font-size: 11px;
+    font-weight: 500;
+    border-radius: 4px;
+    padding: 2px 8px;
+}
+
+.suppression-section {
+    border-top: 1px solid #dddbda;
+    padding-top: 12px;
+    margin-top: 8px;
+}

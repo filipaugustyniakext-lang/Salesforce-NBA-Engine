@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>NO_Fees_Conditions_Simplicity__c</fullName>
+    <label>No Fees Conditions Simplicity</label>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>no fee</fullName>
+                <default>false</default>
+                <label>No Fee</label>
+            </value>
+            <value>
+                <fullName>easy</fullName>
+                <default>false</default>
+                <label>Easy</label>
+            </value>
+            <value>
+                <fullName>medium</fullName>
+                <default>false</default>
+                <label>Medium</label>
+            </value>
+            <value>
+                <fullName>difficult</fullName>
+                <default>false</default>
+                <label>Difficult</label>
+            </value>
+            <value>
+                <fullName>not possible</fullName>
+                <default>false</default>
+                <label>Not Possible</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

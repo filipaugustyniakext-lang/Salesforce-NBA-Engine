@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Range_Key__c</fullName>
+    <description>Shared key that links the two Range reference records (the Min bound and the Max bound) created together when Value Type is Range. Both records carry the same key so the system knows they are one interconnected range.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Populated automatically for Range reference values. Both the Min and Max records share this key so they stay linked as a single range.</inlineHelpText>
+    <label>Range Key</label>
+    <length>36</length>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

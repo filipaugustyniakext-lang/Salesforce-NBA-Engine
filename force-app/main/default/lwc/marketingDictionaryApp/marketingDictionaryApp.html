@@ -1,0 +1,46 @@
+<template>
+    <div class="slds-card">
+
+        <div class="slds-card__body">
+            <lightning-tabset active-tab-value={activeTab} onactive={handleTabChange}>
+
+                <lightning-tab value="person" label="Person" icon-name="standard:person_account">
+                    <div class="slds-p-around_medium">
+                        <c-marketing-dictionary-person-tab></c-marketing-dictionary-person-tab>
+                    </div>
+                </lightning-tab>
+
+                <lightning-tab value="product" label="Products" icon-name="standard:product">
+                    <div class="slds-p-around_medium">
+                        <c-marketing-dictionary-product-tab></c-marketing-dictionary-product-tab>
+                    </div>
+                </lightning-tab>
+
+                <lightning-tab value="offer" label="Offers" icon-name="standard:activations">
+                    <div class="slds-p-around_medium">
+                        <c-marketing-dictionary-offer-tab></c-marketing-dictionary-offer-tab>
+                    </div>
+                </lightning-tab>
+
+                <lightning-tab value="campaign" label="Campaigns" icon-name="standard:campaign">
+                    <div class="slds-p-around_medium">
+                        <c-marketing-dictionary-campaign-tab></c-marketing-dictionary-campaign-tab>
+                    </div>
+                </lightning-tab>
+
+                <lightning-tab value="channel" label="Channels" icon-name="standard:channel_programs">
+                    <div class="slds-p-around_medium">
+                        <c-marketing-dictionary-channel-tab></c-marketing-dictionary-channel-tab>
+                    </div>
+                </lightning-tab>
+
+                <lightning-tab value="blackout" label="Blackout Windows" icon-name="utility:ban">
+                    <div class="slds-p-around_medium">
+                        <c-marketing-dictionary-blackout-tab></c-marketing-dictionary-blackout-tab>
+                    </div>
+                </lightning-tab>
+
+            </lightning-tabset>
+        </div>
+    </div>
+</template>

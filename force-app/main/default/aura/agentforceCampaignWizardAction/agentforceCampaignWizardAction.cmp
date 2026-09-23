@@ -1,0 +1,8 @@
+<aura:component implements="lightning:actionOverride,force:hasRecordId,force:hasSObjectName">
+    <aura:handler name="init" value="{!this}" action="{!c.doInit}" />
+    <aura:attribute name="showWizard" type="Boolean" default="false" />
+
+    <aura:if isTrue="{!v.showWizard}">
+        <c:agentforceCampaignWizard recordId="{!v.recordId}"></c:agentforceCampaignWizard>
+    </aura:if>
+</aura:component>

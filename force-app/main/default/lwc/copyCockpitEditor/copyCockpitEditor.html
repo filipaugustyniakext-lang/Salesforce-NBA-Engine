@@ -1,0 +1,955 @@
+<template>
+
+    <!-- ── Loading ────────────────────────────────────────────────────────── -->
+    <template lwc:if={isLoading}>
+        <div class="editor-loading">
+            <lightning-spinner alternative-text="Loading message..." size="medium"></lightning-spinner>
+        </div>
+    </template>
+
+    <!-- ── Error ──────────────────────────────────────────────────────────── -->
+    <template lwc:elseif={hasError}>
+        <div class="editor-error">
+            <lightning-icon icon-name="utility:error" size="medium" class="slds-m-bottom_small editor-error-icon"></lightning-icon>
+            <p class="slds-text-heading_small slds-m-bottom_x-small">Failed to load message</p>
+            <p class="slds-text-body_regular slds-text-color_weak">{errorMsg}</p>
+            <lightning-button label="Back to list" icon-name="utility:back" onclick={handleBack} class="slds-m-top_medium"></lightning-button>
+        </div>
+    </template>
+
+    <!-- ── Editor shell ───────────────────────────────────────────────────── -->
+    <template lwc:elseif={hasRecord}>
+        <div class="editor-shell">
+
+            <!-- ══ SLDS Builder Header container ═════════════════════════════ -->
+            <div class="slds-builder-header_container">
+
+                <!-- ── Main header bar ──────────────────────────────────────── -->
+                <header class="slds-builder-header">
+
+                    <!-- Back -->
+                    <div class="slds-builder-header__item">
+                        <a role="button" class="slds-builder-header__item-action slds-media slds-media_center" onclick={handleBack} title="Back to Copy Center">
+                            <span class="slds-media__figure">
+                                <span class="slds-icon_container slds-current-color">
+                                    <lightning-icon icon-name="utility:back" size="x-small" class="slds-icon slds-icon_x-small"></lightning-icon>
+                                    <span class="slds-assistive-text">Back</span>
+                                </span>
+                            </span>
+                            <span class="slds-media__body">Copy Center</span>
+                        </a>
+                    </div>
+
+                    <!-- App / channel name -->
+                    <div class="slds-builder-header__item">
+                        <div class="slds-builder-header__item-label slds-media slds-media_center">
+                            <div class="slds-media__figure">
+                                <span class="slds-icon_container slds-current-color editor-channel-icon">
+                                    <lightning-icon icon-name={channelIcon} size="x-small" class="slds-icon slds-icon_x-small"></lightning-icon>
+                                </span>
+                            </div>
+                            <div class="slds-media__body">Copy Editor</div>
+                        </div>
+                    </div>
+
+                    <!-- Record title + subtitle -->
+                    <div class="slds-builder-header__item slds-has-flexi-truncate">
+                        <h1 class="slds-builder-header__item-label">
+                            <span class="slds-truncate" title={headerTitle}>{headerTitle}</span>
+                        </h1>
+                        <span class="slds-truncate editor-header-subtitle" title={headerSubtitle}>{headerSubtitle}</span>
+                    </div>
+
+
+                </header>
+
+                <!-- ── Builder Toolbar ───────────────────────────────────────── -->
+                <div class="slds-builder-toolbar" role="toolbar">
+
+                    <!-- Group 1: panel toggles + undo/redo -->
+                    <div class="slds-builder-toolbar__item-group" aria-label="Canvas Actions">
+                        <button
+                            class={leftToolbarToggleClass}
+                            onclick={handleToggleLeft}
+                            title={leftToggleTitle}
+                            aria-expanded={leftPanelOpen}
+                            aria-pressed={leftPanelOpen}
+                            aria-controls="editor-left-panel"
+                        >
+                            <lightning-icon icon-name="utility:toggle_panel_left" size="x-small" class="slds-button__icon"></lightning-icon>
+                            <span class="slds-assistive-text">{leftToggleTitle}</span>
+                        </button>
+                        <button
+                            class={rightToolbarToggleClass}
+                            onclick={handleToggleRight}
+                            title={rightToggleTitle}
+                            aria-expanded={rightPanelOpen}
+                            aria-pressed={rightPanelOpen}
+                            aria-controls="editor-right-panel"
+                        >
+                            <lightning-icon icon-name="utility:toggle_panel_right" size="x-small" class="slds-button__icon"></lightning-icon>
+                            <span class="slds-assistive-text">{rightToggleTitle}</span>
+                        </button>
+                        <div class="slds-button-group" role="group">
+                            <button class="slds-button slds-button_icon slds-button_icon-border" title="Undo">
+                                <lightning-icon icon-name="utility:undo" size="x-small" class="slds-button__icon"></lightning-icon>
+                                <span class="slds-assistive-text">Undo</span>
+                            </button>
+                            <button class="slds-button slds-button_icon slds-button_icon-border" title="Redo">
+                                <lightning-icon icon-name="utility:redo" size="x-small" class="slds-button__icon"></lightning-icon>
+                                <span class="slds-assistive-text">Redo</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Group 2: cut / copy / paste -->
+                    <div class="slds-builder-toolbar__item-group" aria-label="Edit Actions">
+                        <div class="slds-button-group" role="group">
+                            <button class="slds-button slds-button_icon slds-button_icon-border" title="Cut">
+                                <lightning-icon icon-name="utility:cut" size="x-small" class="slds-button__icon"></lightning-icon>
+                                <span class="slds-assistive-text">Cut</span>
+                            </button>
+                            <button class="slds-button slds-button_icon slds-button_icon-border" title="Copy">
+                                <lightning-icon icon-name="utility:copy" size="x-small" class="slds-button__icon"></lightning-icon>
+                                <span class="slds-assistive-text">Copy</span>
+                            </button>
+                            <button class="slds-button slds-button_icon slds-button_icon-border" title="Paste">
+                                <lightning-icon icon-name="utility:paste" size="x-small" class="slds-button__icon"></lightning-icon>
+                                <span class="slds-assistive-text">Paste</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Group 3 (right): template badge · status · timestamp | Save/Schedule/Revert/Activate | Delete -->
+                    <div class="slds-builder-toolbar__item-group toolbar-right-group" aria-label="Record Actions">
+
+                        <!-- Source template name badge -->
+                        <span class="slds-badge slds-badge_lightest toolbar-template-badge" title={sourceTemplateName}>{sourceTemplateName}</span>
+
+                        <!-- Status select — styled as a clickable badge (same pattern as Offers Manager) -->
+                        <div class="toolbar-status-wrapper">
+                            <select class={toolbarStatusSelectClass} onchange={handleStatusChange} title="Change status">
+                                <template for:each={statusOptions} for:item="opt">
+                                    <option key={opt.value} value={opt.value} selected={opt.selected}>{opt.label}</option>
+                                </template>
+                            </select>
+                        </div>
+
+                        <!-- Last modified timestamp -->
+                        <span class="toolbar-timestamp">
+                            <lightning-icon icon-name="utility:clock" size="xx-small" class="toolbar-timestamp__icon"></lightning-icon>
+                            {lastModifiedDisplay}
+                        </span>
+
+                        <!-- Divider -->
+                        <div class="toolbar-divider" role="separator" aria-hidden="true"></div>
+
+                        <!-- Save / Schedule / Revert / Activate button group -->
+                        <div class="slds-button-group toolbar-crud-group" role="group" aria-label="Save Actions">
+                            <button class="slds-button slds-button_neutral toolbar-action-btn" type="button" onclick={handleToolbarSave} title={saveButtonLabel}>
+                                <lightning-icon icon-name="utility:save" size="x-small" class="slds-button__icon slds-button__icon_left"></lightning-icon>
+                                {saveButtonLabel}
+                            </button>
+                            <button class="slds-button slds-button_neutral toolbar-action-btn" type="button" onclick={handleToolbarSchedule} title="Schedule">
+                                <lightning-icon icon-name="utility:date_time" size="x-small" class="slds-button__icon slds-button__icon_left"></lightning-icon>
+                                Schedule
+                            </button>
+                            <button class="slds-button slds-button_neutral toolbar-action-btn" type="button" onclick={handleToolbarVersions} title="Browse version history">
+                                <lightning-icon icon-name="utility:layers" size="x-small" class="slds-button__icon slds-button__icon_left"></lightning-icon>
+                                Review Versions
+                            </button>
+                            <button class={activateButtonClass} type="button" onclick={handleToolbarActivate} title={activateButtonLabel}>
+                                <lightning-icon icon-name="utility:success" size="x-small" variant={activateIconVariant} class="slds-button__icon slds-button__icon_left"></lightning-icon>
+                                {activateButtonLabel}
+                            </button>
+                        </div>
+
+                        <!-- Divider before delete -->
+                        <div class="toolbar-divider" role="separator" aria-hidden="true"></div>
+
+                        <!-- Delete button (destructive, separated) -->
+                        <button class="slds-button slds-button_text-destructive toolbar-action-btn toolbar-delete-btn" type="button" onclick={handleToolbarDelete} title="Delete this message variant">
+                            <lightning-icon icon-name="utility:delete" size="x-small" class="slds-button__icon slds-button__icon_left"></lightning-icon>
+                            Delete
+                        </button>
+
+                    </div>
+
+                </div>
+                <!-- end .slds-builder-toolbar -->
+
+            </div>
+            <!-- end .slds-builder-header_container -->
+
+            <!-- ── Delete Confirmation Modal ────────────────────────────────── -->
+            <template lwc:if={deleteConfirmOpen}>
+                <section role="dialog" class="slds-modal slds-fade-in-open" aria-modal="true" aria-label="Delete Message Variant">
+                    <div class="slds-modal__container">
+                        <div class="slds-modal__header slds-theme_error">
+                            <lightning-icon icon-name="utility:delete" size="small" class="slds-m-right_small"></lightning-icon>
+                            <h2 class="slds-modal__title">Delete Message Variant?</h2>
+                            <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse" onclick={handleDeleteCancel} title="Close">
+                                <lightning-icon icon-name="utility:close" size="small"></lightning-icon>
+                                <span class="slds-assistive-text">Close</span>
+                            </button>
+                        </div>
+                        <div class="slds-modal__content slds-p-around_medium">
+                            <p>This will permanently delete <strong>{headerTitle}</strong>.</p>
+                            <p class="slds-m-top_small slds-text-color_weak">This action cannot be undone.</p>
+                        </div>
+                        <div class="slds-modal__footer">
+                            <lightning-button label="Cancel" onclick={handleDeleteCancel}></lightning-button>
+                            <lightning-button label="Delete Permanently" variant="destructive" onclick={handleDeleteConfirm} class="slds-m-left_small"></lightning-button>
+                        </div>
+                    </div>
+                </section>
+                <div class="slds-backdrop slds-backdrop_open"></div>
+            </template>
+
+            <!-- ── Schedule Modal ───────────────────────────────────────────── -->
+            <template lwc:if={scheduleOpen}>
+                <section role="dialog" class="slds-modal slds-fade-in-open" aria-modal="true" aria-label="Schedule Message">
+                    <div class="slds-modal__container schedule-modal-container">
+                        <div class="slds-modal__header">
+                            <lightning-icon icon-name="utility:date_time" size="small" class="slds-m-right_small"></lightning-icon>
+                            <h2 class="slds-modal__title">Schedule Message</h2>
+                            <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse" onclick={handleScheduleClose} title="Close">
+                                <lightning-icon icon-name="utility:close" size="small"></lightning-icon>
+                                <span class="slds-assistive-text">Close</span>
+                            </button>
+                        </div>
+                        <div class="slds-modal__content slds-p-around_medium">
+                            <div class="slds-form slds-form_stacked">
+
+                                <!-- Date + Time side by side -->
+                                <div class="slds-grid slds-gutters_small slds-m-bottom_small">
+                                    <div class="slds-col slds-size_1-of-2">
+                                        <div class="slds-form-element">
+                                            <label class="slds-form-element__label" for="schedule-date">
+                                                <abbr class="slds-required" title="required">*</abbr> Date
+                                            </label>
+                                            <div class="slds-form-element__control">
+                                                <input type="date" id="schedule-date" class="slds-input" value={scheduleDate} onchange={handleScheduleDateChange} />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-2">
+                                        <div class="slds-form-element">
+                                            <label class="slds-form-element__label" for="schedule-time">
+                                                <abbr class="slds-required" title="required">*</abbr> Time
+                                            </label>
+                                            <div class="slds-form-element__control">
+                                                <input type="time" id="schedule-time" class="slds-input" value={scheduleTime} onchange={handleScheduleTimeChange} />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Timezone -->
+                                <div class="slds-form-element slds-m-bottom_small">
+                                    <label class="slds-form-element__label" for="schedule-tz">Timezone</label>
+                                    <div class="slds-form-element__control">
+                                        <div class="slds-select_container">
+                                            <select id="schedule-tz" class="slds-select" onchange={handleScheduleTzChange}>
+                                                <template for:each={timezoneOptions} for:item="tz">
+                                                    <option key={tz.value} value={tz.value} selected={tz.selected}>{tz.label}</option>
+                                                </template>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Schedule Action -->
+                                <div class="slds-form-element slds-m-bottom_small">
+                                    <label class="slds-form-element__label" for="schedule-action">
+                                        <abbr class="slds-required" title="required">*</abbr> Schedule Action
+                                    </label>
+                                    <div class="slds-form-element__control">
+                                        <div class="slds-select_container">
+                                            <select id="schedule-action" class="slds-select" onchange={handleScheduleActionChange}>
+                                                <option value="">— Select action —</option>
+                                                <template for:each={scheduleActionOptions} for:item="act">
+                                                    <option key={act.value} value={act.value} selected={act.selected}>{act.label}</option>
+                                                </template>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Deployment Note -->
+                                <div class="slds-form-element">
+                                    <label class="slds-form-element__label" for="schedule-note">
+                                        Deployment Note <span class="slds-text-color_weak">(optional)</span>
+                                    </label>
+                                    <div class="slds-form-element__control">
+                                        <textarea
+                                            id="schedule-note"
+                                            class="slds-textarea schedule-note-textarea"
+                                            rows="3"
+                                            placeholder="Describe what's included in this scheduled change…"
+                                            onchange={handleScheduleNoteChange}
+                                        ></textarea>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                        <div class="slds-modal__footer">
+                            <lightning-button label="Cancel" onclick={handleScheduleClose}></lightning-button>
+                            <lightning-button
+                                label="Confirm Schedule"
+                                variant="brand"
+                                disabled={scheduleConfirmDisabled}
+                                onclick={handleScheduleConfirm}
+                                class="slds-m-left_small">
+                            </lightning-button>
+                        </div>
+                    </div>
+                </section>
+                <div class="slds-backdrop slds-backdrop_open"></div>
+            </template>
+
+            <!-- ── Version History Modal ────────────────────────────────────── -->
+            <template lwc:if={versionsOpen}>
+                <section role="dialog" class="slds-modal slds-fade-in-open slds-modal_medium" aria-modal="true" aria-label="Version History">
+                    <div class="slds-modal__container">
+                        <div class="slds-modal__header">
+                            <lightning-icon icon-name="utility:layers" size="small" class="slds-m-right_small"></lightning-icon>
+                            <h2 class="slds-modal__title">Version History</h2>
+                            <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse" onclick={handleVersionsClose} title="Close">
+                                <lightning-icon icon-name="utility:close" size="small"></lightning-icon>
+                                <span class="slds-assistive-text">Close</span>
+                            </button>
+                        </div>
+                        <div class="slds-modal__content versions-modal-body">
+
+                            <!-- Loading -->
+                            <template lwc:if={versionsLoading}>
+                                <div class="versions-state-center">
+                                    <lightning-spinner alternative-text="Loading versions…" size="medium" variant="brand"></lightning-spinner>
+                                    <p class="slds-m-top_small slds-text-color_weak">Loading version history…</p>
+                                </div>
+                            </template>
+
+                            <!-- Error -->
+                            <template lwc:elseif={versionsError}>
+                                <div class="versions-state-center">
+                                    <lightning-icon icon-name="utility:error" size="medium" class="versions-error-icon slds-m-bottom_small"></lightning-icon>
+                                    <p class="slds-text-heading_small">{versionsError}</p>
+                                </div>
+                            </template>
+
+                            <!-- Empty -->
+                            <template lwc:elseif={versionsEmpty}>
+                                <div class="versions-state-center">
+                                    <lightning-icon icon-name="utility:layers" size="large" class="versions-empty-icon slds-m-bottom_small"></lightning-icon>
+                                    <p class="slds-text-heading_small">No versions yet</p>
+                                    <p class="slds-m-top_x-small slds-text-color_weak">Versions are saved each time this message is activated.</p>
+                                </div>
+                            </template>
+
+                            <!-- Version list -->
+                            <template lwc:else>
+                                <ul class="versions-list">
+                                    <template for:each={versions} for:item="ver">
+                                        <li key={ver.id} class="versions-list__item">
+                                            <div class="version-card">
+
+                                                <!-- Left: dot + meta -->
+                                                <div class="version-card__left">
+                                                    <span class={ver.dotClass} title={ver.status}></span>
+                                                    <div class="version-card__meta">
+                                                        <div class="version-card__title">
+                                                            {ver.name}
+                                                            <template lwc:if={ver.isLatest}>
+                                                                <span class="slds-badge slds-badge_lightest version-latest-badge">Latest</span>
+                                                            </template>
+                                                        </div>
+                                                        <div class="version-card__sub">
+                                                            <template lwc:if={ver.hasTrigger}>
+                                                                <span class="version-trigger-label">{ver.triggerAction}</span>
+                                                                <span class="version-sep" aria-hidden="true">·</span>
+                                                            </template>
+                                                            <span>{ver.formattedDate}</span>
+                                                            <template lwc:if={ver.createdByName}>
+                                                                <span class="version-sep" aria-hidden="true">·</span>
+                                                                <span>{ver.createdByName}</span>
+                                                            </template>
+                                                        </div>
+                                                        <template lwc:if={ver.hasNote}>
+                                                            <p class="version-card__note">{ver.deploymentNote}</p>
+                                                        </template>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Right: status badge + load button -->
+                                                <div class="version-card__right">
+                                                    <span class="slds-badge slds-badge_lightest version-status-badge">{ver.status}</span>
+                                                    <button
+                                                        class="slds-button slds-button_neutral version-load-btn"
+                                                        type="button"
+                                                        data-version-id={ver.id}
+                                                        onclick={handleLoadVersion}
+                                                        title="Load this version into the editor"
+                                                    >
+                                                        <lightning-icon icon-name="utility:upload" size="x-small" class="slds-button__icon slds-button__icon_left"></lightning-icon>
+                                                        Load
+                                                    </button>
+                                                </div>
+
+                                            </div>
+                                        </li>
+                                    </template>
+                                </ul>
+                            </template>
+
+                        </div>
+                        <div class="slds-modal__footer slds-theme_default">
+                            <lightning-button label="Close" onclick={handleVersionsClose}></lightning-button>
+                        </div>
+                    </div>
+                </section>
+                <div class="slds-backdrop slds-backdrop_open"></div>
+            </template>
+
+            <!-- ══ Workspace ════════════════════════════════════════════════ -->
+            <div class="editor-workspace">
+
+                <!-- ── LEFT PANEL ────────────────────────────────────────────── -->
+                <div
+                    id="editor-left-panel"
+                    class={leftPanelClass}
+                    aria-hidden={leftPanelAriaHidden}
+                >
+                    <div class="slds-panel__header">
+                        <h2 class="slds-panel__header-title slds-text-heading_small slds-truncate" title="Components">Components</h2>
+                        <div class="slds-panel__header-actions">
+                            <button
+                                class="slds-button slds-button_icon slds-button_icon-small slds-panel__close"
+                                onclick={handleCloseLeft}
+                                title="Collapse Components panel"
+                            >
+                                <lightning-icon icon-name="utility:close" size="x-small" class="slds-button__icon"></lightning-icon>
+                                <span class="slds-assistive-text">Collapse Components panel</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="slds-panel__body">
+                        <template for:each={blockGroups} for:item="grp">
+                            <div key={grp.group} class="slds-panel__section editor-block-section">
+                                <h3 class="slds-text-title_caps editor-block-section__label">{grp.group}</h3>
+                                <ul class="block-library-list block-library-list_draggable">
+                                    <template for:each={grp.items} for:item="block">
+                                        <li key={block.id} class="block-library-list__item" data-block-type={block.blockType}>
+                                            <button
+                                                class="slds-box slds-box_link slds-box_x-small slds-media block-library-card"
+                                                type="button"
+                                                draggable="true"
+                                                data-id={block.id}
+                                                data-block-type={block.blockType}
+                                                ondragstart={handlePaletteDragStart}
+                                                title={block.description}
+                                            >
+                                                <div class="slds-media__figure slds-media__figure_fixed-width block-library-card__figure">
+                                                    <span class="slds-icon-text-default block-library-card__icon" aria-hidden="true">
+                                                        <span class="slds-icon_container" title={block.label}>
+                                                            <lightning-icon icon-name={block.icon} size="small" aria-hidden="true"></lightning-icon>
+                                                            <span class="slds-assistive-text">{block.label}</span>
+                                                        </span>
+                                                    </span>
+                                                </div>
+                                                <div class="slds-media__body slds-border_left slds-p-around_small">
+                                                    <h3 class="slds-truncate slds-text-heading_small block-library-card__title" title={block.label}>{block.label}</h3>
+                                                    <p class="slds-m-top_xx-small slds-text-body_small slds-text-color_weak block-library-card__desc">{block.description}</p>
+                                                </div>
+                                            </button>
+                                        </li>
+                                    </template>
+                                </ul>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- ── CANVAS ─────────────────────────────────────────────────── -->
+                <main class={canvasClass}>
+                    <div class="editor-canvas__scroll">
+                        <div class="editor-canvas__page">
+
+                            <!-- ── CTC Add Component dialog ──────────────────── -->
+                            <template lwc:if={addPopoverOpen}>
+                                <div class="editor-ctc-backdrop" onclick={handleCloseAddPopover}></div>
+                                <div class="slds-popover editor-ctc-panel" role="dialog" aria-label="Add Component" aria-modal="true">
+                                    <h2 class="editor-ctc-panel__header">
+                                        <div class="slds-shrink-none slds-p-horizontal_small slds-p-top_small slds-p-bottom_x-small">
+                                            <div class="slds-form-element">
+                                                <label class="slds-form-element__label slds-assistive-text" for="ctc-search">Search Components</label>
+                                                <div class="slds-form-element__control slds-input-has-icon slds-input-has-icon_right">
+                                                    <input
+                                                        type="text"
+                                                        id="ctc-search"
+                                                        class="slds-input"
+                                                        placeholder="Search"
+                                                        value={addSearchQuery}
+                                                        oninput={handleAddSearchChange}
+                                                        aria-label="Search Components"
+                                                    />
+                                                    <lightning-icon icon-name="utility:search" size="xx-small" class="slds-input__icon slds-input__icon_right slds-icon_xx-small slds-icon-text-default"></lightning-icon>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </h2>
+                                    <section class="slds-popover__body slds-popover__body_small editor-ctc-panel__body">
+                                        <ul role="listbox" aria-label="Components">
+                                            <template for:each={filteredPopoverBlocks} for:item="b">
+                                                <li key={b.id} class="editor-ctc-group-item" role="option" aria-label={b.label} data-id={b.id} onclick={handleAddBlockFromPopover}>
+                                                    <div class="slds-grid slds-grid_vertical-align-center editor-ctc-item-row">
+                                                        <lightning-icon icon-name={b.icon} size="x-small" class="slds-icon_x-small slds-m-right_x-small editor-ctc-item-icon"></lightning-icon>
+                                                        <span>{b.label}</span>
+                                                    </div>
+                                                </li>
+                                            </template>
+                                            <template lwc:if={addSearchEmpty}>
+                                                <li class="editor-ctc-panel__empty" role="option" aria-disabled="true">
+                                                    <span class="slds-text-body_small slds-text-color_weak">No components match your search.</span>
+                                                </li>
+                                            </template>
+                                        </ul>
+                                    </section>
+                                </div>
+                            </template>
+
+                            <!-- ── Empty state ──────────────────────────────── -->
+                            <template lwc:if={isCanvasEmpty}>
+                                <div class={emptyDropzoneClass}
+                                    ondragover={handleEmptyZoneDragOver}
+                                    ondragleave={handleEmptyZoneDragLeave}
+                                    ondrop={handleEmptyZoneDrop}
+                                    data-index="0"
+                                >
+                                    <div class="slds-illustration slds-illustration_small">
+                                        <svg class="slds-illustration__svg" viewBox="0 0 454 213" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd"><g transform="translate(-70.000000, -94.000000)"><g><g transform="translate(124.500000, 222.000000)"><g fill="#FFFFFF"><path vector-effect="non-scaling-stroke" d="M18.9209988,1.95433401 L33.259296,51.443436 C33.5666778,52.5043744 32.9557995,53.613617 31.8948612,53.9209988 C31.7139843,53.9734036 31.5266126,54 31.3382972,54 L2.6617028,54 C1.5571333,54 0.661702805,53.1045695 0.661702805,52 C0.661702805,51.8116846 0.688299176,51.6243129 0.74070397,51.443436 L15.0790012,1.95433401 C15.386383,0.893395645 16.4956256,0.282517358 17.556564,0.589899164 C18.2152102,0.780726338 18.7301717,1.29568777 18.9209988,1.95433401 Z"></path></g><g class="slds-illustration__stroke-secondary" stroke-linecap="round" stroke-width="3"><polygon vector-effect="non-scaling-stroke" stroke-linejoin="round" points="17 0.323943662 34 54 -1.81721305e-12 54"></polygon><path vector-effect="non-scaling-stroke" d="M17,4.6953125 C17,43.0456294 17,62.6471919 17,63.5 C17,62.6471919 17,43.0456294 17,4.6953125 Z"></path><path vector-effect="non-scaling-stroke" d="M17,29.3239437 C22.3333333,35.7851611 25,39.1184944 25,39.3239437 C25,39.1184944 22.3333333,35.7851611 17,29.3239437 Z" stroke-linejoin="round" transform="translate(21.000000, 34.323944) scale(-1, 1) translate(-21.000000, -34.323944) "></path></g></g><g transform="translate(145.000000, 194.000000)"><g transform="translate(1.000000, 0.000000)" fill="#FFFFFF"><path vector-effect="non-scaling-stroke" d="M25.6478873,0 L50.879042,84.4273253 C51.1953215,85.4856452 50.5937789,86.5999782 49.535459,86.9162577 C49.3496374,86.9717906 49.1567264,87 48.9627843,87 L2.33299037,87 C1.22842087,87 0.332990367,86.1045695 0.332990367,85 C0.332990367,84.8060578 0.361199757,84.6131469 0.416732643,84.4273253 L25.6478873,0 Z"></path></g><g class="slds-illustration__stroke-secondary" stroke-linecap="round" stroke-width="3"><polygon vector-effect="non-scaling-stroke" stroke-linejoin="round" points="26.5 0 52.5 87 0.5 87"></polygon><path vector-effect="non-scaling-stroke" d="M26.5,2.58642578 C26.5,61.0261034 26.5,90.9972948 26.5,92.5 C26.5,90.9972948 26.5,61.0261034 26.5,2.58642578 Z"></path><path vector-effect="non-scaling-stroke" d="M15.6478873,42 C22.314554,49.078692 25.6478873,52.7453587 25.6478873,53 C25.6478873,52.7453587 22.314554,49.078692 15.6478873,42 Z" stroke-linejoin="round"></path><path vector-effect="non-scaling-stroke" d="M27.6478873,68 C36.9812207,57.078692 41.6478873,51.7453587 41.6478873,52 C41.6478873,51.7453587 36.9812207,57.078692 27.6478873,68 Z" stroke-linejoin="round"></path></g></g><g transform="translate(404.500000, 245.000000) scale(-1, 1) translate(-404.500000, -245.000000) translate(348.000000, 226.000000)" class="slds-illustration__stroke-secondary" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"><polyline vector-effect="non-scaling-stroke" points="0 38 47.5 0 80.5 26"></polyline><polyline vector-effect="non-scaling-stroke" points="71 17 80.5 9 113 36"></polyline></g><g transform="translate(72.000000, 262.500000)"><path vector-effect="non-scaling-stroke" d="M153.962142,26.4644491 C151.225735,20.0143094 144.944776,15.5029106 137.633892,15.5029106 C135.619663,15.5029106 133.683612,15.8453541 131.878328,16.4764392 C128.451481,11.1704266 122.567406,7.66985447 115.883789,7.66985447 C109.491267,7.66985447 103.830159,10.8721423 100.350851,15.7935668 C98.9589956,14.968161 97.3423157,14.4956341 95.6177606,14.4956341 C94.1083143,14.4956341 92.6815102,14.8576334 91.4157672,15.5014039 C87.9975328,6.58722215 79.5098304,0.275259875 69.5804557,0.275259875 C60.4632836,0.275259875 52.5615782,5.59684366 48.6837305,13.3681823 C46.3912034,12.266973 43.8314865,11.6515593 41.1312741,11.6515593 C32.4373504,11.6515593 25.1998844,18.0312998 23.6476214,26.4644491 L153.962142,26.4644491 Z" class="slds-illustration__fill-secondary"></path><path vector-effect="non-scaling-stroke" d="M13,25 L143,25" class="slds-illustration__stroke-secondary" stroke-width="3" stroke-linecap="round"></path><path vector-effect="non-scaling-stroke" d="M0,25 L450,25" class="slds-illustration__stroke-secondary" stroke-width="3" stroke-linecap="round"></path></g><g transform="translate(344.000000, 247.000000)"><g transform="translate(0.293436, 0.054545)"><path vector-effect="non-scaling-stroke" d="M165.428708,41.9454545 L0.0995432562,41.9454545 C0.0336614956,41.2089487 0,40.4630069 0,39.7090909 C0,26.2132599 10.7866531,15.2727273 24.0926641,15.2727273 C27.7492016,15.2727273 31.215485,16.0989227 34.3199502,17.5772977 C39.5712028,7.14424616 50.271428,0 62.6175975,0 C76.0636257,0 87.5573893,8.47383452 92.1862485,20.441159 C93.9002755,19.5768947 95.8324059,19.0909091 97.8764479,19.0909091 C100.211783,19.0909091 102.401037,19.7252784 104.285841,20.8333889 C108.997403,14.2263569 116.663488,9.92727273 125.320028,9.92727273 C138.043441,9.92727273 148.627152,19.2146805 150.834755,31.4671412 C151.487388,31.3631046 152.156394,31.3090909 152.837838,31.3090909 C159.117096,31.3090909 164.340238,35.8953699 165.428708,41.9454545 Z" class="slds-illustration__fill-secondary"></path><path vector-effect="non-scaling-stroke" d="M32.7065637,40.4454545 L173.706564,40.4454545" class="slds-illustration__stroke-secondary" stroke-width="3" stroke-linecap="round"></path></g></g><g transform="translate(105.000000, 189.000000)"><g transform="translate(106.000000, 48.000000)" fill="#FFFFFF"><polygon vector-effect="non-scaling-stroke" points="121.5 14.5 158.5 14.5 158.5 0.5 47.5 0.5 47.5 14.5 93.5 14.5 93.5 35.5 121.5 35.5 121.5 14.5"></polygon><rect x="0" y="0" width="48" height="14"></rect></g><g transform="translate(106.000000, 62.000000)" class="slds-illustration__fill-secondary"><polygon vector-effect="non-scaling-stroke" points="93.3109375 0.456640625 93.3109375 21.6722656 120.925 21.6722656 121.823047 1.13242188 158.5 0.456640625 158.5 54.5 48.5 54.5 48.5 0.693359375"></polygon><rect x="0.5" y="0.5" width="48" height="54"></rect></g><g><rect class="slds-illustration__stroke-primary" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" x="154.5" y="48.5" width="110" height="68"></rect><polygon vector-effect="non-scaling-stroke" class="slds-illustration__stroke-primary" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" points="264.5 62.5 264.5 48.5 154.5 48.5 154.5 62.5 199.5 62.5 199.5 83.5 227.5 83.5 227.5 62.5"></polygon><path vector-effect="non-scaling-stroke" d="M96.5,7.5 C109.754834,7.5 120.5,18.245166 120.5,31.5 L120.5,41.5 L72.5,41.5 L72.5,31.5 C72.5,18.245166 83.245166,7.5 96.5,7.5 Z" class="slds-illustration__fill-secondary" transform="translate(96.500000, 24.500000) scale(-1, 1) rotate(90.000000) translate(-96.500000, -24.500000) "></path><path vector-effect="non-scaling-stroke" d="M96.5,7.5 C109.754834,7.5 120.5,18.245166 120.5,31.5 L120.5,41.5 L72.5,41.5 L72.5,31.5 C72.5,18.245166 83.245166,7.5 96.5,7.5 Z" class="slds-illustration__stroke-primary" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" transform="translate(96.500000, 24.500000) scale(-1, 1) rotate(90.000000) translate(-96.500000, -24.500000) "></path><rect class="slds-illustration__fill-secondary" x="106.5" y="0.5" width="110" height="48"></rect><rect class="slds-illustration__stroke-primary" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" x="106.5" y="0.5" width="110" height="48"></rect><rect class="slds-illustration__stroke-primary" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" x="106.5" y="62.5" width="48" height="54"></rect><rect class="slds-illustration__stroke-primary" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" x="106.5" y="48.5" width="48" height="14"></rect><path vector-effect="non-scaling-stroke" d="M0,116.5 L350,116.5" class="slds-illustration__stroke-primary" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path></g></g></g></g></g></svg>
+                                        <div class="slds-text-longform">
+                                            <h3 class="slds-text-heading_medium">Start building your message</h3>
+                                            <p class="slds-text-body_regular">Drag a component from the left panel, or click below to add one.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+
+                            <!-- ── Populated canvas ──────────────────────────── -->
+                            <template lwc:else>
+                                <div class={populatedDropzoneClass}
+                                    ondragover={handleCanvasDragOver}
+                                    ondragleave={handleCanvasDragLeave}
+                                    ondrop={handleCanvasDrop}
+                                >
+                                    <template for:each={canvasBlocks} for:item="blk">
+                                        <!-- Wrapper: slot before card + the card itself -->
+                                        <div key={blk.instanceId} class="block-canvas-item">
+
+                                            <!-- Drop slot BEFORE this block (index = blockOrder - 1) -->
+                                            <div class="slds-drop-zone_drag__slot"
+                                                data-index={blk.slotBeforeIndex}
+                                                ondragover={handleSlotDragOver}
+                                                ondragleave={handleSlotDragLeave}
+                                                ondrop={handleSlotDrop}
+                                            ></div>
+
+                                            <!-- Block card -->
+                                            <div data-editor-block-id={blk.instanceId}
+                                                class={blk.blockCardClass}
+                                                data-index={blk.blockOrder}
+                                                ondragover={handleCardDragOver}
+                                                ondrop={handleCardDrop}
+                                            >
+
+                                                <!-- Chrome: always visible, click to toggle expand -->
+                                                <div class="block-card__chrome"
+                                                    data-instance-id={blk.instanceId}
+                                                    onclick={handleToggleBlock}
+                                                >
+                                                    <div class="block-card__header">
+                                                        <div class="block-card__title">
+                                                            <div class="block-card__reorder">
+                                                                <!-- Drag handle -->
+                                                                <button class="slds-button slds-button_icon slds-button_icon-border drag-handle"
+                                                                    type="button"
+                                                                    title="Drag to reorder"
+                                                                    draggable="true"
+                                                                    data-instance-id={blk.instanceId}
+                                                                    ondragstart={handleBlockDragStart}
+                                                                    ondragend={handleDragEnd}
+                                                                >
+                                                                    <lightning-icon icon-name="utility:drag_and_drop" size="xx-small" class="slds-button__icon"></lightning-icon>
+                                                                    <span class="slds-assistive-text">Drag to reorder</span>
+                                                                </button>
+                                                                <!-- Move up -->
+                                                                <button class="slds-button slds-button_icon slds-button_icon-border"
+                                                                    type="button"
+                                                                    title="Move block up"
+                                                                    disabled={blk.isFirst}
+                                                                    data-instance-id={blk.instanceId}
+                                                                    onclick={handleMoveUp}
+                                                                >
+                                                                    <lightning-icon icon-name="utility:chevronup" size="xx-small" class="slds-button__icon"></lightning-icon>
+                                                                    <span class="slds-assistive-text">Move block up</span>
+                                                                </button>
+                                                                <!-- Move down -->
+                                                                <button class="slds-button slds-button_icon slds-button_icon-border"
+                                                                    type="button"
+                                                                    title="Move block down"
+                                                                    disabled={blk.isLast}
+                                                                    data-instance-id={blk.instanceId}
+                                                                    onclick={handleMoveDown}
+                                                                >
+                                                                    <lightning-icon icon-name="utility:chevrondown" size="xx-small" class="slds-button__icon"></lightning-icon>
+                                                                    <span class="slds-assistive-text">Move block down</span>
+                                                                </button>
+                                                            </div>
+                                                            <strong>{blk.label}</strong>
+                                                            <span>#{blk.blockOrder}</span>
+                                                        </div>
+                                                        <div class="block-card__actions">
+                                                            <!-- Preview toggle -->
+                                                            <button class="slds-button slds-button_icon slds-button_icon-border"
+                                                                type="button"
+                                                                title="Toggle block preview"
+                                                                aria-pressed={blk.previewAriaPressed}
+                                                                data-instance-id={blk.instanceId}
+                                                                onclick={handleToggleBlockPreview}
+                                                            >
+                                                                <lightning-icon icon-name="utility:preview" size="xx-small" class="slds-button__icon"></lightning-icon>
+                                                                <span class="slds-assistive-text">Preview block</span>
+                                                            </button>
+                                                            <!-- Clone -->
+                                                            <button class="slds-button slds-button_icon slds-button_icon-border"
+                                                                type="button"
+                                                                title="Clone block"
+                                                                data-instance-id={blk.instanceId}
+                                                                onclick={handleCloneBlock}
+                                                            >
+                                                                <lightning-icon icon-name="utility:copy" size="xx-small" class="slds-button__icon"></lightning-icon>
+                                                                <span class="slds-assistive-text">Clone block</span>
+                                                            </button>
+                                                            <!-- Delete -->
+                                                            <button class="slds-button slds-button_icon slds-button_icon-border block-card__delete-btn"
+                                                                type="button"
+                                                                title="Remove block"
+                                                                data-instance-id={blk.instanceId}
+                                                                onclick={handleRemoveBlock}
+                                                            >
+                                                                <lightning-icon icon-name="utility:delete" size="xx-small" class="slds-button__icon block-card__delete-icon"></lightning-icon>
+                                                                <span class="slds-assistive-text">Remove block</span>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Editor: only when expanded -->
+                                                <template lwc:if={blk.expanded}>
+                                                    <div class="block-editor">
+                                                        <div class="slds-tabs_default block-editor-tabs">
+                                                            <ul class="slds-tabs_default__nav" role="tablist">
+                                                                <li class={blk.contentTabClass} role="presentation">
+                                                                    <button
+                                                                        id={blk.contentTabId}
+                                                                        class="slds-tabs_default__link block-editor-tab-button"
+                                                                        type="button"
+                                                                        role="tab"
+                                                                        aria-selected={blk.contentTabSelected}
+                                                                        aria-controls={blk.contentPanelId}
+                                                                        tabindex={blk.contentTabIndex}
+                                                                        data-instance-id={blk.instanceId}
+                                                                        data-tab="content"
+                                                                        onclick={handleBlockTabChange}
+                                                                    >Content Settings</button>
+                                                                </li>
+                                                                <li class={blk.settingsTabClass} role="presentation">
+                                                                    <button
+                                                                        id={blk.settingsTabId}
+                                                                        class="slds-tabs_default__link block-editor-tab-button"
+                                                                        type="button"
+                                                                        role="tab"
+                                                                        aria-selected={blk.settingsTabSelected}
+                                                                        aria-controls={blk.settingsPanelId}
+                                                                        tabindex={blk.settingsTabIndex}
+                                                                        data-instance-id={blk.instanceId}
+                                                                        data-tab="settings"
+                                                                        onclick={handleBlockTabChange}
+                                                                    >Block Settings</button>
+                                                                </li>
+                                                            </ul>
+
+                                                            <!-- Content panel -->
+                                                            <div
+                                                                id={blk.contentPanelId}
+                                                                class="slds-tabs_default__content block-editor-panel"
+                                                                role="tabpanel"
+                                                                aria-labelledby={blk.contentTabId}
+                                                                style={blk.contentPanelStyle}
+                                                            >
+                                                                <p class="slds-text-body_small slds-text-color_weak slds-p-around_small">
+                                                                    Content editor for <strong>{blk.label}</strong> — coming soon.
+                                                                </p>
+                                                            </div>
+
+                                                            <!-- Settings panel -->
+                                                            <div
+                                                                id={blk.settingsPanelId}
+                                                                class="slds-tabs_default__content block-editor-panel"
+                                                                role="tabpanel"
+                                                                aria-labelledby={blk.settingsTabId}
+                                                                style={blk.settingsPanelStyle}
+                                                            >
+                                                                <div class="settings-panel-stack">
+
+                                                                    <!-- Card 1: Layout & Visibility -->
+                                                                    <div class="settings-card">
+                                                                        <h2 class="settings-card__title">Layout &amp; Visibility</h2>
+
+                                                                        <!-- Visibility button groups -->
+                                                                        <div class="block-vis-grid">
+                                                                            <span class="block-vis-grid__label">View on desktop</span>
+                                                                            <div class="slds-button-group" role="group" aria-label="View on desktop">
+                                                                                <button type="button" class={blk.visDesktopShowClass}
+                                                                                    data-instance-id={blk.instanceId} data-device="desktop" data-value="show"
+                                                                                    onclick={handleBlockVisClick}>Show</button>
+                                                                                <button type="button" class={blk.visDesktopHideClass}
+                                                                                    data-instance-id={blk.instanceId} data-device="desktop" data-value="hide"
+                                                                                    onclick={handleBlockVisClick}>Hide</button>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="block-vis-grid">
+                                                                            <span class="block-vis-grid__label">View on mobile</span>
+                                                                            <div class="slds-button-group" role="group" aria-label="View on mobile">
+                                                                                <button type="button" class={blk.visMobileShowClass}
+                                                                                    data-instance-id={blk.instanceId} data-device="mobile" data-value="show"
+                                                                                    onclick={handleBlockVisClick}>Show</button>
+                                                                                <button type="button" class={blk.visMobileHideClass}
+                                                                                    data-instance-id={blk.instanceId} data-device="mobile" data-value="hide"
+                                                                                    onclick={handleBlockVisClick}>Hide</button>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <!-- Padding box -->
+                                                                        <div class="block-pad-header">
+                                                                            <h3 class="block-pad-header__title">Padding</h3>
+                                                                            <div class="block-pad-header__actions">
+                                                                                <button type="button" class={blk.padLinkedClass}
+                                                                                    title="Link all sides" aria-pressed={blk.padLinkedPressed}
+                                                                                    data-instance-id={blk.instanceId} onclick={handleBlockPadLink}>
+                                                                                    <lightning-icon icon-name="utility:link" size="xx-small" variant={blk.padLinkedIconVariant}></lightning-icon>
+                                                                                    <span class="slds-assistive-text">Link spacing sides</span>
+                                                                                </button>
+                                                                                <button type="button" class="block-pad-reset"
+                                                                                    data-instance-id={blk.instanceId} onclick={handleBlockPadReset}>Reset to default</button>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="block-spacing-box">
+                                                                            <div class="block-spacing-box__diagram" role="group" aria-label="Padding">
+                                                                                <div class="block-spacing-box__side block-spacing-box__side_top">
+                                                                                    <input id={blk.padTopId} class="slds-input slds-input_xx-small block-spacing-box__input" type="number" min="0" aria-label="Top padding in pixels" value={blk.padTop} data-instance-id={blk.instanceId} data-side="top" onchange={handleBlockPadChange} />
+                                                                                    <span class="block-spacing-box__unit">px</span>
+                                                                                </div>
+                                                                                <div class="block-spacing-box__middle">
+                                                                                    <div class="block-spacing-box__side block-spacing-box__side_left">
+                                                                                        <input id={blk.padLeftId} class="slds-input slds-input_xx-small block-spacing-box__input" type="number" min="0" aria-label="Left padding in pixels" value={blk.padLeft} data-instance-id={blk.instanceId} data-side="left" onchange={handleBlockPadChange} />
+                                                                                        <span class="block-spacing-box__unit">px</span>
+                                                                                    </div>
+                                                                                    <div class="block-spacing-box__core" aria-hidden="true"><span class="block-spacing-box__core-label">Padding</span></div>
+                                                                                    <div class="block-spacing-box__side block-spacing-box__side_right">
+                                                                                        <input id={blk.padRightId} class="slds-input slds-input_xx-small block-spacing-box__input" type="number" min="0" aria-label="Right padding in pixels" value={blk.padRight} data-instance-id={blk.instanceId} data-side="right" onchange={handleBlockPadChange} />
+                                                                                        <span class="block-spacing-box__unit">px</span>
+                                                                                    </div>
+                                                                                </div>
+                                                                                <div class="block-spacing-box__side block-spacing-box__side_bottom">
+                                                                                    <input id={blk.padBottomId} class="slds-input slds-input_xx-small block-spacing-box__input" type="number" min="0" aria-label="Bottom padding in pixels" value={blk.padBottom} data-instance-id={blk.instanceId} data-side="bottom" onchange={handleBlockPadChange} />
+                                                                                    <span class="block-spacing-box__unit">px</span>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <!-- Block background -->
+                                                                        <div class="slds-form-element slds-m-top_small">
+                                                                            <label class="slds-form-element__label" for={blk.bgValueId}>Block Background</label>
+                                                                            <div class="slds-form-element__control">
+                                                                                <input type="text" id={blk.bgValueId} class="slds-input"
+                                                                                    placeholder="e.g. #ffffff or brand-light"
+                                                                                    value={blk.bgValue}
+                                                                                    data-instance-id={blk.instanceId}
+                                                                                    oninput={handleBlockBgChange} />
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <!-- Card 2: Column Layout (TextImage only) -->
+                                                                    <template lwc:if={blk.isTextImage}>
+                                                                        <div class="settings-card">
+                                                                            <h2 class="settings-card__title">Column Layout</h2>
+                                                                            <div class="column-layout-picker">
+
+                                                                                <!-- Option: Text left, Image right -->
+                                                                                <div class={blk.colLayoutTextLeftClass}
+                                                                                    role="button" tabindex="0"
+                                                                                    data-instance-id={blk.instanceId} data-layout="text-left"
+                                                                                    onclick={handleBlockImageLayout}>
+                                                                                    <div class="column-layout-card__preview" aria-hidden="true">
+                                                                                        <div class="column-layout-card__col column-layout-card__col_text">
+                                                                                            <lightning-icon icon-name="utility:text" size="xx-small" variant="inverse" class="column-layout-card__col-icon"></lightning-icon>
+                                                                                        </div>
+                                                                                        <div class="column-layout-card__col column-layout-card__col_image">
+                                                                                            <lightning-icon icon-name="utility:image" size="xx-small" variant="inverse" class="column-layout-card__col-icon"></lightning-icon>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    <span class="column-layout-card__col-label">Text | Image</span>
+                                                                                    <template lwc:if={blk.imageLayoutTextLeft}>
+                                                                                        <lightning-icon icon-name="utility:check" size="xx-small" class="column-layout-card__check"></lightning-icon>
+                                                                                    </template>
+                                                                                </div>
+
+                                                                                <!-- Option: Image left, Text right -->
+                                                                                <div class={blk.colLayoutImageLeftClass}
+                                                                                    role="button" tabindex="0"
+                                                                                    data-instance-id={blk.instanceId} data-layout="image-left"
+                                                                                    onclick={handleBlockImageLayout}>
+                                                                                    <div class="column-layout-card__preview" aria-hidden="true">
+                                                                                        <div class="column-layout-card__col column-layout-card__col_image">
+                                                                                            <lightning-icon icon-name="utility:image" size="xx-small" variant="inverse" class="column-layout-card__col-icon"></lightning-icon>
+                                                                                        </div>
+                                                                                        <div class="column-layout-card__col column-layout-card__col_text">
+                                                                                            <lightning-icon icon-name="utility:text" size="xx-small" variant="inverse" class="column-layout-card__col-icon"></lightning-icon>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    <span class="column-layout-card__col-label">Image | Text</span>
+                                                                                    <template lwc:if={blk.imageLayoutImageLeft}>
+                                                                                        <lightning-icon icon-name="utility:check" size="xx-small" class="column-layout-card__check"></lightning-icon>
+                                                                                    </template>
+                                                                                </div>
+
+                                                                            </div>
+                                                                        </div>
+                                                                    </template>
+
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </template>
+
+                                            </div>
+                                            <!-- /block card -->
+
+                                            <!-- Drop slot AFTER last block -->
+                                            <template lwc:if={blk.isLast}>
+                                                <div class="slds-drop-zone_drag__slot"
+                                                    data-index={blk.blockOrder}
+                                                    ondragover={handleSlotDragOver}
+                                                    ondragleave={handleSlotDragLeave}
+                                                    ondrop={handleSlotDrop}
+                                                ></div>
+                                            </template>
+
+                                        </div>
+                                        <!-- /block-canvas-item -->
+                                    </template>
+                                </div>
+                            </template>
+
+                            <!-- ── Always-visible add button ────────────────── -->
+                            <div class="editor-canvas__add-row">
+                                <button class="slds-button slds-button_neutral editor-canvas__add-btn" type="button" onclick={handleOpenAddPopover}>
+                                    <lightning-icon icon-name="utility:add" size="x-small" class="slds-button__icon slds-button__icon_left"></lightning-icon>
+                                    Add Component
+                                </button>
+                            </div>
+
+                        </div>
+                    </div>
+                </main>
+
+                <!-- ── RIGHT PANEL ───────────────────────────────────────────── -->
+                <div
+                    id="editor-right-panel"
+                    class={rightPanelClass}
+                    aria-hidden={rightPanelAriaHidden}
+                >
+                    <div class="slds-panel__header">
+                        <h2 class="slds-panel__header-title slds-text-heading_small slds-truncate" title="Preview">Preview</h2>
+                        <div class="slds-panel__header-actions">
+                            <div class="slds-button-group" role="group" aria-label="Device">
+                                <button class={deviceDesktopClass} onclick={handleDeviceDesktop} title="Desktop preview" aria-pressed={isDesktop}>
+                                    <lightning-icon icon-name="utility:desktop" size="x-small" variant={deviceDesktopVariant} class="slds-button__icon"></lightning-icon>
+                                    <span class="slds-assistive-text">Desktop</span>
+                                </button>
+                                <button class={deviceMobileClass} onclick={handleDeviceMobile} title="Mobile preview" aria-pressed={isMobile}>
+                                    <lightning-icon icon-name="utility:phone_portrait" size="x-small" variant={deviceMobileVariant} class="slds-button__icon"></lightning-icon>
+                                    <span class="slds-assistive-text">Mobile</span>
+                                </button>
+                            </div>
+                            <div class="slds-button-group slds-m-left_x-small" role="group" aria-label="Theme">
+                                <button class={themeLightClass} onclick={handleThemeLight} title="Light mode" aria-pressed={isLightTheme}>
+                                    <lightning-icon icon-name="utility:daylight" size="x-small" variant={themeLightVariant} class="slds-button__icon"></lightning-icon>
+                                    <span class="slds-assistive-text">Light</span>
+                                </button>
+                                <button class={themeDarkClass} onclick={handleThemeDark} title="Dark mode" aria-pressed={isDarkTheme}>
+                                    <lightning-icon icon-name="utility:night" size="x-small" variant={themeDarkVariant} class="slds-button__icon"></lightning-icon>
+                                    <span class="slds-assistive-text">Dark</span>
+                                </button>
+                            </div>
+                            <button
+                                class="slds-button slds-button_icon slds-button_icon-small slds-panel__close slds-m-left_x-small"
+                                onclick={handleCloseRight}
+                                title="Collapse Preview panel"
+                            >
+                                <lightning-icon icon-name="utility:close" size="x-small" class="slds-button__icon"></lightning-icon>
+                                <span class="slds-assistive-text">Collapse Preview panel</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="slds-panel__body editor-preview-body">
+                        <div class="editor-preview__mock-wrap">
+                            <div class={previewFrameClass}>
+
+                                <template lwc:if={isMobile}>
+                                    <div class="editor-preview__notch"></div>
+                                </template>
+
+                                <template lwc:if={isDesktop}>
+                                    <div class="editor-preview__browser-bar">
+                                        <span class="editor-preview__browser-dot"></span>
+                                        <span class="editor-preview__browser-dot"></span>
+                                        <span class="editor-preview__browser-dot"></span>
+                                    </div>
+                                </template>
+
+                                <div class="editor-preview__content">
+                                    <template lwc:if={previewIsEmpty}>
+                                        <div class="editor-preview__empty">
+                                            <lightning-icon icon-name="utility:preview" size="medium" class="slds-m-bottom_small editor-preview__empty-icon"></lightning-icon>
+                                            <p class="slds-text-body_small slds-text-color_weak">Add components to the canvas to see a preview.</p>
+                                        </div>
+                                    </template>
+                                    <template lwc:else>
+                                        <template for:each={previewBlocks} for:item="pb">
+                                            <div key={pb.instanceId} class={pb.previewBlockClass}>
+                                                <lightning-icon icon-name={pb.icon} size="x-small" class="slds-m-right_x-small editor-preview-block__icon"></lightning-icon>
+                                                <span>{pb.label}</span>
+                                            </div>
+                                        </template>
+                                    </template>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+            <!-- end .editor-workspace -->
+
+        </div>
+    </template>
+
+</template>

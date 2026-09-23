@@ -1,0 +1,51 @@
+.vtab-layout {
+    display: flex;
+    align-items: stretch;
+    border: 1px solid #e0e5ee;
+    border-radius: 0.25rem;
+    background: #fff;
+    min-height: 400px;
+}
+.vtab-sidebar {
+    flex: 0 0 200px;
+    border-right: 1px solid #e0e5ee;
+    display: flex;
+    flex-direction: column;
+    background: #f8f9fb;
+    border-radius: 0.25rem 0 0 0.25rem;
+    overflow-y: auto;
+}
+.vtab-item {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 0.75rem;
+    border: none;
+    border-bottom: 1px solid #e8ecf0;
+    border-left: 3px solid transparent;
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+    font-size: 0.8125rem;
+    color: #3e3e3c;
+    transition: background 0.1s;
+}
+.vtab-item:hover { background: #eaf0f8; }
+.vtab-item_active {
+    background: #fff;
+    border-left-color: #0176d3;
+    padding-left: calc(0.75rem - 3px);
+    font-weight: 600;
+    color: #0176d3;
+}
+.vtab-icon { flex-shrink: 0; --sds-c-icon-color-foreground-default: #706e6b; }
+.vtab-item_active .vtab-icon { --sds-c-icon-color-foreground-default: #0176d3; }
+.vtab-item:hover .vtab-icon  { --sds-c-icon-color-foreground-default: #032d60; }
+.vtab-content { flex: 1; min-width: 0; }
+
+.scrollable-list {
+    max-height: calc(100vh - 280px);
+    overflow-y: auto;
+}

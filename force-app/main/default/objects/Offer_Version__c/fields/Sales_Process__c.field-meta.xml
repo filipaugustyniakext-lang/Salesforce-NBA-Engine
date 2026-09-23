@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Sales_Process__c</fullName>
+    <label>Sales Process</label>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>branch</fullName>
+                <default>false</default>
+                <label>Branch</label>
+            </value>
+            <value>
+                <fullName>omnichannel</fullName>
+                <default>false</default>
+                <label>Omnichannel</label>
+            </value>
+            <value>
+                <fullName>online</fullName>
+                <default>false</default>
+                <label>Online</label>
+            </value>
+            <value>
+                <fullName>oddział</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>oddział</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

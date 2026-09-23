@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RecordType xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Topic</fullName>
+    <active>true</active>
+    <description>A Topic Level of Communication used for NBA fueled Activations</description>
+    <label>Topic</label>
+    <picklistValues>
+        <picklist>Activation_Type__c</picklist>
+        <values>
+            <fullName>Always-on</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Emergency</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>One-Off</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Triggered</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Offering_Type__c</picklist>
+        <values>
+            <fullName>Family of needs</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Product Family</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Priority_Tier__c</picklist>
+        <values>
+            <fullName>Tier 1</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Scoring_Method__c</picklist>
+        <values>
+            <fullName>A-priori</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Pick a Model</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Source_Model__c</picklist>
+        <values>
+            <fullName>Placeholder 1</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Placeholder 2</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Status</picklist>
+        <values>
+            <fullName>Planned</fullName>
+            <default>true</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Timing_Type__c</picklist>
+        <values>
+            <fullName>Customer Account Activation Date</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Customer Record Creation Date</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Type</picklist>
+        <values>
+            <fullName>Demo Signup %2F Trial</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Email</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Event</fullName>
+            <default>true</default>
+        </values>
+        <values>
+            <fullName>Other</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Referral Program</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Search</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Social Media</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Thought Leadership</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Website Direct</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+</RecordType>

@@ -1,0 +1,23 @@
+<template>
+    <div class="ring-wrapper">
+        <div class={ringClass} title={title}>
+            <div class="slds-progress-ring__progress"
+                 role="progressbar"
+                 aria-valuemin="0"
+                 aria-valuemax="100"
+                 aria-valuenow={pct}
+                 aria-label={title}>
+                <svg viewBox="-10 -10 20 20">
+                    <path class="slds-progress-ring__path" d={arcPath}></path>
+                    <template lwc:if={showHead}>
+                        <circle class="slds-progress-ring__path ring-head-dot" cx={headX} cy={headY} r="1.8"></circle>
+                    </template>
+                </svg>
+            </div>
+            <div class="slds-progress-ring__content ring-inner">
+                <span class={scoreTextClass}>{scoreLabel}</span>
+            </div>
+        </div>
+        <span class="ring-label-text">Attractiveness</span>
+    </div>
+</template>

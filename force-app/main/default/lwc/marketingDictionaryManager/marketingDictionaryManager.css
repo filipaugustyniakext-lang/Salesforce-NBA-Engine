@@ -1,0 +1,31 @@
+.category-tile {
+    border: 1px solid #dddbda;
+    border-radius: 8px;
+    background-color: #ffffff;
+    padding: 32px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s ease-in-out;
+}
+
+.category-tile:hover {
+    border-color: #0176d3;
+    background-color: #f3f9fe;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    transform: translateY(-2px);
+}
+
+.category-selected-tile {
+    border-color: #0176d3 !important;
+    background-color: #0176d3 !important;
+    color: #ffffff !important;
+}
+
+.category-selected-tile lightning-icon {
+    --slds-c-icon-color-foreground-default: #ffffff !important;
+}
+
+.custom-manager-modal .slds-modal__container {
+    max-width: 90% !important;
+    width: 90% !important;
+}

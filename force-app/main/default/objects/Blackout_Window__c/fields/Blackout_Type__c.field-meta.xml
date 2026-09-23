@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Blackout_Type__c</fullName>
+    <description>Category of the blackout window.</description>
+    <label>Blackout Type</label>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Public Holiday</fullName>
+                <default>true</default>
+                <label>Public Holiday</label>
+            </value>
+            <value>
+                <fullName>Maintenance Window</fullName>
+                <default>false</default>
+                <label>Maintenance Window</label>
+            </value>
+            <value>
+                <fullName>Business Decision</fullName>
+                <default>false</default>
+                <label>Business Decision</label>
+            </value>
+            <value>
+                <fullName>Other</fullName>
+                <default>false</default>
+                <label>Other</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

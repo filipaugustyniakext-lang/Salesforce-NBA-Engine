@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Message_Variant_Id__c</fullName>
+    <caseSensitive>false</caseSensitive>
+    <description>Primary key from MCE Data Extension. Used as the external ID for upsert sync from MCE to Core SF.</description>
+    <externalId>true</externalId>
+    <label>Message Variant ID</label>
+    <length>255</length>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>true</unique>
+</CustomField>

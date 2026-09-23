@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>MCE_Updated_At__c</fullName>
+    <description>Timestamp of the last update to this record in MCE. Mirrors the UpdatedAt column of the MCE Data Extension. Distinct from SF LastModifiedDate which tracks Core SF record changes.</description>
+    <label>MCE Updated At</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>DateTime</type>
+</CustomField>

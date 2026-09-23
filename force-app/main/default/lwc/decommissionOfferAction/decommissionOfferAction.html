@@ -1,0 +1,29 @@
+<template>
+    <template lwc:if={isLoading}>
+        <div class="slds-p-around_large slds-align_absolute-center">
+            <lightning-spinner alternative-text="Processing..." size="medium" variant="brand"></lightning-spinner>
+        </div>
+    </template>
+
+    <template lwc:else>
+        <div class="slds-p-around_medium">
+            <div class="slds-notify slds-notify_alert slds-theme_error slds-m-bottom_medium" role="alert">
+                <lightning-icon icon-name="utility:error" size="x-small" alternative-text="Error" class="slds-m-right_x-small"></lightning-icon>
+                <strong>This action is irreversible.</strong>
+            </div>
+            <p>Decommissioning this offer will:</p>
+            <ul class="slds-list_dotted slds-m-top_small slds-m-left_medium">
+                <li>Permanently deactivate <strong>all versions</strong></li>
+                <li>Prevent any new versions from being created</li>
+                <li>Prevent existing versions from ever being reactivated</li>
+                <li>Remove this offer from all future campaign activations</li>
+            </ul>
+            <p class="slds-m-top_medium">To use this offer again you would need to create an entirely <strong>new Offer record</strong>.</p>
+
+            <div class="slds-m-top_large action-footer">
+                <lightning-button label="Cancel" onclick={handleCancel} class="slds-m-right_small"></lightning-button>
+                <lightning-button label="Decommission Permanently" variant="destructive" onclick={handleConfirm}></lightning-button>
+            </div>
+        </div>
+    </template>
+</template>

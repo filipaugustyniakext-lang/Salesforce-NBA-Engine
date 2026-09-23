@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Offer__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description>Lookup to the active Offer record this message copy is associated with.</description>
+    <inlineHelpText>Select the active offer this copy targets.</inlineHelpText>
+    <label>Offer</label>
+    <referenceTo>Offer__c</referenceTo>
+    <relationshipLabel>CC Message Metadata</relationshipLabel>
+    <relationshipName>CC_Message_Metadata</relationshipName>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

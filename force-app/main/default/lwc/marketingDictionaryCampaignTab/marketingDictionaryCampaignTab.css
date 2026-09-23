@@ -1,0 +1,239 @@
+/* ── Vertical tab layout ──────────────────────────────────────────── */
+.vtab-layout {
+    display: flex;
+    align-items: stretch;
+    border: 1px solid #e0e5ee;
+    border-radius: 0.25rem;
+    background: #fff;
+    min-height: 400px;
+}
+.vtab-sidebar {
+    flex: 0 0 200px;
+    border-right: 1px solid #e0e5ee;
+    display: flex;
+    flex-direction: column;
+    background: #f8f9fb;
+    border-radius: 0.25rem 0 0 0.25rem;
+    overflow-y: auto;
+}
+.vtab-item {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 0.75rem;
+    border: none;
+    border-bottom: 1px solid #e8ecf0;
+    border-left: 3px solid transparent;
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+    font-size: 0.8125rem;
+    color: #3e3e3c;
+    transition: background 0.1s;
+}
+.vtab-item:hover {
+    background: #eaf0f8;
+}
+.vtab-item_active {
+    background: #fff;
+    border-left-color: #0176d3;
+    padding-left: calc(0.75rem - 3px);
+    font-weight: 600;
+    color: #0176d3;
+}
+.vtab-icon {
+    flex-shrink: 0;
+    --sds-c-icon-color-foreground-default: #706e6b;
+}
+.vtab-item_active .vtab-icon {
+    --sds-c-icon-color-foreground-default: #0176d3;
+}
+.vtab-item:hover .vtab-icon {
+    --sds-c-icon-color-foreground-default: #032d60;
+}
+.vtab-content {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Shared */
+.cd-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+.cd-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding-bottom: 0.375rem;
+    border-bottom: 1px solid #e0e5ee;
+    flex-wrap: wrap;
+}
+.cd-col-flag { width: 10rem; }
+.cd-col-desc { max-width: 260px; }
+.action-col  { width: 5rem; white-space: nowrap; }
+.cd-check-icon { color: #2e844a; }
+.cd-search-input { min-width: 180px; }
+.cd-warn-text { color: #c23934; font-size: 0.75rem; }
+
+/* Campaign Type / Value badges */
+.cd-badge-yes { background: #e3f5e1; color: #2e844a; border: 1px solid #91db8b; }
+.cd-badge-no  { background: #fce3e3; color: #c23934; border: 1px solid #f5a5a3; }
+.cd-badge-dpc { background: #e8f4fd; color: #0176d3; border: 1px solid #a8d5f5; font-size: 0.7rem; }
+.cd-badge-active { background: #e3f5e1; color: #2e844a; border: 1px solid #91db8b; }
+
+/* Topic Group badges */
+.cd-group-badge {
+    background: #f4f0ff;
+    color: #5417d7;
+    border: 1px solid #d4c2f9;
+    font-size: 0.8rem;
+    padding: 0.25rem 0.625rem;
+}
+.cd-group-badge-action {
+    --sds-c-button-icon-color-foreground: #0176d3;
+    --sds-c-button-icon-color-foreground-hover: #014486;
+}
+.cd-group-badge-sm {
+    background: #f4f0ff;
+    color: #5417d7;
+    border: 1px solid #d4c2f9;
+    font-size: 0.7rem;
+}
+
+/* Tier grid */
+.tier-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 0.75rem;
+}
+.tier-card {
+    border: 1px solid #e0e5ee;
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+    background: #fff;
+}
+.tier-card__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.tier-card__number {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #032d60;
+}
+.tier-card__desc {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+.tier-type-chips { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+.tier-type-chip { margin-inline-start: 0 !important; font-size: 0.7rem; }
+
+.tier-attrs { border-top: 1px solid #f3f3f3; padding-top: 0.375rem; }
+.tier-attr-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.125rem 0;
+}
+.tier-attr-label { font-size: 0.75rem; color: #444; flex: 1; }
+
+.tier-excl-chips { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+.tier-excl-chip {
+    background: #fff5d6;
+    color: #7d5800;
+    border: 1px solid #f4c842;
+    font-size: 0.65rem;
+    padding: 0.1rem 0.4rem;
+    margin-inline-start: 0 !important;
+}
+
+.tier-card__actions .slds-button_icon {
+    width: 2rem;
+    height: 2rem;
+}
+
+/* Tier modal — compact, no slds-modal_large */
+.tier-modal-container { max-width: 680px !important; }
+
+.tier-section-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #706e6b;
+    margin: 0;
+    padding: .5rem 0;
+}
+.tier-section, .scoring-section { border-top: 1px solid #e0e5ee; padding-top: 0.5rem; margin-top: 1rem;}
+
+[part="label-container"] {
+    cursor:pointer;
+}
+
+.tier-modal-attrs { display: flex; flex-direction: column; gap: 0.125rem; }
+.tier-modal-attr-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.2rem 0;
+    border-bottom: 1px solid #f3f3f3;
+}
+.tier-modal-attr-label { font-size: 0.78rem; color: #3e3e3c; flex: 1; }
+.tier-attr-combo { width: 148px; flex-shrink: 0; }
+
+.tier-excl-list { display: flex; flex-direction: column; gap: 0.125rem; }
+.tier-excl-item { padding: 0.15rem 0; border-bottom: 1px solid #f3f3f3; }
+.tier-select-all { font-weight: 600; }
+
+/* Path cards */
+.path-list { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.25rem; }
+.path-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border: 1px solid #e0e5ee;
+    border-radius: 0.5rem;
+    padding: 0.625rem 0.75rem;
+    background: #fff;
+    gap: 0.75rem;
+}
+.path-card_inactive {
+    background: #f9f9f9;
+    border-color: #ddd;
+    opacity: 0.75;
+}
+.path-card__left  { display: flex; align-items: center; flex: 1; }
+.path-card__center { display: flex; align-items: center; min-width: 120px; }
+.path-card__right { display: flex; align-items: center; gap: 0.25rem; }
+.path-pct-input { max-width: 80px; }
+.path-toggle { white-space: nowrap; }
+
+.offering-pill-deck {
+    display: inline-flex !important;
+    position: relative !important;
+    border-radius: 4px !important;
+}
+
+.segment-item.segment-selected, .offering-pill-deck .segment-item.segment-selected {
+    background-color: #0176d3 !important;
+    border-color: #0176d3 !important;
+    color: #ffffff !important;
+    z-index: 3 !important;
+    font-weight: 700 !important;
+}
+
+.segment-item:first-child, .offering-pill-deck .segment-item:first-child {
+    border-top-left-radius: 15px !important;
+    border-bottom-left-radius: 15px !important;
+}

@@ -1,0 +1,607 @@
+<template>
+
+    <!-- ── Inline editor view ─────────────────────────────────────────────── -->
+    <template lwc:if={isEditorOpen}>
+        <c-copy-cockpit-editor
+            record-id={_editorRecordId}
+            onback={handleEditorBack}
+        ></c-copy-cockpit-editor>
+    </template>
+
+    <!-- ── List view ─────────────────────────────────────────────────────── -->
+    <template lwc:else>
+    <div class="cockpit-container">
+
+        <!-- Loading channels -->
+        <template lwc:if={isLoading}>
+            <div class="cockpit-loading">
+                <lightning-spinner alternative-text="Loading..." size="medium"></lightning-spinner>
+            </div>
+        </template>
+
+        <!-- Channels error -->
+        <template lwc:elseif={hasError}>
+            <div class="slds-notify slds-notify_alert slds-alert_error" role="alert">
+                <lightning-icon icon-name="utility:error" size="x-small" class="slds-m-right_x-small"></lightning-icon>
+                <span>{errorMessage}</span>
+            </div>
+        </template>
+
+        <!-- No channels -->
+        <template lwc:elseif={isEmpty}>
+            <div class="cockpit-empty">
+                <lightning-icon icon-name="utility:channel_program_levels" size="large" class="slds-m-bottom_small"></lightning-icon>
+                <p class="slds-text-heading_small slds-m-bottom_x-small">No channels configured</p>
+                <p class="slds-text-body_regular slds-text-color_weak">Add channels in the Marketing Dictionary to see them here.</p>
+            </div>
+        </template>
+
+        <!-- Main layout -->
+        <template lwc:else>
+            <div class="ch-layout">
+
+                <!-- Sidebar -->
+                <div class="ch-sidebar">
+                    <template for:each={channels} for:item="ch">
+                        <button
+                            key={ch.Id}
+                            class={ch.sidebarClass}
+                            data-id={ch.Id}
+                            data-channeltype={ch.Channel_Type__c}
+                            onclick={handleSelectChannel}
+                            title={ch.Name}
+                        >
+                            <span class="ch-sidebar__icon-wrap">
+                                <lightning-icon icon-name={ch.safeIcon} size="x-small"></lightning-icon>
+                            </span>
+                            <span class="ch-sidebar__name">{ch.Name}</span>
+                            <span class="ch-sidebar__type">{ch.Channel_Type__c}</span>
+                        </button>
+                    </template>
+                </div>
+
+                <!-- Detail panel -->
+                <div class="ch-detail">
+                    <template lwc:if={activeChannel}>
+
+                        <!-- Panel header -->
+                        <div class="cockpit-panel-header">
+                            <div class="cockpit-panel-header__left">
+                                <lightning-icon
+                                    icon-name={activeChannel.safeIcon}
+                                    size="small"
+                                    class="slds-m-right_x-small cockpit-panel-icon"
+                                ></lightning-icon>
+                                <div>
+                                    <h2 class="slds-text-heading_small">{activeChannel.Name}</h2>
+                                    <span class="slds-text-body_small slds-text-color_weak">{activeChannel.Channel_Type__c}</span>
+                                </div>
+                            </div>
+                            <div class="cockpit-panel-header__right">
+                                <span class="slds-badge slds-m-right_x-small">{messageGroupCountLabel}</span>
+                            </div>
+                        </div>
+
+                        <!-- Toolbar -->
+                        <div class="cockpit-toolbar">
+                            <lightning-input
+                                type="search"
+                                placeholder="Search messages..."
+                                value={searchTerm}
+                                onchange={handleSearch}
+                                class="cockpit-search"
+                            ></lightning-input>
+                            <div class="cockpit-toolbar__right">
+                                <div class="cockpit-status-filters">
+                                    <template for:each={statusFilters} for:item="sf">
+                                        <button
+                                            key={sf.value}
+                                            class={sf.pillClass}
+                                            data-value={sf.value}
+                                            onclick={handleStatusFilter}
+                                        >{sf.label}</button>
+                                    </template>
+                                </div>
+                                <button class="cockpit-expand-btn" onclick={handleToggleAll}>
+                                    <lightning-icon
+                                        icon-name={expandAllIcon}
+                                        size="x-small"
+                                        class="slds-m-right_xx-small"
+                                    ></lightning-icon>
+                                    {expandAllLabel}
+                                </button>
+                                <lightning-button
+                                    label="Add Copy"
+                                    icon-name="utility:add"
+                                    variant="brand"
+                                    onclick={handleAddCopy}
+                                ></lightning-button>
+                            </div>
+                        </div>
+
+                        <!-- Bulk action bar (shown when ≥1 variant selected) -->
+                        <template lwc:if={hasSelection}>
+                            <div class="cockpit-bulk-bar" role="toolbar" aria-label="Bulk actions">
+                                <span class="cockpit-bulk-count">{selectionCountLabel}</span>
+                                <div class="cockpit-bulk-actions">
+                                    <lightning-button
+                                        label="Publish"
+                                        icon-name="utility:upload"
+                                        onclick={handleBulkPublish}
+                                    ></lightning-button>
+                                    <lightning-button
+                                        label="Archive"
+                                        icon-name="utility:archive"
+                                        onclick={handleBulkArchive}
+                                    ></lightning-button>
+                                    <lightning-button
+                                        label="Delete"
+                                        icon-name="utility:delete"
+                                        variant="destructive-text"
+                                        onclick={handleBulkDeletePrompt}
+                                    ></lightning-button>
+                                </div>
+                                <button class="cockpit-bulk-clear" onclick={handleClearSelection} title="Clear selection">
+                                    <lightning-icon icon-name="utility:close" size="xx-small"></lightning-icon>
+                                </button>
+                            </div>
+                        </template>
+
+                        <!-- Messages loading -->
+                        <template lwc:if={isMessagesLoading}>
+                            <div class="cockpit-loading">
+                                <lightning-spinner alternative-text="Loading messages..." size="small"></lightning-spinner>
+                            </div>
+                        </template>
+
+                        <!-- Message groups -->
+                        <template lwc:elseif={hasGroups}>
+                            <div class="cockpit-list" role="list">
+
+                                <!-- Column header -->
+                                <div class="cockpit-list-header" aria-hidden="true">
+                                    <span class="cockpit-col-check"></span>
+                                    <span class="cockpit-col-name">Message / Variant</span>
+                                    <span class="cockpit-col-status">Status</span>
+                                    <span class="cockpit-col-weight">Weight</span>
+                                    <span class="cockpit-col-schedule">Schedule</span>
+                                    <span class="cockpit-col-blocks">Blocks</span>
+                                    <span class="cockpit-col-versions">Versions</span>
+                                    <span class="cockpit-col-modified">Last Modified</span>
+                                    <span class="cockpit-col-actions"></span>
+                                </div>
+
+                                <template for:each={filteredGroups} for:item="grp">
+                                    <div key={grp.messageName} class="cockpit-group" role="listitem">
+
+                                        <!-- Master row -->
+                                        <div
+                                            class={grp.masterRowClass}
+                                            role="button"
+                                            tabindex="0"
+                                            aria-expanded={grp.expandedStr}
+                                            data-name={grp.messageName}
+                                            onclick={handleToggleGroup}
+                                            onkeydown={handleMasterRowKeydown}
+                                            title={grp.expandToggleTitle}
+                                        >
+                                            <!-- Group checkbox — selects/deselects all variants -->
+                                            <div class="cockpit-col-check" onclick={handleMasterCheckboxClick}>
+                                                <input
+                                                    type="checkbox"
+                                                    class="cockpit-checkbox"
+                                                    checked={grp.allSelected}
+                                                    data-name={grp.messageName}
+                                                    aria-label={grp.masterCheckboxLabel}
+                                                    onchange={handleGroupSelect}
+                                                />
+                                            </div>
+
+                                            <span class="cockpit-expand-toggle" aria-hidden="true">
+                                                <lightning-icon
+                                                    icon-name={grp.chevronIcon}
+                                                    size="xx-small"
+                                                    class="cockpit-chevron"
+                                                ></lightning-icon>
+                                            </span>
+
+                                            <div class="cockpit-master-content">
+                                                <div class="cockpit-col-name" onclick={handleGroupNameDblClick} data-name={grp.messageName}>
+                                                    <template lwc:if={grp.isEditing}>
+                                                        <input
+                                                            class="cockpit-msg-name-input"
+                                                            type="text"
+                                                            value={editingGroupValue}
+                                                            oninput={handleGroupNameInput}
+                                                            onkeydown={handleGroupNameKeydown}
+                                                            onblur={handleGroupNameBlur}
+                                                            onclick={handleNameInputClick}
+                                                        />
+                                                    </template>
+                                                    <template lwc:else>
+                                                        <span class="cockpit-msg-name" title="Double-click to rename">{grp.messageName}</span>
+                                                        <template lwc:if={grp.language}>
+                                                            <span class="cockpit-copy-lang">{grp.language}</span>
+                                                        </template>
+                                                        <span class="cockpit-master-counts">
+                                                            <span class="cockpit-stat-chip">{grp.totalVariants}v</span>
+                                                            <template lwc:if={grp.publishedCount}>
+                                                                <span class="cockpit-stat-chip cockpit-stat-chip_live">{grp.publishedCount} live</span>
+                                                            </template>
+                                                        </span>
+                                                    </template>
+                                                </div>
+                                                <!-- status summary badges on master row -->
+                                                <div class="cockpit-col-status">
+                                                    <template lwc:if={grp.hasPublished}>
+                                                        <span class="slds-badge cockpit-badge-published">Published</span>
+                                                    </template>
+                                                    <template lwc:if={grp.hasReady}>
+                                                        <span class="slds-badge cockpit-badge-ready">Ready</span>
+                                                    </template>
+                                                    <template lwc:if={grp.hasDraft}>
+                                                        <span class="slds-badge slds-badge_lightest">Draft</span>
+                                                    </template>
+                                                    <template lwc:if={grp.hasArchived}>
+                                                        <span class="slds-badge cockpit-badge-archived">Archived</span>
+                                                    </template>
+                                                </div>
+                                                <div class="cockpit-col-weight"></div>
+                                                <div class="cockpit-col-schedule"></div>
+                                                <div class="cockpit-col-blocks"></div>
+                                                <div class="cockpit-col-versions"></div>
+                                                <div class="cockpit-col-modified"></div>
+                                                <div class="cockpit-col-actions">
+                                                    <lightning-button-icon
+                                                        icon-name="utility:settings"
+                                                        variant="bare"
+                                                        size="small"
+                                                        alternative-text="Edit settings"
+                                                        title="Edit settings"
+                                                        class="cockpit-master-row-edit-btn"
+                                                        data-name={grp.messageName}
+                                                        onclick={handleMasterEdit}
+                                                    ></lightning-button-icon>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Variant rows -->
+                                        <template lwc:if={grp.isExpanded}>
+                                            <div class="cockpit-variants">
+                                                <template for:each={grp.variants} for:item="v">
+                                                    <div key={v.Id} class={v.variantRowClass}>
+
+                                                        <!-- Checkbox -->
+                                                        <div class="cockpit-col-check" onclick={handleCheckboxClick}>
+                                                            <input
+                                                                type="checkbox"
+                                                                class="cockpit-checkbox"
+                                                                checked={v.isSelected}
+                                                                data-id={v.Id}
+                                                                aria-label={v.checkboxLabel}
+                                                                onchange={handleVariantSelect}
+                                                            />
+                                                        </div>
+
+                                                        <!-- Indent + name / label -->
+                                                        <div class="cockpit-variant-name-cell">
+                                                            <span class="cockpit-variant-num">{v.versionLabel}</span>
+                                                            <template lwc:if={v.Subject__c}>
+                                                                <span class="cockpit-variant-subject">{v.Subject__c}</span>
+                                                            </template>
+                                                        </div>
+
+                                                        <!-- Status -->
+                                                        <div class="cockpit-col-status">
+                                                            <span class={v.statusClass}>{v.Status__c}</span>
+                                                        </div>
+
+                                                        <!-- Display weight -->
+                                                        <div class="cockpit-col-weight">
+                                                            <template lwc:if={v.weightDisplay}>
+                                                                <span class="cockpit-weight">{v.weightDisplay}</span>
+                                                            </template>
+                                                            <template lwc:else>
+                                                                <span class="cockpit-stat-none">—</span>
+                                                            </template>
+                                                        </div>
+
+                                                        <!-- Schedule badge -->
+                                                        <div class="cockpit-col-schedule">
+                                                            <template lwc:if={v.scheduleBadge}>
+                                                                <span class={v.scheduleBadgeClass} title={v.scheduleBadgeTitle}>
+                                                                    <lightning-icon
+                                                                        icon-name={v.scheduleBadgeIcon}
+                                                                        size="xx-small"
+                                                                        class="slds-m-right_xx-small"
+                                                                    ></lightning-icon>
+                                                                    {v.scheduleBadge}
+                                                                </span>
+                                                            </template>
+                                                            <template lwc:else>
+                                                                <span class="cockpit-stat-none">—</span>
+                                                            </template>
+                                                        </div>
+
+                                                        <!-- Block count -->
+                                                        <div class="cockpit-col-blocks">
+                                                            <template lwc:if={v.Block_Count__c}>
+                                                                <span class="cockpit-num-chip">{v.Block_Count__c}</span>
+                                                            </template>
+                                                            <template lwc:else>
+                                                                <span class="cockpit-stat-none">—</span>
+                                                            </template>
+                                                        </div>
+
+                                                        <!-- Saved versions count -->
+                                                        <div class="cockpit-col-versions">
+                                                            <template lwc:if={v.versionCount}>
+                                                                <span class="cockpit-num-chip cockpit-num-chip_versions">{v.versionCount}</span>
+                                                            </template>
+                                                            <template lwc:else>
+                                                                <span class="cockpit-stat-none">—</span>
+                                                            </template>
+                                                        </div>
+
+                                                        <!-- Last Modified -->
+                                                        <div class="cockpit-col-modified">
+                                                            <template lwc:if={v.lastModifiedFmt}>
+                                                                <span class="cockpit-modified-by">{v.lastModifiedBy}</span>
+                                                                <span class="cockpit-modified-date">{v.lastModifiedFmt}</span>
+                                                            </template>
+                                                            <template lwc:else>
+                                                                <span class="cockpit-stat-none">—</span>
+                                                            </template>
+                                                        </div>
+
+                                                        <!-- Always-visible quick actions -->
+                                                        <div class="cockpit-variant-actions">
+                                                            <lightning-button-icon
+                                                                icon-name="utility:edit"
+                                                                variant="bare"
+                                                                size="small"
+                                                                alternative-text="Edit"
+                                                                title="Edit"
+                                                                data-id={v.Id}
+                                                                onclick={handleEdit}
+                                                            ></lightning-button-icon>
+                                                            <lightning-button-icon
+                                                                icon-name="utility:copy"
+                                                                variant="bare"
+                                                                size="small"
+                                                                alternative-text="Clone"
+                                                                title="Clone variant"
+                                                                data-id={v.Id}
+                                                                data-name={v.Name}
+                                                                onclick={handleClonePrompt}
+                                                            ></lightning-button-icon>
+                                                            <lightning-button-icon
+                                                                icon-name="utility:delete"
+                                                                variant="bare"
+                                                                size="small"
+                                                                alternative-text="Delete"
+                                                                title="Delete variant"
+                                                                data-id={v.Id}
+                                                                data-name={v.Name}
+                                                                data-version={v.Version__c}
+                                                                onclick={handleDeletePrompt}
+                                                            ></lightning-button-icon>
+                                                        </div>
+
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </template>
+
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+
+                        <!-- Empty state -->
+                        <template lwc:elseif={isMessagesEmpty}>
+                            <div class="cockpit-channel-empty">
+                                <lightning-icon icon-name="utility:chat" size="large" class="slds-m-bottom_small"></lightning-icon>
+                                <p class="slds-text-heading_small slds-m-bottom_x-small">No messages yet</p>
+                                <p class="slds-text-body_regular slds-text-color_weak slds-m-bottom_medium">
+                                    No copy found for <strong>{activeChannel.Name}</strong>. Create the first variant.
+                                </p>
+                                <lightning-button
+                                    label="Add Copy"
+                                    icon-name="utility:add"
+                                    variant="brand"
+                                    onclick={handleAddCopy}
+                                ></lightning-button>
+                            </div>
+                        </template>
+
+                    </template>
+                </div>
+
+            </div>
+        </template>
+
+    <!-- Add Copy modal -->
+    <template lwc:if={isAddModalOpen}>
+        <c-copy-cockpit-add-modal
+            channel-name={activeChannel.Name}
+            channel-type={activeChannel.Channel_Type__c}
+            banner-types={activeBannerTypes}
+            onclose={handleAddModalClose}
+            onsave={handleAddModalSave}
+        ></c-copy-cockpit-add-modal>
+    </template>
+
+    <!-- Delete confirmation modal -->
+    <template lwc:if={isDeleteModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="delete-modal-title" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header slds-theme_error">
+                    <lightning-icon icon-name="utility:warning" size="small" class="slds-m-right_x-small"></lightning-icon>
+                    <h2 id="delete-modal-title" class="slds-modal__title">Delete Variant</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <p>Permanently delete <strong>{deleteTargetName}</strong> – variant {deleteTargetVersion}?</p>
+                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">This cannot be undone.</p>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={handleDeleteCancel} class="slds-m-right_x-small"></lightning-button>
+                    <lightning-button label="Delete" variant="destructive" onclick={handleDeleteConfirm}></lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+    <!-- Bulk delete confirmation modal -->
+    <template lwc:if={isBulkDeleteModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="bulk-delete-modal-title" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header slds-theme_error">
+                    <lightning-icon icon-name="utility:warning" size="small" class="slds-m-right_x-small"></lightning-icon>
+                    <h2 id="bulk-delete-modal-title" class="slds-modal__title">Delete {selectionCountLabel}</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <p>Permanently delete {selectionCountLabel}? This cannot be undone.</p>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={handleBulkDeleteCancel} class="slds-m-right_x-small"></lightning-button>
+                    <lightning-button label="Delete All" variant="destructive" onclick={handleBulkDeleteConfirm}></lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+    <!-- Clone confirmation modal -->
+    <template lwc:if={isCloneModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="clone-modal-title" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header">
+                    <lightning-icon icon-name="utility:copy" size="small" class="slds-m-right_x-small"></lightning-icon>
+                    <h2 id="clone-modal-title" class="slds-modal__title">Create Copy</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <p>Create a new variant of <strong>{cloneSourceName}</strong>?</p>
+                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">
+                        New variant will be saved as <strong>Variant {cloneProposedVersion}</strong> under "<strong>{cloneProposedName}</strong>", status Draft.
+                    </p>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={handleCloneCancel} class="slds-m-right_x-small" disabled={isCloning}></lightning-button>
+                    <lightning-button label="Create Copy" onclick={handleCloneConfirm} class="slds-m-right_x-small" disabled={isCloning}></lightning-button>
+                    <lightning-button label="Create Copy &amp; Open Editor" variant="brand" onclick={handleCloneConfirmAndEdit} disabled={isCloning}></lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+    <!-- Master Row Edit modal -->
+    <template lwc:if={isMasterEditOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="master-edit-title" class="slds-modal slds-fade-in-open slds-modal_large">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header">
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse" title="Close" onclick={handleMasterEditCancel}>
+                        <lightning-icon icon-name="utility:close" size="small" variant="inverse"></lightning-icon>
+                    </button>
+                    <lightning-icon icon-name="utility:settings" size="small" class="slds-m-right_x-small"></lightning-icon>
+                    <h2 id="master-edit-title" class="slds-modal__title">{masterEditModal.messageName}</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+
+                    <!-- Product Family + Active Offer -->
+                    <div class="master-edit-section">
+                        <h3 class="master-edit-section__title">Source Product Family &amp; Offer</h3>
+
+                        <!-- Current offer pill -->
+                        <template lwc:if={masterEditModal.currentOfferName}>
+                            <div class="master-edit-current-offer">
+                                <span class="master-edit-current-offer__label">Current offer:</span>
+                                <span class="master-edit-current-offer__name">{masterEditModal.currentOfferName}</span>
+                            </div>
+                        </template>
+
+                        <!-- Family picker -->
+                        <template lwc:if={masterEditModal.isLoadingFamilies}>
+                            <lightning-spinner size="small" alternative-text="Loading product families..."></lightning-spinner>
+                        </template>
+                        <template lwc:else>
+                            <lightning-combobox
+                                label="Product Family"
+                                placeholder="Select a product family..."
+                                value={masterEditModal.productFamilyId}
+                                options={masterEditFamilyOptions}
+                                onchange={handleMasterEditFamilyChange}
+                            ></lightning-combobox>
+                        </template>
+
+                        <!-- Offer picker (shown after family selected) -->
+                        <template lwc:if={masterEditModal.productFamilyId}>
+                            <div class="slds-m-top_small">
+                                <template lwc:if={masterEditModal.isLoadingOffers}>
+                                    <lightning-spinner size="small" alternative-text="Loading offers..."></lightning-spinner>
+                                </template>
+                                <template lwc:else>
+                                    <lightning-combobox
+                                        label="Active Offer"
+                                        placeholder="Select an active offer..."
+                                        value={masterEditModal.offerId}
+                                        options={masterEditOfferOptions}
+                                        disabled={masterEditNoOffers}
+                                        onchange={handleMasterEditOfferChange}
+                                    ></lightning-combobox>
+                                    <template lwc:if={masterEditNoOffers}>
+                                        <p class="master-edit-no-offers">No active offers found for this product family.</p>
+                                    </template>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+
+                    <!-- Display Probability per variant -->
+                    <div class="master-edit-section">
+                        <h3 class="master-edit-section__title">Display Probability</h3>
+                        <p class="master-edit-section__desc">Set the display probability for each variant (0 = never shown, 1 = full weight).</p>
+                        <template for:each={masterEditModal.variants} for:item="mv">
+                            <div key={mv.id} class="master-edit-variant-row">
+                                <div class="master-edit-variant-info">
+                                    <span class="master-edit-variant-label">{mv.label}</span>
+                                    <span class={mv.statusClass}>{mv.status}</span>
+                                </div>
+                                <div class="master-edit-slider-wrap">
+                                    <input
+                                        type="range"
+                                        min="0"
+                                        max="1"
+                                        step="0.01"
+                                        value={mv.probability}
+                                        class="master-edit-slider"
+                                        data-var-id={mv.id}
+                                        oninput={handleMasterEditSlider}
+                                    />
+                                    <span class="master-edit-prob-pct">{mv.pctDisplay}</span>
+                                    <span class="master-edit-prob-dec">{mv.decDisplay}</span>
+                                    <button type="button" class="master-edit-reset-btn" data-var-id={mv.id} onclick={handleMasterEditReset}>
+                                        Reset to 1
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={handleMasterEditCancel} class="slds-m-right_x-small" disabled={masterEditModal.isSaving}></lightning-button>
+                    <lightning-button label="Save Settings" variant="brand" onclick={handleMasterEditSave} disabled={masterEditModal.isSaving}></lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+    </div>
+    </template><!-- end lwc:else list view -->
+
+</template>

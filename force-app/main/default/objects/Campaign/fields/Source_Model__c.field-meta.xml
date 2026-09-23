@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Source_Model__c</fullName>
+    <label>Source Model</label>
+    <required>false</required>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Placeholder 1</fullName>
+                <default>false</default>
+                <label>Placeholder 1</label>
+            </value>
+            <value>
+                <fullName>Placeholder 2</fullName>
+                <default>false</default>
+                <label>Placeholder 2</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

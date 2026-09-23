@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RecordType xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Sales_Process_Type</fullName>
+    <active>true</active>
+    <label>Sales Process Type</label>
+    <picklistValues>
+        <picklist>Channel_Type__c</picklist>
+        <values>
+            <fullName>AI Agent</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Banner</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Branch Agent</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Email</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>In-App</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Push</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SMS</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Channels__c</picklist>
+        <values>
+            <fullName>AI Agent - Inbound</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Branch Call</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>CHC Call</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Email</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>In-App</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Mobile - Main</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Mobile - Savings %26 Deposits</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Push</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SMS</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Web - Main</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Web - Savings %26 Deposits</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>WhatsApp</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Dictionary_Category__c</picklist>
+        <values>
+            <fullName>Channels</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Sales Process Type</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Topic</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Dictionary_Sub_Type__c</picklist>
+        <values>
+            <fullName>Activation Path</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Family of Needs</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Product Family</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Sales Process Type</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Topic</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Parameter_Type__c</picklist>
+        <values>
+            <fullName>Checkbox</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Currency</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Date</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Number</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Percent</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Picklist</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Text</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Sales_Process_Type__c</picklist>
+        <values>
+            <fullName>Branch</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Pre-approved %2F Prescore</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Remote</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Topic_Goal__c</picklist>
+        <values>
+            <fullName>Activation</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Anti-churn</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Balance Growth</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Credit Limit Increase</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Engagement %2F Activation</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Formal %2F Administrative</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Informational</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Relationship</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Retention</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Sales</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Savings Retention</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Security</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Topic_Group__c</picklist>
+        <values>
+            <fullName>Activation %26 Engagement</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Administrative %26 Informational</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cross-Sell %2F Upsell</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Relationship</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Value_Source__c</picklist>
+        <values>
+            <fullName>Apriori</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Autopopulate</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Operator Defined</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+</RecordType>

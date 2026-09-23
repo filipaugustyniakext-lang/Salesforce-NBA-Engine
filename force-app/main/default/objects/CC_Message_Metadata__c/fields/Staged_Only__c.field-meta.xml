@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Staged_Only__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>Indicates the variant is staged but not yet live. Mirrors the StagedOnly boolean column of the MCE Data Extension.</description>
+    <label>Staged Only</label>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>

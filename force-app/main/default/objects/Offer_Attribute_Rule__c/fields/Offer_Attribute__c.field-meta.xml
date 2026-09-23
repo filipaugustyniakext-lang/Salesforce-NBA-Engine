@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Offer_Attribute__c</fullName>
+    <description>The parent Offer attribute definition this rule overrides. Links to a Marketing Dictionary record with the Offer record type.</description>
+    <inlineHelpText>Select the offer parameter definition this product-family rule applies to.</inlineHelpText>
+    <label>Offer Attribute</label>
+    <referenceTo>Marketing_Dictionary__c</referenceTo>
+    <relationshipLabel>Offer Attribute Rules</relationshipLabel>
+    <relationshipName>Offer_Attribute_Rules</relationshipName>
+    <relationshipOrder>0</relationshipOrder>
+    <reparentableMasterDetail>false</reparentableMasterDetail>
+    <trackTrending>false</trackTrending>
+    <type>MasterDetail</type>
+    <writeRequiresMasterRead>false</writeRequiresMasterRead>
+</CustomField>

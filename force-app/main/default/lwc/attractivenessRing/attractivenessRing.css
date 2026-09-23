@@ -1,0 +1,38 @@
+/* ─── Wrapper: ring + label side by side ─────────────────────────────────── */
+.ring-wrapper {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.ring-label-text {
+    font-size: 0.7rem;
+    color: #706e6b;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* ─── Inner score label ──────────────────────────────────────────────────── */
+.ring-inner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ring-score {
+    font-weight: 700;
+    font-size: 0.5rem;
+    color: #444;
+}
+
+/* ─── Keep inner content circle white regardless of ring variant ─────────── */
+.slds-progress-ring__content {
+    background-color: #fff;
+}
+
+/* ─── Score text colour mirrors SLDS ring colour ─────────────────────────── */
+.ring-score_high { color: #2e7d32; }
+.ring-score_mid  { color: #e65100; }
+.ring-score_low  { color: #b71c1c; }

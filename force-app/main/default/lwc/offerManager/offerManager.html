@@ -1,0 +1,697 @@
+<template>
+    <section role="dialog" tabindex="-1" aria-modal="true" class="custom-modal-frame" onclick={handleBackdropClick}>
+        <div class="custom-modal-container" onclick={handleContainerClick}>
+
+            <template lwc:if={isLoading}>
+                <lightning-spinner alternative-text="Processing..." size="medium" variant="brand"></lightning-spinner>
+            </template>
+
+            <header class="custom-modal-header">
+                <h2 class="slds-text-heading_medium">{modalTitle}</h2>
+            </header>
+
+            <div class="custom-modal-body">
+
+                <!-- PROGRESS INDICATOR — always first below header -->
+                <div class="slds-progress wizard-progress-bar">
+                    <ol class="slds-progress__list">
+                        <template for:each={wizardSteps} for:item="step">
+                            <li key={step.value} class={step.className}>
+                                <template lwc:if={step.isComplete}>
+                                    <button class="slds-button slds-progress__marker slds-progress__marker_icon" data-step={step.value} onclick={handleStepClick}>
+                                        <lightning-icon icon-name="utility:success" size="xx-small" class="step-check-icon"></lightning-icon>
+                                    </button>
+                                </template>
+                                <template lwc:else>
+                                    <button class="slds-button slds-progress__marker" data-step={step.value} onclick={handleStepClick}>
+                                        <span class="slds-assistive-text">{step.label}</span>
+                                    </button>
+                                </template>
+                                <div class="slds-progress__item_content slds-grid slds-grid_align-center">
+                                    <span class="wizard-step-label">{step.label}</span>
+                                </div>
+                            </li>
+                        </template>
+                    </ol>
+                    <div class="slds-progress-bar slds-progress-bar_x-small" aria-valuemin="0" aria-valuemax="100" aria-valuenow={progressBarValue} role="progressbar">
+                        <span class="slds-progress-bar__value" style={progressBarStyle}>
+                            <span class="slds-assistive-text">Progress: {progressBarValue}%</span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- DEACTIVATION CONFIRMATION MODAL -->
+                <template lwc:if={showDeactivateConfirm}>
+                    <div class="confirm-overlay">
+                        <div class="confirm-dialog">
+                            <div class="confirm-dialog-icon">
+                                <lightning-icon icon-name="utility:warning" size="medium" variant="warning"></lightning-icon>
+                            </div>
+                            <h3 class="confirm-dialog-title">Set Offer to Inactive?</h3>
+                            <p class="confirm-dialog-body">
+                                Setting this offer to <strong>Inactive</strong> will pause it across all assigned campaigns. The current version will be moved to <strong>Ready</strong> and can be reactivated at any time.
+                            </p>
+                            <div class="confirm-dialog-actions">
+                                <button class="pill-action-btn secondary-pill" onclick={handleDeactivateCancel}>Cancel</button>
+                                <button class="pill-action-btn warning-pill" onclick={handleDeactivateConfirm}>Set Inactive</button>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- DECOMMISSION CONFIRMATION MODAL -->
+                <template lwc:if={showDecommissionConfirm}>
+                    <div class="confirm-overlay">
+                        <div class="confirm-dialog">
+                            <div class="confirm-dialog-icon">
+                                <lightning-icon icon-name="utility:error" size="medium" variant="error"></lightning-icon>
+                            </div>
+                            <h3 class="confirm-dialog-title">Decommission Offer?</h3>
+                            <p class="confirm-dialog-body">
+                                <strong>This action is irreversible.</strong> Once decommissioned, this offer <strong>cannot be activated again</strong>. All versions will be permanently deactivated. Any campaign currently using this offer will stop receiving content from it.<br/><br/>
+                                If you need to use this offer again in the future, you will need to create an entirely new offer.
+                            </p>
+                            <div class="confirm-dialog-actions">
+                                <button class="pill-action-btn secondary-pill" onclick={handleDecommissionCancel}>Cancel</button>
+                                <button class="pill-action-btn danger-pill" onclick={handleDecommissionConfirm}>Decommission</button>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- DATE OVERLAP CONFIRMATION MODAL -->
+                <template lwc:if={showOverlapConfirm}>
+                    <div class="confirm-overlay">
+                        <div class="confirm-dialog">
+                            <div class="confirm-dialog-icon">
+                                <lightning-icon icon-name="utility:warning" size="medium" variant="warning"></lightning-icon>
+                            </div>
+                            <h3 class="confirm-dialog-title">Date Overlap Detected</h3>
+                            <p class="confirm-dialog-body">
+                                A version is currently <strong>Active</strong> with validity <strong>{overlapCurrentValidFrom}</strong> to <strong>{overlapCurrentValidTo}</strong>, which overlaps with your selected <strong>Valid From: {validFrom}</strong>.<br/><br/>
+                                Is the <strong>Valid From</strong> date a mistake, or do you intentionally want to overwrite the active version? If you confirm, the active version's <strong>Valid To</strong> will automatically be set to one day before your new Valid From.
+                            </p>
+                            <div class="confirm-dialog-actions">
+                                <button class="pill-action-btn secondary-pill" onclick={handleOverlapCancel}>Go Back (fix date)</button>
+                                <button class="pill-action-btn warning-pill" onclick={handleOverlapConfirmAndContinue}>Overwrite — Continue</button>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <div class="properties-vertical-stack animate-fade-in slds-m-top_large">
+
+                    <!-- STEP 1: Basic Setup -->
+                    <template lwc:if={isStep1}>
+
+                        <!-- STATUS CONTROL STRIP — only on step 1 -->
+                        <div class="status-control-strip slds-m-bottom_medium">
+                            <div class="status-control-left">
+                                <!-- Lock/Unlock only for existing offers -->
+                                <template lwc:if={isExistingOffer}>
+                                    <button class={lockButtonClass} onclick={handleLockToggle} title={lockToggleTitle}>
+                                        <lightning-icon lwc:if={isStatusLocked} icon-name="utility:lock" size="xx-small" class="lock-icon"></lightning-icon>
+                                        <lightning-icon lwc:if={isStatusUnlocked} icon-name="utility:unlock" size="xx-small" class="unlock-icon"></lightning-icon>
+                                    </button>
+                                    <div class="status-control-divider"></div>
+                                </template>
+
+                                <!-- Version Status -->
+                                <div class="status-control-field">
+                                    <span class="status-control-label">Version Status</span>
+                                    <template lwc:if={canEditVersionStatus}>
+                                        <div class="status-select-wrapper">
+                                            <select class="status-select" value={currentVersionStatus} onchange={handleVersionStatusChange}>
+                                                <template for:each={versionStatusOptions} for:item="opt">
+                                                    <option key={opt.value} value={opt.value} selected={opt.selected}>{opt.label}</option>
+                                                </template>
+                                            </select>
+                                        </div>
+                                    </template>
+                                    <template lwc:else>
+                                        <span class={versionStatusBadgeClass}>{currentVersionStatus}</span>
+                                    </template>
+                                </div>
+                            </div>
+
+                            <div class="status-control-right">
+                                <div class="status-control-field">
+                                    <lightning-input
+                                        type="toggle"
+                                        label="Promo"
+                                        checked={isPromo}
+                                        onchange={handlePromoToggle}
+                                        class="promo-toggle"
+                                        message-toggle-active="Yes"
+                                        message-toggle-inactive="No">
+                                    </lightning-input>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- READ-ONLY BANNER -->
+                        <template lwc:if={areFieldsReadOnly}>
+                            <div class="readonly-banner slds-m-bottom_medium">
+                                <lightning-icon icon-name="utility:lock" size="xx-small" class="readonly-banner-icon"></lightning-icon>
+                                <template lwc:if={isLimitedEditMode}>
+                                    <span>Only <strong>validity dates</strong> and <strong>URLs</strong> can be edited on this version. All other fields require Draft status.</span>
+                                </template>
+                                <template lwc:else>
+                                    <template lwc:if={isVersionInUse}>
+                                        <span>This version is <strong>Active</strong>. Fields are read-only. To make changes, create a new version.</span>
+                                    </template>
+                                    <template lwc:if={isVersionScheduledDeactivation}>
+                                        <span>This version is <strong>Scheduled for Deactivation</strong> and is still serving live traffic. Fields are read-only.</span>
+                                    </template>
+                                    <template lwc:if={isVersionReady}>
+                                        <span>This version is <strong>Ready</strong>. Fields are locked. Click <em>Revert to Draft</em> to edit, or activate to make it Active.</span>
+                                    </template>
+                                    <template lwc:if={isVersionScheduledActivation}>
+                                        <span>This version is <strong>Scheduled for Activation</strong>. It will become Active automatically on its Valid From date.</span>
+                                    </template>
+                                    <template lwc:if={isVersionDeactivated}>
+                                        <span>This version is <strong>Deactivated</strong>. It cannot be edited or reactivated. Use <em>Clone</em> to create a new version based on it.</span>
+                                    </template>
+                                </template>
+                            </div>
+                        </template>
+
+                        <!-- Basic Info Card -->
+                        <div class="form-module-card slds-m-bottom_medium">
+                            <span class="module-header-title">Offer Identity</span>
+
+                            <div class="slds-grid slds-wrap slds-gutters slds-m-top_medium">
+                                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-p-vertical_x-small">
+                                    <lightning-input
+                                        type="text"
+                                        label="Offer Name"
+                                        placeholder="eg. CashLoanStandard"
+                                        value={offerName}
+                                        onchange={handleOfferNameChange}
+                                        disabled={isOfferNameReadOnly}
+                                        required>
+                                    </lightning-input>
+                                </div>
+                                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-p-vertical_x-small">
+                                    <lightning-combobox
+                                        label="Country Code"
+                                        value={countryCode}
+                                        options={countryCodeOptions}
+                                        onchange={handleCountryCodeChange}
+                                        placeholder="Select a country code..."
+                                        disabled={isIdentityReadOnly}
+                                        required>
+                                    </lightning-combobox>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <!-- Validity Period Card -->
+                        <div class="form-module-card slds-m-bottom_medium">
+                            <span class="module-header-title">Validity Period</span>
+
+                            <div class="slds-grid slds-wrap slds-gutters slds-m-top_medium">
+                                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-p-vertical_x-small">
+                                    <lightning-input
+                                        type="date"
+                                        label="Valid From"
+                                        value={validFrom}
+                                        min={todayDate}
+                                        onchange={handleValidFromChange}
+                                        disabled={isValidFromReadOnly}
+                                        required>
+                                    </lightning-input>
+                                </div>
+                                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-p-vertical_x-small">
+                                    <lightning-input
+                                        type="date"
+                                        label="Valid To"
+                                        value={validTo}
+                                        min={validToMin}
+                                        onchange={handleValidToChange}
+                                        disabled={isValidToReadOnly}
+                                        required>
+                                    </lightning-input>
+                                </div>
+                            </div>
+                            <template lwc:if={dateValidationError}>
+                                <div class="validation-error-box slds-m-top_small">
+                                    <lightning-icon icon-name="utility:error" size="xx-small" class="error-icon-inline"></lightning-icon>
+                                    <span>{dateValidationError}</span>
+                                </div>
+                            </template>
+                        </div>
+
+                        <!-- Customer Type Card -->
+                        <div class="form-module-card slds-m-bottom_medium">
+                            <span class="module-header-title">Customer Type</span>
+                            <div class="customer-type-badges slds-m-top_medium">
+                                <template for:each={customerTypeOptions} for:item="ct">
+                                    <button key={ct.value} class={ct.className} data-value={ct.value} onclick={handleCustomerTypeToggle}>
+                                        {ct.label}
+                                    </button>
+                                </template>
+                            </div>
+                            <template lwc:if={customerTypeError}>
+                                <div class="validation-error-box slds-m-top_small">
+                                    <lightning-icon icon-name="utility:error" size="xx-small" class="error-icon-inline"></lightning-icon>
+                                    <span>At least one customer type must be selected.</span>
+                                </div>
+                            </template>
+                        </div>
+
+                        <!-- Product Family Card -->
+                        <div class="form-module-card slds-m-bottom_medium">
+                            <span class="module-header-title">Product Family</span>
+                            <div class="slds-m-top_medium">
+                                <lightning-combobox
+                                    label="Select Product Family"
+                                    value={selectedProductFamily}
+                                    options={filteredProductFamilyOptions}
+                                    onchange={handleProductFamilyChange}
+                                    placeholder="Select a product family..."
+                                    disabled={areFieldsReadOnly}
+                                    required>
+                                </lightning-combobox>
+                            </div>
+
+                            <!-- Source Products List Builder -->
+                            <template lwc:if={hasProductFamilySelected}>
+                                <div class="source-products-section slds-m-top_medium">
+                                    <span class="module-subheader-title">Source Products</span>
+                                    <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
+                                        Products matching "{selectedProductFamily}" are pre-selected. Move items to customize.
+                                    </p>
+                                    <lightning-dual-listbox
+                                        label="Assign Products"
+                                        source-label="Available"
+                                        selected-label="Selected"
+                                        options={availableProductOptions}
+                                        value={selectedProductIds}
+                                        onchange={handleProductSelectionChange}
+                                        required-options={lockedProductIds}>
+                                    </lightning-dual-listbox>
+                                </div>
+                            </template>
+                        </div>
+
+                        <!-- CTA / Registration URLs Card -->
+                        <div class="form-module-card slds-m-bottom_medium">
+                            <span class="module-header-title">CTA &amp; Registration</span>
+                            <div class="slds-grid slds-wrap slds-gutters slds-m-top_medium">
+                                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-p-vertical_x-small">
+                                    <lightning-input
+                                        type="url"
+                                        label="CTA URL"
+                                        value={ctaUrl}
+                                        onchange={handleCtaUrlChange}
+                                        disabled={areCtaFieldsReadOnly}
+                                        placeholder="https://...">
+                                    </lightning-input>
+                                </div>
+                                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-p-vertical_x-small">
+                                    <lightning-input
+                                        type="text"
+                                        label="CTA Redirect"
+                                        value={ctaDurl}
+                                        onchange={handleCtaDurlChange}
+                                        disabled={areCtaFieldsReadOnly}
+                                        placeholder="Redirect path or deep link">
+                                    </lightning-input>
+                                </div>
+                                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-p-vertical_x-small">
+                                    <lightning-input
+                                        type="text"
+                                        label="CTA Intent"
+                                        value={ctaIntent}
+                                        onchange={handleCtaIntentChange}
+                                        disabled={areCtaFieldsReadOnly}
+                                        placeholder="e.g. apply, learn_more">
+                                    </lightning-input>
+                                </div>
+                                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-p-vertical_x-small">
+                                    <lightning-input
+                                        type="url"
+                                        label="Registration URL"
+                                        value={regUrl}
+                                        onchange={handleRegUrlChange}
+                                        disabled={areCtaFieldsReadOnly}
+                                        placeholder="https://...">
+                                    </lightning-input>
+                                </div>
+                            </div>
+                            <template lwc:if={showCtaUpdateButton}>
+                                <div class="slds-m-top_small">
+                                    <button class="pill-action-btn secondary-pill" onclick={handleSaveCtaFields}>Save CTA Fields</button>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+
+                    <!-- STEP 2: Properties -->
+                    <template lwc:if={isStep2}>
+                        <div class="form-module-card slds-m-bottom_large">
+                            <span class="module-header-title">Properties</span>
+                            <template lwc:if={hasVisibleParams}>
+                                <!-- MERGE 2026-09-14: loading spinner while attributes fetch (from Filip's version) -->
+                                <template lwc:if={isLoadingAttributes}>
+                                    <div class="slds-m-top_medium slds-align_absolute-center">
+                                        <lightning-spinner alternative-text="Loading parameters..." size="small" variant="brand"></lightning-spinner>
+                                        <span class="slds-m-left_small slds-text-color_weak">Loading parameters...</span>
+                                    </div>
+                                </template>
+                                <!-- Required properties -->
+                                <template lwc:if={hasRequiredParams}>
+                                    <div class="slds-grid slds-wrap slds-gutters slds-m-top_medium">
+                                        <template for:each={requiredParams} for:item="param">
+                                            <div key={param.key} class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-p-vertical_x-small">
+                                                <!-- MERGE 2026-09-14: per-param description (from Filip's version) -->
+                                                <template lwc:if={param.description}>
+                                                    <p class="param-description">{param.description}</p>
+                                                </template>
+                                                <template lwc:if={param.isNumber}>
+                                                    <lightning-input
+                                                        type="number"
+                                                        label={param.label}
+                                                        value={param.currentValue}
+                                                        field-level-help={param.helpText}
+                                                        data-field={param.field}
+                                                        onchange={handleParamChange}
+                                                        step="0.01"
+                                                        disabled={param.disabled}
+                                                        required>
+                                                    </lightning-input>
+                                                </template>
+                                                <template lwc:if={param.isPicklist}>
+                                                    <lightning-combobox
+                                                        label={param.label}
+                                                        value={param.currentValue}
+                                                        options={param.comboOptions}
+                                                        field-level-help={param.helpText}
+                                                        data-field={param.field}
+                                                        onchange={handleParamChange}
+                                                        placeholder="Select..."
+                                                        disabled={param.disabled}
+                                                        required>
+                                                    </lightning-combobox>
+                                                </template>
+                                                <template lwc:if={param.isCheckbox}>
+                                                    <lightning-input
+                                                        type="checkbox"
+                                                        label={param.label}
+                                                        checked={param.currentValue}
+                                                        field-level-help={param.helpText}
+                                                        data-field={param.field}
+                                                        onchange={handleParamChange}
+                                                        disabled={param.disabled}>
+                                                    </lightning-input>
+                                                </template>
+                                                <template lwc:if={param.isDate}>
+                                                    <lightning-input
+                                                        type="date"
+                                                        label={param.label}
+                                                        value={param.currentValue}
+                                                        field-level-help={param.helpText}
+                                                        data-field={param.field}
+                                                        onchange={handleParamChange}
+                                                        disabled={param.disabled}
+                                                        required>
+                                                    </lightning-input>
+                                                </template>
+                                                <template lwc:if={param.isText}>
+                                                    <lightning-input
+                                                        type="text"
+                                                        label={param.label}
+                                                        value={param.currentValue}
+                                                        field-level-help={param.helpText}
+                                                        data-field={param.field}
+                                                        onchange={handleParamChange}
+                                                        disabled={param.disabled}
+                                                        required>
+                                                    </lightning-input>
+                                                </template>
+                                                <!-- MERGE 2026-09-14: textarea widget (from Filip's version) -->
+                                                <template lwc:if={param.isTextarea}>
+                                                    <lightning-textarea
+                                                        label={param.label}
+                                                        value={param.currentValue}
+                                                        field-level-help={param.helpText}
+                                                        data-field={param.field}
+                                                        onchange={handleParamChange}
+                                                        disabled={param.disabled}
+                                                        required>
+                                                    </lightning-textarea>
+                                                </template>
+                                                <!-- RANGE: dual-handle slider hard-clamped to the reference [min,max] -->
+                                                <template lwc:if={param.isRange}>
+                                                    <c-range-slider
+                                                        label={param.label}
+                                                        min={param.referenceMin}
+                                                        max={param.referenceMax}
+                                                        value-min={param.currentMin}
+                                                        value-max={param.currentMax}
+                                                        disabled={param.disabled}
+                                                        data-min-field={param.minField}
+                                                        data-max-field={param.maxField}
+                                                        onchange={handleRangeChange}>
+                                                    </c-range-slider>
+                                                </template>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+
+                                <!-- Optional properties (collapsible) -->
+                                <template lwc:if={hasOptionalParams}>
+                                    <div class="optional-params-section slds-m-top_large">
+                                        <button class="optional-toggle-btn" onclick={handleToggleOptionalParams}>
+                                            <lightning-icon
+                                                icon-name={optionalToggleIcon}
+                                                size="x-small"
+                                                class="slds-m-right_x-small">
+                                            </lightning-icon>
+                                            {optionalToggleLabel}
+                                        </button>
+                                        <template lwc:if={showOptionalParams}>
+                                            <div class="slds-grid slds-wrap slds-gutters slds-m-top_medium">
+                                                <template for:each={optionalParams} for:item="param">
+                                                    <div key={param.key} class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-p-vertical_x-small">
+                                                        <!-- MERGE 2026-09-14: per-param description (from Filip's version) -->
+                                                        <template lwc:if={param.description}>
+                                                            <p class="param-description">{param.description}</p>
+                                                        </template>
+                                                        <template lwc:if={param.isNumber}>
+                                                            <lightning-input
+                                                                type="number"
+                                                                label={param.label}
+                                                                value={param.currentValue}
+                                                                field-level-help={param.helpText}
+                                                                data-field={param.field}
+                                                                onchange={handleParamChange}
+                                                                step="0.01"
+                                                                disabled={param.disabled}>
+                                                            </lightning-input>
+                                                        </template>
+                                                        <template lwc:if={param.isPicklist}>
+                                                            <lightning-combobox
+                                                                label={param.label}
+                                                                value={param.currentValue}
+                                                                options={param.comboOptions}
+                                                                field-level-help={param.helpText}
+                                                                data-field={param.field}
+                                                                onchange={handleParamChange}
+                                                                placeholder="Select..."
+                                                                disabled={param.disabled}>
+                                                            </lightning-combobox>
+                                                        </template>
+                                                        <template lwc:if={param.isCheckbox}>
+                                                            <lightning-input
+                                                                type="checkbox"
+                                                                label={param.label}
+                                                                checked={param.currentValue}
+                                                                field-level-help={param.helpText}
+                                                                data-field={param.field}
+                                                                onchange={handleParamChange}
+                                                                disabled={param.disabled}>
+                                                            </lightning-input>
+                                                        </template>
+                                                        <template lwc:if={param.isDate}>
+                                                            <lightning-input
+                                                                type="date"
+                                                                label={param.label}
+                                                                value={param.currentValue}
+                                                                field-level-help={param.helpText}
+                                                                data-field={param.field}
+                                                                onchange={handleParamChange}
+                                                                disabled={param.disabled}>
+                                                            </lightning-input>
+                                                        </template>
+                                                        <template lwc:if={param.isText}>
+                                                            <lightning-input
+                                                                type="text"
+                                                                label={param.label}
+                                                                value={param.currentValue}
+                                                                field-level-help={param.helpText}
+                                                                data-field={param.field}
+                                                                onchange={handleParamChange}
+                                                                disabled={param.disabled}>
+                                                            </lightning-input>
+                                                        </template>
+                                                        <!-- MERGE 2026-09-14: textarea widget (from Filip's version) -->
+                                                        <template lwc:if={param.isTextarea}>
+                                                            <lightning-textarea
+                                                                label={param.label}
+                                                                value={param.currentValue}
+                                                                field-level-help={param.helpText}
+                                                                data-field={param.field}
+                                                                onchange={handleParamChange}
+                                                                disabled={param.disabled}>
+                                                            </lightning-textarea>
+                                                        </template>
+                                                        <!-- RANGE: dual-handle slider hard-clamped to the reference [min,max] -->
+                                                        <template lwc:if={param.isRange}>
+                                                            <c-range-slider
+                                                                label={param.label}
+                                                                min={param.referenceMin}
+                                                                max={param.referenceMax}
+                                                                value-min={param.currentMin}
+                                                                value-max={param.currentMax}
+                                                                disabled={param.disabled}
+                                                                data-min-field={param.minField}
+                                                                data-max-field={param.maxField}
+                                                                onchange={handleRangeChange}>
+                                                            </c-range-slider>
+                                                        </template>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+
+                            </template>
+                            <template lwc:else>
+                                <p class="slds-m-top_medium slds-text-color_weak">No offer attributes configured for this product family in the Marketing Dictionary.</p>
+                            </template>
+                        </div>
+
+                        <!-- Reference properties: live values pulled from the Marketing Dictionary (read-only) -->
+                        <template lwc:if={hasMdAttributes}>
+                            <div class="form-module-card slds-m-bottom_large">
+                                <span class="module-header-title">Reference Properties</span>
+                                <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">
+                                    Standardized values from the Marketing Dictionary for this product family.
+                                </p>
+                                <div class="slds-grid slds-wrap slds-gutters slds-m-top_medium">
+                                    <template for:each={mdAttributeViewModels} for:item="attr">
+                                        <div key={attr.key} class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-p-vertical_x-small">
+                                            <lightning-input
+                                                type="text"
+                                                label={attr.label}
+                                                value={attr.displayValue}
+                                                field-level-help={attr.helpText}
+                                                readonly>
+                                            </lightning-input>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                    </template>
+
+                    <!-- STEP 3: Summary -->
+                    <template lwc:if={isStep3}>
+                        <div class="form-module-card slds-m-bottom_large">
+                            <span class="module-header-title">Summary</span>
+                            <div class="summary-grid slds-m-top_medium">
+                                <div class="summary-row summary-row_score">
+                                    <span class="summary-label">Attractiveness Score</span>
+                                    <span class="summary-value summary-value_score">{attractivenessScoreDisplay}</span>
+                                </div>
+                                <div class="summary-row">
+                                    <span class="summary-label">Offer Name</span>
+                                    <span class="summary-value">{generatedOfferName}</span>
+                                </div>
+                                <div class="summary-row">
+                                    <span class="summary-label">Country Code</span>
+                                    <span class="summary-value">{countryCode}</span>
+                                </div>
+                                <div class="summary-row">
+                                    <span class="summary-label">Valid From</span>
+                                    <span class="summary-value">{validFrom}</span>
+                                </div>
+                                <div class="summary-row">
+                                    <span class="summary-label">Valid To</span>
+                                    <span class="summary-value">{validTo}</span>
+                                </div>
+                                <template lwc:if={ctaUrl}>
+                                    <div class="summary-row">
+                                        <span class="summary-label">CTA URL</span>
+                                        <span class="summary-value">{ctaUrl}</span>
+                                    </div>
+                                </template>
+                                <template lwc:if={ctaDurl}>
+                                    <div class="summary-row">
+                                        <span class="summary-label">CTA Redirect</span>
+                                        <span class="summary-value">{ctaDurl}</span>
+                                    </div>
+                                </template>
+                                <template lwc:if={ctaIntent}>
+                                    <div class="summary-row">
+                                        <span class="summary-label">CTA Intent</span>
+                                        <span class="summary-value">{ctaIntent}</span>
+                                    </div>
+                                </template>
+                                <template lwc:if={regUrl}>
+                                    <div class="summary-row">
+                                        <span class="summary-label">Registration URL</span>
+                                        <span class="summary-value">{regUrl}</span>
+                                    </div>
+                                </template>
+                                <div class="summary-row">
+                                    <span class="summary-label">Customer Type</span>
+                                    <span class="summary-value">{summaryCustomerType}</span>
+                                </div>
+                                <div class="summary-row">
+                                    <span class="summary-label">Product Family</span>
+                                    <span class="summary-value">{selectedProductFamily}</span>
+                                </div>
+                                <div class="summary-row">
+                                    <span class="summary-label">Source Products</span>
+                                    <span class="summary-value">{summarySourceProducts}</span>
+                                </div>
+                                <template for:each={summaryParams} for:item="sp">
+                                    <div key={sp.field} class="summary-row">
+                                        <span class="summary-label">{sp.label}</span>
+                                        <span class="summary-value">{sp.displayValue}</span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <footer class="custom-modal-footer">
+                <div class="footer-left"></div>
+                <div class="footer-right">
+                    <button class="pill-action-btn secondary-pill slds-m-right_small" onclick={handleCancel}>Cancel</button>
+                    <template lwc:if={showBackButton}>
+                        <button class="pill-action-btn secondary-pill slds-m-right_small" onclick={handlePreviousStep}>Back</button>
+                    </template>
+                    <button class="pill-action-btn secondary-pill slds-m-right_small" onclick={handleSaveInPlace}>Save</button>
+                    <template lwc:if={showNextButton}>
+                        <button class="pill-action-btn primary-pill" onclick={handleNextStep}>Next</button>
+                    </template>
+                    <template lwc:if={isLastStep}>
+                        <button class="pill-action-btn secondary-pill slds-m-right_small" onclick={handleSaveDraft}>Save as Draft</button>
+                        <button class="pill-action-btn secondary-pill slds-m-right_small" onclick={handleSaveAsReady}>Save as Ready</button>
+                        <button class="pill-action-btn primary-pill" onclick={handleSaveAndActivate}>Save and Activate</button>
+                    </template>
+                </div>
+            </footer>
+        </div>
+    </section>
+    <div class="slds-backdrop slds-backdrop_open" role="presentation"></div>
+</template>

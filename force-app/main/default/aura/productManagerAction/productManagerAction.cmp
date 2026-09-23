@@ -1,0 +1,8 @@
+<aura:component implements="lightning:actionOverride,force:hasRecordId,force:hasSObjectName">
+    <aura:handler name="init" value="{!this}" action="{!c.doInit}" />
+    <aura:attribute name="showModal" type="Boolean" default="false" />
+
+    <aura:if isTrue="{!v.showModal}">
+        <c:productManager recordId="{!v.recordId}" onclose="{!c.handleClose}" onsaved="{!c.handleSaved}"></c:productManager>
+    </aura:if>
+</aura:component>

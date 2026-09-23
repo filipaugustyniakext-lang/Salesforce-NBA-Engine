@@ -1,0 +1,194 @@
+<template>
+    <div class="vtab-layout">
+
+        <nav class="vtab-sidebar" role="tablist" aria-orientation="vertical">
+            <button role="tab" class={vtabClass.customerType} data-tab="customerType" onclick={handleSubTabClick}
+                aria-selected={vtabSelected.customerType}>
+                <lightning-icon icon-name="utility:user" size="x-small" class="vtab-icon" alternative-text=""></lightning-icon>
+                Customer Types
+            </button>
+            <button role="tab" class={vtabClass.audienceType} data-tab="audienceType" onclick={handleSubTabClick}
+                aria-selected={vtabSelected.audienceType}>
+                <lightning-icon icon-name="utility:groups" size="x-small" class="vtab-icon" alternative-text=""></lightning-icon>
+                Audience Types
+            </button>
+        </nav>
+
+        <div class="vtab-content" role="tabpanel">
+
+            <!-- Customer Types panel -->
+            <template lwc:if={isTab.customerType}>
+            <div class="slds-p-around_small">
+                <div class="slds-grid slds-grid_vertical-align-center slds-m-bottom_small">
+                    <div class="slds-col">
+                        <h2 class="slds-text-heading_small">
+                            Customer Types
+                            <span class="slds-badge slds-badge_lightest slds-m-left_x-small">{customerTypeCount}</span>
+                        </h2>
+                    </div>
+                    <div class="slds-col slds-no-flex">
+                        <lightning-button label="Add" icon-name="utility:add" variant="brand"
+                            data-subtype="Customer Type" onclick={handleNewRecord}>
+                        </lightning-button>
+                    </div>
+                </div>
+                <template lwc:if={isLoading}>
+                    <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
+                </template>
+                <template lwc:elseif={hasCustomerTypes}>
+                    <ul class="slds-has-dividers_top-space scrollable-list">
+                        <template for:each={customerTypes} for:item="rec">
+                            <li key={rec.Id} class="slds-item slds-grid slds-grid_align-spread slds-p-vertical_x-small">
+                                <p class="slds-text-body_regular">{rec.Name}</p>
+                                <div class="slds-button-group">
+                                    <lightning-button-icon icon-name="utility:edit" variant="bare"
+                                        alternative-text="Edit" title="Edit"
+                                        data-id={rec.Id} data-subtype="Customer Type"
+                                        onclick={handleEditRecord}>
+                                    </lightning-button-icon>
+                                    <lightning-button-icon icon-name="utility:delete" variant="bare"
+                                        alternative-text="Delete" title="Delete"
+                                        data-id={rec.Id} data-name={rec.Name}
+                                        onclick={handleDeleteRecord}>
+                                    </lightning-button-icon>
+                                </div>
+                            </li>
+                        </template>
+                    </ul>
+                </template>
+                <template lwc:else>
+                    <p class="slds-text-body_small slds-text-color_weak slds-p-vertical_small">No Customer Types defined yet.</p>
+                </template>
+            </div>
+            </template>
+
+            <!-- Audience Types panel -->
+            <template lwc:if={isTab.audienceType}>
+            <div class="slds-p-around_small">
+                <div class="slds-grid slds-grid_vertical-align-center slds-m-bottom_small">
+                    <div class="slds-col">
+                        <h2 class="slds-text-heading_small">
+                            Audience Types
+                            <span class="slds-badge slds-badge_lightest slds-m-left_x-small">{audienceTypeCount}</span>
+                        </h2>
+                    </div>
+                    <div class="slds-col slds-no-flex">
+                        <lightning-button label="Add" icon-name="utility:add" variant="brand"
+                            data-subtype="Audience Type" onclick={handleNewRecord}>
+                        </lightning-button>
+                    </div>
+                </div>
+                <template lwc:if={isLoading}>
+                    <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
+                </template>
+                <template lwc:elseif={hasAudienceTypes}>
+                    <ul class="slds-has-dividers_top-space scrollable-list">
+                        <template for:each={audienceTypes} for:item="rec">
+                            <li key={rec.Id} class="slds-item slds-grid slds-grid_align-spread slds-p-vertical_x-small">
+                                <p class="slds-text-body_regular">{rec.Name}</p>
+                                <div class="slds-button-group">
+                                    <lightning-button-icon icon-name="utility:edit" variant="bare"
+                                        alternative-text="Edit" title="Edit"
+                                        data-id={rec.Id} data-subtype="Audience Type"
+                                        onclick={handleEditRecord}>
+                                    </lightning-button-icon>
+                                    <lightning-button-icon icon-name="utility:delete" variant="bare"
+                                        alternative-text="Delete" title="Delete"
+                                        data-id={rec.Id} data-name={rec.Name}
+                                        onclick={handleDeleteRecord}>
+                                    </lightning-button-icon>
+                                </div>
+                            </li>
+                        </template>
+                    </ul>
+                </template>
+                <template lwc:else>
+                    <p class="slds-text-body_small slds-text-color_weak slds-p-vertical_small">No Audience Types defined yet.</p>
+                </template>
+            </div>
+            </template>
+
+        </div>
+    </div>
+
+    <!-- Add / Edit modal -->
+    <template lwc:if={isModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true"
+                 aria-labelledby="person-modal-heading" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header">
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse"
+                            title="Close" onclick={handleCloseModal}>
+                        <lightning-icon icon-name="utility:close" size="small" alternative-text="Close"></lightning-icon>
+                    </button>
+                    <h2 id="person-modal-heading" class="slds-modal__title">{modalTitle}</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <template lwc:if={isEditMode}>
+                        <lightning-input label="Name" value={editRecord.Name} required
+                            data-field="Name" onchange={handleFieldChange}>
+                        </lightning-input>
+                    </template>
+                    <template lwc:else>
+                        <div class="slds-m-bottom_x-small">
+                            <p class="slds-text-title slds-text-color_weak">Enter one name per row. Use the + button to add more.</p>
+                        </div>
+                        <template for:each={bulkRows} for:item="row">
+                            <div key={row.key} class="slds-grid slds-gutters_x-small slds-m-bottom_x-small slds-grid_vertical-align-end">
+                                <div class="slds-col">
+                                    <lightning-input label={row.label} value={row.name}
+                                        placeholder="Enter name..."
+                                        data-key={row.key} onchange={handleBulkRowChange}>
+                                    </lightning-input>
+                                </div>
+                                <div class="slds-col slds-no-flex slds-p-bottom_xx-small">
+                                    <lightning-button-icon icon-name="utility:close" variant="bare"
+                                        alternative-text="Remove" title="Remove"
+                                        data-key={row.key} onclick={handleRemoveRow}
+                                        disabled={isSingleRow}>
+                                    </lightning-button-icon>
+                                </div>
+                            </div>
+                        </template>
+                        <div class="slds-m-top_x-small">
+                            <lightning-button label="Add another" icon-name="utility:add" variant="neutral"
+                                onclick={handleAddRow}>
+                            </lightning-button>
+                        </div>
+                    </template>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={handleCloseModal}></lightning-button>
+                    <lightning-button variant="brand" label={saveButtonLabel} disabled={isSaving}
+                        onclick={handleSave} class="slds-m-left_x-small">
+                    </lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open" role="presentation"></div>
+    </template>
+
+    <!-- Delete confirmation modal -->
+    <template lwc:if={isDeleteModalOpen}>
+        <section role="alertdialog" tabindex="-1" aria-modal="true" aria-label="Delete confirmation"
+                 class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header slds-theme_warning">
+                    <lightning-icon icon-name="utility:warning" variant="inverse" size="small"
+                        class="slds-m-right_x-small" alternative-text="Warning"></lightning-icon>
+                    <h2 class="slds-modal__title">Delete {pendingDeleteName}?</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <p>This action cannot be undone. Are you sure you want to delete <strong>{pendingDeleteName}</strong>?</p>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={handleCancelDelete}></lightning-button>
+                    <lightning-button variant="destructive" label="Delete"
+                        onclick={handleConfirmDelete} class="slds-m-left_x-small">
+                    </lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open" role="presentation"></div>
+    </template>
+</template>

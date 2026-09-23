@@ -1,0 +1,176 @@
+/* --- CUSTOM COMPONENT WORKSPACE BASE LAYOUTS --- */
+.custom-dict-modal .custom-modal-header {
+    background-color: #f8f9fa !important;
+    border-bottom: 1px solid #e9ecef !important;
+    padding: 1.25rem !important;
+}
+
+.custom-dict-modal .header-title {
+    font-weight: 700 !important;
+    color: #001e4e !important;
+}
+
+.custom-dict-modal .custom-modal-body {
+    background-color: #ffffff !important;
+    min-height: 320px;
+}
+
+.custom-field-label {
+    font-size: 0.9rem !important;
+    font-weight: 700 !important;
+    color: #334155 !important;
+    margin-bottom: 0.5rem !important;
+    display: block;
+}
+
+/* --- SELECTION PILL GRID PANEL --- */
+.record-type-pill-deck {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+}
+
+.rt-selector-pill {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.75rem 1rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 20px; /* Yields smooth stylized capsules matching image specifications */
+    background: #ffffff;
+    cursor: pointer;
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.rt-selector-pill:hover {
+    border-color: #0176d3;
+    background-color: #f8fafc;
+}
+
+.rt-selector-pill.pill-selected {
+    border-color: #0176d3;
+    background-color: #f0f6ff;
+    box-shadow: 0 0 0 1px #0176d3;
+}
+
+.rt-selector-pill.pill-selected .rt-pill-label {
+    color: #0176d3;
+    font-weight: 700;
+}
+
+.rt-pill-icon {
+    margin-right: 0.5rem;
+    --slds-c-icon-color-foreground: #475569;
+}
+
+.rt-selector-pill.pill-selected .rt-pill-icon {
+    --slds-c-icon-color-foreground: #0176d3;
+}
+
+.rt-pill-label {
+    font-size: 0.88rem;
+    color: #475569;
+    font-weight: 500;
+}
+
+.section-divider {
+    border: 0;
+    height: 1px;
+    background: #e2e8f0;
+    margin: 1.5rem 0;
+}
+
+/* --- FIELD INPUT ARCHITECTURE LAYOUTS --- */
+.custom-form-row {
+    display: flex;
+    flex-direction: column;
+}
+
+.custom-input-field-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #475569;
+    margin-bottom: 0.25rem;
+}
+
+.custom-form-input {
+    --slds-c-input-spacing-padding-vertical: 0.5rem;
+    --slds-c-input-radius-border: 6px;
+}
+
+/* --- FALLBACK TEXT DESCRIPTIONS --- */
+.fallback-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 1rem;
+    text-align: center;
+}
+
+.fallback-icon {
+    --slds-c-icon-color-foreground: #94a3b8;
+    margin-bottom: 0.75rem;
+}
+
+.fallback-empty-state p {
+    font-size: 0.9rem;
+    color: #64748b;
+    max-width: 280px;
+}
+
+/* --- MODAL TRIMS CONTROL ACTION FOOTER --- */
+.custom-dict-modal .custom-modal-footer {
+    background-color: #f8f9fa !important;
+    border-top: 1px solid #e9ecef !important;
+    padding: 1rem !important;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.pill-action-btn {
+    padding: 0.5rem 1.5rem !important;
+    font-size: 0.88rem !important;
+    font-weight: 600 !important;
+    border-radius: 20px !important;
+    cursor: pointer;
+    transition: background 0.1s ease;
+}
+
+.primary-pill {
+    background: #0176d3 !important;
+    color: #ffffff !important;
+    border: 1px solid #0176d3 !important;
+}
+
+.primary-pill:hover:not([disabled]) {
+    background: #014b96 !important;
+}
+
+.primary-pill[disabled] {
+    background: #c9c9c9 !important;
+    border-color: #c9c9c9 !important;
+    color: #ffffff !important;
+    cursor: not-allowed;
+}
+
+.secondary-pill {
+    background: #ffffff !important;
+    color: #0176d3 !important;
+    border: 1px solid #cbd5e1 !important;
+}
+
+.secondary-pill:hover {
+    background: #f8fafc !important;
+}
+
+/* --- ANIMATION ENGINE KEYFRAMES --- */
+.animate-fade-in {
+    animation: fadeIn 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
