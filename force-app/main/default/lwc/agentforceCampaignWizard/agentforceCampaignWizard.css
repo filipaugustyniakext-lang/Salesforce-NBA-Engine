@@ -741,6 +741,20 @@
     width: 100%;
 }
 
+.tier-picker-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    width: 100%;
+    margin-bottom: 0.125rem;
+}
+
+.tier-details-toggle {
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
 .tier-picker-description {
     display: block;
     white-space: normal;
@@ -748,8 +762,57 @@
     color: #706e6b;
 }
 
-.tier-picker-badges {
+.tier-picker-details {
     width: 100%;
+    border-top: 1px solid #e5e5e5;
+    padding-top: 0.5rem;
+    margin-top: 0.35rem;
+}
+
+.tier-attr-rows {
+    width: 100%;
+}
+
+.tier-attr-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.15rem 0;
+}
+
+.tier-attr-label {
+    font-size: 0.75rem;
+    color: #514f4d;
+    line-height: 1.3;
+}
+
+.tier-type-chip {
+    font-size: 11px;
+}
+
+.cd-badge-yes {
+    background: #e3f3e8;
+    color: #2e844a;
+    border: 1px solid #91d0a5;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.cd-badge-no {
+    background: #f3f3f3;
+    color: #706e6b;
+    border: 1px solid #dddbda;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.cd-badge-dpc {
+    background: #e8f4fd;
+    color: #0176d3;
+    border: 1px solid #afd8f8;
+    font-size: 11px;
+    font-weight: 600;
 }
 
 .tier-picker-disabled {

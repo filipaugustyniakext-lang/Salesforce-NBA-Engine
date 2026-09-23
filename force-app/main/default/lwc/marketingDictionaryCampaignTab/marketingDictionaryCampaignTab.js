@@ -8,58 +8,13 @@ import deleteDictionaryRecord from '@salesforce/apex/MarketingDictionaryManagerC
 import getCampaignTiers from '@salesforce/apex/MarketingDictionaryManagerController.getCampaignTiers';
 import saveCampaignTier from '@salesforce/apex/MarketingDictionaryManagerController.saveCampaignTier';
 import deleteCampaignTier from '@salesforce/apex/MarketingDictionaryManagerController.deleteCampaignTier';
-
-const TIER_ATTR_FIELDS = [
-    { 
-        field: 'Override_Random_Activation_Path__c', 
-        label: 'Override Random Activation Path', 
-        options: [
-            { label: 'Yes', value: 'Yes' },
-            { label: 'No', value: 'No' },
-        ]
-    },
-    { 
-        field: 'Honor_Marketing_Consents__c',         
-        label: 'Honor Marketing Consents', 
-        options: [
-            { label: 'Yes', value: 'Yes' },
-            { label: 'No', value: 'No' },
-            { label: 'Defined per Campaign', value: 'Defined per Campaign' },
-        ]
-    },
-    { 
-        field: 'Includes_Control_Group__c',           
-        label: 'Includes Control Group' , 
-        options: [
-            { label: 'Yes', value: 'Yes' },
-            { label: 'No', value: 'No' },
-            { label: 'Defined per Campaign', value: 'Defined per Campaign' },
-        ]
-    },
-    { 
-        field: 'Honors_Channel_Cooldowns__c',         
-        label: 'Honors Channel Cooldowns', 
-        options: [
-            { label: 'Yes', value: 'Yes' },
-            { label: 'No', value: 'No' },
-            { label: 'Defined per Campaign', value: 'Defined per Campaign' },
-        ]
-    },
-    { 
-        field: 'Allows_Random_Copy_Assignment__c',    
-        label: 'Allows Random Copy Assignment' , 
-        options: [
-            { label: 'Yes', value: 'Yes' },
-            { label: 'No', value: 'No' },
-        ]
-    },
-];
-
-const TIER_EXCL_FIELDS = [
-    { field: 'Excl_Manual_Suppressions__c', label: 'Manual Suppressions' }
-];
-
-const ATTR_BADGE = { 'Yes': 'slds-badge cd-badge-yes', 'No': 'slds-badge cd-badge-no', 'Defined per Campaign': 'slds-badge cd-badge-dpc' };
+import {
+    TIER_ATTR_FIELDS,
+    TIER_EXCL_FIELDS,
+    buildTierAttrRows,
+    buildTierExclusionChips,
+    buildTierTypeChips
+} from 'c/nbaTierConfig';
 
 const EMPTY_CAMPAIGN_TYPE    = () => ({ Name: '', Dictionary_Sub_Type__c: 'Campaign Type', Include_In_Emergency__c: false, Define_Campaign_Groups__c: false });
 const EMPTY_CAMPAIGN_GROUP   = () => ({ Name: '', Dictionary_Sub_Type__c: 'Campaign Group', Campaign_Type_Dict__c: null });
@@ -72,9 +27,7 @@ const EMPTY_TIER             = () => ({
     Override_Random_Activation_Path__c: '', Honor_Marketing_Consents__c: '',
     Includes_Control_Group__c: '', Honors_Channel_Cooldowns__c: '',
     Honors_Product_Eligibility__c: '', Allows_Random_Copy_Assignment__c: '',
-    Excl_Manual_Suppressions__c: false, Excl_Deceased__c: false, Excl_AML_Fraud__c: false,
-    Excl_Debt_Collection__c: false, Excl_Overdue__c: false, Excl_KYC_Risk__c: false,
-    Excl_Bailiff_Seizure__c: false, Excl_Restricted_Client__c: false, Excl_Personal_Bankruptcy__c: false
+    Excl_Manual_Suppressions__c: false
 });
 const EMPTY_SCORING             = () => ({
     Scoring_Model_Id: '', 
@@ -237,15 +190,17 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
 
     get tiers() {
         return this._allTiers.map(t => {
-            const attrRows = TIER_ATTR_FIELDS.map(af => ({
-                label: af.label,
-                value: t[af.field] || '—',
-                options: [af.options],
-                badgeClass: ATTR_BADGE[t[af.field]] || 'slds-badge slds-badge_lightest'
-            }));
-            const exclLabels = TIER_EXCL_FIELDS.filter(ef => t[ef.field]).map(ef => ef.label.replace('Exclude ', ''));
-            const typeChips = (t.Supported_Campaign_Types__c || '').split(',').map(s => s.trim()).filter(Boolean);
-            return { ...t, attrRows, exclusionChips: exclLabels, hasExclusions: exclLabels.length > 0, typeChips, hasTypes: typeChips.length > 0 };
+            const attrRows = buildTierAttrRows(t);
+            const exclusionChips = buildTierExclusionChips(t);
+            const typeChips = buildTierTypeChips(t);
+            return {
+                ...t,
+                attrRows,
+                exclusionChips,
+                hasExclusions: exclusionChips.length > 0,
+                typeChips,
+                hasTypes: typeChips.length > 0
+            };
         });
     }
 

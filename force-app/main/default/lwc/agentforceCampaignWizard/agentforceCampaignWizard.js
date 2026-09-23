@@ -19,6 +19,12 @@ import saveCampaignOffers from '@salesforce/apex/MarketingDictionaryController.s
 import getOfferSummaries from '@salesforce/apex/MarketingDictionaryController.getOfferSummaries';
 import getCampaignTiers from '@salesforce/apex/MarketingDictionaryManagerController.getCampaignTiers';
 import getCampaignTypes from '@salesforce/apex/MarketingDictionaryController.getCampaignTypes';
+import {
+    parseSupportedCampaignTypes as parseTierCampaignTypes,
+    buildTierAttrRows,
+    buildTierExclusionChips,
+    buildTierTypeChips
+} from 'c/nbaTierConfig';
 
 export default class AgentforceCampaignWizard extends NavigationMixin(LightningElement) {
     @api recordId;
@@ -54,6 +60,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     // --- DYNAMIC TIERS ---
     @track _allTiers = [];
     @track _tiersLoaded = false;
+    /** Map of tier label → expanded details visibility */
+    @track expandedTier = {};
 
     // --- DYNAMIC CAMPAIGN TYPES ---
     @track _allCampaignTypes = [];
@@ -682,18 +690,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         return this.tierLabelForNumber(tier && tier.Tier_Number__c);
     }
 
-    /** Dictionary stores Supported_Campaign_Types__c as comma-separated Campaign Type names. */
-    parseSupportedCampaignTypes(raw) {
-        return (raw || '')
-            .split(/[,;]/)
-            .map(s => s.trim().toLowerCase())
-            .filter(Boolean);
-    }
-
-    isTierAttributeEnabled(value) {
-        return value === true || value === 'Yes';
-    }
-
     handlePriorityChange(event) {
         if (this.isEmergency) return;
         const input = event.target;
@@ -705,6 +701,23 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             this.suppressionLookupValue = '';
             this.suppressionLookupDisplay = '';
         }
+    }
+
+    handleTierDetailsMouseDown(event) {
+        // Keep expand/collapse from also selecting the radio via the parent label.
+        event.preventDefault();
+        event.stopPropagation();
+    }
+
+    handleTierDetailsToggle(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        const value = event.currentTarget.dataset.value;
+        if (!value) return;
+        this.expandedTier = {
+            ...this.expandedTier,
+            [value]: !this.expandedTier[value]
+        };
     }
 
     handleSuppressionTypeChange(event) {
@@ -1093,43 +1106,14 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         return this.isEmergency ? 'warning' : '';
     }
 
-    getBehaviouralBadgesForTier(tier) {
-        if (!tier) return [];
-        const fields = [
-            { field: 'Honor_Marketing_Consents__c', label: 'Honor Marketing Consents' },
-            { field: 'Honors_Channel_Cooldowns__c', label: 'Honors Channel Cooldowns' },
-            { field: 'Honors_Product_Eligibility__c', label: 'Honors Product Eligibility' },
-            { field: 'Includes_Control_Group__c', label: 'Includes Control Group' },
-            { field: 'Override_Random_Activation_Path__c', label: 'Override Random Activation Path' },
-            { field: 'Allows_Random_Copy_Assignment__c', label: 'Allows Random Copy Assignment' }
-        ];
-        return fields
-            .filter(f => this.isTierAttributeEnabled(tier[f.field]))
-            .map(f => ({ label: f.label, key: f.field }));
-    }
-
-    getExclusionBadgesForTier(tier) {
-        if (!tier) return [];
-        const fields = [
-            { field: 'Excl_Deceased__c', label: 'Deceased' },
-            { field: 'Excl_AML_Fraud__c', label: 'AML/Fraud' },
-            { field: 'Excl_Debt_Collection__c', label: 'Debt Collection' },
-            { field: 'Excl_Overdue__c', label: 'Overdue' },
-            { field: 'Excl_KYC_Risk__c', label: 'KYC Risk' },
-            { field: 'Excl_Bailiff_Seizure__c', label: 'Bailiff Seizure' },
-            { field: 'Excl_Restricted_Client__c', label: 'Restricted Client' },
-            { field: 'Excl_Personal_Bankruptcy__c', label: 'Personal Bankruptcy' }
-        ];
-        return fields.filter(f => tier[f.field] === true).map(f => ({ label: f.label, key: f.field }));
-    }
-
     get priorityTierOptions() {
         const activationType = this.parentActivationType
             ? this.parentActivationType.toLowerCase().trim()
             : '';
 
         return this._allTiers.map(tier => {
-            const supported = this.parseSupportedCampaignTypes(tier.Supported_Campaign_Types__c);
+            const supported = parseTierCampaignTypes(tier.Supported_Campaign_Types__c)
+                .map(s => s.toLowerCase());
             const label = this.tierLabel(tier);
             const tierNumber = tier.Tier_Number__c;
 
@@ -1144,13 +1128,19 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             }
 
             const isSelected = this.selectedPriorityTier === label;
-            const behaviouralBadges = this.getBehaviouralBadgesForTier(tier);
-            const exclusionBadges = this.getExclusionBadgesForTier(tier);
+            const isDetailsExpanded = !!this.expandedTier[label];
+            const attrRows = buildTierAttrRows(tier);
+            const typeChips = buildTierTypeChips(tier);
+            const exclusionChips = buildTierExclusionChips(tier);
+            const hasDetails = attrRows.length > 0 || typeChips.length > 0 || exclusionChips.length > 0;
             const description = tier.Description__c || '';
 
             let pickerClass = 'slds-visual-picker slds-visual-picker_vertical';
             if (!isAllowed) {
                 pickerClass += ' tier-picker-disabled';
+            }
+            if (isDetailsExpanded) {
+                pickerClass += ' tier-picker-expanded';
             }
 
             return {
@@ -1158,9 +1148,15 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 value: label,
                 inputId: `priority-tier-${tierNumber != null ? tierNumber : tier.Id}`,
                 description,
-                behaviouralBadges,
-                exclusionBadges,
-                hasBadges: behaviouralBadges.length > 0 || exclusionBadges.length > 0,
+                attrRows,
+                typeChips,
+                hasTypes: typeChips.length > 0,
+                exclusionChips,
+                hasExclusions: exclusionChips.length > 0,
+                hasDetails,
+                isDetailsExpanded,
+                detailsChevron: isDetailsExpanded ? 'utility:chevrondown' : 'utility:chevronright',
+                detailsToggleTitle: isDetailsExpanded ? 'Hide tier settings' : 'Show tier settings',
                 pickerClass,
                 isDisabled: !isAllowed,
                 isSelected

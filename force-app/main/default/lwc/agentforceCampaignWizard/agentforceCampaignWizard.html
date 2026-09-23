@@ -154,28 +154,54 @@
                                                             <label for={tier.inputId}>
                                                                 <span class="slds-visual-picker__figure slds-visual-picker__text">
                                                                     <span class="tier-picker-content">
-                                                                        <span class="slds-text-heading_small slds-m-bottom_xx-small">{tier.label}</span>
+                                                                        <span class="tier-picker-header">
+                                                                            <span class="slds-text-heading_small">{tier.label}</span>
+                                                                            <template lwc:if={tier.hasDetails}>
+                                                                                <button type="button"
+                                                                                        class="slds-button slds-button_icon tier-details-toggle"
+                                                                                        data-value={tier.value}
+                                                                                        title={tier.detailsToggleTitle}
+                                                                                        aria-expanded={tier.isDetailsExpanded}
+                                                                                        onmousedown={handleTierDetailsMouseDown}
+                                                                                        onclick={handleTierDetailsToggle}>
+                                                                                    <lightning-icon icon-name={tier.detailsChevron}
+                                                                                                    size="xx-small"
+                                                                                                    alternative-text={tier.detailsToggleTitle}></lightning-icon>
+                                                                                </button>
+                                                                            </template>
+                                                                        </span>
                                                                         <template lwc:if={tier.description}>
                                                                             <span class="slds-text-title tier-picker-description">{tier.description}</span>
                                                                         </template>
-                                                                        <template lwc:if={tier.hasBadges}>
-                                                                            <div class="tier-picker-badges slds-m-top_x-small">
-                                                                                <template lwc:if={tier.behaviouralBadges.length}>
+                                                                        <template lwc:if={tier.isDetailsExpanded}>
+                                                                            <div class="tier-picker-details slds-m-top_x-small animate-fade-in">
+                                                                                <template lwc:if={tier.hasTypes}>
                                                                                     <div class="tier-badge-row slds-m-bottom_xx-small">
-                                                                                        <span class="tier-badge-group-label">Behavioural</span>
+                                                                                        <span class="tier-badge-group-label">Supported Campaign Types</span>
                                                                                         <div class="tier-badge-group">
-                                                                                            <template for:each={tier.behaviouralBadges} for:item="badge">
-                                                                                                <span key={badge.key} class="slds-badge tier-behaviour-badge">{badge.label}</span>
+                                                                                            <template for:each={tier.typeChips} for:item="chip">
+                                                                                                <span key={chip} class="slds-badge slds-badge_lightest tier-type-chip">{chip}</span>
                                                                                             </template>
                                                                                         </div>
                                                                                     </div>
                                                                                 </template>
-                                                                                <template lwc:if={tier.exclusionBadges.length}>
+                                                                                <template lwc:if={tier.attrRows.length}>
+                                                                                    <div class="tier-attr-rows slds-m-bottom_xx-small">
+                                                                                        <span class="tier-badge-group-label">Behavioural Attributes</span>
+                                                                                        <template for:each={tier.attrRows} for:item="attr">
+                                                                                            <div key={attr.key} class="tier-attr-row">
+                                                                                                <span class="tier-attr-label">{attr.label}</span>
+                                                                                                <span class={attr.badgeClass}>{attr.value}</span>
+                                                                                            </div>
+                                                                                        </template>
+                                                                                    </div>
+                                                                                </template>
+                                                                                <template lwc:if={tier.hasExclusions}>
                                                                                     <div class="tier-badge-row">
                                                                                         <span class="tier-badge-group-label">Exclusions</span>
                                                                                         <div class="tier-badge-group">
-                                                                                            <template for:each={tier.exclusionBadges} for:item="badge">
-                                                                                                <span key={badge.key} class="slds-badge tier-exclusion-badge">{badge.label}</span>
+                                                                                            <template for:each={tier.exclusionChips} for:item="chip">
+                                                                                                <span key={chip} class="slds-badge tier-exclusion-badge">{chip}</span>
                                                                                             </template>
                                                                                         </div>
                                                                                     </div>
