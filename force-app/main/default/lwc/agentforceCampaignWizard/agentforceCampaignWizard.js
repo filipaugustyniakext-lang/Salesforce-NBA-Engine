@@ -696,8 +696,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     handlePriorityChange(event) {
         if (this.isEmergency) return;
-        if (event.currentTarget.classList.contains('tier-disabled')) return;
-        const newTier = event.currentTarget.dataset.value;
+        const input = event.target;
+        if (!input || input.disabled) return;
+        const newTier = input.value;
         if (newTier !== this.selectedPriorityTier) {
             this.selectedPriorityTier = newTier;
             this.suppressionType = '';
@@ -1092,50 +1093,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         return this.isEmergency ? 'warning' : '';
     }
 
-    get priorityTierOptions() {
-        const activationType = this.parentActivationType
-            ? this.parentActivationType.toLowerCase().trim()
-            : '';
-
-        return this._allTiers.map(tier => {
-            const supported = this.parseSupportedCampaignTypes(tier.Supported_Campaign_Types__c);
-            const label = this.tierLabel(tier);
-
-            let isAllowed = false;
-            if (this.isEmergency) {
-                isAllowed = Number(tier.Tier_Number__c) === 1;
-            } else if (activationType) {
-                // Empty Supported_Campaign_Types means the tier was not scoped — treat as available.
-                isAllowed = supported.length === 0 || supported.some(s => s === activationType);
-            } else {
-                isAllowed = true;
-            }
-
-            let className = 'priority-list-item';
-            if (!isAllowed) {
-                className += ' tier-disabled';
-            } else if (this.selectedPriorityTier === label) {
-                className += ' priority-item-selected';
-            }
-
-            return {
-                label,
-                value: label,
-                className,
-                isDisabled: !isAllowed,
-                isSelected: this.selectedPriorityTier === label,
-                tooltip: tier.Description__c || ''
-            };
-        });
-    }
-
-    get selectedTierRecord() {
-        if (!this.selectedPriorityTier) return null;
-        return this._allTiers.find(t => this.tierLabel(t) === this.selectedPriorityTier) || null;
-    }
-
-    get selectedTierBehaviouralBadges() {
-        const tier = this.selectedTierRecord;
+    getBehaviouralBadgesForTier(tier) {
         if (!tier) return [];
         const fields = [
             { field: 'Honor_Marketing_Consents__c', label: 'Honor Marketing Consents' },
@@ -1150,8 +1108,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             .map(f => ({ label: f.label, key: f.field }));
     }
 
-    get selectedTierExclusionBadges() {
-        const tier = this.selectedTierRecord;
+    getExclusionBadgesForTier(tier) {
         if (!tier) return [];
         const fields = [
             { field: 'Excl_Deceased__c', label: 'Deceased' },
@@ -1164,6 +1121,56 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             { field: 'Excl_Personal_Bankruptcy__c', label: 'Personal Bankruptcy' }
         ];
         return fields.filter(f => tier[f.field] === true).map(f => ({ label: f.label, key: f.field }));
+    }
+
+    get priorityTierOptions() {
+        const activationType = this.parentActivationType
+            ? this.parentActivationType.toLowerCase().trim()
+            : '';
+
+        return this._allTiers.map(tier => {
+            const supported = this.parseSupportedCampaignTypes(tier.Supported_Campaign_Types__c);
+            const label = this.tierLabel(tier);
+            const tierNumber = tier.Tier_Number__c;
+
+            let isAllowed = false;
+            if (this.isEmergency) {
+                isAllowed = Number(tierNumber) === 1;
+            } else if (activationType) {
+                // Empty Supported_Campaign_Types means the tier was not scoped — treat as available.
+                isAllowed = supported.length === 0 || supported.some(s => s === activationType);
+            } else {
+                isAllowed = true;
+            }
+
+            const isSelected = this.selectedPriorityTier === label;
+            const behaviouralBadges = this.getBehaviouralBadgesForTier(tier);
+            const exclusionBadges = this.getExclusionBadgesForTier(tier);
+            const description = tier.Description__c || '';
+
+            let pickerClass = 'slds-visual-picker slds-visual-picker_vertical';
+            if (!isAllowed) {
+                pickerClass += ' tier-picker-disabled';
+            }
+
+            return {
+                label,
+                value: label,
+                inputId: `priority-tier-${tierNumber != null ? tierNumber : tier.Id}`,
+                description,
+                behaviouralBadges,
+                exclusionBadges,
+                hasBadges: behaviouralBadges.length > 0 || exclusionBadges.length > 0,
+                pickerClass,
+                isDisabled: !isAllowed,
+                isSelected
+            };
+        });
+    }
+
+    get selectedTierRecord() {
+        if (!this.selectedPriorityTier) return null;
+        return this._allTiers.find(t => this.tierLabel(t) === this.selectedPriorityTier) || null;
     }
 
     get showSuppressionSection() {

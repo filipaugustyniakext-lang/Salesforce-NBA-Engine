@@ -135,53 +135,66 @@
                                     <span class="module-header-title">Priority &amp; Exclusions</span>
 
                                     <div class="slds-grid slds-gutters priority-exclusions-layout slds-m-top_medium">
-                                        <!-- Left: Tier column (full height) -->
+                                        <!-- Left: Tier visual picker (vertical) -->
                                         <div class="slds-col slds-size_1-of-2 priority-exclusions-left">
-                                            <div class="custom-priority-picker priority-exclusions-tiers">
-                                                <div class="priority-list-container" role="listbox" aria-label="Priority Tier">
+                                            <fieldset class="slds-form-element priority-tier-fieldset" role="radiogroup">
+                                                <legend class="slds-form-element__legend slds-form-element__label">
+                                                    Priority Tier
+                                                </legend>
+                                                <div class="slds-form-element__control priority-tier-picker-control">
                                                     <template for:each={priorityTierOptions} for:item="tier">
-                                                        <div key={tier.value}
-                                                             class={tier.className}
-                                                             data-value={tier.value}
-                                                             title={tier.tooltip}
-                                                             role="option"
-                                                             aria-selected={tier.isSelected}
-                                                             onclick={handlePriorityChange}>
-                                                            {tier.label}
+                                                        <div key={tier.value} class={tier.pickerClass}>
+                                                            <input type="radio"
+                                                                   id={tier.inputId}
+                                                                   name="campaign-priority-tier"
+                                                                   value={tier.value}
+                                                                   checked={tier.isSelected}
+                                                                   disabled={tier.isDisabled}
+                                                                   onchange={handlePriorityChange} />
+                                                            <label for={tier.inputId}>
+                                                                <span class="slds-visual-picker__figure slds-visual-picker__text">
+                                                                    <span class="tier-picker-content">
+                                                                        <span class="slds-text-heading_small slds-m-bottom_xx-small">{tier.label}</span>
+                                                                        <template lwc:if={tier.description}>
+                                                                            <span class="slds-text-title tier-picker-description">{tier.description}</span>
+                                                                        </template>
+                                                                        <template lwc:if={tier.hasBadges}>
+                                                                            <div class="tier-picker-badges slds-m-top_x-small">
+                                                                                <template lwc:if={tier.behaviouralBadges.length}>
+                                                                                    <div class="tier-badge-row slds-m-bottom_xx-small">
+                                                                                        <span class="tier-badge-group-label">Behavioural</span>
+                                                                                        <div class="tier-badge-group">
+                                                                                            <template for:each={tier.behaviouralBadges} for:item="badge">
+                                                                                                <span key={badge.key} class="slds-badge tier-behaviour-badge">{badge.label}</span>
+                                                                                            </template>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </template>
+                                                                                <template lwc:if={tier.exclusionBadges.length}>
+                                                                                    <div class="tier-badge-row">
+                                                                                        <span class="tier-badge-group-label">Exclusions</span>
+                                                                                        <div class="tier-badge-group">
+                                                                                            <template for:each={tier.exclusionBadges} for:item="badge">
+                                                                                                <span key={badge.key} class="slds-badge tier-exclusion-badge">{badge.label}</span>
+                                                                                            </template>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </template>
+                                                                            </div>
+                                                                        </template>
+                                                                    </span>
+                                                                </span>
+                                                                <span class="slds-icon_container slds-visual-picker__text-check">
+                                                                    <lightning-icon icon-name="utility:check"
+                                                                                    size="xx-small"
+                                                                                    alternative-text=""
+                                                                                    class="tier-picker-check-icon"></lightning-icon>
+                                                                </span>
+                                                            </label>
                                                         </div>
                                                     </template>
                                                 </div>
-                                            </div>
-
-                                            <template lwc:if={selectedTierRecord}>
-                                                <div class="tier-detail-panel slds-m-top_small animate-fade-in">
-                                                    <template lwc:if={selectedTierRecord.Description__c}>
-                                                        <p class="tier-description slds-m-bottom_small">{selectedTierRecord.Description__c}</p>
-                                                    </template>
-
-                                                    <template lwc:if={selectedTierBehaviouralBadges.length}>
-                                                        <div class="tier-badge-row slds-m-bottom_x-small">
-                                                            <span class="tier-badge-group-label">Behavioural Attributes</span>
-                                                            <div class="tier-badge-group">
-                                                                <template for:each={selectedTierBehaviouralBadges} for:item="badge">
-                                                                    <span key={badge.key} class="slds-badge tier-behaviour-badge">{badge.label}</span>
-                                                                </template>
-                                                            </div>
-                                                        </div>
-                                                    </template>
-
-                                                    <template lwc:if={selectedTierExclusionBadges.length}>
-                                                        <div class="tier-badge-row">
-                                                            <span class="tier-badge-group-label">Allowed Exclusions</span>
-                                                            <div class="tier-badge-group">
-                                                                <template for:each={selectedTierExclusionBadges} for:item="badge">
-                                                                    <span key={badge.key} class="slds-badge tier-exclusion-badge">{badge.label}</span>
-                                                                </template>
-                                                            </div>
-                                                        </div>
-                                                    </template>
-                                                </div>
-                                            </template>
+                                            </fieldset>
                                         </div>
 
                                         <!-- Right: Exclusion settings -->
