@@ -219,21 +219,60 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         }
 
         if (campaign.Assigned_Channels__c) {
-            this.editChannelValues = campaign.Assigned_Channels__c.split(';').map(c => c.trim());
+            this.editChannelValues = campaign.Assigned_Channels__c.split(';').map(c => c.trim()).filter(Boolean);
             this.applyEditChannels();
         }
 
+        // Multipicklist / semicolon-delimited values — trim and keep pending until
+        // dictionary option wires have populated (applyEditOfferingSelections is one-shot).
         if (campaign.Product_Family__c) {
-            const selectedPFs = campaign.Product_Family__c.split(';').map(p => p.trim());
-            this.editProductFamilyValues = selectedPFs;
+            this.editProductFamilyValues = campaign.Product_Family__c
+                .split(';').map(p => p.trim()).filter(Boolean);
         }
 
         if (campaign.Family_of_Needs__c) {
-            const selectedFoNs = campaign.Family_of_Needs__c.split(';').map(f => f.trim());
-            this.editFamilyOfNeedsValues = selectedFoNs;
+            this.editFamilyOfNeedsValues = campaign.Family_of_Needs__c
+                .split(';').map(f => f.trim()).filter(Boolean);
         }
 
+        this.applyEditOfferingSelections();
         this.loadSavedCampaignOffers();
+    }
+
+    /**
+     * Restores Product Family / Family of Needs checkboxes from edit-mode pending
+     * values. Safe to call before or after dictionary wires resolve: applies when
+     * options exist, then clears the pending arrays so later user toggles stick.
+     */
+    applyEditOfferingSelections() {
+        let applied = false;
+
+        if (this.editProductFamilyValues && this.productFamilyOptions.length > 0) {
+            const selected = new Set(this.editProductFamilyValues);
+            this.productFamilyOptions = this.productFamilyOptions.map(opt => ({
+                ...opt,
+                checked: selected.has(opt.value)
+            }));
+            this.selectAllProductFamilies = this.productFamilyOptions.every(opt => opt.checked);
+            this.buildGroupedOptions();
+            this.editProductFamilyValues = null;
+            applied = true;
+        }
+
+        if (this.editFamilyOfNeedsValues && this.familyOfNeedsOptions.length > 0) {
+            const selected = new Set(this.editFamilyOfNeedsValues);
+            this.familyOfNeedsOptions = this.familyOfNeedsOptions.map(opt => ({
+                ...opt,
+                checked: selected.has(opt.value)
+            }));
+            this.selectAllFamilyOfNeeds = this.familyOfNeedsOptions.every(opt => opt.checked);
+            this.editFamilyOfNeedsValues = null;
+            applied = true;
+        }
+
+        if (applied) {
+            this.scheduleFetchOffers();
+        }
     }
 
     loadSavedCampaignOffers() {
@@ -427,10 +466,11 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 const customerTypes = this.productFamilyCustomerTypes[val] || [];
                 const existing = this.productFamilyOptions.find(opt => opt.value === val);
                 let isChecked;
-                if (existing) {
-                    isChecked = existing.checked;
-                } else if (this.editProductFamilyValues) {
+                // Pending edit restore wins until applyEditOfferingSelections clears it.
+                if (this.editProductFamilyValues) {
                     isChecked = this.editProductFamilyValues.includes(val);
+                } else if (existing) {
+                    isChecked = existing.checked;
                 } else {
                     isChecked = false;
                 }
@@ -445,10 +485,10 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 const customerTypes = this.fonCustomerTypes[val] || [];
                 const existing = this.familyOfNeedsOptions.find(opt => opt.value === val);
                 let isChecked;
-                if (existing) {
-                    isChecked = existing.checked;
-                } else if (this.editFamilyOfNeedsValues) {
+                if (this.editFamilyOfNeedsValues) {
                     isChecked = this.editFamilyOfNeedsValues.includes(val);
+                } else if (existing) {
+                    isChecked = existing.checked;
                 } else {
                     isChecked = false;
                 }
@@ -462,6 +502,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         }
 
         this.buildGroupedOptions();
+        // If campaign edit payload arrived before dictionary wires, apply pending checks now.
+        this.applyEditOfferingSelections();
     }
 
     buildGroupedOptions() {
@@ -1323,10 +1365,15 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     fetchMatchingOffers() {
         const pfs  = this.productFamilyOptions.filter(o => o.checked).map(o => o.value);
         const checkedFons = this.familyOfNeedsOptions.filter(o => o.checked).map(o => o.value);
+        const offeringRestorePending = !!(this.editProductFamilyValues || this.editFamilyOfNeedsValues);
+
         if (pfs.length === 0 && checkedFons.length === 0) {
             this.matchingOffers = [];
-            this.selectedOfferIds = [];
-            this.offerSearchTerm = '';
+            // Do not wipe edit-mode offer IDs while PF/FoN checkboxes are still restoring.
+            if (!offeringRestorePending && !this.editSavedOfferIds) {
+                this.selectedOfferIds = [];
+                this.offerSearchTerm = '';
+            }
             return;
         }
         // Offers store a single product family, never a Family of Needs name, so a checked
@@ -1340,10 +1387,17 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         this.isLoadingOffers = true;
         getMatchingOffers({ productFamilies: pfs, familyOfNeeds: fons })
             .then(data => {
-                this.matchingOffers = data;
-                // Drop any selected offers that no longer match / are no longer active.
-                const matchedIds = new Set(data.map(o => o.id));
-                this.selectedOfferIds = this.selectedOfferIds.filter(id => matchedIds.has(id));
+                this.matchingOffers = data || [];
+                const matchedIds = new Set(this.matchingOffers.map(o => o.id));
+
+                // Prefer still-pending edit selections, then keep any current selections that match.
+                const pendingIds = this.editSavedOfferIds || [];
+                const restored = pendingIds.filter(id => matchedIds.has(id));
+                const kept = this.selectedOfferIds.filter(id => matchedIds.has(id));
+                this.selectedOfferIds = [...new Set([...restored, ...kept])];
+                if (this.editSavedOfferIds) {
+                    this.editSavedOfferIds = null;
+                }
                 this.isLoadingOffers = false;
             })
             .catch(() => { this.isLoadingOffers = false; });
