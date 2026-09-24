@@ -14,6 +14,7 @@ import getProductFamilyByRecordType from '@salesforce/apex/MarketingDictionaryCo
 import getProductFamilyCustomerTypes from '@salesforce/apex/MarketingDictionaryController.getProductFamilyCustomerTypes';
 import getFamilyOfNeedsCustomerTypes from '@salesforce/apex/MarketingDictionaryController.getFamilyOfNeedsCustomerTypes';
 import getProductOfferingCatalogue from '@salesforce/apex/MarketingDictionaryManagerController.getProductOfferingCatalogue';
+import getData360DmoOptions from '@salesforce/apex/MarketingDictionaryManagerController.getData360DmoOptions';
 import healCampaignOfferingLabels from '@salesforce/apex/MarketingDictionaryController.healCampaignOfferingLabels';
 import {
     TIER_ATTR_FIELDS,
@@ -45,6 +46,8 @@ const EMPTY_SCORING = () => ({
     Topic_Description__c: '',
     Scoring_Model_Group_Dict__c: null,
     Assigned_Topic_Dict__c: null,
+    Scoring_Model_Source_System__c: '',
+    Data360_DMO__c: '',
     Offering_Type__c: 'Product Family',
     Product_Family__c: '',
     Family_of_Needs__c: '',
@@ -55,6 +58,11 @@ const EMPTY_SCORING = () => ({
 const OFFERING_TYPES = [
     { label: 'Product Family', value: 'Product Family' },
     { label: 'Family of Needs', value: 'Family of Needs' }
+];
+
+const SCORING_SOURCE_SYSTEMS = [
+    { label: 'GCP', value: 'GCP' },
+    { label: 'Salesforce (Einstein)', value: 'Salesforce (Einstein)' }
 ];
 
 export default class MarketingDictionaryCampaignTab extends LightningElement {
@@ -85,6 +93,7 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
 
     @track scoringAsNewMaster = true;
     @track scoringNameLocked = false;
+    @track data360DmoOptions = [];
 
     @track productFamilyOptions = [];
     @track familyOfNeedsOptions = [];
@@ -129,6 +138,7 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
 
     connectedCallback() {
         this._loadOfferingOptions();
+        this._loadData360DmoOptions();
         // One-shot: migrate Campaign display fields that still show dictionary Ids → Names.
         healCampaignOfferingLabels().catch(() => {});
     }
@@ -138,6 +148,7 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
         if (this.activeSubTab === 'scorings') {
             // Refresh catalogue so Product Family / FoN renames show immediately.
             this._loadOfferingOptions();
+            this._loadData360DmoOptions();
         }
     }
 
@@ -173,6 +184,23 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
             this.fonToProductFamilies = inverseMap;
             this._rebuildOfferingOptionLists();
         });
+    }
+
+    _loadData360DmoOptions() {
+        getData360DmoOptions()
+            .then(rows => {
+                const opts = (rows || []).map(r => ({
+                    label: r.label,
+                    value: r.value
+                }));
+                // Keep a currently saved value selectable even if not in catalogue.
+                const current = this.editScoring?.Data360_DMO__c;
+                if (current && !opts.some(o => o.value === current)) {
+                    opts.unshift({ label: current, value: current });
+                }
+                this.data360DmoOptions = opts;
+            })
+            .catch(() => { this.data360DmoOptions = []; });
     }
 
     _idSafe(prefix, value) {
@@ -602,6 +630,14 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
             uniqueId: `scoring-offering-${o.value.replace(/\s+/g, '-')}`,
             isChecked: this.editScoring.Offering_Type__c === o.value
         }));
+    }
+
+    get scoringSourceSystemOptions() {
+        return SCORING_SOURCE_SYSTEMS;
+    }
+
+    get hasData360DmoCatalogue() {
+        return this.data360DmoOptions.length > 0;
     }
 
     get isScoringOfferingProductFamily() {
@@ -1042,6 +1078,7 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
         this.scoringNameLocked = false;
         this.editScoring = EMPTY_SCORING();
         this._loadOfferingOptions();
+        this._loadData360DmoOptions();
         this.isScoringModalOpen = true;
     }
 
@@ -1061,6 +1098,8 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
             Topic_Description__c: source.Topic_Description__c || '',
             Scoring_Model_Group_Dict__c: source.Scoring_Model_Group_Dict__c || null,
             Assigned_Topic_Dict__c: source.Assigned_Topic_Dict__c || null,
+            Scoring_Model_Source_System__c: source.Scoring_Model_Source_System__c || '',
+            Data360_DMO__c: source.Data360_DMO__c || '',
             Offering_Type__c: source.Offering_Type__c || 'Product Family',
             Product_Family__c: source.Product_Family__c || '',
             Family_of_Needs__c: source.Family_of_Needs__c || '',
@@ -1068,6 +1107,7 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
             Is_Active__c: true
         };
         this._loadOfferingOptions();
+        this._loadData360DmoOptions();
         this.isScoringModalOpen = true;
     }
 
@@ -1093,6 +1133,7 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
             LastModifiedBy
         };
         this._loadOfferingOptions();
+        this._loadData360DmoOptions();
         this.isScoringModalOpen = true;
     }
 
@@ -1190,6 +1231,14 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
         }
         if (!this.editScoring.Assigned_Topic_Dict__c) {
             this._showToast('Validation', 'Assigned Topic is required.', 'warning');
+            return;
+        }
+        if (!this.editScoring.Scoring_Model_Source_System__c) {
+            this._showToast('Validation', 'Scoring Model Source System is required.', 'warning');
+            return;
+        }
+        if (!(this.editScoring.Data360_DMO__c || '').trim()) {
+            this._showToast('Validation', 'Data360 DMO is required.', 'warning');
             return;
         }
         if (!this.editScoring.Offering_Type__c) {

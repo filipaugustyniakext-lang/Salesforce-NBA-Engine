@@ -113,6 +113,16 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
+        <field>Marketing_Dictionary__c.Scoring_Model_Source_System__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Marketing_Dictionary__c.Data360_DMO__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
         <field>Marketing_Dictionary__c.Topic_Description__c</field>
         <readable>true</readable>
     </fieldPermissions>

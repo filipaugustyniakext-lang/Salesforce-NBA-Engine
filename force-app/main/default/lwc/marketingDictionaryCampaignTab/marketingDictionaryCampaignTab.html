@@ -846,6 +846,39 @@
                             </lightning-combobox>
                         </div>
 
+                        <div class="slds-col slds-size_1-of-2 slds-m-top_small">
+                            <lightning-combobox label="Scoring Model Source System" required
+                                value={editScoring.Scoring_Model_Source_System__c}
+                                options={scoringSourceSystemOptions}
+                                placeholder="Select source system..."
+                                data-field="Scoring_Model_Source_System__c"
+                                onchange={handleScoringFieldChange}
+                                field-level-help="Where this scoring model is executed (GCP or Salesforce Einstein).">
+                            </lightning-combobox>
+                        </div>
+                        <div class="slds-col slds-size_1-of-2 slds-m-top_small">
+                            <template lwc:if={hasData360DmoCatalogue}>
+                                <lightning-combobox label="Data360 DMO" required
+                                    value={editScoring.Data360_DMO__c}
+                                    options={data360DmoOptions}
+                                    placeholder="Select Data360 DMO..."
+                                    data-field="Data360_DMO__c"
+                                    onchange={handleScoringFieldChange}
+                                    field-level-help="Data Model Object in Data360 used with this scoring model.">
+                                </lightning-combobox>
+                            </template>
+                            <template lwc:else>
+                                <lightning-input type="text" label="Data360 DMO" required
+                                    value={editScoring.Data360_DMO__c}
+                                    placeholder="Enter DMO API name (e.g. ssot__Individual__dlm)"
+                                    data-field="Data360_DMO__c"
+                                    onchange={handleScoringFieldChange}
+                                    field-level-help="Data Model Object API name in Data360. Catalogue unavailable — enter the API name manually."
+                                    max-length="255">
+                                </lightning-input>
+                            </template>
+                        </div>
+
                         <div class="slds-col slds-size_1-of-1 slds-m-top_small">
                             <lightning-textarea label="Model Description"
                                 value={editScoring.Topic_Description__c}

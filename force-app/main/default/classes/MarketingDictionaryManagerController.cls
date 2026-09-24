@@ -362,6 +362,7 @@ public with sharing class MarketingDictionaryManagerController {
                    Scoring_Model_Group_Dict__c, Scoring_Model_Group_Dict__r.Name,
                    Assigned_Topic_Dict__c, Assigned_Topic_Dict__r.Name,
                    Offering_Type__c, Product_Family__c, Family_of_Needs__c,
+                   Scoring_Model_Source_System__c, Data360_DMO__c,
                    CreatedDate, LastModifiedDate,
                    CreatedById, CreatedBy.Name,
                    LastModifiedById, LastModifiedBy.Name
@@ -370,6 +371,35 @@ public with sharing class MarketingDictionaryManagerController {
             ORDER BY Dictionary_Sub_Type__c ASC, Name ASC, Version__c ASC NULLS LAST
             LIMIT 2000
         ];
+    }
+
+    /**
+     * Data360 DMO options for Scoring Model editor.
+     * Prefers Data Lake / DMO-style entities (QualifiedApiName ending in __dlm).
+     */
+    @AuraEnabled(cacheable=true)
+    public static List<Map<String, String>> getData360DmoOptions() {
+        List<Map<String, String>> options = new List<Map<String, String>>();
+        try {
+            for (EntityDefinition ent : [
+                SELECT QualifiedApiName, Label
+                FROM EntityDefinition
+                WHERE QualifiedApiName LIKE '%__dlm'
+                ORDER BY Label ASC NULLS LAST, QualifiedApiName ASC
+                LIMIT 500
+            ]) {
+                String api = ent.QualifiedApiName;
+                String label = String.isNotBlank(ent.Label) ? ent.Label : api;
+                options.add(new Map<String, String>{
+                    'label' => label + ' (' + api + ')',
+                    'value' => api
+                });
+            }
+        } catch (Exception e) {
+            // EntityDefinition / Data360 catalogue may be unavailable in some orgs.
+            System.debug(LoggingLevel.WARN, 'getData360DmoOptions: ' + e.getMessage());
+        }
+        return options;
     }
 
     /**
@@ -399,6 +429,19 @@ public with sharing class MarketingDictionaryManagerController {
             if (record.Assigned_Topic_Dict__c == null) {
                 throw new AuraHandledException('Assigned Topic is required.');
             }
+            if (String.isBlank(record.Scoring_Model_Source_System__c)) {
+                throw new AuraHandledException('Scoring Model Source System is required.');
+            }
+            if (record.Scoring_Model_Source_System__c != 'GCP'
+                && record.Scoring_Model_Source_System__c != 'Salesforce (Einstein)') {
+                throw new AuraHandledException(
+                    'Scoring Model Source System must be GCP or Salesforce (Einstein).'
+                );
+            }
+            if (String.isBlank(record.Data360_DMO__c)) {
+                throw new AuraHandledException('Data360 DMO is required.');
+            }
+            record.Data360_DMO__c = record.Data360_DMO__c.trim();
 
             // Lookup filters unavailable (object at Salesforce max of 5) — validate subtypes in Apex.
             Marketing_Dictionary__c groupRec = [
