@@ -2,19 +2,9 @@
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Scoring_Model_Group_Dict__c</fullName>
     <deleteConstraint>SetNull</deleteConstraint>
-    <description>For Scoring Model records: Id-based lookup to the Scoring Model Group catalogue entry. Renames of the group propagate via Id.</description>
-    <inlineHelpText>Select the Model Group. Only Scoring Model Group dictionary entries are selectable.</inlineHelpText>
+    <description>For Scoring Model records: Id-based lookup to the Scoring Model Group catalogue entry. Renames of the group propagate via Id. Subtype is enforced in Apex/UI (object already at max active filtered lookups).</description>
+    <inlineHelpText>Select the Model Group. Only Scoring Model Group dictionary entries should be selected.</inlineHelpText>
     <label>Scoring Model Group</label>
-    <lookupFilter>
-        <active>true</active>
-        <errorMessage>Only Scoring Model Group dictionary entries are allowed.</errorMessage>
-        <filterItems>
-            <field>Marketing_Dictionary__c.Dictionary_Sub_Type__c</field>
-            <operation>equals</operation>
-            <value>Scoring Model Group</value>
-        </filterItems>
-        <isOptional>false</isOptional>
-    </lookupFilter>
     <referenceTo>Marketing_Dictionary__c</referenceTo>
     <relationshipLabel>Scoring Models (Group)</relationshipLabel>
     <relationshipName>Scoring_Models_by_Group</relationshipName>
