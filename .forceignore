@@ -4,6 +4,13 @@
 
 package.xml
 
+# Agentforce DX sample (resort agent) — not part of Client Activation Center.
+# Deploying these fails when Copilot/Agentforce standard PS or sample Apex are absent.
+force-app/main/default/permissionsetgroups/AFDX_User_Perms.permissionsetgroup-meta.xml
+force-app/main/default/permissionsetgroups/AFDX_Agent_Perms.permissionsetgroup-meta.xml
+force-app/main/default/permissionsets/Resort_Admin.permissionset-meta.xml
+force-app/main/default/permissionsets/Resort_Agent.permissionset-meta.xml
+
 # LWC configuration files
 **/jsconfig.json
 **/.eslintrc.json
