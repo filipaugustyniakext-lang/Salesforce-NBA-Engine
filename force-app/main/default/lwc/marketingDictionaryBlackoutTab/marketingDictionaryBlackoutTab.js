@@ -2,16 +2,12 @@ import { LightningElement, track, wire } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import { refreshApex } from '@salesforce/apex';
 import getBlackoutWindows from '@salesforce/apex/MarketingDictionaryManagerController.getBlackoutWindows';
-import getBlackoutDayRules from '@salesforce/apex/MarketingDictionaryManagerController.getBlackoutDayRules';
 import saveBlackoutWindow from '@salesforce/apex/MarketingDictionaryManagerController.saveBlackoutWindow';
 import deleteBlackoutWindow from '@salesforce/apex/MarketingDictionaryManagerController.deleteBlackoutWindow';
-import saveBlackoutDayRule from '@salesforce/apex/MarketingDictionaryManagerController.saveBlackoutDayRule';
-import deleteBlackoutDayRule from '@salesforce/apex/MarketingDictionaryManagerController.deleteBlackoutDayRule';
+import getChannelDictionaryRecords from '@salesforce/apex/MarketingDictionaryController.getChannelDictionaryRecords';
 
-const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-// Formats an ISO date string (YYYY-MM-DD) as "Dec 24th 2026"
 function formatDate(iso) {
     if (!iso) return '';
     const [year, month, day] = iso.split('-').map(Number);
@@ -23,57 +19,38 @@ function formatDate(iso) {
     return `${MONTHS[month - 1]} ${d}${suffix} ${year}`;
 }
 
+function parseChannelList(raw) {
+    if (!raw) return [];
+    return String(raw).split(';').map(s => s.trim()).filter(Boolean);
+}
+
 const EMPTY_BLACKOUT = () => ({
     Name: '',
     Blackout_Date__c: null,
     Blackout_End_Date__c: null,
     Blackout_Type__c: 'Public Holiday',
     Is_Recurring_Annually__c: false,
-    Description__c: ''
-});
-
-const EMPTY_DAY_RULE = (day) => ({
-    Day_Of_Week__c: day || '',
-    Is_Fully_Blocked__c: false,
-    Blocked_From_Hour__c: 22,
-    Blocked_To_Hour__c: 8
+    Description__c: '',
+    Assigned_Channels__c: ''
 });
 
 export default class MarketingDictionaryBlackoutTab extends LightningElement {
 
-    @track activeSubTab = 'dates';
-
-    get isTab() {
-        return { dates: this.activeSubTab === 'dates', weekly: this.activeSubTab === 'weekly' };
-    }
-    get vtabClass() {
-        const base = 'vtab-item', active = base + ' vtab-item_active';
-        return { dates: this.activeSubTab === 'dates' ? active : base, weekly: this.activeSubTab === 'weekly' ? active : base };
-    }
-    get vtabSelected() {
-        return { dates: this.activeSubTab === 'dates', weekly: this.activeSubTab === 'weekly' };
-    }
-    handleSubTabClick(e) { this.activeSubTab = e.currentTarget.dataset.tab; }
-
     @track isLoading = false;
     @track isBlackoutModalOpen = false;
-    @track isDayRuleModalOpen = false;
     @track isDeleteModalOpen = false;
     @track editBlackout = EMPTY_BLACKOUT();
-    @track editDayRule = EMPTY_DAY_RULE();
     @track blackoutSearch = '';
     @track blackoutSortCol = 'Blackout_Date__c';
     @track blackoutSortAsc = true;
+    @track channelGroups = [];
+    @track selectAllChannels = false;
 
     _wiredBlackoutsResult;
-    _wiredDayRulesResult;
     _rawBlackouts = [];
-    _rawDayRules = [];
-    _deleteType = null;
+    _channelCatalogue = [];
     _deleteId = null;
     deleteTargetName = '';
-
-    // ─── Wire ───────────────────────────────────────────────────────────────
 
     @wire(getBlackoutWindows)
     wiredBlackouts(result) {
@@ -85,17 +62,15 @@ export default class MarketingDictionaryBlackoutTab extends LightningElement {
         }
     }
 
-    @wire(getBlackoutDayRules)
-    wiredDayRules(result) {
-        this._wiredDayRulesResult = result;
-        if (result.data) {
-            this._rawDayRules = result.data;
-        } else if (result.error) {
-            this._showToast('Error', 'Failed to load day rules.', 'error');
+    @wire(getChannelDictionaryRecords)
+    wiredChannels({ data, error }) {
+        if (data) {
+            this._channelCatalogue = data || [];
+            this._rebuildChannelGroups([]);
+        } else if (error) {
+            console.error('Error loading channels for blackout form', error);
         }
     }
-
-    // ─── Getters ────────────────────────────────────────────────────────────
 
     get hasBlackouts() {
         return this.filteredBlackouts.length > 0;
@@ -108,6 +83,7 @@ export default class MarketingDictionaryBlackoutTab extends LightningElement {
                 (b.Name || '').toLowerCase().includes(q) ||
                 (b.Blackout_Date__c || '').toLowerCase().includes(q) ||
                 (b.Blackout_Type__c || '').toLowerCase().includes(q) ||
+                (b.Assigned_Channels__c || '').toLowerCase().includes(q) ||
                 formatDate(b.Blackout_Date__c).toLowerCase().includes(q))
             : [...this._rawBlackouts];
 
@@ -119,12 +95,18 @@ export default class MarketingDictionaryBlackoutTab extends LightningElement {
             return va < vb ? -asc : va > vb ? asc : 0;
         });
 
-        // Attach formatted display fields
-        return list.map(b => ({
-            ...b,
-            formattedDate: this._formatDateRange(b.Blackout_Date__c, b.Blackout_End_Date__c),
-            isRange: !!b.Blackout_End_Date__c
-        }));
+        return list.map(b => {
+            const channels = parseChannelList(b.Assigned_Channels__c);
+            return {
+                ...b,
+                formattedDate: this._formatDateRange(b.Blackout_Date__c, b.Blackout_End_Date__c),
+                isRange: !!b.Blackout_End_Date__c,
+                channelLabels: channels,
+                channelsSummary: channels.length
+                    ? (channels.length <= 3 ? channels.join(', ') : `${channels.slice(0, 3).join(', ')} +${channels.length - 3}`)
+                    : '—'
+            };
+        });
     }
 
     _formatDateRange(start, end) {
@@ -169,30 +151,44 @@ export default class MarketingDictionaryBlackoutTab extends LightningElement {
         return this.editBlackout.Id ? 'Edit Blackout' : 'Add Blackout';
     }
 
-    get weekDays() {
-        const rulesMap = {};
-        this._rawDayRules.forEach(r => { rulesMap[r.Day_Of_Week__c] = r; });
+    get hasChannelCatalogue() {
+        return this.channelGroups.length > 0;
+    }
 
-        return DAYS.map(day => {
-            const rule = rulesMap[day] || null;
-            const isWeekend = day === 'Saturday' || day === 'Sunday';
-            let cardClass = 'bo-day-card';
-            if (rule && rule.Is_Fully_Blocked__c) cardClass += ' bo-day-card_blocked';
-            else if (rule) cardClass += ' bo-day-card_partial';
-            else if (isWeekend) cardClass += ' bo-day-card_weekend';
-            return { name: day, rule, cardClass, isWeekend };
+    get selectedChannelCount() {
+        return this.channelGroups.reduce(
+            (n, g) => n + g.items.filter(c => c.active).length, 0
+        );
+    }
+
+    _rebuildChannelGroups(selectedNames) {
+        const selected = new Set(selectedNames || []);
+        const groupMap = {};
+        (this._channelCatalogue || []).forEach(rec => {
+            const type = rec.Channel_Type__c || 'Other';
+            if (!groupMap[type]) {
+                groupMap[type] = { type, items: [] };
+            }
+            const isActive = selected.has(rec.Name);
+            groupMap[type].items.push({
+                label: rec.Name,
+                value: rec.Name,
+                icon: rec.Channel_Icon__c || 'utility:connected_apps',
+                active: isActive,
+                buttonClass: isActive
+                    ? 'slds-button slds-button_neutral channel-btn channel-btn-active'
+                    : 'slds-button slds-button_neutral channel-btn channel-btn-inactive',
+                iconClass: isActive ? 'channel-icon-active' : 'channel-icon-inactive'
+            });
         });
+        this.channelGroups = Object.values(groupMap);
+        const all = this.channelGroups.flatMap(g => g.items);
+        this.selectAllChannels = all.length > 0 && all.every(c => c.active);
     }
 
-    get showHourRange() {
-        return !this.editDayRule.Is_Fully_Blocked__c;
+    _selectedChannelNames() {
+        return this.channelGroups.flatMap(g => g.items.filter(c => c.active).map(c => c.value));
     }
-
-    get dayRuleModalTitle() {
-        return `Restrictions for ${this.editDayRule.Day_Of_Week__c}`;
-    }
-
-    // ─── Blackout dates handlers ─────────────────────────────────────────────
 
     handleBlackoutSearch(event) {
         this.blackoutSearch = event.target.value;
@@ -210,6 +206,7 @@ export default class MarketingDictionaryBlackoutTab extends LightningElement {
 
     handleNewBlackout() {
         this.editBlackout = EMPTY_BLACKOUT();
+        this._rebuildChannelGroups([]);
         this.isBlackoutModalOpen = true;
     }
 
@@ -218,6 +215,7 @@ export default class MarketingDictionaryBlackoutTab extends LightningElement {
         const rec = this._rawBlackouts.find(b => b.Id === id);
         if (rec) {
             this.editBlackout = { ...rec };
+            this._rebuildChannelGroups(parseChannelList(rec.Assigned_Channels__c));
             this.isBlackoutModalOpen = true;
         }
     }
@@ -230,6 +228,43 @@ export default class MarketingDictionaryBlackoutTab extends LightningElement {
     handleBlackoutCheckboxChange(event) {
         const field = event.target.dataset.field;
         this.editBlackout = { ...this.editBlackout, [field]: event.target.checked };
+    }
+
+    handleSelectAllChannels(event) {
+        const checked = event.target.checked;
+        this.selectAllChannels = checked;
+        this.channelGroups = this.channelGroups.map(group => ({
+            ...group,
+            items: group.items.map(ch => ({
+                ...ch,
+                active: checked,
+                buttonClass: checked
+                    ? 'slds-button slds-button_neutral channel-btn channel-btn-active'
+                    : 'slds-button slds-button_neutral channel-btn channel-btn-inactive',
+                iconClass: checked ? 'channel-icon-active' : 'channel-icon-inactive'
+            }))
+        }));
+    }
+
+    handleChannelTileToggle(event) {
+        const value = event.currentTarget.dataset.value;
+        this.channelGroups = this.channelGroups.map(group => ({
+            ...group,
+            items: group.items.map(ch => {
+                if (ch.value !== value) return ch;
+                const active = !ch.active;
+                return {
+                    ...ch,
+                    active,
+                    buttonClass: active
+                        ? 'slds-button slds-button_neutral channel-btn channel-btn-active'
+                        : 'slds-button slds-button_neutral channel-btn channel-btn-inactive',
+                    iconClass: active ? 'channel-icon-active' : 'channel-icon-inactive'
+                };
+            })
+        }));
+        const all = this.channelGroups.flatMap(g => g.items);
+        this.selectAllChannels = all.length > 0 && all.every(c => c.active);
     }
 
     closeBlackoutModal() {
@@ -246,9 +281,18 @@ export default class MarketingDictionaryBlackoutTab extends LightningElement {
             this._showToast('Validation', 'End Date must be on or after Start Date.', 'warning');
             return;
         }
+        const channels = this._selectedChannelNames();
+        if (!channels.length) {
+            this._showToast('Validation', 'Select at least one channel for this blackout date.', 'warning');
+            return;
+        }
         this.isLoading = true;
         try {
-            await saveBlackoutWindow({ record: this.editBlackout });
+            const record = {
+                ...this.editBlackout,
+                Assigned_Channels__c: channels.join(';')
+            };
+            await saveBlackoutWindow({ record });
             this._showToast('Success', 'Blackout saved.', 'success');
             this.isBlackoutModalOpen = false;
             await refreshApex(this._wiredBlackoutsResult);
@@ -260,74 +304,10 @@ export default class MarketingDictionaryBlackoutTab extends LightningElement {
     }
 
     handleDeleteBlackout(event) {
-        this._deleteType = 'blackout';
         this._deleteId = event.currentTarget.dataset.id;
         this.deleteTargetName = event.currentTarget.dataset.name;
         this.isDeleteModalOpen = true;
     }
-
-    // ─── Day Rule handlers ────────────────────────────────────────────────────
-
-    handleNewDayRule(event) {
-        const day = event.currentTarget.dataset.day;
-        this.editDayRule = EMPTY_DAY_RULE(day);
-        this.isDayRuleModalOpen = true;
-    }
-
-    handleEditDayRule(event) {
-        const day = event.currentTarget.dataset.day;
-        const rule = this._rawDayRules.find(r => r.Day_Of_Week__c === day);
-        if (rule) {
-            this.editDayRule = { ...rule };
-            this.isDayRuleModalOpen = true;
-        }
-    }
-
-    handleDayRuleFieldChange(event) {
-        const field = event.target.dataset.field;
-        this.editDayRule = { ...this.editDayRule, [field]: Number(event.target.value) };
-    }
-
-    handleDayRuleCheckboxChange(event) {
-        const field = event.target.dataset.field;
-        this.editDayRule = { ...this.editDayRule, [field]: event.target.checked };
-    }
-
-    closeDayRuleModal() {
-        this.isDayRuleModalOpen = false;
-    }
-
-    async handleSaveDayRule() {
-        const r = this.editDayRule;
-        if (!r.Is_Fully_Blocked__c) {
-            const from = Number(r.Blocked_From_Hour__c);
-            const to = Number(r.Blocked_To_Hour__c);
-            if (from < 0 || from > 23 || to < 0 || to > 23) {
-                this._showToast('Validation', 'Hours must be between 0 and 23.', 'warning');
-                return;
-            }
-        }
-        this.isLoading = true;
-        try {
-            await saveBlackoutDayRule({ record: this.editDayRule });
-            this._showToast('Success', `Rule for ${this.editDayRule.Day_Of_Week__c} saved.`, 'success');
-            this.isDayRuleModalOpen = false;
-            await refreshApex(this._wiredDayRulesResult);
-        } catch (e) {
-            this._showToast('Error', e.body?.message || 'Save failed.', 'error');
-        } finally {
-            this.isLoading = false;
-        }
-    }
-
-    handleDeleteDayRule(event) {
-        this._deleteType = 'dayRule';
-        this._deleteId = event.currentTarget.dataset.id;
-        this.deleteTargetName = `rule for ${event.currentTarget.dataset.day}`;
-        this.isDeleteModalOpen = true;
-    }
-
-    // ─── Shared delete ────────────────────────────────────────────────────────
 
     closeDeleteModal() {
         this.isDeleteModalOpen = false;
@@ -337,23 +317,15 @@ export default class MarketingDictionaryBlackoutTab extends LightningElement {
         this.isLoading = true;
         this.isDeleteModalOpen = false;
         try {
-            if (this._deleteType === 'blackout') {
-                await deleteBlackoutWindow({ recordId: this._deleteId });
-                this._showToast('Success', 'Blackout deleted.', 'success');
-                await refreshApex(this._wiredBlackoutsResult);
-            } else {
-                await deleteBlackoutDayRule({ recordId: this._deleteId });
-                this._showToast('Success', 'Day rule removed.', 'success');
-                await refreshApex(this._wiredDayRulesResult);
-            }
+            await deleteBlackoutWindow({ recordId: this._deleteId });
+            this._showToast('Success', 'Blackout deleted.', 'success');
+            await refreshApex(this._wiredBlackoutsResult);
         } catch (e) {
             this._showToast('Error', e.body?.message || 'Delete failed.', 'error');
         } finally {
             this.isLoading = false;
         }
     }
-
-    // ─── Toast helper ─────────────────────────────────────────────────────────
 
     _showToast(title, message, variant) {
         this.dispatchEvent(new ShowToastEvent({ title, message, variant }));
