@@ -458,7 +458,7 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
             }
             const items = group.items.filter(pf => {
                 if (!this.pfFilterCustomerTypes.length) return true;
-                const types = this.productFamilyCustomerTypes[pf.value] || [];
+                const types = this.productFamilyCustomerTypes[pf.name] || [];
                 return this.pfFilterCustomerTypes.some(ct => types.includes(ct));
             });
             if (items.length) {
@@ -471,7 +471,7 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
     get filteredFamilyOfNeedsOptions() {
         if (!this.fonFilterCustomerTypes.length) return this.familyOfNeedsOptions;
         return this.familyOfNeedsOptions.filter(fon => {
-            const types = this.fonCustomerTypes[fon.value] || [];
+            const types = this.fonCustomerTypes[fon.name] || [];
             return this.fonFilterCustomerTypes.some(ct => types.includes(ct));
         });
     }
