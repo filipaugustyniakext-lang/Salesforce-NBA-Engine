@@ -184,6 +184,54 @@
     padding: 0.1rem 0.35rem;
     border-radius: 0.25rem;
 }
+.scoring-th-check,
+.scoring-td-check {
+    width: 2rem;
+    text-align: center;
+    vertical-align: middle;
+}
+.scoring-th-sortable {
+    cursor: pointer;
+    user-select: none;
+}
+.scoring-th-sortable:hover {
+    background: #f3f2f2;
+}
+.scoring-th-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15rem;
+}
+.scoring-sort-icon {
+    --slds-c-icon-color-foreground-default: #706e6b;
+}
+.scoring-master-row {
+    cursor: pointer;
+    background: #fafaf9;
+}
+.scoring-master-row:hover {
+    background: #f3f2f2;
+}
+.scoring-master-row_expanded {
+    background: #eef4ff;
+}
+.scoring-master-name {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+.scoring-expand-chevron {
+    flex-shrink: 0;
+}
+.scoring-child-row {
+    background: #ffffff;
+}
+.scoring-child-indent {
+    padding-left: 1.5rem;
+}
+.scoring-row-selected {
+    background: #e5f3ff !important;
+}
 .scoring-offering-box {
     background: #f9f9f9 !important;
     max-height: 360px;
