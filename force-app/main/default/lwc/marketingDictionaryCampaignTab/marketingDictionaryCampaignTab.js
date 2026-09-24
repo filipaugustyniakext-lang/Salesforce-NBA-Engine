@@ -769,6 +769,10 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
         return this._scoringActivationMissingFields().length === 0;
     }
 
+    get scoringSaveButtonLabel() {
+        return this.editScoring.Is_Active__c ? 'Save & Activate' : 'Save Draft';
+    }
+
     /** Fields required before a model may be set Active. */
     _scoringActivationMissingFields() {
         const missing = [];

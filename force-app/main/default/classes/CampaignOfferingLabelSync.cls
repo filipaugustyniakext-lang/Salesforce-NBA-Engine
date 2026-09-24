@@ -107,13 +107,16 @@ public without sharing class CampaignOfferingLabelSync {
         if (!isPf && !isFon) return;
 
         // LongTextArea cannot be filtered — load by Offering_Type, match tokens in Apex.
-        String offeringType = isPf ? 'Product Family' : 'Family of Needs';
+        // Campaign picklist stores "Family of needs" (lowercase n); wizard may normalize to "Family of Needs".
+        Set<String> offeringTypes = isPf
+            ? new Set<String>{ 'Product Family' }
+            : new Set<String>{ 'Family of Needs', 'Family of needs' };
         List<Campaign> scanned = [
             SELECT Id, Offering_Type__c,
                    Product_Family__c, Product_Family_Ids__c,
                    Family_of_Needs__c, Family_of_Needs_Ids__c
             FROM Campaign
-            WHERE Offering_Type__c = :offeringType
+            WHERE Offering_Type__c IN :offeringTypes
             ORDER BY LastModifiedDate DESC
             LIMIT 2000
         ];

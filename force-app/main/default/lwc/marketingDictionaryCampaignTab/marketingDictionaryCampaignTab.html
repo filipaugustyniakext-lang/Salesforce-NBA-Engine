@@ -850,52 +850,54 @@
                         </div>
 
                         <div class="slds-col slds-size_1-of-2 slds-m-top_small">
-                            <lightning-combobox label="Model Group" required
+                            <lightning-combobox label="Model Group"
                                 value={editScoring.Scoring_Model_Group_Dict__c}
                                 options={scoringModelGroupOptions}
                                 placeholder="Select model group..."
                                 data-field="Scoring_Model_Group_Dict__c"
-                                onchange={handleScoringFieldChange}>
+                                onchange={handleScoringFieldChange}
+                                field-level-help="Required to activate the model.">
                             </lightning-combobox>
                         </div>
                         <div class="slds-col slds-size_1-of-2 slds-m-top_small">
-                            <lightning-combobox label="Topic" required
+                            <lightning-combobox label="Topic"
                                 value={editScoring.Assigned_Topic_Dict__c}
                                 options={topicOptions}
                                 placeholder="Select topic..."
                                 data-field="Assigned_Topic_Dict__c"
-                                onchange={handleScoringFieldChange}>
+                                onchange={handleScoringFieldChange}
+                                field-level-help="Required to activate the model.">
                             </lightning-combobox>
                         </div>
 
                         <div class="slds-col slds-size_1-of-2 slds-m-top_small">
-                            <lightning-combobox label="Scoring Model Source System" required
+                            <lightning-combobox label="Scoring Model Source System"
                                 value={editScoring.Scoring_Model_Source_System__c}
                                 options={scoringSourceSystemOptions}
                                 placeholder="Select source system..."
                                 data-field="Scoring_Model_Source_System__c"
                                 onchange={handleScoringFieldChange}
-                                field-level-help="Where this scoring model is executed (GCP or Salesforce Einstein).">
+                                field-level-help="Required to activate. Where this scoring model is executed (GCP or Salesforce Einstein).">
                             </lightning-combobox>
                         </div>
                         <div class="slds-col slds-size_1-of-2 slds-m-top_small">
                             <template lwc:if={hasData360DmoCatalogue}>
-                                <lightning-combobox label="Data360 DMO" required
+                                <lightning-combobox label="Data360 DMO"
                                     value={editScoring.Data360_DMO__c}
                                     options={data360DmoOptions}
                                     placeholder="Select Data360 DMO..."
                                     data-field="Data360_DMO__c"
                                     onchange={handleScoringFieldChange}
-                                    field-level-help="Data Model Object in Data360 used with this scoring model.">
+                                    field-level-help="Required to activate. Data Model Object in Data360 used with this scoring model.">
                                 </lightning-combobox>
                             </template>
                             <template lwc:else>
-                                <lightning-input type="text" label="Data360 DMO" required
+                                <lightning-input type="text" label="Data360 DMO"
                                     value={editScoring.Data360_DMO__c}
                                     placeholder="Enter DMO API name (e.g. ssot__Individual__dlm)"
                                     data-field="Data360_DMO__c"
                                     onchange={handleScoringFieldChange}
-                                    field-level-help="Data Model Object API name in Data360. Catalogue unavailable — enter the API name manually."
+                                    field-level-help="Required to activate. Catalogue unavailable — enter the DMO API name manually."
                                     max-length="255">
                                 </lightning-input>
                             </template>
@@ -1098,7 +1100,7 @@
                 </div>
                 <div class="slds-modal__footer">
                     <lightning-button label="Cancel" onclick={closeScoringModal}></lightning-button>
-                    <lightning-button label="Save Model" variant="brand" class="slds-m-left_x-small"
+                    <lightning-button label={scoringSaveButtonLabel} variant="brand" class="slds-m-left_x-small"
                         onclick={handleSaveScoring} disabled={isSaving}>
                     </lightning-button>
                 </div>
