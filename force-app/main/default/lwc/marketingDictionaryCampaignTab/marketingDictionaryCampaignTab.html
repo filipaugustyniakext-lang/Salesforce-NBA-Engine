@@ -775,7 +775,7 @@
                         </div>
                     </div>
 
-                    <!-- Offering Type (same pattern as Campaign Wizard) -->
+                    <!-- Offering Type (Campaign Wizard parity: filters, badges, Select All) -->
                     <div class="scoring-section slds-m-top_medium">
                         <fieldset class="slds-form-element" role="radiogroup">
                             <legend class="slds-form-element__legend slds-form-element__label">
@@ -802,36 +802,132 @@
                         </fieldset>
 
                         <template lwc:if={isScoringOfferingProductFamily}>
-                            <div class="slds-m-top_small scoring-offering-grid">
-                                <p class="slds-form-element__label">Product Families <abbr class="slds-required" title="required">*</abbr></p>
-                                <div class="slds-grid slds-wrap">
-                                    <template for:each={productFamilyOptions} for:item="opt">
-                                        <div key={opt.value} class="slds-col slds-size_1-of-3 slds-p-around_xx-small">
-                                            <lightning-input type="checkbox"
-                                                label={opt.label}
-                                                checked={opt.checked}
-                                                data-value={opt.value}
-                                                onchange={handleScoringProductFamilyToggle}>
-                                            </lightning-input>
+                            <div class="slds-m-top_medium">
+                                <label class="slds-form-element__label">Select Target Product Families <abbr class="slds-required" title="required">*</abbr></label>
+                                <div class="slds-box slds-theme_default slds-m-top_xx-small scoring-offering-box">
+                                    <div class="pf-filter-bar slds-p-bottom_small">
+                                        <div class="slds-grid slds-wrap slds-grid_vertical-align-end slds-gutters_x-small">
+                                            <div class="slds-col slds-size_1-of-2">
+                                                <label class="pf-filter-label">Customer Type</label>
+                                                <div class="pf-filter-pills">
+                                                    <template for:each={customerTypeFilterOptions} for:item="ctf">
+                                                        <span key={ctf.value} class={ctf.className} data-value={ctf.value}
+                                                              onclick={handleCustomerTypeFilter}>{ctf.label}</span>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                            <div class="slds-col slds-size_1-of-2">
+                                                <label class="pf-filter-label">Record Type</label>
+                                                <div class="pf-filter-pills">
+                                                    <template for:each={recordTypeFilterBadgeOptions} for:item="rtf">
+                                                        <span key={rtf.value} class={rtf.className} data-value={rtf.value}
+                                                              onclick={handleRecordTypeFilterBadge}>{rtf.label}</span>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="slds-p-vertical_small select-all-row-divider">
+                                        <lightning-input type="checkbox" label="Select All"
+                                            checked={selectAllProductFamilies}
+                                            onchange={handleSelectAllProductFamilies}
+                                            class="custom-master-checkbox">
+                                        </lightning-input>
+                                    </div>
+
+                                    <template for:each={filteredGroupedProductFamilyOptions} for:item="group">
+                                        <div key={group.recordType} class="slds-m-top_medium">
+                                            <span class="pf-group-header">{group.recordType}</span>
+                                            <div class="slds-grid pf-group-body slds-wrap slds-m-top_x-small">
+                                                <template for:each={group.items} for:item="pf">
+                                                    <div key={pf.value} class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-p-vertical_x-small">
+                                                        <div class="slds-form-element">
+                                                            <div class="slds-form-element__control">
+                                                                <div class="slds-checkbox">
+                                                                    <input type="checkbox" id={pf.inputId}
+                                                                           checked={pf.checked}
+                                                                           data-value={pf.value}
+                                                                           onchange={handleScoringProductFamilyToggle}
+                                                                           class="scoring-native-checkbox" />
+                                                                    <label class="slds-checkbox__label" for={pf.inputId}>
+                                                                        <span class="slds-checkbox_faux"></span>
+                                                                        <span class="slds-form-element__label pf-checkbox-label-wrapper">
+                                                                            <span class="pf-label-text">{pf.label}</span>
+                                                                            <span class="pf-badge-group">
+                                                                                <template for:each={pf.fons} for:item="fon">
+                                                                                    <span key={fon} class="slds-badge pf-fon-badge">{fon}</span>
+                                                                                </template>
+                                                                                <template for:each={pf.customerTypes} for:item="ct">
+                                                                                    <span key={ct} class="slds-badge pf-customer-type-badge">{ct}</span>
+                                                                                </template>
+                                                                            </span>
+                                                                        </span>
+                                                                    </label>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                            </div>
                                         </div>
                                     </template>
                                 </div>
                             </div>
                         </template>
+
                         <template lwc:if={isScoringOfferingFamilyOfNeeds}>
-                            <div class="slds-m-top_small scoring-offering-grid">
-                                <p class="slds-form-element__label">Families of Needs <abbr class="slds-required" title="required">*</abbr></p>
-                                <div class="slds-grid slds-wrap">
-                                    <template for:each={familyOfNeedsOptions} for:item="opt">
-                                        <div key={opt.value} class="slds-col slds-size_1-of-3 slds-p-around_xx-small">
-                                            <lightning-input type="checkbox"
-                                                label={opt.label}
-                                                checked={opt.checked}
-                                                data-value={opt.value}
-                                                onchange={handleScoringFonToggle}>
-                                            </lightning-input>
+                            <div class="slds-m-top_medium">
+                                <label class="slds-form-element__label">Select Target Family of Needs <abbr class="slds-required" title="required">*</abbr></label>
+                                <div class="slds-box slds-theme_default slds-m-top_xx-small scoring-offering-box">
+                                    <template lwc:if={fonCustomerTypeFilterOptions.length}>
+                                        <div class="pf-filter-bar slds-p-bottom_small">
+                                            <label class="pf-filter-label">Customer Type</label>
+                                            <div class="pf-filter-pills">
+                                                <template for:each={fonCustomerTypeFilterOptions} for:item="ctf">
+                                                    <span key={ctf.value} class={ctf.className} data-value={ctf.value}
+                                                          onclick={handleFonCustomerTypeFilter}>{ctf.label}</span>
+                                                </template>
+                                            </div>
                                         </div>
                                     </template>
+
+                                    <div class="slds-p-vertical_small select-all-row-divider">
+                                        <lightning-input type="checkbox" label="Select All"
+                                            checked={selectAllFamilyOfNeeds}
+                                            onchange={handleSelectAllFamilyOfNeeds}
+                                            class="custom-master-checkbox">
+                                        </lightning-input>
+                                    </div>
+
+                                    <div class="slds-grid slds-wrap slds-m-top_small">
+                                        <template for:each={filteredFamilyOfNeedsOptions} for:item="fon">
+                                            <div key={fon.value} class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-p-vertical_x-small">
+                                                <div class="slds-form-element">
+                                                    <div class="slds-form-element__control">
+                                                        <div class="slds-checkbox">
+                                                            <input type="checkbox" id={fon.inputId}
+                                                                   checked={fon.checked}
+                                                                   data-value={fon.value}
+                                                                   onchange={handleScoringFonToggle}
+                                                                   class="scoring-native-checkbox" />
+                                                            <label class="slds-checkbox__label" for={fon.inputId}>
+                                                                <span class="slds-checkbox_faux"></span>
+                                                                <span class="slds-form-element__label pf-checkbox-label-wrapper">
+                                                                    <span class="pf-label-text">{fon.label}</span>
+                                                                    <span class="pf-badge-group">
+                                                                        <template for:each={fon.customerTypes} for:item="ct">
+                                                                            <span key={ct} class="slds-badge pf-customer-type-badge">{ct}</span>
+                                                                        </template>
+                                                                    </span>
+                                                                </span>
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
                                 </div>
                             </div>
                         </template>
