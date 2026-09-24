@@ -2,6 +2,8 @@
  * Keeps Campaign offering display labels (Names) in sync with dictionary Id links.
  * Product_Family_Ids__c / Family_of_Needs_Ids__c = background SSOT
  * Product_Family__c / Family_of_Needs__c = user-visible labels
+ *
+ * Note: Product_Family* / Family_of_Needs* are LongTextArea and cannot be filtered in SOQL.
  */
 public without sharing class CampaignOfferingLabelSync {
 
@@ -25,16 +27,15 @@ public without sharing class CampaignOfferingLabelSync {
      */
     public static Integer healCampaigns(Integer maxRows) {
         Integer lim = maxRows == null || maxRows <= 0 ? 200 : Math.min(maxRows, 2000);
+        // LongTextArea fields are not filterable — scope by Offering_Type / Topic lookup.
         List<Campaign> rows = [
             SELECT Id, Topic_Dict__c, Topic_Name__c,
                    Product_Family__c, Product_Family_Ids__c,
                    Family_of_Needs__c, Family_of_Needs_Ids__c
             FROM Campaign
-            WHERE Product_Family__c != null
-               OR Product_Family_Ids__c != null
-               OR Family_of_Needs__c != null
-               OR Family_of_Needs_Ids__c != null
+            WHERE Offering_Type__c != null
                OR Topic_Dict__c != null
+            ORDER BY LastModifiedDate DESC
             LIMIT :lim
         ];
         if (rows.isEmpty()) return 0;
@@ -105,47 +106,26 @@ public without sharing class CampaignOfferingLabelSync {
         Boolean isFon = subType == 'Family of Needs';
         if (!isPf && !isFon) return;
 
-        String likeId = '%' + idToken + '%';
-        String likeOld = String.isNotBlank(oldName) ? '%' + oldName + '%' : null;
+        // LongTextArea cannot be filtered — load by Offering_Type, match tokens in Apex.
+        String offeringType = isPf ? 'Product Family' : 'Family of Needs';
+        List<Campaign> scanned = [
+            SELECT Id, Offering_Type__c,
+                   Product_Family__c, Product_Family_Ids__c,
+                   Family_of_Needs__c, Family_of_Needs_Ids__c
+            FROM Campaign
+            WHERE Offering_Type__c = :offeringType
+            ORDER BY LastModifiedDate DESC
+            LIMIT 2000
+        ];
 
-        List<Campaign> candidates;
-        if (isPf) {
-            if (likeOld != null) {
-                candidates = [
-                    SELECT Id, Product_Family__c, Product_Family_Ids__c
-                    FROM Campaign
-                    WHERE Product_Family_Ids__c LIKE :likeId
-                       OR Product_Family__c LIKE :likeId
-                       OR Product_Family__c LIKE :likeOld
-                    LIMIT 2000
-                ];
-            } else {
-                candidates = [
-                    SELECT Id, Product_Family__c, Product_Family_Ids__c
-                    FROM Campaign
-                    WHERE Product_Family_Ids__c LIKE :likeId
-                       OR Product_Family__c LIKE :likeId
-                    LIMIT 2000
-                ];
-            }
-        } else {
-            if (likeOld != null) {
-                candidates = [
-                    SELECT Id, Family_of_Needs__c, Family_of_Needs_Ids__c
-                    FROM Campaign
-                    WHERE Family_of_Needs_Ids__c LIKE :likeId
-                       OR Family_of_Needs__c LIKE :likeId
-                       OR Family_of_Needs__c LIKE :likeOld
-                    LIMIT 2000
-                ];
-            } else {
-                candidates = [
-                    SELECT Id, Family_of_Needs__c, Family_of_Needs_Ids__c
-                    FROM Campaign
-                    WHERE Family_of_Needs_Ids__c LIKE :likeId
-                       OR Family_of_Needs__c LIKE :likeId
-                    LIMIT 2000
-                ];
+        List<Campaign> candidates = new List<Campaign>();
+        for (Campaign c : scanned) {
+            String rawIds = isPf ? c.Product_Family_Ids__c : c.Family_of_Needs_Ids__c;
+            String rawLabels = isPf ? c.Product_Family__c : c.Family_of_Needs__c;
+            if (containsToken(rawIds, idToken)
+                || containsToken(rawLabels, idToken)
+                || (String.isNotBlank(oldName) && containsToken(rawLabels, oldName))) {
+                candidates.add(c);
             }
         }
 
@@ -165,6 +145,15 @@ public without sharing class CampaignOfferingLabelSync {
             RUNNING_HEAL = true;
             try { update toUpdate; } finally { RUNNING_HEAL = false; }
         }
+    }
+
+    private static Boolean containsToken(String raw, String token) {
+        if (String.isBlank(raw) || String.isBlank(token)) return false;
+        for (String part : parseSemi(raw)) {
+            if (part == token) return true;
+        }
+        // Also allow substring match for 15-char vs 18-char Id variants.
+        return raw.contains(token);
     }
 
     private static void syncOne(Campaign c, String subType, Catalogue cat) {
