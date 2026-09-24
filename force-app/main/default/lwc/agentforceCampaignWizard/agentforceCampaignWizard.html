@@ -290,7 +290,11 @@
 
                                 <!-- Section: Campaign Channels -->
                                 <div class="slds-box wizard-section-box slds-m-top_medium">
-                                    <span class="module-header-title">Campaign Channels</span>
+                                    <span class="module-header-title">
+                                        Campaign Channels
+                                        <abbr class="slds-required" title="required">*</abbr>
+                                    </span>
+                                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">Select at least one channel to continue.</p>
                                     <div class="slds-m-top_small slds-p-bottom_small select-all-row-divider">
                                         <lightning-input type="checkbox" label="Select All" checked={selectAllChecked} onchange={handleSelectAllChange} class="custom-master-checkbox"></lightning-input>
                                     </div>
