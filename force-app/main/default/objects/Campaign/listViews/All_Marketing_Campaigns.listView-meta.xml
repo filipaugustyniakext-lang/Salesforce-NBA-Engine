@@ -10,7 +10,7 @@
     <columns>Priority_Tier__c</columns>
     <columns>Scoring_Method__c</columns>
     <columns>Overall_Score__c</columns>
-    <columns>Topic_Name__c</columns>
+    <columns>Topic_Dict__c</columns>
     <columns>Family_of_Needs__c</columns>
     <columns>Product_Family__c</columns>
     <columns>Assigned_Channels__c</columns>

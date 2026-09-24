@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Topic_Name__c</fullName>
+    <description>Denormalized Topic label for list views and legacy consumers. Prefer Topic_Dict__c (Id SSOT) so dictionary renames propagate; this field is synced from the Topic dictionary Name on Campaign save.</description>
     <externalId>false</externalId>
+    <inlineHelpText>Synced from Topic (Dictionary). Use Topic (Dictionary) as the source of truth.</inlineHelpText>
     <label>Topic Name</label>
     <length>255</length>
     <required>false</required>

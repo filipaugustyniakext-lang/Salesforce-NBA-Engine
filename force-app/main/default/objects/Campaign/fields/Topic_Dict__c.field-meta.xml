@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Topic_Dict__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description>Id-based lookup to the Topic Marketing Dictionary entry. Prefer this over Topic_Name__c so Topic renames propagate. Topic_Name__c is kept in sync as a denormalized label for list views.</description>
+    <inlineHelpText>Select a Topic from the Marketing Dictionary.</inlineHelpText>
+    <label>Topic (Dictionary)</label>
+    <lookupFilter>
+        <active>true</active>
+        <errorMessage>Only Topic dictionary entries are allowed.</errorMessage>
+        <filterItems>
+            <field>Marketing_Dictionary__c.Dictionary_Sub_Type__c</field>
+            <operation>equals</operation>
+            <value>Topic</value>
+        </filterItems>
+        <isOptional>false</isOptional>
+    </lookupFilter>
+    <referenceTo>Marketing_Dictionary__c</referenceTo>
+    <relationshipLabel>Campaigns (Topic)</relationshipLabel>
+    <relationshipName>Campaigns_by_Topic</relationshipName>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <type>Lookup</type>
+</CustomField>

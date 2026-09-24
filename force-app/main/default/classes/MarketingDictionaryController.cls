@@ -34,7 +34,8 @@ public with sharing class MarketingDictionaryController {
         if (campaignId == null) return null;
         List<Campaign> campaigns = [
             SELECT Id, Name, Campaign_Group_Dict__c, Campaign_Group_Dict__r.Name,
-                   Type, Topic_Name__c, Priority_Tier__c, Activation_Type__c,
+                   Type, Topic_Name__c, Topic_Dict__c, Topic_Dict__r.Name,
+                   Priority_Tier__c, Activation_Type__c,
                    Timing_From__c, Timing_To__c, Validity_Days__c, Duration_Days__c,
                    Scoring_Method__c, Offering_Type__c, Status, IsActive,
                    Overall_Score__c, Fallback_Score__c,
@@ -93,6 +94,22 @@ public with sharing class MarketingDictionaryController {
             options.add(rec.Name);
         }
         return options;
+    }
+
+    /**
+     * Topic catalogue with Ids for Id-based SSOT consumers (Campaign Wizard).
+     * Non-cacheable so renames are visible without waiting on cache.
+     */
+    @AuraEnabled
+    public static List<Marketing_Dictionary__c> getTopicDictionaryRecords() {
+        return [
+            SELECT Id, Name, Topic_Group_Dict__c, Topic_Group_Dict__r.Name, Topic_Description__c
+            FROM Marketing_Dictionary__c
+            WHERE RecordType.DeveloperName = 'Campaign'
+            AND Dictionary_Sub_Type__c = 'Topic'
+            ORDER BY Name ASC
+            LIMIT 500
+        ];
     }
 
     @AuraEnabled(cacheable=true)

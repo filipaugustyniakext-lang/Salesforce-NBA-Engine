@@ -330,7 +330,7 @@
                                     <div class="slds-form-element__control">
                                         
                                         <div class="slds-combobox_container">
-                                            <div class={comboboxClass} aria-expanded={isDropdownOpen} aria-haspopup="listbox" role="combobox">
+                                            <div class={comboboxClass} aria-expanded={isTopicDropdownOpen} aria-haspopup="listbox" role="combobox">
                                                 
                                                 <div class="slds-combobox__form-element slds-input-has-icon slds-input-has-icon_right" role="none">
                                                     <input type="text" 
@@ -351,14 +351,14 @@
                                                 <div class="slds-dropdown slds-dropdown_fluid slds-dropdown_length-5" role="listbox">
                                                     <ul class="slds-listbox slds-listbox_vertical" role="presentation">
                                                         <template for:each={filteredTopicGoals} for:item="goal">
-                                                            <li key={goal} role="presentation" class="slds-listbox__item" data-value={goal} onclick={handleSelectTopic}>
+                                                            <li key={goal.id} role="presentation" class="slds-listbox__item" data-id={goal.id} data-name={goal.name} onclick={handleSelectTopic}>
                                                                 <!-- Standard SLDS entity layout (Icon on left, text on right) -->
                                                                 <div class="slds-media slds-listbox__option slds-listbox__option_entity slds-listbox__option_has-meta" role="option">
                                                                     <span class="slds-media__figure slds-listbox__option-icon">
                                                                         <lightning-icon icon-name="utility:topic" size="small"></lightning-icon>
                                                                     </span>
                                                                     <span class="slds-media__body">
-                                                                        <span class="slds-listbox__option-text slds-listbox__option-text_entity">{goal}</span>
+                                                                        <span class="slds-listbox__option-text slds-listbox__option-text_entity">{goal.label}</span>
                                                                     </span>
                                                                 </div>
                                                             </li>
@@ -439,8 +439,8 @@
                                                                             <div class="slds-form-element">
                                                                                 <div class="slds-form-element__control">
                                                                                     <div class="slds-checkbox">
-                                                                                        <input type="checkbox" id={pf.value} checked={pf.checked} data-value={pf.value} onchange={handleProductFamilyChange} style="position: absolute; opacity: 0; width: 0; height: 0;" />
-                                                                                        <label class="slds-checkbox__label" for={pf.value} style="display: inline-flex; align-items: flex-start; width: 100%;">
+                                                                                        <input type="checkbox" id={pf.inputId} checked={pf.checked} data-value={pf.value} onchange={handleProductFamilyChange} style="position: absolute; opacity: 0; width: 0; height: 0;" />
+                                                                                        <label class="slds-checkbox__label" for={pf.inputId} style="display: inline-flex; align-items: flex-start; width: 100%;">
                                                                                             <span class="slds-checkbox_faux"></span>
                                                                                             <span class="slds-form-element__label pf-checkbox-label-wrapper" style="padding-top:0;">
                                                                                                 <span class="pf-label-text">{pf.label}</span>
@@ -494,8 +494,8 @@
                                                                     <div class="slds-form-element">
                                                                         <div class="slds-form-element__control">
                                                                             <div class="slds-checkbox fon-checkbox-wrapper">
-                                                                                <input type="checkbox" id={fon.value} checked={fon.checked} data-value={fon.value} onchange={handleFamilyOfNeedsChange} style="position: absolute; opacity: 0; width: 0; height: 0;" />
-                                                                                <label class="slds-checkbox__label" for={fon.value} style="display: inline-flex; align-items: flex-start; width: 100%; margin: 0;">
+                                                                                <input type="checkbox" id={fon.inputId} checked={fon.checked} data-value={fon.value} onchange={handleFamilyOfNeedsChange} style="position: absolute; opacity: 0; width: 0; height: 0;" />
+                                                                                <label class="slds-checkbox__label" for={fon.inputId} style="display: inline-flex; align-items: flex-start; width: 100%; margin: 0;">
                                                                                     <span class="slds-checkbox_faux"></span>
                                                                                     <span class="slds-form-element__label pf-checkbox-label-wrapper" style="padding-top:0;">
                                                                                         <span class="fon-label-line">

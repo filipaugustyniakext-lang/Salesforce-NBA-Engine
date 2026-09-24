@@ -5,13 +5,12 @@ import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 
 // Backend Apex Controllers
 import getChannelDictionaryRecords from '@salesforce/apex/MarketingDictionaryController.getChannelDictionaryRecords';
-import getTopicGoalValues from '@salesforce/apex/MarketingDictionaryController.getTopicGoalValues';
-import getProductFamilyValues from '@salesforce/apex/MarketingDictionaryController.getProductFamilyValues';
-import getFamilyOfNeedsValues from '@salesforce/apex/MarketingDictionaryController.getFamilyOfNeedsValues';
+import getTopicDictionaryRecords from '@salesforce/apex/MarketingDictionaryController.getTopicDictionaryRecords';
 import getProductFamilyDependencies from '@salesforce/apex/MarketingDictionaryController.getProductFamilyDependencies';
 import getProductFamilyByRecordType from '@salesforce/apex/MarketingDictionaryController.getProductFamilyByRecordType';
 import getProductFamilyCustomerTypes from '@salesforce/apex/MarketingDictionaryController.getProductFamilyCustomerTypes';
 import getFamilyOfNeedsCustomerTypes from '@salesforce/apex/MarketingDictionaryController.getFamilyOfNeedsCustomerTypes';
+import getProductOfferingCatalogue from '@salesforce/apex/MarketingDictionaryManagerController.getProductOfferingCatalogue';
 import getCampaignById from '@salesforce/apex/MarketingDictionaryController.getCampaignById';
 import getMatchingOffers from '@salesforce/apex/MarketingDictionaryController.getMatchingOffers';
 import getCampaignOffers from '@salesforce/apex/MarketingDictionaryController.getCampaignOffers';
@@ -42,13 +41,14 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     @track selectAllFamilyOfNeeds = true;
 
     // --- TOPIC DROPDOWN STATE ---
-    @track allTopicGoals = [];
+    @track allTopicGoals = []; // [{ id, name, label }]
     @track filteredTopicGoals = [];
     @track isTopicDropdownOpen = false;
+    @track topicName = '';
+    @track selectedTopicId = '';
 
     // --- STANDARD COMPONENT STATE ---
     @track campaignName = '';
-    @track topicName = ''; 
     @track selectedOfferingType = 'Product Family';
     @track selectedPriorityTier = '';
     // --- EXCLUSION SETTINGS (replaces the old timing-reference block) ---
@@ -88,8 +88,10 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     @track productFamilyOptions = [];
     @track familyOfNeedsOptions = [];
 
-    rawProductFamilies = [];
+    rawProductFamilies = []; // [{ Id, Name, ... }]
     rawFamilyOfNeeds = [];
+    productFamilyById = {};
+    familyOfNeedsById = {};
     @track productFamilyToFoN = {};
     @track fonToProductFamilies = {};
     @track productFamilyByRecordType = {};
@@ -158,6 +160,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         this.loadTiers();
         this.loadCampaignTypes();
         this.loadScoringModels();
+        this.loadTopicDictionary();
+        this.loadProductOfferingCatalogue();
         document.addEventListener('click', this.handleOutsideClickBound = this.handleOutsideClick.bind(this));
         if (this.recordId) {
             this.isEditMode = true;
@@ -166,8 +170,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     disconnectedCallback() {
-    document.removeEventListener('click', this.handleOutsideClickBound)}
-    ;
+        document.removeEventListener('click', this.handleOutsideClickBound);
+    }
 
     loadTiers() {
         getCampaignTiers()
@@ -188,6 +192,60 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         getScoringModels()
             .then(data => { this._scoringModels = data || []; })
             .catch(err => console.error('Error loading scoring models:', err));
+    }
+
+    loadTopicDictionary() {
+        getTopicDictionaryRecords()
+            .then(data => {
+                const topics = (data || []).map(t => ({
+                    id: t.Id,
+                    name: t.Name,
+                    label: t.Name
+                }));
+                this.allTopicGoals = topics;
+                this.filteredTopicGoals = topics;
+                this._resolveTopicSelection();
+            })
+            .catch(err => console.error('Error loading topics:', err));
+    }
+
+    loadProductOfferingCatalogue() {
+        getProductOfferingCatalogue()
+            .then(rows => {
+                const catalogue = rows || [];
+                this.rawProductFamilies = catalogue.filter(r => r.Dictionary_Sub_Type__c === 'Product Family');
+                this.rawFamilyOfNeeds = catalogue.filter(r => r.Dictionary_Sub_Type__c === 'Family of Needs');
+                this.productFamilyById = {};
+                this.rawProductFamilies.forEach(r => { this.productFamilyById[r.Id] = r; });
+                this.familyOfNeedsById = {};
+                this.rawFamilyOfNeeds.forEach(r => { this.familyOfNeedsById[r.Id] = r; });
+                this.updateOptionLists();
+                this.applyEditOfferingSelections();
+            })
+            .catch(err => console.error('Error loading product offering catalogue:', err));
+    }
+
+    _isSalesforceId(token) {
+        return typeof token === 'string' && (token.length === 15 || token.length === 18)
+            && /^[a-zA-Z0-9]+$/.test(token);
+    }
+
+    _resolveTopicSelection() {
+        if (!this.allTopicGoals.length) return;
+        if (this.selectedTopicId) {
+            const match = this.allTopicGoals.find(t => t.id === this.selectedTopicId);
+            if (match) {
+                this.topicName = match.name;
+                return;
+            }
+        }
+        if (this.topicName) {
+            const byName = this.allTopicGoals.find(t => t.name === this.topicName);
+            if (byName) {
+                this.selectedTopicId = byName.id;
+                this.topicName = byName.name;
+            }
+        }
     }
 
     loadExistingCampaign() {
@@ -224,8 +282,16 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         }
         this.campaignName = baseName;
 
-        this.topicName = campaign.Topic_Name__c || '';
+        this.selectedTopicId = campaign.Topic_Dict__c || '';
+        this.topicName = campaign.Topic_Dict__r?.Name
+            || campaign.Topic_Name__c
+            || '';
+        this._resolveTopicSelection();
         this.selectedOfferingType = campaign.Offering_Type__c || 'Product Family';
+        // Normalize Campaign picklist casing ("Family of needs" → "Family of Needs")
+        if ((this.selectedOfferingType || '').toLowerCase() === 'family of needs') {
+            this.selectedOfferingType = 'Family of Needs';
+        }
         this.selectedPriorityTier = campaign.Priority_Tier__c || '';
         this.isEmergency = campaign.Priority_Tier__c === 'Tier 1';
         this.excludeOnboarding = campaign.Exclude_Onboarding__c === true;
@@ -252,8 +318,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             this.applyEditChannels();
         }
 
-        // Multipicklist / semicolon-delimited values — trim and keep pending until
-        // dictionary option wires have populated (applyEditOfferingSelections is one-shot).
+        // Stored as semicolon-separated dictionary Ids (preferred) or legacy Names.
         if (campaign.Product_Family__c) {
             this.editProductFamilyValues = campaign.Product_Family__c
                 .split(';').map(p => p.trim()).filter(Boolean);
@@ -277,7 +342,16 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         let applied = false;
 
         if (this.editProductFamilyValues && this.productFamilyOptions.length > 0) {
-            const selected = new Set(this.editProductFamilyValues);
+            const selected = new Set();
+            const byName = {};
+            this.productFamilyOptions.forEach(o => { byName[o.name] = o.value; });
+            this.editProductFamilyValues.forEach(token => {
+                if (this._isSalesforceId(token) && this.productFamilyById[token]) {
+                    selected.add(token);
+                } else if (byName[token]) {
+                    selected.add(byName[token]);
+                }
+            });
             this.productFamilyOptions = this.productFamilyOptions.map(opt => ({
                 ...opt,
                 checked: selected.has(opt.value)
@@ -289,7 +363,16 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         }
 
         if (this.editFamilyOfNeedsValues && this.familyOfNeedsOptions.length > 0) {
-            const selected = new Set(this.editFamilyOfNeedsValues);
+            const selected = new Set();
+            const byName = {};
+            this.familyOfNeedsOptions.forEach(o => { byName[o.name] = o.value; });
+            this.editFamilyOfNeedsValues.forEach(token => {
+                if (this._isSalesforceId(token) && this.familyOfNeedsById[token]) {
+                    selected.add(token);
+                } else if (byName[token]) {
+                    selected.add(byName[token]);
+                }
+            });
             this.familyOfNeedsOptions = this.familyOfNeedsOptions.map(opt => ({
                 ...opt,
                 checked: selected.has(opt.value)
@@ -412,31 +495,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         this.selectAllChecked = this.channels.every(c => c.checked);
     }
 
-    @wire(getTopicGoalValues)
-    wiredTopicGoals({ error, data }) {
-        if (data) {
-            this.allTopicGoals = data;
-            this.filteredTopicGoals = data;
-        } else if (error) {
-            console.error('Error fetching topic goals:', error);
-        }
-    }
-
-    @wire(getProductFamilyValues)
-    wiredProductFamilies({ error, data }) {
-        if (data) {
-            this.rawProductFamilies = data;
-            this.updateOptionLists();
-        }
-    }
-
-    @wire(getFamilyOfNeedsValues)
-    wiredFamilyOfNeeds({ error, data }) {
-        if (data) {
-            this.rawFamilyOfNeeds = data;
-            this.updateOptionLists();
-        }
-    }
+    // Topic + Product Family / FoN catalogues load imperatively (Id + Name SSOT).
+    // Keep name-keyed dependency maps from these wires for badges / filters / offer matching.
 
     @wire(getProductFamilyByRecordType)
     wiredRecordTypeMap({ error, data }) {
@@ -489,77 +549,87 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     updateOptionLists() {
-        if (this.rawProductFamilies && this.rawProductFamilies.length > 0) {
-            this.productFamilyOptions = this.rawProductFamilies.filter(val => val !== 'None').map(val => {
-                const relatedFons = this.productFamilyToFoN[val] || [];
-                const customerTypes = this.productFamilyCustomerTypes[val] || [];
-                const existing = this.productFamilyOptions.find(opt => opt.value === val);
-                let isChecked;
-                // Pending edit restore wins until applyEditOfferingSelections clears it.
+        if (this.rawProductFamilies && this.rawProductFamilies.length > 0
+            && typeof this.rawProductFamilies[0] === 'object') {
+            this.productFamilyOptions = this.rawProductFamilies.map(rec => {
+                const name = rec.Name;
+                const existing = this.productFamilyOptions.find(opt => opt.value === rec.Id);
+                let isChecked = false;
                 if (this.editProductFamilyValues) {
-                    isChecked = this.editProductFamilyValues.includes(val);
+                    isChecked = this.editProductFamilyValues.includes(rec.Id)
+                        || this.editProductFamilyValues.includes(name);
                 } else if (existing) {
                     isChecked = existing.checked;
-                } else {
-                    isChecked = false;
-                }
-                return { label: val, value: val, checked: isChecked, fons: relatedFons, customerTypes };
-            });
-            this.selectAllProductFamilies = this.productFamilyOptions.every(opt => opt.checked);
-        }
-
-        if (this.rawFamilyOfNeeds && this.rawFamilyOfNeeds.length > 0) {
-            this.familyOfNeedsOptions = this.rawFamilyOfNeeds.map(val => {
-                const relatedFamilies = this.fonToProductFamilies[val] || [];
-                const customerTypes = this.fonCustomerTypes[val] || [];
-                const existing = this.familyOfNeedsOptions.find(opt => opt.value === val);
-                let isChecked;
-                if (this.editFamilyOfNeedsValues) {
-                    isChecked = this.editFamilyOfNeedsValues.includes(val);
-                } else if (existing) {
-                    isChecked = existing.checked;
-                } else {
-                    isChecked = false;
                 }
                 return {
-                    label: val, value: val, checked: isChecked, families: relatedFamilies,
-                    customerTypes,
-                    tooltip: relatedFamilies.length > 0 ? `Product Families: ${relatedFamilies.join(', ')}` : 'No related Product Families'
+                    label: name,
+                    value: rec.Id,
+                    name,
+                    inputId: `wiz-pf-${rec.Id}`,
+                    checked: isChecked,
+                    fons: this.productFamilyToFoN[name] || (
+                        rec.Related_Family_of_Needs__r?.Name ? [rec.Related_Family_of_Needs__r.Name] : []
+                    ),
+                    customerTypes: this.productFamilyCustomerTypes[name] || []
                 };
             });
-            this.selectAllFamilyOfNeeds = this.familyOfNeedsOptions.every(opt => opt.checked);
+            this.selectAllProductFamilies = this.productFamilyOptions.length > 0
+                && this.productFamilyOptions.every(opt => opt.checked);
         }
 
+        if (this.rawFamilyOfNeeds && this.rawFamilyOfNeeds.length > 0
+            && typeof this.rawFamilyOfNeeds[0] === 'object') {
+            this.familyOfNeedsOptions = this.rawFamilyOfNeeds.map(rec => {
+                const name = rec.Name;
+                const existing = this.familyOfNeedsOptions.find(opt => opt.value === rec.Id);
+                let isChecked = false;
+                if (this.editFamilyOfNeedsValues) {
+                    isChecked = this.editFamilyOfNeedsValues.includes(rec.Id)
+                        || this.editFamilyOfNeedsValues.includes(name);
+                } else if (existing) {
+                    isChecked = existing.checked;
+                }
+                const relatedFamilies = this.fonToProductFamilies[name] || [];
+                return {
+                    label: name,
+                    value: rec.Id,
+                    name,
+                    inputId: `wiz-fon-${rec.Id}`,
+                    checked: isChecked,
+                    families: relatedFamilies,
+                    customerTypes: this.fonCustomerTypes[name] || [],
+                    tooltip: relatedFamilies.length > 0
+                        ? `Product Families: ${relatedFamilies.join(', ')}`
+                        : 'No related Product Families'
+                };
+            });
+            this.selectAllFamilyOfNeeds = this.familyOfNeedsOptions.length > 0
+                && this.familyOfNeedsOptions.every(opt => opt.checked);
+        }
         this.buildGroupedOptions();
-        // If campaign edit payload arrived before dictionary wires, apply pending checks now.
         this.applyEditOfferingSelections();
     }
 
     buildGroupedOptions() {
-        if (!this.productFamilyOptions.length || !Object.keys(this.productFamilyByRecordType).length) return;
-
-        const groups = [];
-        const pfOptionsMap = {};
-        this.productFamilyOptions.forEach(opt => { pfOptionsMap[opt.value] = opt; });
-        const assigned = new Set();
-
-        for (const [rtName, families] of Object.entries(this.productFamilyByRecordType)) {
-            const items = [];
-            for (const family of families) {
-                if (pfOptionsMap[family] && !assigned.has(family)) {
-                    const opt = pfOptionsMap[family];
-                    const primaryFon = (opt.fons && opt.fons.length > 0) ? opt.fons[0] : '';
-                    items.push({ ...opt, sortKey: primaryFon });
-                    assigned.add(family);
-                }
-            }
-            items.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
-            if (items.length > 0) groups.push({ recordType: rtName, items });
+        if (!this.productFamilyOptions.length) {
+            this.groupedProductFamilyOptions = [];
+            return;
         }
-
+        const byName = {};
+        this.productFamilyOptions.forEach(opt => { byName[opt.name] = opt; });
+        const assigned = new Set();
+        const groups = [];
+        for (const [rtName, familyNames] of Object.entries(this.productFamilyByRecordType || {})) {
+            const items = (familyNames || []).map(n => byName[n]).filter(Boolean);
+            items.forEach(i => assigned.add(i.value));
+            if (items.length) {
+                groups.push({ recordType: rtName, items });
+            }
+        }
         const unassigned = this.productFamilyOptions.filter(opt => !assigned.has(opt.value));
-        if (unassigned.length > 0) groups.push({ recordType: 'Other', items: unassigned });
-
+        if (unassigned.length) {
+            groups.push({ recordType: 'Other', items: unassigned });
+        }
         this.groupedProductFamilyOptions = groups;
     }
 
@@ -604,35 +674,44 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     handleTopicDropdownToggle(event) {
         event.stopPropagation();
         this.isTopicDropdownOpen = !this.isTopicDropdownOpen;
+        if (this.isTopicDropdownOpen) {
+            // Show full catalogue when opening; search narrows from handleTopicSearch.
+            if (this.selectedTopicId) {
+                this.filteredTopicGoals = this.allTopicGoals;
+            }
+        }
     }
 
     handleTopicSearch(event) {
-        const value = event.target.value.toLowerCase();
-        this.topicName = event.target.value;
-        
-        // Ensure the dropdown opens when the user starts typing
+        const raw = event.target.value || '';
+        this.topicName = raw;
+        // Free-text search clears a prior Id selection until the user picks again.
+        this.selectedTopicId = '';
         this.isTopicDropdownOpen = true;
 
-        this.filteredTopicGoals = this.allTopicGoals.filter(val => 
-            val.toLowerCase().includes(value)
+        const needle = raw.toLowerCase();
+        this.filteredTopicGoals = this.allTopicGoals.filter(t =>
+            (t.name || '').toLowerCase().includes(needle)
         );
         this.clearScoringIfDisabled();
     }
 
     handleSelectTopic(event) {
-        const selectedVal = event.currentTarget.dataset.value;
-        this.topicName = selectedVal;
-        this.isTopicDropdownOpen = false; // Close the dropdown on selection
+        const selectedId = event.currentTarget.dataset.id;
+        const match = this.allTopicGoals.find(t => t.id === selectedId);
+        if (match) {
+            this.selectedTopicId = match.id;
+            this.topicName = match.name;
+        } else {
+            this.selectedTopicId = selectedId || '';
+            this.topicName = event.currentTarget.dataset.name || '';
+        }
+        this.isTopicDropdownOpen = false;
         this.clearScoringIfDisabled();
     }
 
     handleNameChange(event) {
         this.campaignName = event.target.value; 
-    }
-    
-    handleTopicChange(event) { 
-        this.topicName = event.target.value; 
-        this.clearScoringIfDisabled();
     }
         
     handleOfferingTypeChange(event) {
@@ -968,7 +1047,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get isStep2Valid() {
-        if (!this.topicName || this.topicName.trim() === '') return false;
+        if (!this.selectedTopicId && (!this.topicName || this.topicName.trim() === '')) return false;
         if (!this.selectedOfferingType) return false;
         if (!this.hasOfferingSelection) return false;
         return true;
@@ -1102,7 +1181,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get isScoringDisabled() {
-        return !this.topicName || this.topicName.trim() === '' || !this.selectedOfferingType;
+        const hasTopic = !!(this.selectedTopicId || (this.topicName && this.topicName.trim() !== ''));
+        return !hasTopic || !this.selectedOfferingType;
     }
 
     get topicDropdownContainerClass() {
@@ -1148,7 +1228,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             if (this.pfFilterRecordTypes.length && !this.pfFilterRecordTypes.includes(group.recordType)) continue;
             const items = group.items.filter(pf => {
                 if (this.pfFilterCustomerTypes.length) {
-                    const types = this.productFamilyCustomerTypes[pf.value] || [];
+                    // Dependency maps are keyed by product Name, not dictionary Id.
+                    const types = this.productFamilyCustomerTypes[pf.name] || [];
                     if (!this.pfFilterCustomerTypes.some(ct => types.includes(ct))) return false;
                 }
                 if (this.pfFilterFon) {
@@ -1174,7 +1255,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     get filteredFamilyOfNeedsOptions() {
         if (!this.fonFilterCustomerTypes.length) return this.familyOfNeedsOptions;
         return this.familyOfNeedsOptions.filter(fon => {
-            const types = this.fonCustomerTypes[fon.value] || [];
+            const types = this.fonCustomerTypes[fon.name] || [];
             return this.fonFilterCustomerTypes.some(ct => types.includes(ct));
         });
     }
@@ -1399,16 +1480,17 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             .split(';').map(s => s.trim()).filter(Boolean);
 
         const checkedFoN = this.isOfferingFamilyOfNeeds;
-        const selectedValues = checkedFoN
-            ? this.familyOfNeedsOptions.filter(o => o.checked).map(o => o.value)
-            : this.productFamilyOptions.filter(o => o.checked).map(o => o.value);
+        // Options use dictionary Ids as value; offer matching / reasons use Names.
+        const selectedNames = checkedFoN
+            ? this.familyOfNeedsOptions.filter(o => o.checked).map(o => o.name)
+            : this.productFamilyOptions.filter(o => o.checked).map(o => o.name);
 
         // When in FoN mode a selected FoN pulls in offers through its member product
         // families, so translate the checked FoNs into the families used for matching.
-        let selectionFamilies = selectedValues;
+        let selectionFamilies = selectedNames;
         if (checkedFoN) {
             const fam = new Set();
-            selectedValues.forEach(fon => {
+            selectedNames.forEach(fon => {
                 (this.fonToProductFamilies[fon] || []).forEach(pf => fam.add(pf));
             });
             selectionFamilies = [...fam];
@@ -1417,8 +1499,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         const matched = offerFamilies.filter(f => selectionFamilies.includes(f));
         const parts = [];
 
-        if (checkedFoN && selectedValues.length) {
-            const pullingFoN = selectedValues.filter(fon =>
+        if (checkedFoN && selectedNames.length) {
+            const pullingFoN = selectedNames.filter(fon =>
                 (this.fonToProductFamilies[fon] || []).some(pf => offerFamilies.includes(pf))
             );
             if (pullingFoN.length) {
@@ -1489,11 +1571,12 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     fetchMatchingOffers() {
-        const pfs  = this.productFamilyOptions.filter(o => o.checked).map(o => o.value);
-        const checkedFons = this.familyOfNeedsOptions.filter(o => o.checked).map(o => o.value);
+        // Persist offerings as dictionary Ids, but Offer_Version__c still matches on Names.
+        const pfNames = this.productFamilyOptions.filter(o => o.checked).map(o => o.name);
+        const checkedFonNames = this.familyOfNeedsOptions.filter(o => o.checked).map(o => o.name);
         const offeringRestorePending = !!(this.editProductFamilyValues || this.editFamilyOfNeedsValues);
 
-        if (pfs.length === 0 && checkedFons.length === 0) {
+        if (pfNames.length === 0 && checkedFonNames.length === 0) {
             this.matchingOffers = [];
             // Do not wipe edit-mode offer IDs while PF/FoN checkboxes are still restoring.
             if (!offeringRestorePending && !this.editSavedOfferIds) {
@@ -1506,12 +1589,12 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         // FoN must be expanded into its member product families before matching. An offer
         // shows if ANY of those families matches an active offer version.
         const fonFamilies = new Set();
-        checkedFons.forEach(fon => {
+        checkedFonNames.forEach(fon => {
             (this.fonToProductFamilies[fon] || []).forEach(pf => fonFamilies.add(pf));
         });
         const fons = [...fonFamilies];
         this.isLoadingOffers = true;
-        getMatchingOffers({ productFamilies: pfs, familyOfNeeds: fons })
+        getMatchingOffers({ productFamilies: pfNames, familyOfNeeds: fons })
             .then(data => {
                 this.matchingOffers = data || [];
                 const matchedIds = new Set(this.matchingOffers.map(o => o.id));
@@ -1561,6 +1644,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         fields['Status'] = activate ? 'Active' : 'Planned';
         fields['IsActive'] = activate === true;
         fields['Campaign_Group_Dict__c'] = this.showCampaignGroup ? (this.selectedCampaignGroupId || null) : null;
+        // Topic Id is SSOT; Topic_Name__c is a denormalized label for list views / legacy.
+        this._resolveTopicSelection();
+        fields['Topic_Dict__c'] = this.selectedTopicId || null;
         fields['Topic_Name__c'] = this.topicName || null;
         fields['Priority_Tier__c'] = this.selectedPriorityTier || null;
         fields['Activation_Type__c'] = this.parentActivationType || null;
