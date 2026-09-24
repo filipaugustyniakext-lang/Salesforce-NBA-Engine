@@ -63,8 +63,9 @@ public with sharing class MarketingDictionaryController {
     /**
      * Active Scoring Models for Campaign Wizard Pick-a-Model.
      * Optionally scoped to Topic + Offering Type so only compatible models appear.
+     * Non-cacheable so Active / dictionary edits are visible immediately.
      */
-    @AuraEnabled(cacheable=true)
+    @AuraEnabled
     public static List<Marketing_Dictionary__c> getScoringModels(Id topicId, String offeringType) {
         String offering = String.isBlank(offeringType) ? null : offeringType.trim();
         // Campaign picklist historically used "Family of needs"; Scoring Models use "Family of Needs".
