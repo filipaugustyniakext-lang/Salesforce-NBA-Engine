@@ -60,22 +60,40 @@ public with sharing class MarketingDictionaryController {
         return CampaignOfferingLabelSync.healCampaigns(500);
     }
 
+    /**
+     * Active Scoring Models for Campaign Wizard Pick-a-Model.
+     * Optionally scoped to Topic + Offering Type so only compatible models appear.
+     */
     @AuraEnabled(cacheable=true)
-    public static List<Marketing_Dictionary__c> getScoringModels() {
-        return [
-            SELECT Id, Name, Topic_Description__c, Is_Active__c,
-                   Version__c, Model_Id__c,
-                   Scoring_Model_Group_Dict__c, Scoring_Model_Group_Dict__r.Name,
-                   Assigned_Topic_Dict__c, Assigned_Topic_Dict__r.Name,
-                   Offering_Type__c, Product_Family__c, Family_of_Needs__c,
-                   Model_Expiration_Date__c
-            FROM Marketing_Dictionary__c
-            WHERE RecordType.DeveloperName = 'Campaign'
-            AND Dictionary_Sub_Type__c = 'Scoring Model'
-            AND Is_Active__c = true
-            ORDER BY Name ASC, Version__c DESC NULLS LAST
-            LIMIT 500
-        ];
+    public static List<Marketing_Dictionary__c> getScoringModels(Id topicId, String offeringType) {
+        String offering = String.isBlank(offeringType) ? null : offeringType.trim();
+        // Campaign picklist historically used "Family of needs"; Scoring Models use "Family of Needs".
+        if (offering != null && offering.equalsIgnoreCase('family of needs')) {
+            offering = 'Family of Needs';
+        }
+
+        String soql =
+            'SELECT Id, Name, Topic_Description__c, Is_Active__c, ' +
+            '       Version__c, Model_Id__c, ' +
+            '       Scoring_Model_Group_Dict__c, Scoring_Model_Group_Dict__r.Name, ' +
+            '       Assigned_Topic_Dict__c, Assigned_Topic_Dict__r.Name, ' +
+            '       Offering_Type__c, Product_Family__c, Family_of_Needs__c, ' +
+            '       Scoring_Model_Source_System__c, Data360_DMO__c, ' +
+            '       Model_Expiration_Date__c ' +
+            'FROM Marketing_Dictionary__c ' +
+            'WHERE RecordType.DeveloperName = \'Campaign\' ' +
+            'AND Dictionary_Sub_Type__c = \'Scoring Model\' ' +
+            'AND Is_Active__c = true';
+
+        if (topicId != null) {
+            soql += ' AND Assigned_Topic_Dict__c = :topicId';
+        }
+        if (String.isNotBlank(offering)) {
+            soql += ' AND Offering_Type__c = :offering';
+        }
+        soql += ' ORDER BY Name ASC, Version__c DESC NULLS LAST LIMIT 500';
+
+        return Database.query(soql);
     }
 
     @AuraEnabled(cacheable=true)

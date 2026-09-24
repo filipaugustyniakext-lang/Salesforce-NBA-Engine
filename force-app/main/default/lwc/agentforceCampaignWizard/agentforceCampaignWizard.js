@@ -192,9 +192,35 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     loadScoringModels() {
-        getScoringModels()
-            .then(data => { this._scoringModels = data || []; })
-            .catch(err => console.error('Error loading scoring models:', err));
+        // Only Active models matching current Topic + Offering Type.
+        const topicId = this.selectedTopicId || null;
+        const offeringType = this.selectedOfferingType || null;
+        getScoringModels({ topicId, offeringType })
+            .then(data => {
+                this._scoringModels = data || [];
+                this._syncSelectedScoringModel();
+            })
+            .catch(err => {
+                console.error('Error loading scoring models:', err);
+                this._scoringModels = [];
+            });
+    }
+
+    /** Drop / refresh selection if the chosen model is no longer in the filtered list. */
+    _syncSelectedScoringModel() {
+        if (!this.selectedScoringModelId) {
+            this.selectedScoringModelName = '';
+            return;
+        }
+        const match = (this._scoringModels || []).find(m => m.Id === this.selectedScoringModelId);
+        if (!match) {
+            this.selectedScoringModelId = '';
+            this.selectedScoringModelName = '';
+            return;
+        }
+        const version = match.Version__c != null ? ` v${match.Version__c}` : '';
+        const modelId = match.Model_Id__c ? ` (${match.Model_Id__c})` : '';
+        this.selectedScoringModelName = `${match.Name}${version}${modelId}`;
     }
 
     loadTopicDictionary() {
@@ -334,6 +360,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
         this.applyEditOfferingSelections();
         this.loadSavedCampaignOffers();
+        this.loadScoringModels();
     }
 
     /**
@@ -697,6 +724,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             (t.name || '').toLowerCase().includes(needle)
         );
         this.clearScoringIfDisabled();
+        this.loadScoringModels();
     }
 
     handleSelectTopic(event) {
@@ -711,6 +739,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         }
         this.isTopicDropdownOpen = false;
         this.clearScoringIfDisabled();
+        this.loadScoringModels();
     }
 
     handleNameChange(event) {
@@ -722,6 +751,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         this.clearScoringIfDisabled();
         this.matchingOffers = [];
         this.scheduleFetchOffers();
+        this.loadScoringModels();
     }
 
     handleProductFamilyChange(event) {
@@ -1162,14 +1192,14 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         if (this.isCurrentStepInvalid) return;
         if (this.currentStep < 5) {
             this.currentStep++;
-            this.maybeLoadOfferSummaries();
+            this._onStepChanged();
         }
     }
 
     handlePreviousStep() {
         if (this.currentStep > 1) {
             this.currentStep--;
-            this.maybeLoadOfferSummaries();
+            this._onStepChanged();
         }
     }
 
@@ -1179,7 +1209,15 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         // Only allow navigating back to completed / current steps.
         if (step <= this.currentStep) {
             this.currentStep = step;
-            this.maybeLoadOfferSummaries();
+            this._onStepChanged();
+        }
+    }
+
+    _onStepChanged() {
+        this.maybeLoadOfferSummaries();
+        // Refresh Active models when entering Scoring so dictionary edits are visible.
+        if (this.currentStep === 4) {
+            this.loadScoringModels();
         }
     }
 
@@ -1394,8 +1432,11 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         return (this._scoringModels || []).map(m => {
             const version = m.Version__c != null ? ` v${m.Version__c}` : '';
             const modelId = m.Model_Id__c ? ` (${m.Model_Id__c})` : '';
+            const source = m.Scoring_Model_Source_System__c
+                ? ` · ${m.Scoring_Model_Source_System__c}`
+                : '';
             return {
-                label: `${m.Name}${version}${modelId}`,
+                label: `${m.Name}${version}${modelId}${source}`,
                 value: m.Id
             };
         });
@@ -1403,6 +1444,16 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     get hasScoringModels() {
         return this.scoringModelOptions.length > 0;
+    }
+
+    get scoringModelEmptyMessage() {
+        if (!this.selectedTopicId) {
+            return 'Select a Topic on the Topic & Offering step to see matching Active scoring models.';
+        }
+        if (!this.selectedOfferingType) {
+            return 'Select an Offering Type on the Topic & Offering step to see matching Active scoring models.';
+        }
+        return `No Active Scoring Models match Topic "${this.topicName || '—'}" and Offering Type "${this.selectedOfferingType}". Create or activate a compatible model in Marketing Dictionary.`;
     }
 
     get saveButtonLabel() {
