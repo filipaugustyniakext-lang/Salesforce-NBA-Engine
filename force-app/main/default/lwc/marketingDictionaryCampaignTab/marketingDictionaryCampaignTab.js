@@ -9,12 +9,11 @@ import deleteDictionaryRecord from '@salesforce/apex/MarketingDictionaryManagerC
 import getCampaignTiers from '@salesforce/apex/MarketingDictionaryManagerController.getCampaignTiers';
 import saveCampaignTier from '@salesforce/apex/MarketingDictionaryManagerController.saveCampaignTier';
 import deleteCampaignTier from '@salesforce/apex/MarketingDictionaryManagerController.deleteCampaignTier';
-import getProductFamilyValues from '@salesforce/apex/MarketingDictionaryController.getProductFamilyValues';
-import getFamilyOfNeedsValues from '@salesforce/apex/MarketingDictionaryController.getFamilyOfNeedsValues';
 import getProductFamilyDependencies from '@salesforce/apex/MarketingDictionaryController.getProductFamilyDependencies';
 import getProductFamilyByRecordType from '@salesforce/apex/MarketingDictionaryController.getProductFamilyByRecordType';
 import getProductFamilyCustomerTypes from '@salesforce/apex/MarketingDictionaryController.getProductFamilyCustomerTypes';
 import getFamilyOfNeedsCustomerTypes from '@salesforce/apex/MarketingDictionaryController.getFamilyOfNeedsCustomerTypes';
+import getProductOfferingCatalogue from '@salesforce/apex/MarketingDictionaryManagerController.getProductOfferingCatalogue';
 import {
     TIER_ATTR_FIELDS,
     TIER_EXCL_FIELDS,
@@ -95,8 +94,10 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
     @track pfFilterRecordTypes = [];
     @track fonFilterCustomerTypes = [];
 
-    rawProductFamilies = [];
+    rawProductFamilies = []; // [{ Id, Name, ... }]
     rawFamilyOfNeeds = [];
+    productFamilyById = {};
+    familyOfNeedsById = {};
     productFamilyToFoN = {};
     fonToProductFamilies = {};
     productFamilyByRecordType = {};
@@ -121,17 +122,31 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
         this._loadOfferingOptions();
     }
 
+    handleSubTabClick(e) {
+        this.activeSubTab = e.currentTarget.dataset.tab;
+        if (this.activeSubTab === 'scorings') {
+            // Refresh catalogue so Product Family / FoN renames show immediately.
+            this._loadOfferingOptions();
+        }
+    }
+
     _loadOfferingOptions() {
         Promise.all([
-            getProductFamilyValues().catch(() => []),
-            getFamilyOfNeedsValues().catch(() => []),
+            getProductOfferingCatalogue().catch(() => []),
             getProductFamilyDependencies().catch(() => ({})),
             getProductFamilyByRecordType().catch(() => ({})),
             getProductFamilyCustomerTypes().catch(() => ({})),
             getFamilyOfNeedsCustomerTypes().catch(() => ({}))
-        ]).then(([pfs, fons, deps, byRt, pfCts, fonCts]) => {
-            this.rawProductFamilies = (pfs || []).filter(v => v && v !== 'None');
-            this.rawFamilyOfNeeds = fons || [];
+        ]).then(([catalogue, deps, byRt, pfCts, fonCts]) => {
+            const rows = catalogue || [];
+            this.rawProductFamilies = rows.filter(r => r.Dictionary_Sub_Type__c === 'Product Family');
+            this.rawFamilyOfNeeds = rows.filter(r => r.Dictionary_Sub_Type__c === 'Family of Needs');
+
+            this.productFamilyById = {};
+            this.rawProductFamilies.forEach(r => { this.productFamilyById[r.Id] = r; });
+            this.familyOfNeedsById = {};
+            this.rawFamilyOfNeeds.forEach(r => { this.familyOfNeedsById[r.Id] = r; });
+
             this.productFamilyToFoN = deps || {};
             this.productFamilyByRecordType = byRt || {};
             this.productFamilyCustomerTypes = pfCts || {};
@@ -146,7 +161,6 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
             }
             this.fonToProductFamilies = inverseMap;
             this._rebuildOfferingOptionLists();
-            this._syncOfferingChecksFromEdit();
         });
     }
 
@@ -154,29 +168,70 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
         return `${prefix}-${String(value).replace(/[^a-zA-Z0-9]/g, '-')}`;
     }
 
-    _rebuildOfferingOptionLists() {
-        const checkedPf = new Set(this._parseSemiList(this.editScoring?.Product_Family__c));
-        const checkedFon = new Set(this._parseSemiList(this.editScoring?.Family_of_Needs__c));
+    _isSalesforceId(token) {
+        return typeof token === 'string' && (token.length === 15 || token.length === 18)
+            && /^[a-zA-Z0-9]+$/.test(token);
+    }
 
-        this.productFamilyOptions = this.rawProductFamilies.map(val => ({
-            label: val,
-            value: val,
-            checked: checkedPf.has(val),
-            inputId: this._idSafe('scoring-pf', val),
-            fons: this.productFamilyToFoN[val] || [],
-            customerTypes: this.productFamilyCustomerTypes[val] || []
-        }));
+    /** Resolve stored tokens (Ids preferred, legacy Names supported) to option Ids. */
+    _resolveStoredOfferingTokens(raw, byId, byName) {
+        const selected = new Set();
+        this._parseSemiList(raw).forEach(token => {
+            if (this._isSalesforceId(token) && byId[token]) {
+                selected.add(token);
+            } else if (byName[token]) {
+                selected.add(byName[token].Id || byName[token].value);
+            }
+        });
+        return selected;
+    }
+
+    _rebuildOfferingOptionLists() {
+        const pfByName = {};
+        this.rawProductFamilies.forEach(r => { pfByName[r.Name] = r; });
+        const fonByName = {};
+        this.rawFamilyOfNeeds.forEach(r => { fonByName[r.Name] = r; });
+
+        const checkedPf = this._resolveStoredOfferingTokens(
+            this.editScoring?.Product_Family__c,
+            this.productFamilyById,
+            pfByName
+        );
+        const checkedFon = this._resolveStoredOfferingTokens(
+            this.editScoring?.Family_of_Needs__c,
+            this.familyOfNeedsById,
+            fonByName
+        );
+
+        this.productFamilyOptions = this.rawProductFamilies.map(rec => {
+            const name = rec.Name;
+            return {
+                label: name,
+                value: rec.Id, // Id SSOT
+                name,
+                checked: checkedPf.has(rec.Id),
+                inputId: this._idSafe('scoring-pf', rec.Id),
+                fons: this.productFamilyToFoN[name] || (
+                    rec.Related_Family_of_Needs__r?.Name ? [rec.Related_Family_of_Needs__r.Name] : []
+                ),
+                customerTypes: this.productFamilyCustomerTypes[name] || []
+            };
+        });
         this.selectAllProductFamilies = this.productFamilyOptions.length > 0
             && this.productFamilyOptions.every(o => o.checked);
 
-        this.familyOfNeedsOptions = this.rawFamilyOfNeeds.map(val => ({
-            label: val,
-            value: val,
-            checked: checkedFon.has(val),
-            inputId: this._idSafe('scoring-fon', val),
-            families: this.fonToProductFamilies[val] || [],
-            customerTypes: this.fonCustomerTypes[val] || []
-        }));
+        this.familyOfNeedsOptions = this.rawFamilyOfNeeds.map(rec => {
+            const name = rec.Name;
+            return {
+                label: name,
+                value: rec.Id,
+                name,
+                checked: checkedFon.has(rec.Id),
+                inputId: this._idSafe('scoring-fon', rec.Id),
+                families: this.fonToProductFamilies[name] || [],
+                customerTypes: this.fonCustomerTypes[name] || []
+            };
+        });
         this.selectAllFamilyOfNeeds = this.familyOfNeedsOptions.length > 0
             && this.familyOfNeedsOptions.every(o => o.checked);
 
@@ -188,14 +243,12 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
             this.groupedProductFamilyOptions = [];
             return;
         }
-        const pfOptionsMap = {};
-        this.productFamilyOptions.forEach(opt => { pfOptionsMap[opt.value] = opt; });
+        const byName = {};
+        this.productFamilyOptions.forEach(opt => { byName[opt.name] = opt; });
         const assigned = new Set();
         const groups = [];
-        for (const [rtName, families] of Object.entries(this.productFamilyByRecordType || {})) {
-            const items = (families || [])
-                .map(name => pfOptionsMap[name])
-                .filter(Boolean);
+        for (const [rtName, familyNames] of Object.entries(this.productFamilyByRecordType || {})) {
+            const items = (familyNames || []).map(n => byName[n]).filter(Boolean);
             items.forEach(i => assigned.add(i.value));
             if (items.length) {
                 groups.push({ recordType: rtName, items });
@@ -241,10 +294,6 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
             activationPaths: this.activeSubTab === 'activationPaths',
             salesProcessTypes: this.activeSubTab === 'salesProcessTypes',
         };
-    }
-
-    handleSubTabClick(e) {
-        this.activeSubTab = e.currentTarget.dataset.tab;
     }
 
     @wire(getCampaignRecords)
@@ -444,12 +493,15 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
         const offeringValues = r.Offering_Type__c === 'Product Family'
             ? (r.Product_Family__c || '')
             : (r.Family_of_Needs__c || '');
+        const byId = r.Offering_Type__c === 'Product Family'
+            ? this.productFamilyById
+            : this.familyOfNeedsById;
         return {
             ...r,
             groupName: r.Scoring_Model_Group_Dict__r?.Name || '—',
             topicName: r.Assigned_Topic_Dict__r?.Name || '—',
             offeringLabel: r.Offering_Type__c || '—',
-            offeringValuesShort: this._shortenList(offeringValues),
+            offeringValuesShort: this._formatOfferingLabels(offeringValues, byId),
             createdDisplay: this._formatDateTime(r.CreatedDate),
             modifiedDisplay: this._formatDateTime(r.LastModifiedDate),
             createdByName: r.CreatedBy?.Name || '—',
@@ -458,12 +510,19 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
         };
     }
 
-    _shortenList(raw) {
+    /** Resolve stored Ids (or legacy Names) to current dictionary labels. */
+    _formatOfferingLabels(raw, byId) {
         if (!raw) return '—';
-        const parts = raw.split(';').map(s => s.trim()).filter(Boolean);
-        if (parts.length === 0) return '—';
-        if (parts.length <= 2) return parts.join(', ');
-        return `${parts.length} selected`;
+        const labels = this._parseSemiList(raw).map(token => {
+            if (this._isSalesforceId(token) && byId[token]?.Name) {
+                return byId[token].Name;
+            }
+            // Legacy name storage, or Id not yet loaded
+            return token;
+        }).filter(Boolean);
+        if (labels.length === 0) return '—';
+        if (labels.length <= 2) return labels.join(', ');
+        return `${labels.length} selected`;
     }
 
     _formatDateTime(value) {
@@ -676,7 +735,7 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
         this.scoringAsNewMaster = true;
         this.scoringNameLocked = false;
         this.editScoring = EMPTY_SCORING();
-        this._syncOfferingChecksFromEdit();
+        this._loadOfferingOptions();
         this.isScoringModalOpen = true;
     }
 
@@ -702,7 +761,7 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
             Model_Expiration_Date__c: null,
             Is_Active__c: true
         };
-        this._syncOfferingChecksFromEdit();
+        this._loadOfferingOptions();
         this.isScoringModalOpen = true;
     }
 
@@ -723,7 +782,7 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
             ...clean,
             CreatedByName: CreatedBy?.Name || ''
         };
-        this._syncOfferingChecksFromEdit();
+        this._loadOfferingOptions();
         this.isScoringModalOpen = true;
     }
 

@@ -26,6 +26,24 @@ public with sharing class MarketingDictionaryManagerController {
     }
 
     /**
+     * Non-cacheable Product catalogue for Scoring Model offering pickers.
+     * Returns Id + Name so consumers store Ids (SSOT) and always show the current label.
+     */
+    @AuraEnabled
+    public static List<Marketing_Dictionary__c> getProductOfferingCatalogue() {
+        return [
+            SELECT Id, Name, Dictionary_Sub_Type__c,
+                   Related_Family_of_Needs__c, Related_Family_of_Needs__r.Name,
+                   Related_Product_Type__c, Related_Product_Type__r.Name
+            FROM Marketing_Dictionary__c
+            WHERE RecordType.DeveloperName = 'Product'
+            AND Dictionary_Sub_Type__c IN ('Product Family', 'Family of Needs')
+            ORDER BY Dictionary_Sub_Type__c ASC, Name ASC
+            LIMIT 1000
+        ];
+    }
+
+    /**
      * Upserts a single Product dictionary record (used for edits).
      * @param record Marketing_Dictionary__c to upsert
      * @return Saved record Id
@@ -383,11 +401,17 @@ public with sharing class MarketingDictionaryManagerController {
                 if (String.isBlank(record.Product_Family__c)) {
                     throw new AuraHandledException('Select at least one Product Family.');
                 }
+                record.Product_Family__c = normalizeOfferingIds(
+                    record.Product_Family__c, 'Product Family'
+                );
                 record.Family_of_Needs__c = null;
             } else if (record.Offering_Type__c == 'Family of Needs') {
                 if (String.isBlank(record.Family_of_Needs__c)) {
                     throw new AuraHandledException('Select at least one Family of Needs.');
                 }
+                record.Family_of_Needs__c = normalizeOfferingIds(
+                    record.Family_of_Needs__c, 'Family of Needs'
+                );
                 record.Product_Family__c = null;
             } else {
                 throw new AuraHandledException('Offering Type must be Product Family or Family of Needs.');
@@ -1005,6 +1029,70 @@ public with sharing class MarketingDictionaryManagerController {
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────────
+
+    private static String normalizeOfferingIds(String raw, String expectedSubType) {
+        List<String> tokens = new List<String>();
+        for (String part : raw.split(';')) {
+            String t = part == null ? '' : part.trim();
+            if (String.isNotBlank(t)) tokens.add(t);
+        }
+        if (tokens.isEmpty()) {
+            throw new AuraHandledException('Select at least one ' + expectedSubType + '.');
+        }
+
+        Set<Id> idTokens = new Set<Id>();
+        Set<String> nameTokens = new Set<String>();
+        for (String token : tokens) {
+            if (token.length() == 15 || token.length() == 18) {
+                try {
+                    idTokens.add((Id) token);
+                } catch (Exception e) {
+                    nameTokens.add(token);
+                }
+            } else {
+                nameTokens.add(token);
+            }
+        }
+
+        Map<Id, Marketing_Dictionary__c> byId = new Map<Id, Marketing_Dictionary__c>();
+        Map<String, Marketing_Dictionary__c> byName = new Map<String, Marketing_Dictionary__c>();
+        for (Marketing_Dictionary__c rec : [
+            SELECT Id, Name, Dictionary_Sub_Type__c
+            FROM Marketing_Dictionary__c
+            WHERE RecordType.DeveloperName = 'Product'
+            AND Dictionary_Sub_Type__c = :expectedSubType
+            LIMIT 1000
+        ]) {
+            byId.put(rec.Id, rec);
+            byName.put(rec.Name, rec);
+        }
+
+        List<String> resolvedIds = new List<String>();
+        Set<Id> seen = new Set<Id>();
+        for (String token : tokens) {
+            Marketing_Dictionary__c match = null;
+            if (token.length() == 15 || token.length() == 18) {
+                try {
+                    match = byId.get((Id) token);
+                } catch (Exception e) {
+                    match = null;
+                }
+            }
+            if (match == null) {
+                match = byName.get(token);
+            }
+            if (match == null) {
+                throw new AuraHandledException(
+                    'Unknown ' + expectedSubType + ': "' + token + '". Re-select offerings from the dictionary.'
+                );
+            }
+            if (!seen.contains(match.Id)) {
+                resolvedIds.add(String.valueOf(match.Id));
+                seen.add(match.Id);
+            }
+        }
+        return String.join(resolvedIds, '; ');
+    }
 
     private static Id getRecordTypeId(String developerName) {
         return Schema.SObjectType.Marketing_Dictionary__c

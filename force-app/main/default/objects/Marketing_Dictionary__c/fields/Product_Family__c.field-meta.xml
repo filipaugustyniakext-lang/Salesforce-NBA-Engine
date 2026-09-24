@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Product_Family__c</fullName>
-    <description>For Scoring Model records with Offering Type = Product Family: semicolon-separated Product Family names.</description>
-    <inlineHelpText>Selected Product Families for this scoring model.</inlineHelpText>
+    <description>For Scoring Model records with Offering Type = Product Family: semicolon-separated Product Family dictionary Ids (SSOT). Legacy name tokens are accepted on save and converted to Ids.</description>
+    <inlineHelpText>Stores Product Family dictionary record Ids so renames propagate automatically.</inlineHelpText>
     <label>Product Family</label>
     <length>4000</length>
     <trackHistory>false</trackHistory>
