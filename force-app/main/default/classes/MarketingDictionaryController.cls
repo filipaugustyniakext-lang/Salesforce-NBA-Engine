@@ -51,12 +51,17 @@ public with sharing class MarketingDictionaryController {
     @AuraEnabled(cacheable=true)
     public static List<Marketing_Dictionary__c> getScoringModels() {
         return [
-            SELECT Id, Name, Topic_Description__c, Is_Active__c
+            SELECT Id, Name, Topic_Description__c, Is_Active__c,
+                   Version__c, Model_Id__c,
+                   Scoring_Model_Group_Dict__c, Scoring_Model_Group_Dict__r.Name,
+                   Assigned_Topic_Dict__c, Assigned_Topic_Dict__r.Name,
+                   Offering_Type__c, Product_Family__c, Family_of_Needs__c,
+                   Model_Expiration_Date__c
             FROM Marketing_Dictionary__c
             WHERE RecordType.DeveloperName = 'Campaign'
             AND Dictionary_Sub_Type__c = 'Scoring Model'
             AND Is_Active__c = true
-            ORDER BY Name ASC
+            ORDER BY Name ASC, Version__c DESC NULLS LAST
             LIMIT 500
         ];
     }

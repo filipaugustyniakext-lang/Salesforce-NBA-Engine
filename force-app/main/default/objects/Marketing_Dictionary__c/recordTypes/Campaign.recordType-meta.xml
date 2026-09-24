@@ -128,11 +128,30 @@
             <default>false</default>
         </values>
         <values>
+            <fullName>Scoring Model</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Scoring Model Group</fullName>
+            <default>false</default>
+        </values>
+        <values>
             <fullName>Topic</fullName>
             <default>false</default>
         </values>
         <values>
             <fullName>Topic Group</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Offering_Type__c</picklist>
+        <values>
+            <fullName>Family of Needs</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Product Family</fullName>
             <default>false</default>
         </values>
     </picklistValues>

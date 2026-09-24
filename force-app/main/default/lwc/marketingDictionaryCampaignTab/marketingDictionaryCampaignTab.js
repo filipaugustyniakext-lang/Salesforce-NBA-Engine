@@ -4,10 +4,13 @@ import { refreshApex } from '@salesforce/apex';
 import getCampaignRecords from '@salesforce/apex/MarketingDictionaryManagerController.getCampaignRecords';
 import saveCampaignRecord from '@salesforce/apex/MarketingDictionaryManagerController.saveCampaignRecord';
 import saveCampaignRecordsBulk from '@salesforce/apex/MarketingDictionaryManagerController.saveCampaignRecordsBulk';
+import saveScoringModel from '@salesforce/apex/MarketingDictionaryManagerController.saveScoringModel';
 import deleteDictionaryRecord from '@salesforce/apex/MarketingDictionaryManagerController.deleteDictionaryRecord';
 import getCampaignTiers from '@salesforce/apex/MarketingDictionaryManagerController.getCampaignTiers';
 import saveCampaignTier from '@salesforce/apex/MarketingDictionaryManagerController.saveCampaignTier';
 import deleteCampaignTier from '@salesforce/apex/MarketingDictionaryManagerController.deleteCampaignTier';
+import getProductFamilyValues from '@salesforce/apex/MarketingDictionaryController.getProductFamilyValues';
+import getFamilyOfNeedsValues from '@salesforce/apex/MarketingDictionaryController.getFamilyOfNeedsValues';
 import {
     TIER_ATTR_FIELDS,
     TIER_EXCL_FIELDS,
@@ -22,6 +25,7 @@ const EMPTY_TOPIC_GROUP      = () => ({ Name: '', Dictionary_Sub_Type__c: 'Topic
 const EMPTY_TOPIC            = () => ({ Name: '', Dictionary_Sub_Type__c: 'Topic', Topic_Group_Dict__c: null, Topic_Description__c: '' });
 const EMPTY_PATH             = () => ({ Name: '', Dictionary_Sub_Type__c: 'Activation Path', Is_Active__c: true, Distribution_Percent__c: 0 });
 const EMPTY_SALES_PROCESS    = () => ({ Name: '', Dictionary_Sub_Type__c: 'Sales Process Type', Topic_Description__c: '' });
+const EMPTY_MODEL_GROUP      = () => ({ Name: '', Dictionary_Sub_Type__c: 'Scoring Model Group' });
 const EMPTY_TIER             = () => ({
     Tier_Number__c: null, Description__c: '', Supported_Campaign_Types__c: '',
     Override_Random_Activation_Path__c: '', Honor_Marketing_Consents__c: '',
@@ -29,29 +33,35 @@ const EMPTY_TIER             = () => ({
     Honors_Product_Eligibility__c: '', Allows_Random_Copy_Assignment__c: '',
     Excl_Manual_Suppressions__c: false
 });
-const EMPTY_SCORING             = () => ({
-    Scoring_Model_Id: '', 
-    Scoring_Model_Version: '',
-    Scoring_Model_Name: '',  
-    Scoring_Model_Description: '', 
-    Scoring_Model_Group_Id: '',
-    Topic_Id: '',
-    FoN_Id: '',
-    Product_Family: '',
-    Created_Date: '',
-    Expiration_Date: '',
-    LastModified_Date: ''
+const EMPTY_SCORING = () => ({
+    Name: '',
+    Dictionary_Sub_Type__c: 'Scoring Model',
+    Version__c: 1,
+    Model_Id__c: '',
+    Topic_Description__c: '',
+    Scoring_Model_Group_Dict__c: null,
+    Assigned_Topic_Dict__c: null,
+    Offering_Type__c: 'Product Family',
+    Product_Family__c: '',
+    Family_of_Needs__c: '',
+    Model_Expiration_Date__c: null,
+    Is_Active__c: true
 });
+
+const OFFERING_TYPES = [
+    { label: 'Product Family', value: 'Product Family' },
+    { label: 'Family of Needs', value: 'Family of Needs' }
+];
 
 export default class MarketingDictionaryCampaignTab extends LightningElement {
 
     @track isLoading = true;
     @track isSaving = false;
 
-    // modal flags
     @track isCampaignTypeModalOpen = false;
     @track isCampaignGroupModalOpen = false;
     @track isScoringModalOpen = false;
+    @track isModelGroupModalOpen = false;
     @track isTierModalOpen = false;
     @track isTopicGroupModalOpen = false;
     @track isTopicModalOpen = false;
@@ -59,20 +69,26 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
     @track isSalesProcessTypeModalOpen = false;
     @track isDeleteModalOpen = false;
 
-    // edit state
     @track editCampaignType = EMPTY_CAMPAIGN_TYPE();
     @track editCampaignGroup = EMPTY_CAMPAIGN_GROUP();
     @track editScoring = EMPTY_SCORING();
+    @track editModelGroup = EMPTY_MODEL_GROUP();
     @track editTier = EMPTY_TIER();
     @track editTopicGroup = EMPTY_TOPIC_GROUP();
     @track editTopic = EMPTY_TOPIC();
     @track editPath = EMPTY_PATH();
     @track editSalesProcessType = EMPTY_SALES_PROCESS();
 
-    // misc
+    @track scoringAsNewMaster = true;
+    @track scoringNameLocked = false;
+
+    @track productFamilyOptions = [];
+    @track familyOfNeedsOptions = [];
+
     @track topicSearch = '';
+    @track scoringSearch = '';
     @track activeSubTab = 'campaignTypes';
-    @track _localPaths = [];  // local copy for unsaved % edits
+    @track _localPaths = [];
 
     deleteTargetName = '';
     _deleteId = null;
@@ -83,39 +99,68 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
     _allRecords = [];
     _allTiers = [];
 
-    // ─── Vertical tab navigation ───────────────────────────────────────────
+    connectedCallback() {
+        this._loadOfferingOptions();
+    }
+
+    _loadOfferingOptions() {
+        getProductFamilyValues()
+            .then(data => {
+                const vals = (data || []).filter(v => v && v !== 'None');
+                this.productFamilyOptions = vals.map(v => ({
+                    label: v,
+                    value: v,
+                    checked: false,
+                    inputId: `pf-${v.replace(/[^a-zA-Z0-9]/g, '-')}`
+                }));
+                this._syncOfferingChecksFromEdit();
+            })
+            .catch(() => { this.productFamilyOptions = []; });
+        getFamilyOfNeedsValues()
+            .then(data => {
+                const vals = data || [];
+                this.familyOfNeedsOptions = vals.map(v => ({
+                    label: v,
+                    value: v,
+                    checked: false,
+                    inputId: `fon-${v.replace(/[^a-zA-Z0-9]/g, '-')}`
+                }));
+                this._syncOfferingChecksFromEdit();
+            })
+            .catch(() => { this.familyOfNeedsOptions = []; });
+    }
 
     get isTab() {
         return {
-            campaignTypes:    this.activeSubTab === 'campaignTypes',
-            scorings:          this.activeSubTab === 'scorings',
-            tiers:            this.activeSubTab === 'tiers',
-            topics:           this.activeSubTab === 'topics',
-            activationPaths:  this.activeSubTab === 'activationPaths',
+            campaignTypes: this.activeSubTab === 'campaignTypes',
+            scorings: this.activeSubTab === 'scorings',
+            tiers: this.activeSubTab === 'tiers',
+            topics: this.activeSubTab === 'topics',
+            activationPaths: this.activeSubTab === 'activationPaths',
             salesProcessTypes: this.activeSubTab === 'salesProcessTypes',
         };
     }
 
     get vtabClass() {
         const base = 'vtab-item';
-        const active = base + ' vtab-item_active';
+        const active = `${base} vtab-item_active`;
         return {
-            campaignTypes:     this.activeSubTab === 'campaignTypes'     ? active : base,
-            scorings:          this.activeSubTab === 'scorings'          ? active : base,
-            tiers:             this.activeSubTab === 'tiers'             ? active : base,
-            topics:            this.activeSubTab === 'topics'            ? active : base,
-            activationPaths:   this.activeSubTab === 'activationPaths'   ? active : base,
+            campaignTypes: this.activeSubTab === 'campaignTypes' ? active : base,
+            scorings: this.activeSubTab === 'scorings' ? active : base,
+            tiers: this.activeSubTab === 'tiers' ? active : base,
+            topics: this.activeSubTab === 'topics' ? active : base,
+            activationPaths: this.activeSubTab === 'activationPaths' ? active : base,
             salesProcessTypes: this.activeSubTab === 'salesProcessTypes' ? active : base,
         };
     }
 
     get vtabSelected() {
         return {
-            campaignTypes:    this.activeSubTab === 'campaignTypes',
-            scorings:         this.activeSubTab === 'scorings',
-            tiers:            this.activeSubTab === 'tiers',
-            topics:           this.activeSubTab === 'topics',
-            activationPaths:  this.activeSubTab === 'activationPaths',
+            campaignTypes: this.activeSubTab === 'campaignTypes',
+            scorings: this.activeSubTab === 'scorings',
+            tiers: this.activeSubTab === 'tiers',
+            topics: this.activeSubTab === 'topics',
+            activationPaths: this.activeSubTab === 'activationPaths',
             salesProcessTypes: this.activeSubTab === 'salesProcessTypes',
         };
     }
@@ -123,8 +168,6 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
     handleSubTabClick(e) {
         this.activeSubTab = e.currentTarget.dataset.tab;
     }
-
-    // ─── Wire ──────────────────────────────────────────────────────────────
 
     @wire(getCampaignRecords)
     wiredCampaign(result) {
@@ -150,18 +193,13 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
         this._localPaths = serverPaths.map(p => ({ ...p }));
     }
 
-    // ─── Getters: Campaign Types ────────────────────────────────────────────
-
     get campaignTypes() { return this._allRecords.filter(r => r.Dictionary_Sub_Type__c === 'Campaign Type'); }
     get hasCampaignTypes() { return this.campaignTypes.length > 0; }
     get campaignTypeCount() { return this.campaignTypes.length; }
     get campaignTypeModalTitle() { return this.editCampaignType.Id ? 'Edit Campaign Type' : 'Add Campaign Type'; }
 
-    // ─── Getters: Campaign Groups ───────────────────────────────────────────
-
     get allCampaignGroups() { return this._allRecords.filter(r => r.Dictionary_Sub_Type__c === 'Campaign Group'); }
 
-    // Campaign Types flagged to define groups, each with its own list of groups
     get campaignTypeGroups() {
         const groups = this.allCampaignGroups;
         return this.campaignTypes
@@ -178,11 +216,146 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
     }
     get campaignGroupModalTitle() { return this.editCampaignGroup.Id ? 'Edit Campaign Group' : 'Add Campaign Group'; }
 
-    // ─── Getters: Scorings ────────────────────────────────────────────────────
-    
-    get scoringModelModalTitle() { return this.editScoring.Id ? 'Edit Scoring Model Properties' : 'Add Scoring Model'; }
+    get scoringModelGroups() {
+        return this._allRecords.filter(r => r.Dictionary_Sub_Type__c === 'Scoring Model Group');
+    }
+    get hasScoringModelGroups() { return this.scoringModelGroups.length > 0; }
+    get scoringModelGroupOptions() {
+        return this.scoringModelGroups.map(g => ({ label: g.Name, value: g.Id }));
+    }
+    get modelGroupModalTitle() {
+        return this.editModelGroup.Id ? 'Edit Model Group' : 'Add Model Group';
+    }
 
-    // ─── Getters: Tiers ────────────────────────────────────────────────────
+    get allScorings() {
+        return this._allRecords.filter(r => r.Dictionary_Sub_Type__c === 'Scoring Model');
+    }
+    get scoringsCount() { return this.allScorings.length; }
+    get hasScorings() { return this.filteredScorings.length > 0; }
+
+    get filteredScorings() {
+        const q = (this.scoringSearch || '').toLowerCase();
+        const rows = this.allScorings.map(r => this._formatScoringRow(r));
+        if (!q) return rows;
+        return rows.filter(r =>
+            (r.Name || '').toLowerCase().includes(q) ||
+            (r.Model_Id__c || '').toLowerCase().includes(q) ||
+            (r.groupName || '').toLowerCase().includes(q) ||
+            (r.topicName || '').toLowerCase().includes(q) ||
+            (r.Topic_Description__c || '').toLowerCase().includes(q)
+        );
+    }
+
+    get scoringMasterCount() {
+        return new Set(this.allScorings.map(r => r.Name)).size;
+    }
+
+    get scoringCountLabel() {
+        const f = this.filteredScorings.length;
+        const t = this.scoringsCount;
+        const masters = this.scoringMasterCount;
+        if (f === t) {
+            return `${masters} model${masters !== 1 ? 's' : ''} · ${t} version${t !== 1 ? 's' : ''}`;
+        }
+        return `Showing ${f} of ${t} versions`;
+    }
+
+    get scoringModelModalTitle() {
+        if (this.editScoring.Id) return `Edit Scoring Model — ${this.editScoring.Name} v${this.editScoring.Version__c}`;
+        if (this.scoringAsNewMaster) return 'Add Scoring Model Definition';
+        return `New Version — ${this.editScoring.Name}`;
+    }
+
+    get isScoringNameReadOnly() {
+        return this.scoringNameLocked || !!this.editScoring.Id;
+    }
+
+    get computedModelIdPreview() {
+        const name = (this.editScoring.Name || '').trim();
+        const ver = this.editScoring.Version__c != null ? this.editScoring.Version__c : '';
+        if (!name || ver === '') return '—';
+        return `${name}_${ver}`;
+    }
+
+    get offeringTypeOptions() {
+        return OFFERING_TYPES.map(o => ({
+            ...o,
+            uniqueId: `scoring-offering-${o.value.replace(/\s+/g, '-')}`,
+            isChecked: this.editScoring.Offering_Type__c === o.value
+        }));
+    }
+
+    get isScoringOfferingProductFamily() {
+        return this.editScoring.Offering_Type__c === 'Product Family';
+    }
+    get isScoringOfferingFamilyOfNeeds() {
+        return this.editScoring.Offering_Type__c === 'Family of Needs';
+    }
+
+    get scoringCreatedDisplay() {
+        return this._formatDateTime(this.editScoring.CreatedDate);
+    }
+    get scoringModifiedDisplay() {
+        return this._formatDateTime(this.editScoring.LastModifiedDate);
+    }
+    get scoringCreatedByDisplay() {
+        return this.editScoring.CreatedBy?.Name || this.editScoring.CreatedByName || '—';
+    }
+    get showScoringAuditFields() {
+        return !!this.editScoring.Id;
+    }
+
+    _formatScoringRow(r) {
+        const offeringValues = r.Offering_Type__c === 'Product Family'
+            ? (r.Product_Family__c || '')
+            : (r.Family_of_Needs__c || '');
+        return {
+            ...r,
+            groupName: r.Scoring_Model_Group_Dict__r?.Name || '—',
+            topicName: r.Assigned_Topic_Dict__r?.Name || '—',
+            offeringLabel: r.Offering_Type__c || '—',
+            offeringValuesShort: this._shortenList(offeringValues),
+            createdDisplay: this._formatDateTime(r.CreatedDate),
+            modifiedDisplay: this._formatDateTime(r.LastModifiedDate),
+            createdByName: r.CreatedBy?.Name || '—',
+            expirationDisplay: r.Model_Expiration_Date__c || '—',
+            activeLabel: r.Is_Active__c ? 'Active' : 'Inactive'
+        };
+    }
+
+    _shortenList(raw) {
+        if (!raw) return '—';
+        const parts = raw.split(';').map(s => s.trim()).filter(Boolean);
+        if (parts.length === 0) return '—';
+        if (parts.length <= 2) return parts.join(', ');
+        return `${parts.length} selected`;
+    }
+
+    _formatDateTime(value) {
+        if (!value) return '—';
+        try {
+            return new Date(value).toLocaleString();
+        } catch (e) {
+            return String(value);
+        }
+    }
+
+    _parseSemiList(raw) {
+        return (raw || '').split(';').map(s => s.trim()).filter(Boolean);
+    }
+
+    _syncOfferingChecksFromEdit() {
+        const pfs = new Set(this._parseSemiList(this.editScoring.Product_Family__c));
+        const fons = new Set(this._parseSemiList(this.editScoring.Family_of_Needs__c));
+        this.productFamilyOptions = this.productFamilyOptions.map(o => ({
+            ...o,
+            checked: pfs.has(o.value)
+        }));
+        this.familyOfNeedsOptions = this.familyOfNeedsOptions.map(o => ({
+            ...o,
+            checked: fons.has(o.value)
+        }));
+    }
 
     get hasTiers() { return this._allTiers.length > 0; }
     get tierCount() { return this._allTiers.length; }
@@ -208,7 +381,6 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
         return TIER_ATTR_FIELDS.map(af => ({ ...af, value: this.editTier[af.field] || '' }));
     }
 
-
     get tierExclusionFields() {
         return TIER_EXCL_FIELDS.map(ef => ({ ...ef, checked: !!this.editTier[ef.field] }));
     }
@@ -231,8 +403,6 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
         }));
     }
 
-    // ─── Getters: Topics ────────────────────────────────────────────────────
-
     get topicGroups() { return this._allRecords.filter(r => r.Dictionary_Sub_Type__c === 'Topic Group'); }
     get hasTopicGroups() { return this.topicGroups.length > 0; }
     get topicGroupModalTitle() { return this.editTopicGroup.Id ? 'Edit Topic Group' : 'Add Topic Group'; }
@@ -240,8 +410,6 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
         const opts = this.topicGroups.map(g => ({ label: g.Name, value: g.Id }));
         return [{ label: '— None —', value: '' }, ...opts];
     }
-    
-
 
     get allTopics() { return this._allRecords.filter(r => r.Dictionary_Sub_Type__c === 'Topic'); }
     get topicOptions() {
@@ -259,13 +427,11 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
             : this.allTopics;
     }
     get topicCountLabel() {
-        const f = this.filteredTopics.length, t = this.topicCount;
+        const f = this.filteredTopics.length; const t = this.topicCount;
         if (f === t) return `${t} topic${t !== 1 ? 's' : ''}`;
         return `Showing ${f} of ${t} topics`;
     }
     get topicModalTitle() { return this.editTopic.Id ? 'Edit Topic' : 'Add Topic'; }
-
-    // ─── Getters: Activation Paths ─────────────────────────────────────────
 
     get paths() {
         return this._localPaths.map(p => ({
@@ -289,14 +455,10 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
     get pathSumWarning() { return this.activePathsSum > 100; }
     get pathModalTitle() { return this.editPath.Id ? 'Edit Activation Path' : 'Add Activation Path'; }
 
-    // ─── Getters: Sales Process Types ──────────────────────────────────────
-
     get salesProcessTypes() { return this._allRecords.filter(r => r.Dictionary_Sub_Type__c === 'Sales Process Type'); }
     get hasSalesProcessTypes() { return this.salesProcessTypes.length > 0; }
     get salesProcessTypeCount() { return this.salesProcessTypes.length; }
     get salesProcessTypeModalTitle() { return this.editSalesProcessType.Id ? 'Edit Sales Process Type' : 'Add Sales Process Type'; }
-
-    // ─── Campaign Type handlers ─────────────────────────────────────────────
 
     handleNewCampaignType() { this.editCampaignType = EMPTY_CAMPAIGN_TYPE(); this.isCampaignTypeModalOpen = true; }
     closeCampaignTypeModal() { this.isCampaignTypeModalOpen = false; }
@@ -315,8 +477,6 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
         await this._saveCampaignRecord(this.editCampaignType, () => { this.isCampaignTypeModalOpen = false; });
     }
     handleDeleteCampaignType(e) { this._openDeleteModal(e.currentTarget.dataset.id, e.currentTarget.dataset.name, 'campaignRecord'); }
-
-    // ─── Campaign Group handlers ────────────────────────────────────────────
 
     handleNewCampaignGroup(e) {
         const typeId = e.currentTarget.dataset.typeId;
@@ -342,22 +502,196 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
         await this._saveCampaignRecord(record, () => { this.isCampaignGroupModalOpen = false; });
     }
 
-    // ─── Scorings handlers ──────────────────────────────────────────────────────
+    handleNewModelGroup() {
+        this.editModelGroup = EMPTY_MODEL_GROUP();
+        this.isModelGroupModalOpen = true;
+    }
+    closeModelGroupModal() { this.isModelGroupModalOpen = false; }
+    handleEditModelGroup(e) {
+        const rec = this._allRecords.find(r => r.Id === e.currentTarget.dataset.id);
+        if (rec) { this.editModelGroup = { ...rec }; this.isModelGroupModalOpen = true; }
+    }
+    handleModelGroupFieldChange(e) {
+        this.editModelGroup = { ...this.editModelGroup, [e.target.dataset.field]: e.target.value };
+    }
+    async handleSaveModelGroup() {
+        if (!this.editModelGroup.Name?.trim()) {
+            this._showToast('Validation', 'Group Name is required.', 'warning');
+            return;
+        }
+        await this._saveCampaignRecord(this.editModelGroup, () => { this.isModelGroupModalOpen = false; });
+    }
+    handleDeleteModelGroup(e) {
+        this._openDeleteModal(e.currentTarget.dataset.id, e.currentTarget.dataset.name, 'campaignRecord');
+    }
 
-    handleNewScoring() { this.editScoring = EMPTY_SCORING(); this.isScoringModalOpen = true; }
+    handleScoringSearch(e) { this.scoringSearch = e.target.value; }
+
+    handleNewScoring() {
+        this.scoringAsNewMaster = true;
+        this.scoringNameLocked = false;
+        this.editScoring = EMPTY_SCORING();
+        this._syncOfferingChecksFromEdit();
+        this.isScoringModalOpen = true;
+    }
+
+    handleNewScoringVersion(e) {
+        const sourceId = e.currentTarget.dataset.id;
+        const source = this.allScorings.find(r => r.Id === sourceId);
+        if (!source) return;
+        const maxVer = this.allScorings
+            .filter(r => r.Name === source.Name)
+            .reduce((m, r) => Math.max(m, Number(r.Version__c) || 0), 0);
+        this.scoringAsNewMaster = false;
+        this.scoringNameLocked = true;
+        this.editScoring = {
+            ...EMPTY_SCORING(),
+            Name: source.Name,
+            Version__c: maxVer + 1,
+            Topic_Description__c: source.Topic_Description__c || '',
+            Scoring_Model_Group_Dict__c: source.Scoring_Model_Group_Dict__c || null,
+            Assigned_Topic_Dict__c: source.Assigned_Topic_Dict__c || null,
+            Offering_Type__c: source.Offering_Type__c || 'Product Family',
+            Product_Family__c: source.Product_Family__c || '',
+            Family_of_Needs__c: source.Family_of_Needs__c || '',
+            Model_Expiration_Date__c: null,
+            Is_Active__c: true
+        };
+        this._syncOfferingChecksFromEdit();
+        this.isScoringModalOpen = true;
+    }
+
     closeScoringModal() { this.isScoringModalOpen = false; }
 
     handleEditScoring(e) {
-        const rec = this._allScorings.find(t => t.Id === e.currentTarget.dataset.id);
-        if (rec) { this.editScoring = { ...rec }; this.isScoringModalOpen = true; }
+        const rec = this.allScorings.find(t => t.Id === e.currentTarget.dataset.id);
+        if (!rec) return;
+        const {
+            Scoring_Model_Group_Dict__r,
+            Assigned_Topic_Dict__r,
+            CreatedBy,
+            ...clean
+        } = rec;
+        this.scoringAsNewMaster = false;
+        this.scoringNameLocked = true;
+        this.editScoring = {
+            ...clean,
+            CreatedByName: CreatedBy?.Name || ''
+        };
+        this._syncOfferingChecksFromEdit();
+        this.isScoringModalOpen = true;
     }
 
     handleScoringFieldChange(e) {
-        const v = e.target.dataset.field === 'Scoring_Model_Version' ? Number(e.target.value) : e.target.value;
-        this.editScoring = { ...this.editScoring, [e.target.dataset.field]: v };
+        const field = e.target.dataset.field;
+        let value = e.detail?.value ?? e.target.value;
+        if (field === 'Is_Active__c') {
+            value = e.target.checked;
+        }
+        this.editScoring = { ...this.editScoring, [field]: value };
     }
 
-    // ─── Tier handlers ──────────────────────────────────────────────────────
+    handleScoringOfferingTypeChange(e) {
+        const value = e.target.value;
+        this.editScoring = {
+            ...this.editScoring,
+            Offering_Type__c: value,
+            Product_Family__c: value === 'Product Family' ? this.editScoring.Product_Family__c : '',
+            Family_of_Needs__c: value === 'Family of Needs' ? this.editScoring.Family_of_Needs__c : ''
+        };
+        this._syncOfferingChecksFromEdit();
+    }
+
+    handleScoringProductFamilyToggle(e) {
+        const value = e.target.dataset.value;
+        const checked = e.target.checked;
+        this.productFamilyOptions = this.productFamilyOptions.map(o =>
+            o.value === value ? { ...o, checked } : o
+        );
+        this.editScoring = {
+            ...this.editScoring,
+            Product_Family__c: this.productFamilyOptions.filter(o => o.checked).map(o => o.value).join('; ')
+        };
+    }
+
+    handleScoringFonToggle(e) {
+        const value = e.target.dataset.value;
+        const checked = e.target.checked;
+        this.familyOfNeedsOptions = this.familyOfNeedsOptions.map(o =>
+            o.value === value ? { ...o, checked } : o
+        );
+        this.editScoring = {
+            ...this.editScoring,
+            Family_of_Needs__c: this.familyOfNeedsOptions.filter(o => o.checked).map(o => o.value).join('; ')
+        };
+    }
+
+    async handleSaveScoring() {
+        const name = (this.editScoring.Name || '').trim();
+        if (!name) {
+            this._showToast('Validation', 'Model Name is required.', 'warning');
+            return;
+        }
+        if (!this.editScoring.Scoring_Model_Group_Dict__c) {
+            this._showToast('Validation', 'Model Group is required.', 'warning');
+            return;
+        }
+        if (!this.editScoring.Assigned_Topic_Dict__c) {
+            this._showToast('Validation', 'Assigned Topic is required.', 'warning');
+            return;
+        }
+        if (!this.editScoring.Offering_Type__c) {
+            this._showToast('Validation', 'Offering Type is required.', 'warning');
+            return;
+        }
+        if (this.isScoringOfferingProductFamily && !this._parseSemiList(this.editScoring.Product_Family__c).length) {
+            this._showToast('Validation', 'Select at least one Product Family.', 'warning');
+            return;
+        }
+        if (this.isScoringOfferingFamilyOfNeeds && !this._parseSemiList(this.editScoring.Family_of_Needs__c).length) {
+            this._showToast('Validation', 'Select at least one Family of Needs.', 'warning');
+            return;
+        }
+
+        const {
+            Scoring_Model_Group_Dict__r,
+            Assigned_Topic_Dict__r,
+            CreatedBy,
+            CreatedByName,
+            CreatedDate,
+            LastModifiedDate,
+            groupName,
+            topicName,
+            offeringLabel,
+            offeringValuesShort,
+            createdDisplay,
+            modifiedDisplay,
+            expirationDisplay,
+            activeLabel,
+            ...record
+        } = this.editScoring;
+
+        this.isSaving = true;
+        try {
+            await saveScoringModel({
+                record: {
+                    ...record,
+                    Name: name,
+                    Dictionary_Sub_Type__c: 'Scoring Model',
+                    Scoring_Model_Group_Dict__c: record.Scoring_Model_Group_Dict__c || null,
+                    Assigned_Topic_Dict__c: record.Assigned_Topic_Dict__c || null
+                },
+                asNewMaster: this.scoringAsNewMaster && !record.Id
+            });
+            this._showToast('Success', 'Scoring Model saved.', 'success');
+            this.isScoringModalOpen = false;
+            await refreshApex(this._wiredCampaignResult);
+        } catch (err) {
+            this._showToast('Error', err.body?.message || 'Save failed.', 'error');
+        } finally {
+            this.isSaving = false;
+        }
+    }
 
     handleNewTier() { this.editTier = EMPTY_TIER(); this.isTierModalOpen = true; }
     closeTierModal() { this.isTierModalOpen = false; }
@@ -402,8 +736,6 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
     }
     handleDeleteTier(e) { this._openDeleteModal(e.currentTarget.dataset.id, `Tier ${e.currentTarget.dataset.num}`, 'tier'); }
 
-    // ─── Topic Group handlers ───────────────────────────────────────────────
-
     handleNewTopicGroup() { this.editTopicGroup = EMPTY_TOPIC_GROUP(); this.isTopicGroupModalOpen = true; }
     closeTopicGroupModal() { this.isTopicGroupModalOpen = false; }
     handleEditTopicGroup(e) {
@@ -418,8 +750,6 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
         await this._saveCampaignRecord(this.editTopicGroup, () => { this.isTopicGroupModalOpen = false; });
     }
     handleDeleteTopicGroup(e) { this._openDeleteModal(e.currentTarget.dataset.id, e.currentTarget.dataset.name, 'campaignRecord'); }
-
-    // ─── Topic handlers ─────────────────────────────────────────────────────
 
     handleTopicSearch(e) { this.topicSearch = e.target.value; }
     handleNewTopic() { this.editTopic = EMPTY_TOPIC(); this.isTopicModalOpen = true; }
@@ -440,8 +770,6 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
         const record = { ...this.editTopic, Topic_Group_Dict__c: this.editTopic.Topic_Group_Dict__c || null };
         await this._saveCampaignRecord(record, () => { this.isTopicModalOpen = false; });
     }
-
-    // ─── Activation Path handlers ───────────────────────────────────────────
 
     handleNewPath() { this.editPath = EMPTY_PATH(); this.isPathModalOpen = true; }
     closePathModal() { this.isPathModalOpen = false; }
@@ -465,7 +793,6 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
         const checked = e.target.checked;
         this._localPaths = this._localPaths.map(p => p.Id === id ? { ...p, Is_Active__c: checked } : p);
         if (!checked) {
-            // redistribute freed capacity equally among remaining active paths
             this._redistributeOnDeactivate();
         }
     }
@@ -505,8 +832,6 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
         finally { this.isSaving = false; }
     }
 
-    // ─── Sales Process Type handlers ────────────────────────────────────────
-
     handleNewSalesProcessType() { this.editSalesProcessType = EMPTY_SALES_PROCESS(); this.isSalesProcessTypeModalOpen = true; }
     closeSalesProcessTypeModal() { this.isSalesProcessTypeModalOpen = false; }
     handleEditSalesProcessType(e) {
@@ -520,8 +845,6 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
         if (!this.editSalesProcessType.Name?.trim()) { this._showToast('Validation', 'Name is required.', 'warning'); return; }
         await this._saveCampaignRecord(this.editSalesProcessType, () => { this.isSalesProcessTypeModalOpen = false; });
     }
-
-    // ─── Shared delete ───────────────────────────────────────────────────────
 
     handleDeleteCampaignRecord(e) { this._openDeleteModal(e.currentTarget.dataset.id, e.currentTarget.dataset.name, 'campaignRecord'); }
     closeDeleteModal() { this.isDeleteModalOpen = false; }
@@ -548,8 +871,6 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
         } catch (e) { this._showToast('Error', e.body?.message || 'Delete failed.', 'error'); }
         finally { this.isSaving = false; }
     }
-
-    // ─── Shared save helper ──────────────────────────────────────────────────
 
     async _saveCampaignRecord(record, onSuccess) {
         this.isSaving = true;

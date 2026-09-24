@@ -1307,10 +1307,14 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get scoringModelOptions() {
-        return (this._scoringModels || []).map(m => ({
-            label: m.Name,
-            value: m.Id
-        }));
+        return (this._scoringModels || []).map(m => {
+            const version = m.Version__c != null ? ` v${m.Version__c}` : '';
+            const modelId = m.Model_Id__c ? ` (${m.Model_Id__c})` : '';
+            return {
+                label: `${m.Name}${version}${modelId}`,
+                value: m.Id
+            };
+        });
     }
 
     get hasScoringModels() {

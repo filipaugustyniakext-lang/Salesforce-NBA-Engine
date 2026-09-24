@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Assigned_Topic_Dict__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description>For Scoring Model records: Id-based lookup to the Topic dictionary entry this model is assigned to.</description>
+    <inlineHelpText>Select a Topic from the Topic dictionary.</inlineHelpText>
+    <label>Assigned Topic</label>
+    <lookupFilter>
+        <active>true</active>
+        <errorMessage>Only Topic dictionary entries are allowed.</errorMessage>
+        <filterItems>
+            <field>Marketing_Dictionary__c.Dictionary_Sub_Type__c</field>
+            <operation>equals</operation>
+            <value>Topic</value>
+        </filterItems>
+        <isOptional>false</isOptional>
+    </lookupFilter>
+    <referenceTo>Marketing_Dictionary__c</referenceTo>
+    <relationshipLabel>Scoring Models (Topic)</relationshipLabel>
+    <relationshipName>Scoring_Models_by_Topic</relationshipName>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

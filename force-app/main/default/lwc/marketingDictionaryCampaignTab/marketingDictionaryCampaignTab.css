@@ -176,6 +176,24 @@
 }
 .tier-section, .scoring-section { border-top: 1px solid #e0e5ee; padding-top: 0.5rem; margin-top: 1rem;}
 
+.scoring-modal-container { max-width: 880px !important; }
+.scoring-models-table { font-size: 0.8125rem; }
+.scoring-models-table code {
+    font-size: 0.75rem;
+    background: #f3f3f3;
+    padding: 0.1rem 0.35rem;
+    border-radius: 0.25rem;
+}
+.scoring-offering-grid {
+    max-height: 220px;
+    overflow-y: auto;
+    border: 1px solid #e0e5ee;
+    border-radius: 0.25rem;
+    padding: 0.5rem;
+    background: #fafaf9;
+}
+.cd-badge-row { display: flex; flex-wrap: wrap; align-items: center; }
+
 [part="label-container"] {
     cursor:pointer;
 }
