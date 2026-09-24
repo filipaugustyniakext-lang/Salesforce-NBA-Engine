@@ -703,12 +703,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         }
     }
 
-    handleTierDetailsMouseDown(event) {
-        // Keep expand/collapse from also selecting the radio via the parent label.
-        event.preventDefault();
-        event.stopPropagation();
-    }
-
     handleTierDetailsToggle(event) {
         event.preventDefault();
         event.stopPropagation();
@@ -721,7 +715,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     handleSuppressionTypeChange(event) {
-        this.suppressionType = event.currentTarget.dataset.value;
+        this.suppressionType = event.target.value;
         this.suppressionLookupValue = '';
         this.suppressionLookupDisplay = '';
     }
@@ -1176,9 +1170,24 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     get suppressionTypeOptions() {
         return [
-            { label: 'Salesforce Campaign', value: 'campaign', className: `segment-item ${this.suppressionType === 'campaign' ? 'segment-selected' : ''}` },
-            { label: 'Salesforce Report', value: 'report', className: `segment-item ${this.suppressionType === 'report' ? 'segment-selected' : ''}` },
-            { label: 'Data360 Segment', value: 'segment', className: `segment-item ${this.suppressionType === 'segment' ? 'segment-selected' : ''}` }
+            {
+                label: 'Salesforce Campaign',
+                value: 'campaign',
+                inputId: 'suppression-type-campaign',
+                isChecked: this.suppressionType === 'campaign'
+            },
+            {
+                label: 'Salesforce Report',
+                value: 'report',
+                inputId: 'suppression-type-report',
+                isChecked: this.suppressionType === 'report'
+            },
+            {
+                label: 'Data360 Segment',
+                value: 'segment',
+                inputId: 'suppression-type-segment',
+                isChecked: this.suppressionType === 'segment'
+            }
         ];
     }
 

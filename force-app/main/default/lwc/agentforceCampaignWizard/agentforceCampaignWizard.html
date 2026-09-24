@@ -154,22 +154,7 @@
                                                             <label for={tier.inputId}>
                                                                 <span class="slds-visual-picker__figure slds-visual-picker__text">
                                                                     <span class="tier-picker-content">
-                                                                        <span class="tier-picker-header">
-                                                                            <span class="slds-text-heading_small">{tier.label}</span>
-                                                                            <template lwc:if={tier.hasDetails}>
-                                                                                <button type="button"
-                                                                                        class="slds-button slds-button_icon tier-details-toggle"
-                                                                                        data-value={tier.value}
-                                                                                        title={tier.detailsToggleTitle}
-                                                                                        aria-expanded={tier.isDetailsExpanded}
-                                                                                        onmousedown={handleTierDetailsMouseDown}
-                                                                                        onclick={handleTierDetailsToggle}>
-                                                                                    <lightning-icon icon-name={tier.detailsChevron}
-                                                                                                    size="xx-small"
-                                                                                                    alternative-text={tier.detailsToggleTitle}></lightning-icon>
-                                                                                </button>
-                                                                            </template>
-                                                                        </span>
+                                                                        <span class="slds-text-heading_small">{tier.label}</span>
                                                                         <template lwc:if={tier.description}>
                                                                             <span class="slds-text-title tier-picker-description">{tier.description}</span>
                                                                         </template>
@@ -217,6 +202,19 @@
                                                                                     class="tier-picker-check-icon"></lightning-icon>
                                                                 </span>
                                                             </label>
+                                                            <!-- Outside the label so it stays clickable when the option is selected -->
+                                                            <template lwc:if={tier.hasDetails}>
+                                                                <button type="button"
+                                                                        class="slds-button slds-button_icon tier-details-toggle"
+                                                                        data-value={tier.value}
+                                                                        title={tier.detailsToggleTitle}
+                                                                        aria-expanded={tier.isDetailsExpanded}
+                                                                        onclick={handleTierDetailsToggle}>
+                                                                    <lightning-icon icon-name={tier.detailsChevron}
+                                                                                    size="xx-small"
+                                                                                    alternative-text={tier.detailsToggleTitle}></lightning-icon>
+                                                                </button>
+                                                            </template>
                                                         </div>
                                                     </template>
                                                 </div>
@@ -245,15 +243,31 @@
 
                                             <template lwc:if={showSuppressionSection}>
                                                 <div class="slds-m-top_medium suppression-section animate-fade-in">
-                                                    <span class="tier-badge-group-label slds-m-bottom_x-small">Manual Suppression Association</span>
-                                                    <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">This tier excludes manual suppressions. Associate a suppression source:</p>
-                                                    <div class="offering-pill-deck slds-m-bottom_small">
-                                                        <template for:each={suppressionTypeOptions} for:item="opt">
-                                                            <div key={opt.value} class={opt.className} data-value={opt.value} onclick={handleSuppressionTypeChange}>
-                                                                {opt.label}
+                                                    <fieldset class="slds-form-element" role="radiogroup">
+                                                        <legend class="slds-form-element__legend slds-form-element__label">
+                                                            Manual Suppression
+                                                        </legend>
+                                                        <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
+                                                            This tier excludes manual suppressions. Associate a suppression source:
+                                                        </p>
+                                                        <div class="slds-form-element__control">
+                                                            <div class="slds-radio_button-group">
+                                                                <template for:each={suppressionTypeOptions} for:item="opt">
+                                                                    <span key={opt.value} class="slds-button slds-radio_button">
+                                                                        <input type="radio"
+                                                                               name="campaign-manual-suppression"
+                                                                               id={opt.inputId}
+                                                                               value={opt.value}
+                                                                               checked={opt.isChecked}
+                                                                               onchange={handleSuppressionTypeChange} />
+                                                                        <label class="slds-radio_button__label" for={opt.inputId}>
+                                                                            <span class="slds-radio_faux">{opt.label}</span>
+                                                                        </label>
+                                                                    </span>
+                                                                </template>
                                                             </div>
-                                                        </template>
-                                                    </div>
+                                                        </div>
+                                                    </fieldset>
                                                     <template lwc:if={suppressionType}>
                                                         <lightning-input
                                                             type="text"
@@ -261,7 +275,7 @@
                                                             placeholder="Enter ID or name..."
                                                             value={suppressionLookupValue}
                                                             onchange={handleSuppressionLookupChange}
-                                                            class="custom-form-input animate-fade-in">
+                                                            class="custom-form-input animate-fade-in slds-m-top_small">
                                                         </lightning-input>
                                                     </template>
                                                 </div>

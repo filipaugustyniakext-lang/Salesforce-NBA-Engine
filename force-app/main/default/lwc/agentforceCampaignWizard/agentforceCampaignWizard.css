@@ -717,6 +717,7 @@
 
 .priority-tier-picker-control .slds-visual-picker_vertical {
     display: block;
+    position: relative;
     width: 100%;
     margin: 0;
 }
@@ -729,7 +730,7 @@
     width: 100%;
     min-height: 4.5rem;
     height: auto;
-    padding: 0.75rem 1rem;
+    padding: 0.75rem 1rem 2rem;
     justify-content: flex-start;
     text-align: left;
 }
@@ -741,18 +742,25 @@
     width: 100%;
 }
 
-.tier-picker-header {
-    display: flex;
+.tier-details-toggle {
+    position: absolute;
+    right: 0.5rem;
+    bottom: 0.5rem;
+    z-index: 6;
+    background: #ffffff;
+    border: 1px solid #dddbda;
+    border-radius: 0.25rem;
+    width: 1.75rem;
+    height: 1.75rem;
+    display: inline-flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    width: 100%;
-    margin-bottom: 0.125rem;
+    justify-content: center;
 }
 
-.tier-details-toggle {
-    flex-shrink: 0;
-    margin-left: auto;
+.tier-details-toggle:hover,
+.tier-details-toggle:focus {
+    background: #f3f3f3;
+    border-color: #0176d3;
 }
 
 .tier-picker-description {
@@ -767,6 +775,7 @@
     border-top: 1px solid #e5e5e5;
     padding-top: 0.5rem;
     margin-top: 0.35rem;
+    padding-bottom: 0.25rem;
 }
 
 .tier-attr-rows {
