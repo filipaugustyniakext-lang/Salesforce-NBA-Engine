@@ -323,28 +323,40 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
         this._localPaths = serverPaths.map(p => ({ ...p }));
     }
 
-    get campaignTypes() { return this._allRecords.filter(r => r.Dictionary_Sub_Type__c === 'Campaign Type'); }
+    get campaignTypes() {
+        const groups = this.allCampaignGroups;
+        return this._allRecords
+            .filter(r => r.Dictionary_Sub_Type__c === 'Campaign Type')
+            .map(ct => {
+                const own = groups.filter(g => g.Campaign_Type_Dict__c === ct.Id);
+                return {
+                    ...ct,
+                    definesGroups: !!ct.Define_Campaign_Groups__c,
+                    groups: own,
+                    hasGroups: own.length > 0
+                };
+            });
+    }
     get hasCampaignTypes() { return this.campaignTypes.length > 0; }
     get campaignTypeCount() { return this.campaignTypes.length; }
     get campaignTypeModalTitle() { return this.editCampaignType.Id ? 'Edit Campaign Type' : 'Add Campaign Type'; }
 
     get allCampaignGroups() { return this._allRecords.filter(r => r.Dictionary_Sub_Type__c === 'Campaign Group'); }
 
-    get campaignTypeGroups() {
-        const groups = this.allCampaignGroups;
-        return this.campaignTypes
-            .filter(ct => ct.Define_Campaign_Groups__c)
-            .map(ct => {
-                const own = groups.filter(g => g.Campaign_Type_Dict__c === ct.Id);
-                return { Id: ct.Id, Name: ct.Name, groups: own, hasGroups: own.length > 0 };
-            });
-    }
-    get hasCampaignGroupTypes() { return this.campaignTypeGroups.length > 0; }
-
     get campaignTypeOptions() {
         return this.campaignTypes.map(ct => ({ label: ct.Name, value: ct.Id }));
     }
     get campaignGroupModalTitle() { return this.editCampaignGroup.Id ? 'Edit Campaign Group' : 'Add Campaign Group'; }
+    get campaignGroupParentName() {
+        const typeId = this.editCampaignGroup?.Campaign_Type_Dict__c;
+        if (!typeId) return '';
+        const ct = this._allRecords.find(r => r.Id === typeId);
+        return ct?.Name || '';
+    }
+    get isCampaignGroupTypeLocked() {
+        // Type is set from the Campaign Type row — do not re-pick in the modal.
+        return !!this.editCampaignGroup?.Campaign_Type_Dict__c;
+    }
 
     get scoringModelGroups() {
         return this._allRecords.filter(r => r.Dictionary_Sub_Type__c === 'Scoring Model Group');
