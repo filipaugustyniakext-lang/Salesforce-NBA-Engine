@@ -213,7 +213,8 @@
 .scoring-models-table .scoring-col-group { width: 11%; }
 .scoring-models-table .scoring-col-topic { width: 8%; }
 .scoring-models-table .scoring-col-offering { width: 16%; }
-.scoring-models-table .scoring-col-expires { width: 6.5rem; }
+.scoring-models-table .scoring-col-expires { width: 6rem; }
+.scoring-models-table .scoring-col-status { width: 5.75rem; }
 .scoring-models-table .scoring-col-actions {
     width: 7.25rem;
     min-width: 7.25rem;
@@ -222,6 +223,31 @@
     padding-left: 0.35rem;
     overflow: visible;
     white-space: nowrap;
+}
+
+.scoring-status-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding: 0.75rem 1rem;
+    background: #f3f3f3;
+    border: 1px solid #e5e5e5;
+    border-radius: 0.25rem;
+}
+.scoring-status-bar__left {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+.scoring-status-bar__right {
+    flex-shrink: 0;
+}
+.scoring-status-hint {
+    max-width: 28rem;
 }
 
 .scoring-row-cb,

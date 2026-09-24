@@ -326,6 +326,9 @@
                                             <span class="slds-truncate" title={row.expirationDisplay}>{row.expirationDisplay}</span>
                                         </template>
                                     </td>
+                                    <td class="scoring-col-status">
+                                        <span class={row.statusBadgeClass} title={row.statusLabel}>{row.statusLabel}</span>
+                                    </td>
                                     <td class="scoring-col-actions scoring-row-control" onclick={handleStopPropagation}>
                                         <div class="scoring-actions">
                                             <template lwc:if={row.isMaster}>
@@ -804,6 +807,25 @@
                 </div>
                 <div class="slds-modal__content slds-p-around_medium">
 
+                    <div class="scoring-status-bar slds-m-bottom_medium">
+                        <div class="scoring-status-bar__left">
+                            <span class="slds-text-title_caps slds-text-color_weak">Status</span>
+                            <span class={scoringStatusBadgeClass}>{scoringStatusLabel}</span>
+                            <template lwc:if={scoringActivationHint}>
+                                <span class="slds-text-body_small slds-text-color_weak scoring-status-hint">{scoringActivationHint}</span>
+                            </template>
+                        </div>
+                        <div class="scoring-status-bar__right">
+                            <lightning-input type="toggle"
+                                label="Active"
+                                checked={editScoring.Is_Active__c}
+                                message-toggle-active="Active"
+                                message-toggle-inactive="Inactive"
+                                onchange={handleScoringActiveToggle}>
+                            </lightning-input>
+                        </div>
+                    </div>
+
                     <div class="slds-grid slds-wrap slds-gutters_small">
                         <div class="slds-col slds-size_1-of-2">
                             <lightning-input type="text" label="Model Name" required
@@ -892,13 +914,6 @@
                             <lightning-input type="date" label="Model Expiration Date"
                                 value={editScoring.Model_Expiration_Date__c}
                                 data-field="Model_Expiration_Date__c"
-                                onchange={handleScoringFieldChange}>
-                            </lightning-input>
-                        </div>
-                        <div class="slds-col slds-size_1-of-2 slds-m-top_small slds-grid slds-grid_vertical-align-end">
-                            <lightning-input type="checkbox" label="Active"
-                                checked={editScoring.Is_Active__c}
-                                data-field="Is_Active__c"
                                 onchange={handleScoringFieldChange}>
                             </lightning-input>
                         </div>

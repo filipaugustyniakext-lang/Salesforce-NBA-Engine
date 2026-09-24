@@ -408,6 +408,8 @@ public with sharing class MarketingDictionaryManagerController {
      * - New version (asNewMaster=false, no Id): Version = max(existing) + 1; Name must exist
      * - Edit (has Id): Name and Version are locked to existing values
      * - Model_Id__c = Name + '_' + Version (unique)
+     * - Draft (Is_Active__c = false): only Model Name is required
+     * - Active (Is_Active__c = true): full required set must be complete
      */
     @AuraEnabled
     public static Id saveScoringModel(Marketing_Dictionary__c record, Boolean asNewMaster) {
@@ -422,68 +424,16 @@ public with sharing class MarketingDictionaryManagerController {
             record.Name = modelName;
             record.Dictionary_Sub_Type__c = 'Scoring Model';
             record.RecordTypeId = getRecordTypeId('Campaign');
+            if (record.Is_Active__c == null) {
+                record.Is_Active__c = false;
+            }
+            Boolean isActive = record.Is_Active__c == true;
 
-            if (record.Scoring_Model_Group_Dict__c == null) {
-                throw new AuraHandledException('Model Group is required.');
-            }
-            if (record.Assigned_Topic_Dict__c == null) {
-                throw new AuraHandledException('Assigned Topic is required.');
-            }
-            if (String.isBlank(record.Scoring_Model_Source_System__c)) {
-                throw new AuraHandledException('Scoring Model Source System is required.');
-            }
-            if (record.Scoring_Model_Source_System__c != 'GCP'
-                && record.Scoring_Model_Source_System__c != 'Salesforce (Einstein)') {
-                throw new AuraHandledException(
-                    'Scoring Model Source System must be GCP or Salesforce (Einstein).'
-                );
-            }
-            if (String.isBlank(record.Data360_DMO__c)) {
-                throw new AuraHandledException('Data360 DMO is required.');
-            }
-            record.Data360_DMO__c = record.Data360_DMO__c.trim();
-
-            // Lookup filters unavailable (object at Salesforce max of 5) — validate subtypes in Apex.
-            Marketing_Dictionary__c groupRec = [
-                SELECT Id, Dictionary_Sub_Type__c
-                FROM Marketing_Dictionary__c
-                WHERE Id = :record.Scoring_Model_Group_Dict__c
-                LIMIT 1
-            ];
-            if (groupRec.Dictionary_Sub_Type__c != 'Scoring Model Group') {
-                throw new AuraHandledException('Model Group must be a Scoring Model Group dictionary entry.');
-            }
-            Marketing_Dictionary__c topicRec = [
-                SELECT Id, Dictionary_Sub_Type__c
-                FROM Marketing_Dictionary__c
-                WHERE Id = :record.Assigned_Topic_Dict__c
-                LIMIT 1
-            ];
-            if (topicRec.Dictionary_Sub_Type__c != 'Topic') {
-                throw new AuraHandledException('Assigned Topic must be a Topic dictionary entry.');
-            }
-
-            if (String.isBlank(record.Offering_Type__c)) {
-                throw new AuraHandledException('Offering Type is required.');
-            }
-            if (record.Offering_Type__c == 'Product Family') {
-                if (String.isBlank(record.Product_Family__c)) {
-                    throw new AuraHandledException('Select at least one Product Family.');
-                }
-                record.Product_Family__c = normalizeOfferingIds(
-                    record.Product_Family__c, 'Product Family'
-                );
-                record.Family_of_Needs__c = null;
-            } else if (record.Offering_Type__c == 'Family of Needs') {
-                if (String.isBlank(record.Family_of_Needs__c)) {
-                    throw new AuraHandledException('Select at least one Family of Needs.');
-                }
-                record.Family_of_Needs__c = normalizeOfferingIds(
-                    record.Family_of_Needs__c, 'Family of Needs'
-                );
-                record.Product_Family__c = null;
+            if (isActive) {
+                validateScoringModelForActivation(record);
             } else {
-                throw new AuraHandledException('Offering Type must be Product Family or Family of Needs.');
+                // Draft: soft-validate any fields that were provided.
+                normalizeScoringModelDraftFields(record);
             }
 
             if (record.Id != null) {
@@ -524,9 +474,6 @@ public with sharing class MarketingDictionaryManagerController {
             }
 
             record.Model_Id__c = modelName + '_' + String.valueOf(record.Version__c.intValue());
-            if (record.Is_Active__c == null) {
-                record.Is_Active__c = true;
-            }
 
             upsert record;
             return record.Id;
@@ -542,6 +489,134 @@ public with sharing class MarketingDictionaryManagerController {
             throw new AuraHandledException(msg);
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());
+        }
+    }
+
+    /** Full required-field gate used when Is_Active__c = true. */
+    private static void validateScoringModelForActivation(Marketing_Dictionary__c record) {
+        if (record.Scoring_Model_Group_Dict__c == null) {
+            throw new AuraHandledException('Model Group is required to activate a Scoring Model.');
+        }
+        if (record.Assigned_Topic_Dict__c == null) {
+            throw new AuraHandledException('Assigned Topic is required to activate a Scoring Model.');
+        }
+        if (String.isBlank(record.Scoring_Model_Source_System__c)) {
+            throw new AuraHandledException('Scoring Model Source System is required to activate.');
+        }
+        if (record.Scoring_Model_Source_System__c != 'GCP'
+            && record.Scoring_Model_Source_System__c != 'Salesforce (Einstein)') {
+            throw new AuraHandledException(
+                'Scoring Model Source System must be GCP or Salesforce (Einstein).'
+            );
+        }
+        if (String.isBlank(record.Data360_DMO__c)) {
+            throw new AuraHandledException('Data360 DMO is required to activate a Scoring Model.');
+        }
+        record.Data360_DMO__c = record.Data360_DMO__c.trim();
+
+        Marketing_Dictionary__c groupRec = [
+            SELECT Id, Dictionary_Sub_Type__c
+            FROM Marketing_Dictionary__c
+            WHERE Id = :record.Scoring_Model_Group_Dict__c
+            LIMIT 1
+        ];
+        if (groupRec.Dictionary_Sub_Type__c != 'Scoring Model Group') {
+            throw new AuraHandledException('Model Group must be a Scoring Model Group dictionary entry.');
+        }
+        Marketing_Dictionary__c topicRec = [
+            SELECT Id, Dictionary_Sub_Type__c
+            FROM Marketing_Dictionary__c
+            WHERE Id = :record.Assigned_Topic_Dict__c
+            LIMIT 1
+        ];
+        if (topicRec.Dictionary_Sub_Type__c != 'Topic') {
+            throw new AuraHandledException('Assigned Topic must be a Topic dictionary entry.');
+        }
+
+        if (String.isBlank(record.Offering_Type__c)) {
+            throw new AuraHandledException('Offering Type is required to activate a Scoring Model.');
+        }
+        if (record.Offering_Type__c == 'Product Family') {
+            if (String.isBlank(record.Product_Family__c)) {
+                throw new AuraHandledException('Select at least one Product Family to activate.');
+            }
+            record.Product_Family__c = normalizeOfferingIds(
+                record.Product_Family__c, 'Product Family'
+            );
+            record.Family_of_Needs__c = null;
+        } else if (record.Offering_Type__c == 'Family of Needs') {
+            if (String.isBlank(record.Family_of_Needs__c)) {
+                throw new AuraHandledException('Select at least one Family of Needs to activate.');
+            }
+            record.Family_of_Needs__c = normalizeOfferingIds(
+                record.Family_of_Needs__c, 'Family of Needs'
+            );
+            record.Product_Family__c = null;
+        } else {
+            throw new AuraHandledException('Offering Type must be Product Family or Family of Needs.');
+        }
+    }
+
+    /** Soft normalize for draft saves — only validate fields that were provided. */
+    private static void normalizeScoringModelDraftFields(Marketing_Dictionary__c record) {
+        if (String.isNotBlank(record.Data360_DMO__c)) {
+            record.Data360_DMO__c = record.Data360_DMO__c.trim();
+        }
+        if (String.isNotBlank(record.Scoring_Model_Source_System__c)
+            && record.Scoring_Model_Source_System__c != 'GCP'
+            && record.Scoring_Model_Source_System__c != 'Salesforce (Einstein)') {
+            throw new AuraHandledException(
+                'Scoring Model Source System must be GCP or Salesforce (Einstein).'
+            );
+        }
+        if (record.Scoring_Model_Group_Dict__c != null) {
+            Marketing_Dictionary__c groupRec = [
+                SELECT Id, Dictionary_Sub_Type__c
+                FROM Marketing_Dictionary__c
+                WHERE Id = :record.Scoring_Model_Group_Dict__c
+                LIMIT 1
+            ];
+            if (groupRec.Dictionary_Sub_Type__c != 'Scoring Model Group') {
+                throw new AuraHandledException('Model Group must be a Scoring Model Group dictionary entry.');
+            }
+        }
+        if (record.Assigned_Topic_Dict__c != null) {
+            Marketing_Dictionary__c topicRec = [
+                SELECT Id, Dictionary_Sub_Type__c
+                FROM Marketing_Dictionary__c
+                WHERE Id = :record.Assigned_Topic_Dict__c
+                LIMIT 1
+            ];
+            if (topicRec.Dictionary_Sub_Type__c != 'Topic') {
+                throw new AuraHandledException('Assigned Topic must be a Topic dictionary entry.');
+            }
+        }
+
+        if (String.isBlank(record.Offering_Type__c)) {
+            record.Product_Family__c = null;
+            record.Family_of_Needs__c = null;
+            return;
+        }
+        if (record.Offering_Type__c == 'Product Family') {
+            if (String.isNotBlank(record.Product_Family__c)) {
+                record.Product_Family__c = normalizeOfferingIds(
+                    record.Product_Family__c, 'Product Family'
+                );
+            } else {
+                record.Product_Family__c = null;
+            }
+            record.Family_of_Needs__c = null;
+        } else if (record.Offering_Type__c == 'Family of Needs') {
+            if (String.isNotBlank(record.Family_of_Needs__c)) {
+                record.Family_of_Needs__c = normalizeOfferingIds(
+                    record.Family_of_Needs__c, 'Family of Needs'
+                );
+            } else {
+                record.Family_of_Needs__c = null;
+            }
+            record.Product_Family__c = null;
+        } else {
+            throw new AuraHandledException('Offering Type must be Product Family or Family of Needs.');
         }
     }
 

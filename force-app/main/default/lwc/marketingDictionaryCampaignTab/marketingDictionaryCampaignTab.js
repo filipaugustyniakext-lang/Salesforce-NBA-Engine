@@ -52,7 +52,7 @@ const EMPTY_SCORING = () => ({
     Product_Family__c: '',
     Family_of_Needs__c: '',
     Model_Expiration_Date__c: null,
-    Is_Active__c: true
+    Is_Active__c: false
 });
 
 const OFFERING_TYPES = [
@@ -436,13 +436,26 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
             const someSelected = selectedCount > 0 && !allSelected;
             const isExpanded = !!this.expandedScoringMasters[name];
 
-            const childRows = versions.map(v => ({
+                    const childRows = versions.map(v => ({
                 ...v,
+                statusLabel: v.Is_Active__c ? 'Active' : 'Inactive',
+                statusBadgeClass: v.Is_Active__c ? 'slds-badge cd-badge-active' : 'slds-badge slds-badge_lightest',
                 isSelected: this.selectedScoringIds.includes(v.Id),
                 rowClass: this.selectedScoringIds.includes(v.Id)
                     ? 'slds-hint-parent scoring-child-row scoring-row-selected'
                     : 'slds-hint-parent scoring-child-row'
             }));
+
+            const activeCount = versions.filter(v => v.Is_Active__c).length;
+            let statusLabel = 'Inactive';
+            let statusBadgeClass = 'slds-badge slds-badge_lightest';
+            if (activeCount === versions.length) {
+                statusLabel = 'Active';
+                statusBadgeClass = 'slds-badge cd-badge-active';
+            } else if (activeCount > 0) {
+                statusLabel = `${activeCount} active`;
+                statusBadgeClass = 'slds-badge cd-badge-dpc';
+            }
 
             return {
                 key: name,
@@ -453,6 +466,8 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
                 topicName: latest.topicName || '—',
                 offeringLabel: latest.offeringLabel || '—',
                 offeringValuesShort: latest.offeringValuesShort || '—',
+                statusLabel,
+                statusBadgeClass,
                 latestId: latest.Id,
                 sortName: name,
                 sortVersions: versions.length,
@@ -460,6 +475,7 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
                 sortTopic: latest.topicName || '',
                 sortOffering: `${latest.offeringLabel || ''} ${latest.offeringValuesShort || ''}`,
                 sortExpires: latest.Model_Expiration_Date__c || '',
+                sortStatus: activeCount,
                 isExpanded,
                 chevronIcon: isExpanded ? 'utility:chevrondown' : 'utility:chevronright',
                 isSelected: allSelected,
@@ -517,7 +533,8 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
             { field: 'Group', label: 'Group', sortable: true, widthClass: 'scoring-col-group' },
             { field: 'Topic', label: 'Topic', sortable: true, widthClass: 'scoring-col-topic' },
             { field: 'Offering', label: 'Offering', sortable: true, widthClass: 'scoring-col-offering' },
-            { field: 'Expires', label: 'Expires', sortable: true, widthClass: 'scoring-col-expires' }
+            { field: 'Expires', label: 'Expires', sortable: true, widthClass: 'scoring-col-expires' },
+            { field: 'Status', label: 'Status', sortable: true, widthClass: 'scoring-col-status' }
         ];
         return cols.map(c => {
             const active = this.scoringSortField === c.field;
@@ -594,7 +611,8 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
             Group: m => m.sortGroup,
             Topic: m => m.sortTopic,
             Offering: m => m.sortOffering,
-            Expires: m => m.sortExpires
+            Expires: m => m.sortExpires,
+            Status: m => m.sortStatus
         }[field] || (m => m.sortName);
 
         return [...masters].sort((a, b) => {
@@ -726,6 +744,52 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
 
     get showScoringAuditFields() {
         return !!this.editScoring.Id;
+    }
+
+    get scoringStatusLabel() {
+        return this.editScoring.Is_Active__c ? 'Active' : 'Inactive';
+    }
+
+    get scoringStatusBadgeClass() {
+        return this.editScoring.Is_Active__c
+            ? 'slds-badge cd-badge-active'
+            : 'slds-badge slds-badge_lightest';
+    }
+
+    get scoringActivationHint() {
+        if (this.editScoring.Is_Active__c) return '';
+        const missing = this._scoringActivationMissingFields();
+        if (!missing.length) {
+            return 'All required fields are complete. Toggle Active to publish this model.';
+        }
+        return `Draft — complete to activate: ${missing.join(', ')}`;
+    }
+
+    get canActivateScoring() {
+        return this._scoringActivationMissingFields().length === 0;
+    }
+
+    /** Fields required before a model may be set Active. */
+    _scoringActivationMissingFields() {
+        const missing = [];
+        const s = this.editScoring || {};
+        if (!(s.Name || '').trim()) missing.push('Model Name');
+        if (s.Version__c == null || s.Version__c === '') missing.push('Model Version');
+        if (!this.computedModelIdPreview || this.computedModelIdPreview === '—') missing.push('Model ID');
+        if (!s.Scoring_Model_Group_Dict__c) missing.push('Model Group');
+        if (!s.Assigned_Topic_Dict__c) missing.push('Topic');
+        if (!s.Scoring_Model_Source_System__c) missing.push('Model Source System');
+        if (!(s.Data360_DMO__c || '').trim()) missing.push('Data360 DMO');
+        if (!s.Offering_Type__c) {
+            missing.push('Offering Type');
+        } else if (s.Offering_Type__c === 'Product Family'
+            && !this._parseSemiList(s.Product_Family__c).length) {
+            missing.push('Product Family selection');
+        } else if (s.Offering_Type__c === 'Family of Needs'
+            && !this._parseSemiList(s.Family_of_Needs__c).length) {
+            missing.push('Family of Needs selection');
+        }
+        return missing;
     }
 
     _formatScoringRow(r) {
@@ -1104,7 +1168,7 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
             Product_Family__c: source.Product_Family__c || '',
             Family_of_Needs__c: source.Family_of_Needs__c || '',
             Model_Expiration_Date__c: null,
-            Is_Active__c: true
+            Is_Active__c: false
         };
         this._loadOfferingOptions();
         this._loadData360DmoOptions();
@@ -1144,6 +1208,24 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
             value = e.target.checked;
         }
         this.editScoring = { ...this.editScoring, [field]: value };
+    }
+
+    handleScoringActiveToggle(e) {
+        const wantActive = e.target.checked === true;
+        if (wantActive) {
+            const missing = this._scoringActivationMissingFields();
+            if (missing.length) {
+                // Revert toggle — keep draft until required fields are complete.
+                this.editScoring = { ...this.editScoring, Is_Active__c: false };
+                this._showToast(
+                    'Cannot activate',
+                    `Complete required fields first: ${missing.join(', ')}`,
+                    'warning'
+                );
+                return;
+            }
+        }
+        this.editScoring = { ...this.editScoring, Is_Active__c: wantActive };
     }
 
     handleScoringOfferingTypeChange(e) {
@@ -1225,33 +1307,18 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
             this._showToast('Validation', 'Model Name is required.', 'warning');
             return;
         }
-        if (!this.editScoring.Scoring_Model_Group_Dict__c) {
-            this._showToast('Validation', 'Model Group is required.', 'warning');
-            return;
-        }
-        if (!this.editScoring.Assigned_Topic_Dict__c) {
-            this._showToast('Validation', 'Assigned Topic is required.', 'warning');
-            return;
-        }
-        if (!this.editScoring.Scoring_Model_Source_System__c) {
-            this._showToast('Validation', 'Scoring Model Source System is required.', 'warning');
-            return;
-        }
-        if (!(this.editScoring.Data360_DMO__c || '').trim()) {
-            this._showToast('Validation', 'Data360 DMO is required.', 'warning');
-            return;
-        }
-        if (!this.editScoring.Offering_Type__c) {
-            this._showToast('Validation', 'Offering Type is required.', 'warning');
-            return;
-        }
-        if (this.isScoringOfferingProductFamily && !this._parseSemiList(this.editScoring.Product_Family__c).length) {
-            this._showToast('Validation', 'Select at least one Product Family.', 'warning');
-            return;
-        }
-        if (this.isScoringOfferingFamilyOfNeeds && !this._parseSemiList(this.editScoring.Family_of_Needs__c).length) {
-            this._showToast('Validation', 'Select at least one Family of Needs.', 'warning');
-            return;
+
+        const isActive = this.editScoring.Is_Active__c === true;
+        if (isActive) {
+            const missing = this._scoringActivationMissingFields();
+            if (missing.length) {
+                this._showToast(
+                    'Cannot activate',
+                    `Complete required fields to activate: ${missing.join(', ')}`,
+                    'warning'
+                );
+                return;
+            }
         }
 
         const {
@@ -1272,6 +1339,8 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
             createdByName,
             expirationDisplay,
             activeLabel,
+            statusLabel,
+            statusBadgeClass,
             ...record
         } = this.editScoring;
 
@@ -1283,11 +1352,16 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
                     Name: name,
                     Dictionary_Sub_Type__c: 'Scoring Model',
                     Scoring_Model_Group_Dict__c: record.Scoring_Model_Group_Dict__c || null,
-                    Assigned_Topic_Dict__c: record.Assigned_Topic_Dict__c || null
+                    Assigned_Topic_Dict__c: record.Assigned_Topic_Dict__c || null,
+                    Is_Active__c: isActive
                 },
                 asNewMaster: this.scoringAsNewMaster && !record.Id
             });
-            this._showToast('Success', 'Scoring Model saved.', 'success');
+            this._showToast(
+                'Success',
+                isActive ? 'Scoring Model activated.' : 'Scoring Model saved as draft.',
+                'success'
+            );
             this.isScoringModalOpen = false;
             await refreshApex(this._wiredCampaignResult);
         } catch (err) {
