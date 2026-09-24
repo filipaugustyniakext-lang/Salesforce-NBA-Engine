@@ -177,19 +177,86 @@
 .tier-section, .scoring-section { border-top: 1px solid #e0e5ee; padding-top: 0.5rem; margin-top: 1rem;}
 
 .scoring-modal-container { max-width: 880px !important; }
-.scoring-models-table { font-size: 0.8125rem; }
-.scoring-models-table code {
+
+.scoring-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.scoring-models-table {
+    font-size: 0.8125rem;
+    table-layout: fixed;
+    width: 100%;
+    min-width: 720px;
+}
+
+.scoring-models-table th,
+.scoring-models-table td {
+    vertical-align: middle;
+    overflow: hidden;
+    padding: 0.4rem 0.5rem;
+}
+
+/* Column widths — short fields stay compact; name/id/offering get the rest */
+.scoring-models-table .scoring-col-check {
+    width: 2.75rem;
+    min-width: 2.75rem;
+    max-width: 2.75rem;
+    padding-left: 0.625rem;
+    padding-right: 0.25rem;
+    text-align: center;
+    overflow: visible;
+}
+.scoring-models-table .scoring-col-name { width: 22%; }
+.scoring-models-table .scoring-col-versions { width: 5.75rem; }
+.scoring-models-table .scoring-col-modelid { width: 16%; }
+.scoring-models-table .scoring-col-group { width: 11%; }
+.scoring-models-table .scoring-col-topic { width: 8%; }
+.scoring-models-table .scoring-col-offering { width: 16%; }
+.scoring-models-table .scoring-col-expires { width: 6.5rem; }
+.scoring-models-table .scoring-col-actions {
+    width: 7.25rem;
+    min-width: 7.25rem;
+    max-width: 7.25rem;
+    padding-right: 0.75rem;
+    padding-left: 0.35rem;
+    overflow: visible;
+    white-space: nowrap;
+}
+
+.scoring-row-cb,
+.scoring-select-all-cb {
+    width: 1rem;
+    height: 1rem;
+    margin: 0;
+    vertical-align: middle;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.scoring-actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.2rem;
+    width: 100%;
+}
+
+.scoring-model-id {
+    display: block;
+    max-width: 100%;
     font-size: 0.75rem;
     background: #f3f3f3;
     padding: 0.1rem 0.35rem;
     border-radius: 0.25rem;
 }
-.scoring-th-check,
-.scoring-td-check {
-    width: 2rem;
-    text-align: center;
+
+.scoring-models-table .slds-badge {
+    max-width: 100%;
+    display: inline-block;
     vertical-align: middle;
 }
+
 .scoring-th-sortable {
     cursor: pointer;
     user-select: none;
@@ -201,9 +268,11 @@
     display: inline-flex;
     align-items: center;
     gap: 0.15rem;
+    max-width: 100%;
 }
 .scoring-sort-icon {
     --slds-c-icon-color-foreground-default: #706e6b;
+    flex-shrink: 0;
 }
 .scoring-master-row {
     cursor: pointer;
@@ -219,6 +288,7 @@
     display: flex;
     align-items: center;
     min-width: 0;
+    max-width: 100%;
 }
 .scoring-expand-chevron {
     flex-shrink: 0;
@@ -227,7 +297,8 @@
     background: #ffffff;
 }
 .scoring-child-indent {
-    padding-left: 1.5rem;
+    padding-left: 1.25rem;
+    min-height: 1rem;
 }
 .scoring-row-selected {
     background: #e5f3ff !important;

@@ -219,11 +219,12 @@
                     <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
                 </template>
                 <template lwc:elseif={hasScorings}>
-                    <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_fixed-layout scoring-models-table"
+                    <div class="scoring-table-wrap">
+                    <table class="slds-table slds-table_bordered slds-table_fixed-layout scoring-models-table"
                         role="treegrid" aria-label="Campaign Scoring Models">
                         <thead>
                             <tr class="slds-line-height_reset">
-                                <th scope="col" class="scoring-th-check">
+                                <th scope="col" class="scoring-col-check">
                                     <span class="slds-assistive-text">Select</span>
                                     <input type="checkbox"
                                         class="scoring-select-all-cb"
@@ -236,7 +237,7 @@
                                         aria-sort={col.ariaSort}
                                         data-field={col.field}
                                         onclick={handleScoringSort}>
-                                        <div class="slds-truncate scoring-th-label">
+                                        <div class="slds-truncate scoring-th-label" title={col.label}>
                                             <span>{col.label}</span>
                                             <template lwc:if={col.showSortIcon}>
                                                 <lightning-icon icon-name={col.sortIcon} size="xx-small"
@@ -246,7 +247,9 @@
                                         </div>
                                     </th>
                                 </template>
-                                <th scope="col" class="action-col"></th>
+                                <th scope="col" class="scoring-col-actions">
+                                    <span class="slds-assistive-text">Actions</span>
+                                </th>
                             </tr>
                         </thead>
                         <tbody>
@@ -258,10 +261,10 @@
                                     onclick={handleScoringRowClick}
                                     aria-expanded={row.ariaExpanded}
                                     role="row">
-                                    <td class="scoring-td-check scoring-row-control" onclick={handleStopPropagation}>
+                                    <td class="scoring-col-check scoring-row-control" onclick={handleStopPropagation}>
                                         <template lwc:if={row.isMaster}>
                                             <input type="checkbox"
-                                                class="scoring-master-cb"
+                                                class="scoring-master-cb scoring-row-cb"
                                                 data-name={row.name}
                                                 title={row.checkboxTitle}
                                                 checked={row.isSelected}
@@ -270,12 +273,13 @@
                                         </template>
                                         <template lwc:else>
                                             <input type="checkbox"
+                                                class="scoring-row-cb"
                                                 data-id={row.Id}
                                                 checked={row.isSelected}
                                                 onchange={handleScoringChildCheckbox} />
                                         </template>
                                     </td>
-                                    <td>
+                                    <td class="scoring-col-name">
                                         <template lwc:if={row.isMaster}>
                                             <div class="scoring-master-name">
                                                 <lightning-icon icon-name={row.chevronIcon} size="xx-small"
@@ -288,58 +292,69 @@
                                             <div class="scoring-child-indent slds-text-color_weak" aria-hidden="true"></div>
                                         </template>
                                     </td>
-                                    <td>
+                                    <td class="scoring-col-versions">
                                         <template lwc:if={row.isMaster}>
-                                            <span class="slds-badge slds-badge_lightest">{row.versionCountLabel}</span>
+                                            <span class="slds-badge slds-badge_lightest slds-truncate" title={row.versionCountLabel}>{row.versionCountLabel}</span>
                                         </template>
                                         <template lwc:else>
-                                            <span class="slds-truncate">v{row.Version__c}</span>
+                                            <span class="slds-truncate" title={row.Version__c}>v{row.Version__c}</span>
                                         </template>
                                     </td>
-                                    <td class="slds-truncate">
-                                        <template lwc:if={row.isMaster}>—</template>
-                                        <template lwc:else><code>{row.Model_Id__c}</code></template>
-                                    </td>
-                                    <td>
-                                        <span class="slds-badge cd-group-badge-sm">{row.groupName}</span>
-                                    </td>
-                                    <td class="slds-truncate" title={row.topicName}>{row.topicName}</td>
-                                    <td>
-                                        <div class="slds-truncate">{row.offeringLabel}</div>
-                                        <div class="slds-text-body_small slds-text-color_weak slds-truncate">{row.offeringValuesShort}</div>
-                                    </td>
-                                    <td>
-                                        <template lwc:if={row.isMaster}>—</template>
-                                        <template lwc:else>{row.expirationDisplay}</template>
-                                    </td>
-                                    <td class="action-col scoring-row-control" onclick={handleStopPropagation}>
+                                    <td class="scoring-col-modelid">
                                         <template lwc:if={row.isMaster}>
-                                            <lightning-button-icon icon-name="utility:new" variant="border-filled"
-                                                size="x-small" alternative-text="New Version" title="New Version"
-                                                data-id={row.latestId} onclick={handleNewScoringVersion}>
-                                            </lightning-button-icon>
+                                            <span class="slds-truncate">—</span>
                                         </template>
                                         <template lwc:else>
-                                            <lightning-button-icon icon-name="utility:new" variant="border-filled"
-                                                size="x-small" alternative-text="New Version" title="New Version"
-                                                data-id={row.Id} onclick={handleNewScoringVersion}
-                                                class="slds-m-right_xx-small">
-                                            </lightning-button-icon>
-                                            <lightning-button-icon icon-name="utility:edit" variant="border-filled"
-                                                size="x-small" alternative-text="Edit" title="Edit"
-                                                data-id={row.Id} onclick={handleEditScoring}
-                                                class="slds-m-right_xx-small">
-                                            </lightning-button-icon>
-                                            <lightning-button-icon icon-name="utility:delete" variant="border-filled"
-                                                size="x-small" alternative-text="Delete" title="Delete"
-                                                data-id={row.Id} data-name={row.Model_Id__c} onclick={handleDeleteCampaignRecord}>
-                                            </lightning-button-icon>
+                                            <code class="slds-truncate scoring-model-id" title={row.Model_Id__c}>{row.Model_Id__c}</code>
                                         </template>
+                                    </td>
+                                    <td class="scoring-col-group">
+                                        <span class="slds-badge cd-group-badge-sm slds-truncate" title={row.groupName}>{row.groupName}</span>
+                                    </td>
+                                    <td class="scoring-col-topic">
+                                        <span class="slds-truncate" title={row.topicName}>{row.topicName}</span>
+                                    </td>
+                                    <td class="scoring-col-offering">
+                                        <div class="slds-truncate" title={row.offeringLabel}>{row.offeringLabel}</div>
+                                        <div class="slds-text-body_small slds-text-color_weak slds-truncate" title={row.offeringValuesShort}>{row.offeringValuesShort}</div>
+                                    </td>
+                                    <td class="scoring-col-expires">
+                                        <template lwc:if={row.isMaster}>
+                                            <span class="slds-truncate">—</span>
+                                        </template>
+                                        <template lwc:else>
+                                            <span class="slds-truncate" title={row.expirationDisplay}>{row.expirationDisplay}</span>
+                                        </template>
+                                    </td>
+                                    <td class="scoring-col-actions scoring-row-control" onclick={handleStopPropagation}>
+                                        <div class="scoring-actions">
+                                            <template lwc:if={row.isMaster}>
+                                                <lightning-button-icon icon-name="utility:new" variant="border-filled"
+                                                    size="x-small" alternative-text="New Version" title="New Version"
+                                                    data-id={row.latestId} onclick={handleNewScoringVersion}>
+                                                </lightning-button-icon>
+                                            </template>
+                                            <template lwc:else>
+                                                <lightning-button-icon icon-name="utility:new" variant="border-filled"
+                                                    size="x-small" alternative-text="New Version" title="New Version"
+                                                    data-id={row.Id} onclick={handleNewScoringVersion}>
+                                                </lightning-button-icon>
+                                                <lightning-button-icon icon-name="utility:edit" variant="border-filled"
+                                                    size="x-small" alternative-text="Edit" title="Edit"
+                                                    data-id={row.Id} onclick={handleEditScoring}>
+                                                </lightning-button-icon>
+                                                <lightning-button-icon icon-name="utility:delete" variant="border-filled"
+                                                    size="x-small" alternative-text="Delete" title="Delete"
+                                                    data-id={row.Id} data-name={row.Model_Id__c} onclick={handleDeleteCampaignRecord}>
+                                                </lightning-button-icon>
+                                            </template>
+                                        </div>
                                     </td>
                                 </tr>
                             </template>
                         </tbody>
                     </table>
+                    </div>
                     <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">{scoringCountLabel}</p>
                 </template>
                 <template lwc:else>

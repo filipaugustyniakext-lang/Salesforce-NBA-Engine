@@ -483,19 +483,22 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
 
     get scoringSortHeaders() {
         const cols = [
-            { field: 'Name', label: 'Model Name', sortable: true },
-            { field: 'Versions', label: 'Versions', sortable: true },
-            { field: 'ModelId', label: 'Model ID', sortable: false },
-            { field: 'Group', label: 'Group', sortable: true },
-            { field: 'Topic', label: 'Topic', sortable: true },
-            { field: 'Offering', label: 'Offering', sortable: true },
-            { field: 'Expires', label: 'Expires', sortable: true }
+            { field: 'Name', label: 'Model Name', sortable: true, widthClass: 'scoring-col-name' },
+            { field: 'Versions', label: 'Versions', sortable: true, widthClass: 'scoring-col-versions' },
+            { field: 'ModelId', label: 'Model ID', sortable: false, widthClass: 'scoring-col-modelid' },
+            { field: 'Group', label: 'Group', sortable: true, widthClass: 'scoring-col-group' },
+            { field: 'Topic', label: 'Topic', sortable: true, widthClass: 'scoring-col-topic' },
+            { field: 'Offering', label: 'Offering', sortable: true, widthClass: 'scoring-col-offering' },
+            { field: 'Expires', label: 'Expires', sortable: true, widthClass: 'scoring-col-expires' }
         ];
         return cols.map(c => {
             const active = this.scoringSortField === c.field;
             return {
                 ...c,
-                thClass: c.sortable ? 'scoring-th-sortable' : '',
+                thClass: [
+                    c.widthClass,
+                    c.sortable ? 'scoring-th-sortable' : ''
+                ].filter(Boolean).join(' '),
                 ariaSort: !c.sortable ? 'none' : (active
                     ? (this.scoringSortDir === 'asc' ? 'ascending' : 'descending')
                     : 'none'),
