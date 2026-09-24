@@ -14,6 +14,7 @@ import getProductFamilyByRecordType from '@salesforce/apex/MarketingDictionaryCo
 import getProductFamilyCustomerTypes from '@salesforce/apex/MarketingDictionaryController.getProductFamilyCustomerTypes';
 import getFamilyOfNeedsCustomerTypes from '@salesforce/apex/MarketingDictionaryController.getFamilyOfNeedsCustomerTypes';
 import getProductOfferingCatalogue from '@salesforce/apex/MarketingDictionaryManagerController.getProductOfferingCatalogue';
+import getData360DmoOptions from '@salesforce/apex/MarketingDictionaryManagerController.getData360DmoOptions';
 import healCampaignOfferingLabels from '@salesforce/apex/MarketingDictionaryController.healCampaignOfferingLabels';
 import {
     TIER_ATTR_FIELDS,
@@ -45,16 +46,23 @@ const EMPTY_SCORING = () => ({
     Topic_Description__c: '',
     Scoring_Model_Group_Dict__c: null,
     Assigned_Topic_Dict__c: null,
+    Scoring_Model_Source_System__c: '',
+    Data360_DMO__c: '',
     Offering_Type__c: 'Product Family',
     Product_Family__c: '',
     Family_of_Needs__c: '',
     Model_Expiration_Date__c: null,
-    Is_Active__c: true
+    Is_Active__c: false
 });
 
 const OFFERING_TYPES = [
     { label: 'Product Family', value: 'Product Family' },
     { label: 'Family of Needs', value: 'Family of Needs' }
+];
+
+const SCORING_SOURCE_SYSTEMS = [
+    { label: 'GCP', value: 'GCP' },
+    { label: 'Salesforce (Einstein)', value: 'Salesforce (Einstein)' }
 ];
 
 export default class MarketingDictionaryCampaignTab extends LightningElement {
@@ -85,6 +93,7 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
 
     @track scoringAsNewMaster = true;
     @track scoringNameLocked = false;
+    @track data360DmoOptions = [];
 
     @track productFamilyOptions = [];
     @track familyOfNeedsOptions = [];
@@ -110,9 +119,17 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
     @track activeSubTab = 'campaignTypes';
     @track _localPaths = [];
 
+    /** Scoring Models table: expand / sort / multi-select */
+    @track expandedScoringMasters = {};
+    @track selectedScoringIds = [];
+    @track scoringSortField = 'Name';
+    @track scoringSortDir = 'asc';
+
     deleteTargetName = '';
     _deleteId = null;
     _deleteType = null;
+    _deleteIds = null; // bulk scoring delete
+
 
     _wiredCampaignResult;
     _wiredTiersResult;
@@ -121,6 +138,7 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
 
     connectedCallback() {
         this._loadOfferingOptions();
+        this._loadData360DmoOptions();
         // One-shot: migrate Campaign display fields that still show dictionary Ids → Names.
         healCampaignOfferingLabels().catch(() => {});
     }
@@ -130,6 +148,7 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
         if (this.activeSubTab === 'scorings') {
             // Refresh catalogue so Product Family / FoN renames show immediately.
             this._loadOfferingOptions();
+            this._loadData360DmoOptions();
         }
     }
 
@@ -165,6 +184,23 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
             this.fonToProductFamilies = inverseMap;
             this._rebuildOfferingOptionLists();
         });
+    }
+
+    _loadData360DmoOptions() {
+        getData360DmoOptions()
+            .then(rows => {
+                const opts = (rows || []).map(r => ({
+                    label: r.label,
+                    value: r.value
+                }));
+                // Keep a currently saved value selectable even if not in catalogue.
+                const current = this.editScoring?.Data360_DMO__c;
+                if (current && !opts.some(o => o.value === current)) {
+                    opts.unshift({ label: current, value: current });
+                }
+                this.data360DmoOptions = opts;
+            })
+            .catch(() => { this.data360DmoOptions = []; });
     }
 
     _idSafe(prefix, value) {
@@ -323,28 +359,40 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
         this._localPaths = serverPaths.map(p => ({ ...p }));
     }
 
-    get campaignTypes() { return this._allRecords.filter(r => r.Dictionary_Sub_Type__c === 'Campaign Type'); }
+    get campaignTypes() {
+        const groups = this.allCampaignGroups;
+        return this._allRecords
+            .filter(r => r.Dictionary_Sub_Type__c === 'Campaign Type')
+            .map(ct => {
+                const own = groups.filter(g => g.Campaign_Type_Dict__c === ct.Id);
+                return {
+                    ...ct,
+                    definesGroups: !!ct.Define_Campaign_Groups__c,
+                    groups: own,
+                    hasGroups: own.length > 0
+                };
+            });
+    }
     get hasCampaignTypes() { return this.campaignTypes.length > 0; }
     get campaignTypeCount() { return this.campaignTypes.length; }
     get campaignTypeModalTitle() { return this.editCampaignType.Id ? 'Edit Campaign Type' : 'Add Campaign Type'; }
 
     get allCampaignGroups() { return this._allRecords.filter(r => r.Dictionary_Sub_Type__c === 'Campaign Group'); }
 
-    get campaignTypeGroups() {
-        const groups = this.allCampaignGroups;
-        return this.campaignTypes
-            .filter(ct => ct.Define_Campaign_Groups__c)
-            .map(ct => {
-                const own = groups.filter(g => g.Campaign_Type_Dict__c === ct.Id);
-                return { Id: ct.Id, Name: ct.Name, groups: own, hasGroups: own.length > 0 };
-            });
-    }
-    get hasCampaignGroupTypes() { return this.campaignTypeGroups.length > 0; }
-
     get campaignTypeOptions() {
         return this.campaignTypes.map(ct => ({ label: ct.Name, value: ct.Id }));
     }
     get campaignGroupModalTitle() { return this.editCampaignGroup.Id ? 'Edit Campaign Group' : 'Add Campaign Group'; }
+    get campaignGroupParentName() {
+        const typeId = this.editCampaignGroup?.Campaign_Type_Dict__c;
+        if (!typeId) return '';
+        const ct = this._allRecords.find(r => r.Id === typeId);
+        return ct?.Name || '';
+    }
+    get isCampaignGroupTypeLocked() {
+        // Type is set from the Campaign Type row — do not re-pick in the modal.
+        return !!this.editCampaignGroup?.Campaign_Type_Dict__c;
+    }
 
     get scoringModelGroups() {
         return this._allRecords.filter(r => r.Dictionary_Sub_Type__c === 'Scoring Model Group');
@@ -361,9 +409,10 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
         return this._allRecords.filter(r => r.Dictionary_Sub_Type__c === 'Scoring Model');
     }
     get scoringsCount() { return this.allScorings.length; }
-    get hasScorings() { return this.filteredScorings.length > 0; }
+    get hasScorings() { return this.scoringMasterRows.length > 0; }
 
-    get filteredScorings() {
+    /** Flat filtered version rows (search only). */
+    get _filteredScoringVersions() {
         const q = (this.scoringSearch || '').toLowerCase();
         const rows = this.allScorings.map(r => this._formatScoringRow(r));
         if (!q) return rows;
@@ -376,18 +425,216 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
         );
     }
 
+    /**
+     * Master rows (one per model Name) with nested version children.
+     * Collapsed by default; entire master row toggles expansion.
+     */
+    get scoringMasterRows() {
+        const byName = {};
+        for (const row of this._filteredScoringVersions) {
+            const key = row.Name || '(unnamed)';
+            if (!byName[key]) byName[key] = [];
+            byName[key].push(row);
+        }
+
+        const masters = Object.keys(byName).map(name => {
+            const versions = [...byName[name]].sort((a, b) =>
+                (Number(b.Version__c) || 0) - (Number(a.Version__c) || 0)
+            );
+            const latest = versions[0] || {};
+            const versionIds = versions.map(v => v.Id);
+            const selectedCount = versionIds.filter(id => this.selectedScoringIds.includes(id)).length;
+            const allSelected = versionIds.length > 0 && selectedCount === versionIds.length;
+            const someSelected = selectedCount > 0 && !allSelected;
+            const isExpanded = !!this.expandedScoringMasters[name];
+
+                    const childRows = versions.map(v => ({
+                ...v,
+                statusLabel: v.Is_Active__c ? 'Active' : 'Inactive',
+                statusBadgeClass: v.Is_Active__c ? 'slds-badge cd-badge-active' : 'slds-badge slds-badge_lightest',
+                isSelected: this.selectedScoringIds.includes(v.Id),
+                rowClass: this.selectedScoringIds.includes(v.Id)
+                    ? 'slds-hint-parent scoring-child-row scoring-row-selected'
+                    : 'slds-hint-parent scoring-child-row'
+            }));
+
+            const activeCount = versions.filter(v => v.Is_Active__c).length;
+            let statusLabel = 'Inactive';
+            let statusBadgeClass = 'slds-badge slds-badge_lightest';
+            if (activeCount === versions.length) {
+                statusLabel = 'Active';
+                statusBadgeClass = 'slds-badge cd-badge-active';
+            } else if (activeCount > 0) {
+                statusLabel = `${activeCount} active`;
+                statusBadgeClass = 'slds-badge cd-badge-dpc';
+            }
+
+            return {
+                key: name,
+                name,
+                versionCount: versions.length,
+                versionCountLabel: `${versions.length} version${versions.length !== 1 ? 's' : ''}`,
+                groupName: latest.groupName || '—',
+                topicName: latest.topicName || '—',
+                offeringLabel: latest.offeringLabel || '—',
+                offeringValuesShort: latest.offeringValuesShort || '—',
+                statusLabel,
+                statusBadgeClass,
+                latestId: latest.Id,
+                sortName: name,
+                sortVersions: versions.length,
+                sortGroup: latest.groupName || '',
+                sortTopic: latest.topicName || '',
+                sortOffering: `${latest.offeringLabel || ''} ${latest.offeringValuesShort || ''}`,
+                sortExpires: latest.Model_Expiration_Date__c || '',
+                sortStatus: activeCount,
+                isExpanded,
+                chevronIcon: isExpanded ? 'utility:chevrondown' : 'utility:chevronright',
+                isSelected: allSelected,
+                isIndeterminate: someSelected,
+                checkboxTitle: allSelected
+                    ? 'Deselect all versions'
+                    : 'Select all versions',
+                rowClass: [
+                    'slds-hint-parent scoring-master-row',
+                    isExpanded ? 'scoring-master-row_expanded' : '',
+                    allSelected || someSelected ? 'scoring-row-selected' : ''
+                ].filter(Boolean).join(' '),
+                versions: childRows
+            };
+        });
+
+        return this._sortScoringMasters(masters);
+    }
+
+    /** Flattened master + expanded child rows for a single for:each (LWC root constraint). */
+    get scoringTableRows() {
+        const rows = [];
+        for (const master of this.scoringMasterRows) {
+            rows.push({
+                ...master,
+                rowKey: `master-${master.key}`,
+                rowType: 'master',
+                isMaster: true,
+                isChild: false,
+                ariaExpanded: master.isExpanded ? 'true' : 'false'
+            });
+            if (master.isExpanded) {
+                for (const v of master.versions) {
+                    rows.push({
+                        ...v,
+                        rowKey: `child-${v.Id}`,
+                        rowType: 'child',
+                        isMaster: false,
+                        isChild: true,
+                        masterName: master.name,
+                        name: master.name,
+                        ariaExpanded: null
+                    });
+                }
+            }
+        }
+        return rows;
+    }
+
+    get scoringSortHeaders() {
+        const cols = [
+            { field: 'Name', label: 'Model Name', sortable: true, widthClass: 'scoring-col-name' },
+            { field: 'Versions', label: 'Versions', sortable: true, widthClass: 'scoring-col-versions' },
+            { field: 'ModelId', label: 'Model ID', sortable: false, widthClass: 'scoring-col-modelid' },
+            { field: 'Group', label: 'Group', sortable: true, widthClass: 'scoring-col-group' },
+            { field: 'Topic', label: 'Topic', sortable: true, widthClass: 'scoring-col-topic' },
+            { field: 'Offering', label: 'Offering', sortable: true, widthClass: 'scoring-col-offering' },
+            { field: 'Expires', label: 'Expires', sortable: true, widthClass: 'scoring-col-expires' },
+            { field: 'Status', label: 'Status', sortable: true, widthClass: 'scoring-col-status' }
+        ];
+        return cols.map(c => {
+            const active = this.scoringSortField === c.field;
+            return {
+                ...c,
+                thClass: [
+                    c.widthClass,
+                    c.sortable ? 'scoring-th-sortable' : ''
+                ].filter(Boolean).join(' '),
+                ariaSort: !c.sortable ? 'none' : (active
+                    ? (this.scoringSortDir === 'asc' ? 'ascending' : 'descending')
+                    : 'none'),
+                showSortIcon: c.sortable && active,
+                sortIcon: this.scoringSortDir === 'asc' ? 'utility:arrowup' : 'utility:arrowdown'
+            };
+        });
+    }
+
+    get scoringSelectedCount() {
+        return this.selectedScoringIds.length;
+    }
+
+    get hasScoringSelection() {
+        return this.selectedScoringIds.length > 0;
+    }
+
+    get isAllVisibleScoringsSelected() {
+        const ids = this._visibleScoringVersionIds();
+        return ids.length > 0 && ids.every(id => this.selectedScoringIds.includes(id));
+    }
+
+    get isSomeVisibleScoringsSelected() {
+        const ids = this._visibleScoringVersionIds();
+        const n = ids.filter(id => this.selectedScoringIds.includes(id)).length;
+        return n > 0 && n < ids.length;
+    }
+
+    get scoringSelectAllTitle() {
+        return this.isAllVisibleScoringsSelected
+            ? 'Deselect all versions'
+            : 'Select all versions';
+    }
+
+    /** @deprecated Prefer scoringMasterRows — kept for any residual callers */
+    get filteredScorings() {
+        return this._filteredScoringVersions;
+    }
+
     get scoringMasterCount() {
         return new Set(this.allScorings.map(r => r.Name)).size;
     }
 
     get scoringCountLabel() {
-        const f = this.filteredScorings.length;
-        const t = this.scoringsCount;
-        const masters = this.scoringMasterCount;
-        if (f === t) {
-            return `${masters} model${masters !== 1 ? 's' : ''} · ${t} version${t !== 1 ? 's' : ''}`;
+        const masters = this.scoringMasterRows.length;
+        const versions = this._filteredScoringVersions.length;
+        const totalVersions = this.scoringsCount;
+        const totalMasters = this.scoringMasterCount;
+        if (versions === totalVersions) {
+            return `${totalMasters} model${totalMasters !== 1 ? 's' : ''} · ${totalVersions} version${totalVersions !== 1 ? 's' : ''}`;
         }
-        return `Showing ${f} of ${t} versions`;
+        return `Showing ${masters} model${masters !== 1 ? 's' : ''} · ${versions} version${versions !== 1 ? 's' : ''}`;
+    }
+
+    _visibleScoringVersionIds() {
+        return this.scoringMasterRows.flatMap(m => m.versions.map(v => v.Id));
+    }
+
+    _sortScoringMasters(masters) {
+        const field = this.scoringSortField || 'Name';
+        const dir = this.scoringSortDir === 'desc' ? -1 : 1;
+        const keyFn = {
+            Name: m => m.sortName,
+            Versions: m => m.sortVersions,
+            Group: m => m.sortGroup,
+            Topic: m => m.sortTopic,
+            Offering: m => m.sortOffering,
+            Expires: m => m.sortExpires,
+            Status: m => m.sortStatus
+        }[field] || (m => m.sortName);
+
+        return [...masters].sort((a, b) => {
+            const av = keyFn(a);
+            const bv = keyFn(b);
+            if (typeof av === 'number' && typeof bv === 'number') {
+                return (av - bv) * dir;
+            }
+            return String(av).localeCompare(String(bv), undefined, { sensitivity: 'base' }) * dir;
+        });
     }
 
     get scoringModelModalTitle() {
@@ -413,6 +660,14 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
             uniqueId: `scoring-offering-${o.value.replace(/\s+/g, '-')}`,
             isChecked: this.editScoring.Offering_Type__c === o.value
         }));
+    }
+
+    get scoringSourceSystemOptions() {
+        return SCORING_SOURCE_SYSTEMS;
+    }
+
+    get hasData360DmoCatalogue() {
+        return this.data360DmoOptions.length > 0;
     }
 
     get isScoringOfferingProductFamily() {
@@ -479,17 +734,78 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
         });
     }
 
-    get scoringCreatedDisplay() {
-        return this._formatDateTime(this.editScoring.CreatedDate);
+    get scoringCreatedByLine() {
+        const name = this.editScoring.CreatedBy?.Name
+            || this.editScoring.CreatedByName
+            || '—';
+        const when = this._formatDateTime(this.editScoring.CreatedDate);
+        return `${name}, ${when}`;
     }
-    get scoringModifiedDisplay() {
-        return this._formatDateTime(this.editScoring.LastModifiedDate);
+
+    get scoringLastModifiedByLine() {
+        const name = this.editScoring.LastModifiedBy?.Name
+            || this.editScoring.LastModifiedByName
+            || this.editScoring.CreatedBy?.Name
+            || this.editScoring.CreatedByName
+            || '—';
+        const when = this._formatDateTime(
+            this.editScoring.LastModifiedDate || this.editScoring.CreatedDate
+        );
+        return `${name}, ${when}`;
     }
-    get scoringCreatedByDisplay() {
-        return this.editScoring.CreatedBy?.Name || this.editScoring.CreatedByName || '—';
-    }
+
     get showScoringAuditFields() {
         return !!this.editScoring.Id;
+    }
+
+    get scoringStatusLabel() {
+        return this.editScoring.Is_Active__c ? 'Active' : 'Inactive';
+    }
+
+    get scoringStatusBadgeClass() {
+        return this.editScoring.Is_Active__c
+            ? 'slds-badge cd-badge-active'
+            : 'slds-badge slds-badge_lightest';
+    }
+
+    get scoringActivationHint() {
+        if (this.editScoring.Is_Active__c) return '';
+        const missing = this._scoringActivationMissingFields();
+        if (!missing.length) {
+            return 'All required fields are complete. Toggle Active to publish this model.';
+        }
+        return `Draft — complete to activate: ${missing.join(', ')}`;
+    }
+
+    get canActivateScoring() {
+        return this._scoringActivationMissingFields().length === 0;
+    }
+
+    get scoringSaveButtonLabel() {
+        return this.editScoring.Is_Active__c ? 'Save & Activate' : 'Save Draft';
+    }
+
+    /** Fields required before a model may be set Active. */
+    _scoringActivationMissingFields() {
+        const missing = [];
+        const s = this.editScoring || {};
+        if (!(s.Name || '').trim()) missing.push('Model Name');
+        if (s.Version__c == null || s.Version__c === '') missing.push('Model Version');
+        if (!this.computedModelIdPreview || this.computedModelIdPreview === '—') missing.push('Model ID');
+        if (!s.Scoring_Model_Group_Dict__c) missing.push('Model Group');
+        if (!s.Assigned_Topic_Dict__c) missing.push('Topic');
+        if (!s.Scoring_Model_Source_System__c) missing.push('Model Source System');
+        if (!(s.Data360_DMO__c || '').trim()) missing.push('Data360 DMO');
+        if (!s.Offering_Type__c) {
+            missing.push('Offering Type');
+        } else if (s.Offering_Type__c === 'Product Family'
+            && !this._parseSemiList(s.Product_Family__c).length) {
+            missing.push('Product Family selection');
+        } else if (s.Offering_Type__c === 'Family of Needs'
+            && !this._parseSemiList(s.Family_of_Needs__c).length) {
+            missing.push('Family of Needs selection');
+        }
+        return missing;
     }
 
     _formatScoringRow(r) {
@@ -732,13 +1048,117 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
         this._openDeleteModal(e.currentTarget.dataset.id, e.currentTarget.dataset.name, 'campaignRecord');
     }
 
-    handleScoringSearch(e) { this.scoringSearch = e.target.value; }
+    handleScoringSearch(e) {
+        this.scoringSearch = e.target.value;
+        // Drop selection of versions no longer visible after filter.
+        const visible = new Set(this._filteredScoringVersions.map(r => r.Id));
+        this.selectedScoringIds = this.selectedScoringIds.filter(id => visible.has(id));
+    }
+
+    handleScoringSort(e) {
+        const field = e.currentTarget.dataset.field;
+        if (!field) return;
+        const header = this.scoringSortHeaders.find(h => h.field === field);
+        if (!header?.sortable) return;
+        if (this.scoringSortField === field) {
+            this.scoringSortDir = this.scoringSortDir === 'asc' ? 'desc' : 'asc';
+        } else {
+            this.scoringSortField = field;
+            this.scoringSortDir = 'asc';
+        }
+    }
+
+    handleToggleScoringMaster(e) {
+        // Ignore clicks that originated on checkbox / action controls.
+        if (e.target.closest('.scoring-row-control')) return;
+        const name = e.currentTarget.dataset.name;
+        if (!name) return;
+        this.expandedScoringMasters = {
+            ...this.expandedScoringMasters,
+            [name]: !this.expandedScoringMasters[name]
+        };
+    }
+
+    handleScoringRowClick(e) {
+        if (e.currentTarget.dataset.rowType !== 'master') return;
+        this.handleToggleScoringMaster(e);
+    }
+
+    handleScoringMasterCheckbox(e) {
+        e.stopPropagation();
+        const name = e.currentTarget.dataset.name;
+        const master = this.scoringMasterRows.find(m => m.key === name);
+        if (!master) return;
+        const childIds = master.versions.map(v => v.Id);
+        if (e.target.checked) {
+            this.selectedScoringIds = [...new Set([...this.selectedScoringIds, ...childIds])];
+        } else {
+            const drop = new Set(childIds);
+            this.selectedScoringIds = this.selectedScoringIds.filter(id => !drop.has(id));
+        }
+    }
+
+    handleScoringChildCheckbox(e) {
+        e.stopPropagation();
+        const id = e.currentTarget.dataset.id;
+        if (!id) return;
+        if (e.target.checked) {
+            if (!this.selectedScoringIds.includes(id)) {
+                this.selectedScoringIds = [...this.selectedScoringIds, id];
+            }
+        } else {
+            this.selectedScoringIds = this.selectedScoringIds.filter(x => x !== id);
+        }
+    }
+
+    handleScoringSelectAll(e) {
+        const visible = this._visibleScoringVersionIds();
+        if (e.target.checked) {
+            this.selectedScoringIds = [...new Set([...this.selectedScoringIds, ...visible])];
+        } else {
+            const drop = new Set(visible);
+            this.selectedScoringIds = this.selectedScoringIds.filter(id => !drop.has(id));
+        }
+    }
+
+    handleClearScoringSelection() {
+        this.selectedScoringIds = [];
+    }
+
+    handleStopPropagation(e) {
+        e.stopPropagation();
+    }
+
+    handleBulkDeleteScorings() {
+        const n = this.selectedScoringIds.length;
+        if (!n) return;
+        this._deleteIds = [...this.selectedScoringIds];
+        this._deleteId = null;
+        this._deleteType = 'scoringBulk';
+        this.deleteTargetName = `${n} scoring model version${n !== 1 ? 's' : ''}`;
+        this.isDeleteModalOpen = true;
+    }
+
+    renderedCallback() {
+        // Sync indeterminate state on master / select-all checkboxes.
+        this.template.querySelectorAll('input.scoring-master-cb').forEach(el => {
+            const name = el.dataset.name;
+            const master = this.scoringMasterRows.find(m => m.key === name);
+            el.indeterminate = !!(master && master.isIndeterminate);
+        });
+        const selectAll = this.template.querySelector('input.scoring-select-all-cb');
+        if (selectAll) {
+            selectAll.indeterminate = this.isSomeVisibleScoringsSelected;
+            selectAll.checked = this.isAllVisibleScoringsSelected;
+        }
+    }
 
     handleNewScoring() {
         this.scoringAsNewMaster = true;
         this.scoringNameLocked = false;
         this.editScoring = EMPTY_SCORING();
         this._loadOfferingOptions();
+        this._loadData360DmoOptions();
         this.isScoringModalOpen = true;
     }
 
@@ -758,13 +1178,16 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
             Topic_Description__c: source.Topic_Description__c || '',
             Scoring_Model_Group_Dict__c: source.Scoring_Model_Group_Dict__c || null,
             Assigned_Topic_Dict__c: source.Assigned_Topic_Dict__c || null,
+            Scoring_Model_Source_System__c: source.Scoring_Model_Source_System__c || '',
+            Data360_DMO__c: source.Data360_DMO__c || '',
             Offering_Type__c: source.Offering_Type__c || 'Product Family',
             Product_Family__c: source.Product_Family__c || '',
             Family_of_Needs__c: source.Family_of_Needs__c || '',
             Model_Expiration_Date__c: null,
-            Is_Active__c: true
+            Is_Active__c: false
         };
         this._loadOfferingOptions();
+        this._loadData360DmoOptions();
         this.isScoringModalOpen = true;
     }
 
@@ -777,15 +1200,20 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
             Scoring_Model_Group_Dict__r,
             Assigned_Topic_Dict__r,
             CreatedBy,
+            LastModifiedBy,
             ...clean
         } = rec;
         this.scoringAsNewMaster = false;
         this.scoringNameLocked = true;
         this.editScoring = {
             ...clean,
-            CreatedByName: CreatedBy?.Name || ''
+            CreatedByName: CreatedBy?.Name || '',
+            LastModifiedByName: LastModifiedBy?.Name || '',
+            CreatedBy,
+            LastModifiedBy
         };
         this._loadOfferingOptions();
+        this._loadData360DmoOptions();
         this.isScoringModalOpen = true;
     }
 
@@ -796,6 +1224,24 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
             value = e.target.checked;
         }
         this.editScoring = { ...this.editScoring, [field]: value };
+    }
+
+    handleScoringActiveToggle(e) {
+        const wantActive = e.target.checked === true;
+        if (wantActive) {
+            const missing = this._scoringActivationMissingFields();
+            if (missing.length) {
+                // Revert toggle — keep draft until required fields are complete.
+                this.editScoring = { ...this.editScoring, Is_Active__c: false };
+                this._showToast(
+                    'Cannot activate',
+                    `Complete required fields first: ${missing.join(', ')}`,
+                    'warning'
+                );
+                return;
+            }
+        }
+        this.editScoring = { ...this.editScoring, Is_Active__c: wantActive };
     }
 
     handleScoringOfferingTypeChange(e) {
@@ -877,25 +1323,18 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
             this._showToast('Validation', 'Model Name is required.', 'warning');
             return;
         }
-        if (!this.editScoring.Scoring_Model_Group_Dict__c) {
-            this._showToast('Validation', 'Model Group is required.', 'warning');
-            return;
-        }
-        if (!this.editScoring.Assigned_Topic_Dict__c) {
-            this._showToast('Validation', 'Assigned Topic is required.', 'warning');
-            return;
-        }
-        if (!this.editScoring.Offering_Type__c) {
-            this._showToast('Validation', 'Offering Type is required.', 'warning');
-            return;
-        }
-        if (this.isScoringOfferingProductFamily && !this._parseSemiList(this.editScoring.Product_Family__c).length) {
-            this._showToast('Validation', 'Select at least one Product Family.', 'warning');
-            return;
-        }
-        if (this.isScoringOfferingFamilyOfNeeds && !this._parseSemiList(this.editScoring.Family_of_Needs__c).length) {
-            this._showToast('Validation', 'Select at least one Family of Needs.', 'warning');
-            return;
+
+        const isActive = this.editScoring.Is_Active__c === true;
+        if (isActive) {
+            const missing = this._scoringActivationMissingFields();
+            if (missing.length) {
+                this._showToast(
+                    'Cannot activate',
+                    `Complete required fields to activate: ${missing.join(', ')}`,
+                    'warning'
+                );
+                return;
+            }
         }
 
         const {
@@ -903,6 +1342,8 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
             Assigned_Topic_Dict__r,
             CreatedBy,
             CreatedByName,
+            LastModifiedBy,
+            LastModifiedByName,
             CreatedDate,
             LastModifiedDate,
             groupName,
@@ -911,8 +1352,11 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
             offeringValuesShort,
             createdDisplay,
             modifiedDisplay,
+            createdByName,
             expirationDisplay,
             activeLabel,
+            statusLabel,
+            statusBadgeClass,
             ...record
         } = this.editScoring;
 
@@ -924,11 +1368,16 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
                     Name: name,
                     Dictionary_Sub_Type__c: 'Scoring Model',
                     Scoring_Model_Group_Dict__c: record.Scoring_Model_Group_Dict__c || null,
-                    Assigned_Topic_Dict__c: record.Assigned_Topic_Dict__c || null
+                    Assigned_Topic_Dict__c: record.Assigned_Topic_Dict__c || null,
+                    Is_Active__c: isActive
                 },
                 asNewMaster: this.scoringAsNewMaster && !record.Id
             });
-            this._showToast('Success', 'Scoring Model saved.', 'success');
+            this._showToast(
+                'Success',
+                isActive ? 'Scoring Model activated.' : 'Scoring Model saved as draft.',
+                'success'
+            );
             this.isScoringModalOpen = false;
             await refreshApex(this._wiredCampaignResult);
         } catch (err) {
@@ -1092,10 +1541,14 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
     }
 
     handleDeleteCampaignRecord(e) { this._openDeleteModal(e.currentTarget.dataset.id, e.currentTarget.dataset.name, 'campaignRecord'); }
-    closeDeleteModal() { this.isDeleteModalOpen = false; }
+    closeDeleteModal() {
+        this.isDeleteModalOpen = false;
+        this._deleteIds = null;
+    }
 
     _openDeleteModal(id, name, type) {
         this._deleteId = id;
+        this._deleteIds = null;
         this._deleteType = type;
         this.deleteTargetName = name;
         this.isDeleteModalOpen = true;
@@ -1108,8 +1561,16 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
             if (this._deleteType === 'tier') {
                 await deleteCampaignTier({ recordId: this._deleteId });
                 await refreshApex(this._wiredTiersResult);
+            } else if (this._deleteType === 'scoringBulk' && this._deleteIds?.length) {
+                for (const recordId of this._deleteIds) {
+                    await deleteDictionaryRecord({ recordId });
+                }
+                this.selectedScoringIds = [];
+                this._deleteIds = null;
+                await refreshApex(this._wiredCampaignResult);
             } else {
                 await deleteDictionaryRecord({ recordId: this._deleteId });
+                this.selectedScoringIds = this.selectedScoringIds.filter(id => id !== this._deleteId);
                 await refreshApex(this._wiredCampaignResult);
             }
             this._showToast('Success', 'Deleted.', 'success');

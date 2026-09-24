@@ -145,6 +145,8 @@ public with sharing class MarketingDictionaryManagerController {
         return [
             SELECT Id, Name, Channel_Type__c, Channel_Icon__c,
                 (SELECT Id, Audience_Type_Dict__c, Audience_Type_Dict__r.Name, Cooldown_Days__c FROM Channel_Cooldowns__r ORDER BY Audience_Type_Dict__r.Name ASC),
+                (SELECT Id, Day_Of_Week__c, Is_Fully_Blocked__c, Blocked_From_Hour__c, Blocked_To_Hour__c
+                 FROM Blackout_Day_Rules__r ORDER BY Day_Of_Week__c ASC),
                 (SELECT Id, Name, Description__c, Image_URL__c FROM Channel_Banner_Types__r ORDER BY Name ASC),
                 (SELECT Id, Name, App_Screen__c, Banner_Type__c, Banner_Type__r.Name, Position_Description__c
                  FROM Channel_Banner_Placements__r ORDER BY App_Screen__c ASC, Name ASC),
@@ -362,7 +364,10 @@ public with sharing class MarketingDictionaryManagerController {
                    Scoring_Model_Group_Dict__c, Scoring_Model_Group_Dict__r.Name,
                    Assigned_Topic_Dict__c, Assigned_Topic_Dict__r.Name,
                    Offering_Type__c, Product_Family__c, Family_of_Needs__c,
-                   CreatedDate, LastModifiedDate, CreatedById, CreatedBy.Name
+                   Scoring_Model_Source_System__c, Data360_DMO__c,
+                   CreatedDate, LastModifiedDate,
+                   CreatedById, CreatedBy.Name,
+                   LastModifiedById, LastModifiedBy.Name
             FROM Marketing_Dictionary__c
             WHERE RecordType.DeveloperName = 'Campaign'
             ORDER BY Dictionary_Sub_Type__c ASC, Name ASC, Version__c ASC NULLS LAST
@@ -371,11 +376,42 @@ public with sharing class MarketingDictionaryManagerController {
     }
 
     /**
+     * Data360 DMO options for Scoring Model editor.
+     * Prefers Data Lake / DMO-style entities (QualifiedApiName ending in __dlm).
+     */
+    @AuraEnabled(cacheable=true)
+    public static List<Map<String, String>> getData360DmoOptions() {
+        List<Map<String, String>> options = new List<Map<String, String>>();
+        try {
+            for (EntityDefinition ent : [
+                SELECT QualifiedApiName, Label
+                FROM EntityDefinition
+                WHERE QualifiedApiName LIKE '%__dlm'
+                ORDER BY Label ASC NULLS LAST, QualifiedApiName ASC
+                LIMIT 500
+            ]) {
+                String api = ent.QualifiedApiName;
+                String label = String.isNotBlank(ent.Label) ? ent.Label : api;
+                options.add(new Map<String, String>{
+                    'label' => label + ' (' + api + ')',
+                    'value' => api
+                });
+            }
+        } catch (Exception e) {
+            // EntityDefinition / Data360 catalogue may be unavailable in some orgs.
+            System.debug(LoggingLevel.WARN, 'getData360DmoOptions: ' + e.getMessage());
+        }
+        return options;
+    }
+
+    /**
      * Upserts a Scoring Model dictionary row with versioning and uniqueness rules:
      * - New master (asNewMaster=true): Version = 1; Name must not already exist
      * - New version (asNewMaster=false, no Id): Version = max(existing) + 1; Name must exist
      * - Edit (has Id): Name and Version are locked to existing values
      * - Model_Id__c = Name + '_' + Version (unique)
+     * - Draft (Is_Active__c = false): only Model Name is required
+     * - Active (Is_Active__c = true): full required set must be complete
      */
     @AuraEnabled
     public static Id saveScoringModel(Marketing_Dictionary__c record, Boolean asNewMaster) {
@@ -390,55 +426,16 @@ public with sharing class MarketingDictionaryManagerController {
             record.Name = modelName;
             record.Dictionary_Sub_Type__c = 'Scoring Model';
             record.RecordTypeId = getRecordTypeId('Campaign');
+            if (record.Is_Active__c == null) {
+                record.Is_Active__c = false;
+            }
+            Boolean isActive = record.Is_Active__c == true;
 
-            if (record.Scoring_Model_Group_Dict__c == null) {
-                throw new AuraHandledException('Model Group is required.');
-            }
-            if (record.Assigned_Topic_Dict__c == null) {
-                throw new AuraHandledException('Assigned Topic is required.');
-            }
-
-            // Lookup filters unavailable (object at Salesforce max of 5) — validate subtypes in Apex.
-            Marketing_Dictionary__c groupRec = [
-                SELECT Id, Dictionary_Sub_Type__c
-                FROM Marketing_Dictionary__c
-                WHERE Id = :record.Scoring_Model_Group_Dict__c
-                LIMIT 1
-            ];
-            if (groupRec.Dictionary_Sub_Type__c != 'Scoring Model Group') {
-                throw new AuraHandledException('Model Group must be a Scoring Model Group dictionary entry.');
-            }
-            Marketing_Dictionary__c topicRec = [
-                SELECT Id, Dictionary_Sub_Type__c
-                FROM Marketing_Dictionary__c
-                WHERE Id = :record.Assigned_Topic_Dict__c
-                LIMIT 1
-            ];
-            if (topicRec.Dictionary_Sub_Type__c != 'Topic') {
-                throw new AuraHandledException('Assigned Topic must be a Topic dictionary entry.');
-            }
-
-            if (String.isBlank(record.Offering_Type__c)) {
-                throw new AuraHandledException('Offering Type is required.');
-            }
-            if (record.Offering_Type__c == 'Product Family') {
-                if (String.isBlank(record.Product_Family__c)) {
-                    throw new AuraHandledException('Select at least one Product Family.');
-                }
-                record.Product_Family__c = normalizeOfferingIds(
-                    record.Product_Family__c, 'Product Family'
-                );
-                record.Family_of_Needs__c = null;
-            } else if (record.Offering_Type__c == 'Family of Needs') {
-                if (String.isBlank(record.Family_of_Needs__c)) {
-                    throw new AuraHandledException('Select at least one Family of Needs.');
-                }
-                record.Family_of_Needs__c = normalizeOfferingIds(
-                    record.Family_of_Needs__c, 'Family of Needs'
-                );
-                record.Product_Family__c = null;
+            if (isActive) {
+                validateScoringModelForActivation(record);
             } else {
-                throw new AuraHandledException('Offering Type must be Product Family or Family of Needs.');
+                // Draft: soft-validate any fields that were provided.
+                normalizeScoringModelDraftFields(record);
             }
 
             if (record.Id != null) {
@@ -479,9 +476,6 @@ public with sharing class MarketingDictionaryManagerController {
             }
 
             record.Model_Id__c = modelName + '_' + String.valueOf(record.Version__c.intValue());
-            if (record.Is_Active__c == null) {
-                record.Is_Active__c = true;
-            }
 
             upsert record;
             return record.Id;
@@ -497,6 +491,134 @@ public with sharing class MarketingDictionaryManagerController {
             throw new AuraHandledException(msg);
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());
+        }
+    }
+
+    /** Full required-field gate used when Is_Active__c = true. */
+    private static void validateScoringModelForActivation(Marketing_Dictionary__c record) {
+        if (record.Scoring_Model_Group_Dict__c == null) {
+            throw new AuraHandledException('Model Group is required to activate a Scoring Model.');
+        }
+        if (record.Assigned_Topic_Dict__c == null) {
+            throw new AuraHandledException('Assigned Topic is required to activate a Scoring Model.');
+        }
+        if (String.isBlank(record.Scoring_Model_Source_System__c)) {
+            throw new AuraHandledException('Scoring Model Source System is required to activate.');
+        }
+        if (record.Scoring_Model_Source_System__c != 'GCP'
+            && record.Scoring_Model_Source_System__c != 'Salesforce (Einstein)') {
+            throw new AuraHandledException(
+                'Scoring Model Source System must be GCP or Salesforce (Einstein).'
+            );
+        }
+        if (String.isBlank(record.Data360_DMO__c)) {
+            throw new AuraHandledException('Data360 DMO is required to activate a Scoring Model.');
+        }
+        record.Data360_DMO__c = record.Data360_DMO__c.trim();
+
+        Marketing_Dictionary__c groupRec = [
+            SELECT Id, Dictionary_Sub_Type__c
+            FROM Marketing_Dictionary__c
+            WHERE Id = :record.Scoring_Model_Group_Dict__c
+            LIMIT 1
+        ];
+        if (groupRec.Dictionary_Sub_Type__c != 'Scoring Model Group') {
+            throw new AuraHandledException('Model Group must be a Scoring Model Group dictionary entry.');
+        }
+        Marketing_Dictionary__c topicRec = [
+            SELECT Id, Dictionary_Sub_Type__c
+            FROM Marketing_Dictionary__c
+            WHERE Id = :record.Assigned_Topic_Dict__c
+            LIMIT 1
+        ];
+        if (topicRec.Dictionary_Sub_Type__c != 'Topic') {
+            throw new AuraHandledException('Assigned Topic must be a Topic dictionary entry.');
+        }
+
+        if (String.isBlank(record.Offering_Type__c)) {
+            throw new AuraHandledException('Offering Type is required to activate a Scoring Model.');
+        }
+        if (record.Offering_Type__c == 'Product Family') {
+            if (String.isBlank(record.Product_Family__c)) {
+                throw new AuraHandledException('Select at least one Product Family to activate.');
+            }
+            record.Product_Family__c = normalizeOfferingIds(
+                record.Product_Family__c, 'Product Family'
+            );
+            record.Family_of_Needs__c = null;
+        } else if (record.Offering_Type__c == 'Family of Needs') {
+            if (String.isBlank(record.Family_of_Needs__c)) {
+                throw new AuraHandledException('Select at least one Family of Needs to activate.');
+            }
+            record.Family_of_Needs__c = normalizeOfferingIds(
+                record.Family_of_Needs__c, 'Family of Needs'
+            );
+            record.Product_Family__c = null;
+        } else {
+            throw new AuraHandledException('Offering Type must be Product Family or Family of Needs.');
+        }
+    }
+
+    /** Soft normalize for draft saves — only validate fields that were provided. */
+    private static void normalizeScoringModelDraftFields(Marketing_Dictionary__c record) {
+        if (String.isNotBlank(record.Data360_DMO__c)) {
+            record.Data360_DMO__c = record.Data360_DMO__c.trim();
+        }
+        if (String.isNotBlank(record.Scoring_Model_Source_System__c)
+            && record.Scoring_Model_Source_System__c != 'GCP'
+            && record.Scoring_Model_Source_System__c != 'Salesforce (Einstein)') {
+            throw new AuraHandledException(
+                'Scoring Model Source System must be GCP or Salesforce (Einstein).'
+            );
+        }
+        if (record.Scoring_Model_Group_Dict__c != null) {
+            Marketing_Dictionary__c groupRec = [
+                SELECT Id, Dictionary_Sub_Type__c
+                FROM Marketing_Dictionary__c
+                WHERE Id = :record.Scoring_Model_Group_Dict__c
+                LIMIT 1
+            ];
+            if (groupRec.Dictionary_Sub_Type__c != 'Scoring Model Group') {
+                throw new AuraHandledException('Model Group must be a Scoring Model Group dictionary entry.');
+            }
+        }
+        if (record.Assigned_Topic_Dict__c != null) {
+            Marketing_Dictionary__c topicRec = [
+                SELECT Id, Dictionary_Sub_Type__c
+                FROM Marketing_Dictionary__c
+                WHERE Id = :record.Assigned_Topic_Dict__c
+                LIMIT 1
+            ];
+            if (topicRec.Dictionary_Sub_Type__c != 'Topic') {
+                throw new AuraHandledException('Assigned Topic must be a Topic dictionary entry.');
+            }
+        }
+
+        if (String.isBlank(record.Offering_Type__c)) {
+            record.Product_Family__c = null;
+            record.Family_of_Needs__c = null;
+            return;
+        }
+        if (record.Offering_Type__c == 'Product Family') {
+            if (String.isNotBlank(record.Product_Family__c)) {
+                record.Product_Family__c = normalizeOfferingIds(
+                    record.Product_Family__c, 'Product Family'
+                );
+            } else {
+                record.Product_Family__c = null;
+            }
+            record.Family_of_Needs__c = null;
+        } else if (record.Offering_Type__c == 'Family of Needs') {
+            if (String.isNotBlank(record.Family_of_Needs__c)) {
+                record.Family_of_Needs__c = normalizeOfferingIds(
+                    record.Family_of_Needs__c, 'Family of Needs'
+                );
+            } else {
+                record.Family_of_Needs__c = null;
+            }
+            record.Product_Family__c = null;
+        } else {
+            throw new AuraHandledException('Offering Type must be Product Family or Family of Needs.');
         }
     }
 
@@ -733,27 +855,40 @@ public with sharing class MarketingDictionaryManagerController {
     public static List<Blackout_Window__c> getBlackoutWindows() {
         return [
             SELECT Id, Name, Blackout_Date__c, Blackout_End_Date__c, Blackout_Type__c,
-                   Is_Recurring_Annually__c, Description__c
+                   Is_Recurring_Annually__c, Description__c, Assigned_Channels__c
             FROM Blackout_Window__c
             ORDER BY Blackout_Date__c ASC NULLS LAST, Name ASC
             LIMIT 500
         ];
     }
 
+    /**
+     * Weekly day rules for one Channel (or all rules when channelId is null — legacy).
+     * Sorted Monday → Sunday.
+     */
     @AuraEnabled(cacheable=true)
-    public static List<Blackout_Day_Rule__c> getBlackoutDayRules() {
-        // Fetch all then sort in Apex using a sort-key prefix so Mon < Tue etc.
+    public static List<Blackout_Day_Rule__c> getBlackoutDayRules(Id channelId) {
         Map<String, String> dayPrefix = new Map<String, String>{
             'Monday' => '1', 'Tuesday' => '2', 'Wednesday' => '3',
             'Thursday' => '4', 'Friday' => '5', 'Saturday' => '6', 'Sunday' => '7'
         };
-        List<Blackout_Day_Rule__c> rules = [
-            SELECT Id, Name, Day_Of_Week__c, Is_Fully_Blocked__c,
-                   Blocked_From_Hour__c, Blocked_To_Hour__c
-            FROM Blackout_Day_Rule__c
-            LIMIT 500
-        ];
-        // Build a sortable map keyed by prefix+Id, then extract values in order
+        List<Blackout_Day_Rule__c> rules;
+        if (channelId != null) {
+            rules = [
+                SELECT Id, Name, Channel__c, Day_Of_Week__c, Is_Fully_Blocked__c,
+                       Blocked_From_Hour__c, Blocked_To_Hour__c
+                FROM Blackout_Day_Rule__c
+                WHERE Channel__c = :channelId
+                LIMIT 50
+            ];
+        } else {
+            rules = [
+                SELECT Id, Name, Channel__c, Day_Of_Week__c, Is_Fully_Blocked__c,
+                       Blocked_From_Hour__c, Blocked_To_Hour__c
+                FROM Blackout_Day_Rule__c
+                LIMIT 500
+            ];
+        }
         Map<String, Blackout_Day_Rule__c> sorted = new Map<String, Blackout_Day_Rule__c>();
         for (Blackout_Day_Rule__c r : rules) {
             String prefix = dayPrefix.containsKey(r.Day_Of_Week__c) ? dayPrefix.get(r.Day_Of_Week__c) : '8';
@@ -769,8 +904,16 @@ public with sharing class MarketingDictionaryManagerController {
     @AuraEnabled
     public static Id saveBlackoutWindow(Blackout_Window__c record) {
         try {
+            if (String.isBlank(record.Name) || record.Blackout_Date__c == null) {
+                throw new AuraHandledException('Name and Start Date are required.');
+            }
+            if (String.isBlank(record.Assigned_Channels__c)) {
+                throw new AuraHandledException('Select at least one channel for this blackout date.');
+            }
             upsert record;
             return record.Id;
+        } catch (AuraHandledException e) {
+            throw e;
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());
         }
@@ -788,8 +931,39 @@ public with sharing class MarketingDictionaryManagerController {
     @AuraEnabled
     public static Id saveBlackoutDayRule(Blackout_Day_Rule__c record) {
         try {
+            if (record.Channel__c == null) {
+                throw new AuraHandledException('Channel is required for weekly restrictions.');
+            }
+            if (String.isBlank(record.Day_Of_Week__c)) {
+                throw new AuraHandledException('Day of Week is required.');
+            }
+            // One rule per channel + day
+            List<Blackout_Day_Rule__c> existing;
+            if (record.Id == null) {
+                existing = [
+                    SELECT Id FROM Blackout_Day_Rule__c
+                    WHERE Channel__c = :record.Channel__c
+                    AND Day_Of_Week__c = :record.Day_Of_Week__c
+                    LIMIT 1
+                ];
+            } else {
+                existing = [
+                    SELECT Id FROM Blackout_Day_Rule__c
+                    WHERE Channel__c = :record.Channel__c
+                    AND Day_Of_Week__c = :record.Day_Of_Week__c
+                    AND Id != :record.Id
+                    LIMIT 1
+                ];
+            }
+            if (!existing.isEmpty()) {
+                throw new AuraHandledException(
+                    'A weekly restriction for ' + record.Day_Of_Week__c + ' already exists on this channel.'
+                );
+            }
             upsert record;
             return record.Id;
+        } catch (AuraHandledException e) {
+            throw e;
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());
         }
