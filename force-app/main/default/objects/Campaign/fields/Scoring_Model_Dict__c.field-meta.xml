@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Scoring_Model_Dict__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description>Lookup to the Marketing Dictionary Scoring Model used when Scoring Method is Pick a Model.</description>
+    <inlineHelpText>Select a Scoring Model defined in the Marketing Dictionary.</inlineHelpText>
+    <label>Scoring Model</label>
+    <lookupFilter>
+        <active>true</active>
+        <errorMessage>Select a Marketing Dictionary record of sub-type Scoring Model.</errorMessage>
+        <filterItems>
+            <field>Marketing_Dictionary__c.Dictionary_Sub_Type__c</field>
+            <operation>equals</operation>
+            <value>Scoring Model</value>
+        </filterItems>
+        <isOptional>false</isOptional>
+    </lookupFilter>
+    <referenceTo>Marketing_Dictionary__c</referenceTo>
+    <relationshipLabel>Campaigns (Scoring Model)</relationshipLabel>
+    <relationshipName>Campaigns_Scoring_Model</relationshipName>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <type>Lookup</type>
+</CustomField>

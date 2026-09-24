@@ -79,7 +79,10 @@
                                     <!-- Activation Type + Emergency Toggle Row -->
                                     <div class="slds-grid slds-grid_vertical-align-end slds-gutters slds-m-top_medium">
                                         <div class="slds-col">
-                                            <label class="slds-form-element__label custom-label-style">Activation Type</label>
+                                            <label class="slds-form-element__label custom-label-style">
+                                                Activation Type
+                                                <abbr class="slds-required" title="required">*</abbr>
+                                            </label>
                                             <div class="slds-button-group activation-type-group slds-m-top_xx-small" role="group" aria-label="Activation Type">
                                                 <template for:each={activationOptions} for:item="option">
                                                     <button key={option.value}
@@ -126,7 +129,7 @@
                                     </template>
 
                                     <div class="slds-m-top_medium">
-                                        <lightning-input type="text" label="Campaign Name" placeholder="eg. cashloan" value={campaignName} onchange={handleNameChange} class="custom-form-input"></lightning-input>
+                                        <lightning-input type="text" label="Campaign Name" placeholder="eg. cashloan" value={campaignName} onchange={handleNameChange} required class="custom-form-input"></lightning-input>
                                     </div>
                                 </div>
 
@@ -140,6 +143,7 @@
                                             <fieldset class="slds-form-element priority-tier-fieldset" role="radiogroup">
                                                 <legend class="slds-form-element__legend slds-form-element__label">
                                                     Priority Tier
+                                                    <abbr class="slds-required" title="required">*</abbr>
                                                 </legend>
                                                 <div class="slds-form-element__control priority-tier-picker-control">
                                                     <template for:each={priorityTierOptions} for:item="tier">
@@ -646,29 +650,70 @@
                                 <span class="module-header-title">Scoring Settings</span>
 
                                 <div class="slds-m-top_medium">
-                                    <label class="slds-form-element__label custom-label-style">Scoring Definition Method</label>
-                                    <div class="slds-m-top_xx-small">
-                                        <div class="segmented-control-container scoring-tabs">
-                                            <template for:each={scoringMethodOptions} for:item="method">
-                                                <div key={method.value} class={method.className} data-value={method.value} onclick={handleScoringMethodChange}>
-                                                    {method.label}
-                                                </div>
-                                            </template>
+                                    <fieldset class="slds-form-element" role="radiogroup">
+                                        <legend class="slds-form-element__legend slds-form-element__label custom-label-style">
+                                            Scoring Definition Method
+                                            <abbr class="slds-required" title="required">*</abbr>
+                                        </legend>
+                                        <div class="slds-form-element__control slds-m-top_xx-small">
+                                            <div class="slds-radio_button-group">
+                                                <template for:each={scoringMethodOptions} for:item="method">
+                                                    <span key={method.value} class="slds-button slds-radio_button">
+                                                        <input type="radio"
+                                                               name="campaign-scoring-method"
+                                                               id={method.inputId}
+                                                               value={method.value}
+                                                               checked={method.isChecked}
+                                                               onchange={handleScoringMethodChange} />
+                                                        <label class="slds-radio_button__label" for={method.inputId}>
+                                                            <span class="slds-radio_faux">{method.label}</span>
+                                                        </label>
+                                                    </span>
+                                                </template>
+                                            </div>
                                         </div>
-                                    </div>
+                                    </fieldset>
                                 </div>
 
                                 <template lwc:if={isScoringAPriori}>
                                     <div class="scoring-content-box animate-fade-in slds-m-top_medium">
-                                        <lightning-input type="number" label="Overall Score" placeholder="Insert Value (1-1000)" value={aprioriOverallScore} onchange={handleAprioriChange} min="1" max="1000" step="1" message-when-range-underflow="Score must be at least 1" message-when-range-overflow="Score cannot exceed 1000" message-when-step-mismatch="Score must be a whole number" required class="custom-form-input"></lightning-input>
+                                        <lightning-input
+                                            type="number"
+                                            label="Overall Score"
+                                            placeholder="Insert Value (1-1000)"
+                                            value={aprioriOverallScore}
+                                            onchange={handleAprioriChange}
+                                            min="1"
+                                            max="1000"
+                                            step="1"
+                                            message-when-range-underflow="Score must be at least 1"
+                                            message-when-range-overflow="Score cannot exceed 1000"
+                                            message-when-step-mismatch="Score must be a whole number"
+                                            required
+                                            class="custom-form-input">
+                                        </lightning-input>
                                     </div>
                                 </template>
                                 <template lwc:if={isScoringFromObject}>
                                     <div class="scoring-content-box animate-fade-in slds-m-top_medium">
-                                        <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
-                                            Scoring model selection from the Marketing Dictionary will be wired here next.
-                                            For now, provide a fallback a-priori score used when a customer has no score in the model output table.
-                                        </p>
+                                        <template lwc:if={hasScoringModels}>
+                                            <lightning-combobox
+                                                name="scoringModel"
+                                                label="Scoring Model"
+                                                placeholder="Select a scoring model from the dictionary"
+                                                value={selectedScoringModelId}
+                                                options={scoringModelOptions}
+                                                onchange={handleScoringModelChange}
+                                                required
+                                                class="custom-form-input slds-m-bottom_small">
+                                            </lightning-combobox>
+                                        </template>
+                                        <template lwc:else>
+                                            <div class="slds-notify slds-notify_alert slds-alert_warning slds-m-bottom_small" role="alert">
+                                                <span class="slds-assistive-text">warning</span>
+                                                <h2>No active Scoring Model records found in the Marketing Dictionary. Create one before activating with Pick a Model.</h2>
+                                            </div>
+                                        </template>
                                         <lightning-input
                                             type="number"
                                             label="Fallback A-Priori Score"
@@ -783,6 +828,12 @@
                                             <span class="summary-label">Scoring Method</span>
                                             <span class="summary-value">{selectedScoringMethod}</span>
                                         </div>
+                                        <template lwc:if={isScoringFromObject}>
+                                            <div class="summary-row">
+                                                <span class="summary-label">Scoring Model</span>
+                                                <span class="summary-value">{summaryScoringModel}</span>
+                                            </div>
+                                        </template>
                                         <div class="summary-row">
                                             <span class="summary-label">{summaryFallbackScoreLabel}</span>
                                             <span class="summary-value">{summaryScore}</span>
@@ -855,11 +906,22 @@
                     <template lwc:if={showBackButton}>
                         <button class="pill-action-btn secondary-pill slds-m-right_small" onclick={handlePreviousStep}>Back</button>
                     </template>
+                    <button class="pill-action-btn secondary-pill slds-m-right_small"
+                            onclick={handleSaveDraft}
+                            disabled={isDraftSaveInvalid}
+                            title="Save campaign as draft (Planned). Activation requires all wizard validations.">
+                        {saveButtonLabel}
+                    </button>
                     <template lwc:if={showNextButton}>
                         <button class="pill-action-btn primary-pill" onclick={handleNextStep} disabled={isCurrentStepInvalid}>Next</button>
                     </template>
                     <template lwc:if={isLastStep}>
-                        <button class="pill-action-btn primary-pill" onclick={handleSave} disabled={isCurrentStepInvalid}>{saveButtonLabel}</button>
+                        <button class="pill-action-btn primary-pill"
+                                onclick={handleActivate}
+                                disabled={isActivationDisabled}
+                                title="Activate only when all wizard validations pass.">
+                            {activateButtonLabel}
+                        </button>
                     </template>
                 </div>
             </footer>

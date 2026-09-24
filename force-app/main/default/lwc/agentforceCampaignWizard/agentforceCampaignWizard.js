@@ -19,6 +19,7 @@ import saveCampaignOffers from '@salesforce/apex/MarketingDictionaryController.s
 import getOfferSummaries from '@salesforce/apex/MarketingDictionaryController.getOfferSummaries';
 import getCampaignTiers from '@salesforce/apex/MarketingDictionaryManagerController.getCampaignTiers';
 import getCampaignTypes from '@salesforce/apex/MarketingDictionaryController.getCampaignTypes';
+import getScoringModels from '@salesforce/apex/MarketingDictionaryController.getScoringModels';
 import {
     parseSupportedCampaignTypes as parseTierCampaignTypes,
     buildTierAttrRows,
@@ -72,9 +73,12 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     @track suppressionLookupDisplay = '';
 
     // --- SCORING METHOD STATE ---
-    @track selectedScoringMethod = 'Pick a Model'; 
+    @track selectedScoringMethod = 'Pick a Model';
     @track aprioriOverallScore = '';
-    @track fromObjectOverallScore = '';
+    @track fromObjectOverallScore = ''; // Fallback A-Priori when Pick a Model
+    @track selectedScoringModelId = '';
+    @track selectedScoringModelName = '';
+    @track _scoringModels = [];
 
     @track selectAllChecked = false;
     @track channels = [];
@@ -153,6 +157,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     connectedCallback() {
         this.loadTiers();
         this.loadCampaignTypes();
+        this.loadScoringModels();
         document.addEventListener('click', this.handleOutsideClickBound = this.handleOutsideClick.bind(this));
         if (this.recordId) {
             this.isEditMode = true;
@@ -177,6 +182,12 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         getCampaignTypes()
             .then(data => { this._allCampaignTypes = data || []; })
             .catch(err => console.error('Error loading campaign types:', err));
+    }
+
+    loadScoringModels() {
+        getScoringModels()
+            .then(data => { this._scoringModels = data || []; })
+            .catch(err => console.error('Error loading scoring models:', err));
     }
 
     loadExistingCampaign() {
@@ -219,11 +230,21 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         this.isEmergency = campaign.Priority_Tier__c === 'Tier 1';
         this.excludeOnboarding = campaign.Exclude_Onboarding__c === true;
         this.selectedScoringMethod = campaign.Scoring_Method__c || 'Pick a Model';
+        this.selectedScoringModelId = campaign.Scoring_Model_Dict__c || '';
+        this.selectedScoringModelName = campaign.Scoring_Model_Dict__r
+            ? campaign.Scoring_Model_Dict__r.Name
+            : '';
 
         if (this.selectedScoringMethod === 'A-priori') {
             this.aprioriOverallScore = campaign.Overall_Score__c != null ? String(campaign.Overall_Score__c) : '';
+            this.fromObjectOverallScore = '';
         } else {
-            this.fromObjectOverallScore = campaign.Overall_Score__c != null ? String(campaign.Overall_Score__c) : '';
+            // Prefer dedicated Fallback_Score__c; fall back to Overall_Score__c for older records.
+            const fallback = campaign.Fallback_Score__c != null
+                ? campaign.Fallback_Score__c
+                : campaign.Overall_Score__c;
+            this.fromObjectOverallScore = fallback != null ? String(fallback) : '';
+            this.aprioriOverallScore = '';
         }
 
         if (campaign.Assigned_Channels__c) {
@@ -734,18 +755,26 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         return true;
     }
 
-    handleScoringMethodChange(event) { 
+    handleScoringMethodChange(event) {
         if (this.isScoringDisabled) return;
-        this.selectedScoringMethod = event.currentTarget.dataset.value; 
+        this.selectedScoringMethod = event.target.value;
     }
 
     handleAprioriChange(event) { this.aprioriOverallScore = event.target.value; }
     handleFromObjectChange(event) { this.fromObjectOverallScore = event.target.value; }
 
+    handleScoringModelChange(event) {
+        this.selectedScoringModelId = event.detail.value;
+        const opt = this.scoringModelOptions.find(o => o.value === this.selectedScoringModelId);
+        this.selectedScoringModelName = opt ? opt.label : '';
+    }
+
     clearScoringIfDisabled() {
         if (this.isScoringDisabled) {
             this.aprioriOverallScore = '';
             this.fromObjectOverallScore = '';
+            this.selectedScoringModelId = '';
+            this.selectedScoringModelName = '';
         }
     }
 
@@ -906,6 +935,75 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         return this.isScoringFromObject ? 'Fallback A-Priori Score' : 'Overall Score';
     }
 
+    get summaryScoringModel() {
+        return this.selectedScoringModelName || 'Not set';
+    }
+
+    get hasSelectedChannel() {
+        return this.channels.some(c => c.checked);
+    }
+
+    get hasOfferingSelection() {
+        if (this.isOfferingProductFamily) {
+            return this.productFamilyOptions.some(opt => opt.checked);
+        }
+        if (this.isOfferingFamilyOfNeeds) {
+            return this.familyOfNeedsOptions.some(opt => opt.checked);
+        }
+        return false;
+    }
+
+    isValidScoreValue(raw) {
+        const val = Number(raw);
+        return !!raw && Number.isInteger(val) && val >= 1 && val <= 1000;
+    }
+
+    get isStep1Valid() {
+        if (!this.parentActivationType) return false;
+        if (!this.campaignName || this.campaignName.trim() === '') return false;
+        if (this.showCampaignGroup && !this.selectedCampaignGroupId) return false;
+        if (!this.selectedPriorityTier) return false;
+        if (!this.hasSelectedChannel) return false;
+        return true;
+    }
+
+    get isStep2Valid() {
+        if (!this.topicName || this.topicName.trim() === '') return false;
+        if (!this.selectedOfferingType) return false;
+        if (!this.hasOfferingSelection) return false;
+        return true;
+    }
+
+    get isStep3Valid() {
+        // Copy Assignment — required “≥1 message variant per channel” once Copy Center is wired.
+        return true;
+    }
+
+    get isStep4Valid() {
+        if (!this.selectedScoringMethod) return false;
+        if (this.isScoringAPriori) {
+            return this.isValidScoreValue(this.aprioriOverallScore);
+        }
+        if (this.isScoringFromObject) {
+            return !!this.selectedScoringModelId && this.isValidScoreValue(this.fromObjectOverallScore);
+        }
+        return false;
+    }
+
+    /** Draft save only needs a campaign name so a record can be persisted. */
+    get isDraftSaveInvalid() {
+        return !this.campaignName || this.campaignName.trim() === '';
+    }
+
+    /** Full activation gate across all configured wizard rules (Copy Center pending). */
+    get isActivationReady() {
+        return this.isStep1Valid && this.isStep2Valid && this.isStep3Valid && this.isStep4Valid;
+    }
+
+    get isActivationDisabled() {
+        return !this.isActivationReady;
+    }
+
     // Only render the offer panel when a matching offer was selected during offering
     // and its summary has loaded.
     get hasSelectedOfferSummary() {
@@ -979,6 +1077,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     handleNextStep() {
+        if (this.isCurrentStepInvalid) return;
         if (this.currentStep < 5) {
             this.currentStep++;
             this.maybeLoadOfferSummaries();
@@ -1078,10 +1177,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             const types = this.fonCustomerTypes[fon.value] || [];
             return this.fonFilterCustomerTypes.some(ct => types.includes(ct));
         });
-    }
-
-    get saveButtonLabel() {
-        return this.isEditMode ? 'Update' : 'Save';
     }
 
     get showEmergencyToggle() {
@@ -1204,7 +1299,30 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get scoringMethodOptions() {
-        return this.scoringMethodsData.map(m => ({ ...m, className: `segment-item ${this.selectedScoringMethod === m.value ? 'segment-selected' : ''}` }));
+        return this.scoringMethodsData.map(m => ({
+            ...m,
+            inputId: `scoring-method-${m.value.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}`,
+            isChecked: this.selectedScoringMethod === m.value
+        }));
+    }
+
+    get scoringModelOptions() {
+        return (this._scoringModels || []).map(m => ({
+            label: m.Name,
+            value: m.Id
+        }));
+    }
+
+    get hasScoringModels() {
+        return this.scoringModelOptions.length > 0;
+    }
+
+    get saveButtonLabel() {
+        return 'Save & Close';
+    }
+
+    get activateButtonLabel() {
+        return 'Activate';
     }
 
     get offeringTypeOptions() {
@@ -1242,39 +1360,12 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     get isCurrentStepInvalid() {
         switch (this.currentStep) {
-            case 1:
-                if (this.campaignName.trim() === '' || !this.parentActivationType) return true;
-                if (this.showCampaignGroup && !this.selectedCampaignGroupId) return true;
-                if (this.selectedPriorityTier === '') return true;
-                return false;
-            case 2:
-                if (!this.topicName || this.topicName.trim() === '' || !this.selectedOfferingType) return true;
-                if (this.isOfferingProductFamily) {
-                    if (!this.productFamilyOptions.some(opt => opt.checked)) return true;
-                }
-                if (this.isOfferingFamilyOfNeeds) {
-                    if (!this.familyOfNeedsOptions.some(opt => opt.checked)) return true;
-                }
-                return false;
-            case 3:
-                // Copy Assignment ghost step — no validation until Copy Center is wired in.
-                return false;
-            case 4:
-                if (this.isScoringAPriori) {
-                    const val = Number(this.aprioriOverallScore);
-                    if (!this.aprioriOverallScore || !Number.isInteger(val) || val < 1 || val > 1000) return true;
-                }
-                if (this.isScoringFromObject) {
-                    // Fallback a-priori score is mandatory when a scoring model is selected
-                    // (covers customers with no row in the model output table).
-                    const val = Number(this.fromObjectOverallScore);
-                    if (!this.fromObjectOverallScore || !Number.isInteger(val) || val < 1 || val > 1000) return true;
-                }
-                return false;
-            case 5:
-                return false;
-            default:
-                return false;
+            case 1: return !this.isStep1Valid;
+            case 2: return !this.isStep2Valid;
+            case 3: return !this.isStep3Valid;
+            case 4: return !this.isStep4Valid;
+            case 5: return false;
+            default: return false;
         }
     }
 
@@ -1440,27 +1531,52 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         this._offerFetchTimer = setTimeout(() => this.fetchMatchingOffers(), 300);
     }
 
-    handleSave() {
+    handleSaveDraft() {
+        if (this.isDraftSaveInvalid) return;
         this.isLoading = true;
-        this.executeSubCampaignSave();
+        this.executeSubCampaignSave({ activate: false });
     }
 
-    executeSubCampaignSave() {
+    handleActivate() {
+        if (!this.isActivationReady) return;
+        this.isLoading = true;
+        this.executeSubCampaignSave({ activate: true });
+    }
+
+    /** @deprecated Prefer handleSaveDraft / handleActivate */
+    handleSave() {
+        this.handleSaveDraft();
+    }
+
+    executeSubCampaignSave({ activate = false } = {}) {
         const fields = {};
-        const num = (v) => v === '' || v === null ? null : Number(v);
+        const num = (v) => v === '' || v === null || v === undefined ? null : Number(v);
 
         fields['Name'] = `${this.activationPrefix}${this.toCamelCase(this.campaignName)}`;
         fields['Type'] = 'Standard';
+        fields['Status'] = activate ? 'Active' : 'Planned';
+        fields['IsActive'] = activate === true;
         fields['Campaign_Group_Dict__c'] = this.showCampaignGroup ? (this.selectedCampaignGroupId || null) : null;
         fields['Topic_Name__c'] = this.topicName || null;
-        fields['Priority_Tier__c'] = this.selectedPriorityTier;
-        fields['Activation_Type__c'] = this.parentActivationType;
+        fields['Priority_Tier__c'] = this.selectedPriorityTier || null;
+        fields['Activation_Type__c'] = this.parentActivationType || null;
         fields['Exclude_Onboarding__c'] = this.excludeOnboarding;
-        fields['Scoring_Method__c'] = this.selectedScoringMethod;
-        fields['Offering_Type__c'] = this.selectedOfferingType;
+        fields['Scoring_Method__c'] = this.selectedScoringMethod || null;
+        fields['Offering_Type__c'] = this.selectedOfferingType || null;
 
-        if (this.isScoringAPriori) fields['Overall_Score__c'] = num(this.aprioriOverallScore);
-        else if (this.isScoringFromObject) fields['Overall_Score__c'] = num(this.fromObjectOverallScore);
+        if (this.isScoringAPriori) {
+            fields['Overall_Score__c'] = num(this.aprioriOverallScore);
+            fields['Fallback_Score__c'] = null;
+            fields['Scoring_Model_Dict__c'] = null;
+        } else if (this.isScoringFromObject) {
+            fields['Overall_Score__c'] = null;
+            fields['Fallback_Score__c'] = num(this.fromObjectOverallScore);
+            fields['Scoring_Model_Dict__c'] = this.selectedScoringModelId || null;
+        } else {
+            fields['Overall_Score__c'] = null;
+            fields['Fallback_Score__c'] = null;
+            fields['Scoring_Model_Dict__c'] = null;
+        }
 
         fields['Assigned_Channels__c'] = this.channels.filter(c => c.checked).map(c => c.label).join('; ');
 
@@ -1472,6 +1588,10 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             fields['Product_Family__c'] = null;
         }
 
+        const successMessage = activate
+            ? 'Campaign activated successfully.'
+            : 'Campaign saved as draft (Planned).';
+
         if (this.isEditMode) {
             fields['Id'] = this.recordId;
             const recordInput = { fields };
@@ -1479,7 +1599,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 .then(() => this.persistCampaignOffers(this.recordId))
                 .then(() => {
                     this.isLoading = false;
-                    this.dispatchEvent(new ShowToastEvent({ title: 'Success!', message: 'Campaign updated successfully.', variant: 'success' }));
+                    this.dispatchEvent(new ShowToastEvent({ title: 'Success!', message: successMessage, variant: 'success' }));
                     this.navigateToRecord(this.recordId);
                 })
                 .catch(err => {
@@ -1491,7 +1611,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 .then(camp => this.persistCampaignOffers(camp.id).then(() => camp.id))
                 .then(campId => {
                     this.isLoading = false;
-                    this.dispatchEvent(new ShowToastEvent({ title: 'Success!', message: 'Standard Campaign record committed successfully.', variant: 'success' }));
+                    this.dispatchEvent(new ShowToastEvent({ title: 'Success!', message: successMessage, variant: 'success' }));
                     this.navigateToRecord(campId);
                 })
                 .catch(err => {

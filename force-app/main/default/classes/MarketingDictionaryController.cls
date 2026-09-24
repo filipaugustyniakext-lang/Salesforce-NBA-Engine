@@ -36,14 +36,29 @@ public with sharing class MarketingDictionaryController {
             SELECT Id, Name, Campaign_Group_Dict__c, Campaign_Group_Dict__r.Name,
                    Type, Topic_Name__c, Priority_Tier__c, Activation_Type__c,
                    Timing_From__c, Timing_To__c, Validity_Days__c, Duration_Days__c,
-                   Scoring_Method__c, Offering_Type__c,
-                   Overall_Score__c, Assigned_Channels__c, Product_Family__c,
+                   Scoring_Method__c, Offering_Type__c, Status, IsActive,
+                   Overall_Score__c, Fallback_Score__c,
+                   Scoring_Model_Dict__c, Scoring_Model_Dict__r.Name,
+                   Assigned_Channels__c, Product_Family__c,
                    Family_of_Needs__c, Exclude_Onboarding__c
             FROM Campaign
             WHERE Id = :campaignId
             LIMIT 1
         ];
         return campaigns.isEmpty() ? null : campaigns[0];
+    }
+
+    @AuraEnabled(cacheable=true)
+    public static List<Marketing_Dictionary__c> getScoringModels() {
+        return [
+            SELECT Id, Name, Topic_Description__c, Is_Active__c
+            FROM Marketing_Dictionary__c
+            WHERE RecordType.DeveloperName = 'Campaign'
+            AND Dictionary_Sub_Type__c = 'Scoring Model'
+            AND Is_Active__c = true
+            ORDER BY Name ASC
+            LIMIT 500
+        ];
     }
 
     @AuraEnabled(cacheable=true)
