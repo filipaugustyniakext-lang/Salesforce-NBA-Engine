@@ -145,17 +145,6 @@
         </values>
     </picklistValues>
     <picklistValues>
-        <picklist>Offering_Type__c</picklist>
-        <values>
-            <fullName>Family of Needs</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Product Family</fullName>
-            <default>false</default>
-        </values>
-    </picklistValues>
-    <picklistValues>
         <picklist>Parameter_Type__c</picklist>
         <values>
             <fullName>Checkbox</fullName>
