@@ -72,6 +72,11 @@
                 <default>false</default>
                 <label>Scoring Model</label>
             </value>
+            <value>
+                <fullName>Scoring Model Group</fullName>
+                <default>false</default>
+                <label>Scoring Model Group</label>
+            </value>
         </valueSetDefinition>
     </valueSet>
 </CustomField>

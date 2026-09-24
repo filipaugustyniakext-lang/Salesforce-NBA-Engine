@@ -128,6 +128,14 @@
             <default>false</default>
         </values>
         <values>
+            <fullName>Scoring Model</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Scoring Model Group</fullName>
+            <default>false</default>
+        </values>
+        <values>
             <fullName>Topic</fullName>
             <default>false</default>
         </values>

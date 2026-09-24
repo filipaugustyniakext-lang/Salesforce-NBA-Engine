@@ -34,16 +34,48 @@ public with sharing class MarketingDictionaryController {
         if (campaignId == null) return null;
         List<Campaign> campaigns = [
             SELECT Id, Name, Campaign_Group_Dict__c, Campaign_Group_Dict__r.Name,
-                   Type, Topic_Name__c, Priority_Tier__c, Activation_Type__c,
+                   Type, Topic_Name__c, Topic_Dict__c, Topic_Dict__r.Name,
+                   Priority_Tier__c, Activation_Type__c,
                    Timing_From__c, Timing_To__c, Validity_Days__c, Duration_Days__c,
-                   Scoring_Method__c, Offering_Type__c,
-                   Overall_Score__c, Assigned_Channels__c, Product_Family__c,
-                   Family_of_Needs__c, Exclude_Onboarding__c
+                   Scoring_Method__c, Offering_Type__c, Status, IsActive,
+                   Overall_Score__c, Fallback_Score__c,
+                   Scoring_Model_Dict__c, Scoring_Model_Dict__r.Name,
+                   Assigned_Channels__c,
+                   Product_Family__c, Product_Family_Ids__c,
+                   Family_of_Needs__c, Family_of_Needs_Ids__c,
+                   Exclude_Onboarding__c
             FROM Campaign
             WHERE Id = :campaignId
             LIMIT 1
         ];
         return campaigns.isEmpty() ? null : campaigns[0];
+    }
+
+    /**
+     * One-shot heal: move any Ids left in Campaign display fields into the Id SSOT
+     * fields and refresh display labels from the Marketing Dictionary.
+     */
+    @AuraEnabled
+    public static Integer healCampaignOfferingLabels() {
+        return CampaignOfferingLabelSync.healCampaigns(500);
+    }
+
+    @AuraEnabled(cacheable=true)
+    public static List<Marketing_Dictionary__c> getScoringModels() {
+        return [
+            SELECT Id, Name, Topic_Description__c, Is_Active__c,
+                   Version__c, Model_Id__c,
+                   Scoring_Model_Group_Dict__c, Scoring_Model_Group_Dict__r.Name,
+                   Assigned_Topic_Dict__c, Assigned_Topic_Dict__r.Name,
+                   Offering_Type__c, Product_Family__c, Family_of_Needs__c,
+                   Model_Expiration_Date__c
+            FROM Marketing_Dictionary__c
+            WHERE RecordType.DeveloperName = 'Campaign'
+            AND Dictionary_Sub_Type__c = 'Scoring Model'
+            AND Is_Active__c = true
+            ORDER BY Name ASC, Version__c DESC NULLS LAST
+            LIMIT 500
+        ];
     }
 
     @AuraEnabled(cacheable=true)
@@ -73,6 +105,22 @@ public with sharing class MarketingDictionaryController {
             options.add(rec.Name);
         }
         return options;
+    }
+
+    /**
+     * Topic catalogue with Ids for Id-based SSOT consumers (Campaign Wizard).
+     * Non-cacheable so renames are visible without waiting on cache.
+     */
+    @AuraEnabled
+    public static List<Marketing_Dictionary__c> getTopicDictionaryRecords() {
+        return [
+            SELECT Id, Name, Topic_Group_Dict__c, Topic_Group_Dict__r.Name, Topic_Description__c
+            FROM Marketing_Dictionary__c
+            WHERE RecordType.DeveloperName = 'Campaign'
+            AND Dictionary_Sub_Type__c = 'Topic'
+            ORDER BY Name ASC
+            LIMIT 500
+        ];
     }
 
     @AuraEnabled(cacheable=true)

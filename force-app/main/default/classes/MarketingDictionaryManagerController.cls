@@ -26,6 +26,24 @@ public with sharing class MarketingDictionaryManagerController {
     }
 
     /**
+     * Non-cacheable Product catalogue for Scoring Model offering pickers.
+     * Returns Id + Name so consumers store Ids (SSOT) and always show the current label.
+     */
+    @AuraEnabled
+    public static List<Marketing_Dictionary__c> getProductOfferingCatalogue() {
+        return [
+            SELECT Id, Name, Dictionary_Sub_Type__c,
+                   Related_Family_of_Needs__c, Related_Family_of_Needs__r.Name,
+                   Related_Product_Type__c, Related_Product_Type__r.Name
+            FROM Marketing_Dictionary__c
+            WHERE RecordType.DeveloperName = 'Product'
+            AND Dictionary_Sub_Type__c IN ('Product Family', 'Family of Needs')
+            ORDER BY Dictionary_Sub_Type__c ASC, Name ASC
+            LIMIT 1000
+        ];
+    }
+
+    /**
      * Upserts a single Product dictionary record (used for edits).
      * @param record Marketing_Dictionary__c to upsert
      * @return Saved record Id
@@ -35,7 +53,31 @@ public with sharing class MarketingDictionaryManagerController {
         try {
             Id productRecordTypeId = getRecordTypeId('Product');
             record.RecordTypeId = productRecordTypeId;
+            String oldName = null;
+            if (record.Id != null) {
+                List<Marketing_Dictionary__c> existing = [
+                    SELECT Id, Name, Dictionary_Sub_Type__c
+                    FROM Marketing_Dictionary__c
+                    WHERE Id = :record.Id
+                    LIMIT 1
+                ];
+                if (!existing.isEmpty()) {
+                    oldName = existing[0].Name;
+                    if (String.isBlank(record.Dictionary_Sub_Type__c)) {
+                        record.Dictionary_Sub_Type__c = existing[0].Dictionary_Sub_Type__c;
+                    }
+                }
+            }
             upsert record;
+            if (record.Id != null
+                && String.isNotBlank(record.Name)
+                && oldName != record.Name
+                && (record.Dictionary_Sub_Type__c == 'Product Family'
+                    || record.Dictionary_Sub_Type__c == 'Family of Needs')) {
+                CampaignOfferingLabelSync.onDictionaryRename(
+                    record.Id, oldName, record.Name, record.Dictionary_Sub_Type__c
+                );
+            }
             return record.Id;
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());
@@ -304,7 +346,8 @@ public with sharing class MarketingDictionaryManagerController {
     // ─── Campaign RT ─────────────────────────────────────────────────────────
 
     /**
-     * Returns all Campaign dictionary records (Topics, Sales Process Types, Activation Paths).
+     * Returns all Campaign dictionary records (Topics, Sales Process Types, Activation Paths,
+     * Scoring Models, Scoring Model Groups, Campaign Types/Groups).
      * @return List of Marketing_Dictionary__c with Campaign record type
      */
     @AuraEnabled(cacheable=true)
@@ -314,12 +357,166 @@ public with sharing class MarketingDictionaryManagerController {
                    Include_In_Emergency__c, Is_Active__c, Distribution_Percent__c,
                    Topic_Group_Dict__c, Topic_Group_Dict__r.Name,
                    Define_Campaign_Groups__c,
-                   Campaign_Type_Dict__c, Campaign_Type_Dict__r.Name
+                   Campaign_Type_Dict__c, Campaign_Type_Dict__r.Name,
+                   Version__c, Model_Id__c, Model_Expiration_Date__c,
+                   Scoring_Model_Group_Dict__c, Scoring_Model_Group_Dict__r.Name,
+                   Assigned_Topic_Dict__c, Assigned_Topic_Dict__r.Name,
+                   Offering_Type__c, Product_Family__c, Family_of_Needs__c,
+                   CreatedDate, LastModifiedDate, CreatedById, CreatedBy.Name
             FROM Marketing_Dictionary__c
             WHERE RecordType.DeveloperName = 'Campaign'
-            ORDER BY Dictionary_Sub_Type__c ASC, Name ASC
-            LIMIT 1000
+            ORDER BY Dictionary_Sub_Type__c ASC, Name ASC, Version__c ASC NULLS LAST
+            LIMIT 2000
         ];
+    }
+
+    /**
+     * Upserts a Scoring Model dictionary row with versioning and uniqueness rules:
+     * - New master (asNewMaster=true): Version = 1; Name must not already exist
+     * - New version (asNewMaster=false, no Id): Version = max(existing) + 1; Name must exist
+     * - Edit (has Id): Name and Version are locked to existing values
+     * - Model_Id__c = Name + '_' + Version (unique)
+     */
+    @AuraEnabled
+    public static Id saveScoringModel(Marketing_Dictionary__c record, Boolean asNewMaster) {
+        try {
+            if (record == null) {
+                throw new AuraHandledException('Scoring Model record is required.');
+            }
+            String modelName = record.Name == null ? '' : record.Name.trim();
+            if (String.isBlank(modelName)) {
+                throw new AuraHandledException('Model Name is required.');
+            }
+            record.Name = modelName;
+            record.Dictionary_Sub_Type__c = 'Scoring Model';
+            record.RecordTypeId = getRecordTypeId('Campaign');
+
+            if (record.Scoring_Model_Group_Dict__c == null) {
+                throw new AuraHandledException('Model Group is required.');
+            }
+            if (record.Assigned_Topic_Dict__c == null) {
+                throw new AuraHandledException('Assigned Topic is required.');
+            }
+
+            // Lookup filters unavailable (object at Salesforce max of 5) — validate subtypes in Apex.
+            Marketing_Dictionary__c groupRec = [
+                SELECT Id, Dictionary_Sub_Type__c
+                FROM Marketing_Dictionary__c
+                WHERE Id = :record.Scoring_Model_Group_Dict__c
+                LIMIT 1
+            ];
+            if (groupRec.Dictionary_Sub_Type__c != 'Scoring Model Group') {
+                throw new AuraHandledException('Model Group must be a Scoring Model Group dictionary entry.');
+            }
+            Marketing_Dictionary__c topicRec = [
+                SELECT Id, Dictionary_Sub_Type__c
+                FROM Marketing_Dictionary__c
+                WHERE Id = :record.Assigned_Topic_Dict__c
+                LIMIT 1
+            ];
+            if (topicRec.Dictionary_Sub_Type__c != 'Topic') {
+                throw new AuraHandledException('Assigned Topic must be a Topic dictionary entry.');
+            }
+
+            if (String.isBlank(record.Offering_Type__c)) {
+                throw new AuraHandledException('Offering Type is required.');
+            }
+            if (record.Offering_Type__c == 'Product Family') {
+                if (String.isBlank(record.Product_Family__c)) {
+                    throw new AuraHandledException('Select at least one Product Family.');
+                }
+                record.Product_Family__c = normalizeOfferingIds(
+                    record.Product_Family__c, 'Product Family'
+                );
+                record.Family_of_Needs__c = null;
+            } else if (record.Offering_Type__c == 'Family of Needs') {
+                if (String.isBlank(record.Family_of_Needs__c)) {
+                    throw new AuraHandledException('Select at least one Family of Needs.');
+                }
+                record.Family_of_Needs__c = normalizeOfferingIds(
+                    record.Family_of_Needs__c, 'Family of Needs'
+                );
+                record.Product_Family__c = null;
+            } else {
+                throw new AuraHandledException('Offering Type must be Product Family or Family of Needs.');
+            }
+
+            if (record.Id != null) {
+                Marketing_Dictionary__c existing = [
+                    SELECT Id, Name, Version__c
+                    FROM Marketing_Dictionary__c
+                    WHERE Id = :record.Id
+                    LIMIT 1
+                ];
+                // Name and Version are immutable after create.
+                record.Name = existing.Name;
+                record.Version__c = existing.Version__c;
+            } else {
+                List<AggregateResult> agg = [
+                    SELECT MAX(Version__c) maxVer
+                    FROM Marketing_Dictionary__c
+                    WHERE RecordType.DeveloperName = 'Campaign'
+                    AND Dictionary_Sub_Type__c = 'Scoring Model'
+                    AND Name = :modelName
+                ];
+                Decimal maxVer = (Decimal) agg[0].get('maxVer');
+                Boolean nameExists = maxVer != null;
+
+                if (asNewMaster == true) {
+                    if (nameExists) {
+                        throw new AuraHandledException(
+                            'A Scoring Model named "' + modelName + '" already exists. ' +
+                            'Use New Version on the existing model, or choose a unique name.'
+                        );
+                    }
+                    record.Version__c = 1;
+                } else if (nameExists) {
+                    record.Version__c = maxVer + 1;
+                } else {
+                    // First version of this name (implicit master create)
+                    record.Version__c = 1;
+                }
+            }
+
+            record.Model_Id__c = modelName + '_' + String.valueOf(record.Version__c.intValue());
+            if (record.Is_Active__c == null) {
+                record.Is_Active__c = true;
+            }
+
+            upsert record;
+            return record.Id;
+        } catch (AuraHandledException ahe) {
+            throw ahe;
+        } catch (DmlException dml) {
+            String msg = dml.getDmlMessage(0);
+            if (msg != null && msg.toLowerCase().contains('duplicate')) {
+                throw new AuraHandledException(
+                    'A Scoring Model with this Name/Version (Model ID) already exists.'
+                );
+            }
+            throw new AuraHandledException(msg);
+        } catch (Exception e) {
+            throw new AuraHandledException(e.getMessage());
+        }
+    }
+
+    /**
+     * Returns the next version number for a Scoring Model name (1 if none exist).
+     */
+    @AuraEnabled(cacheable=true)
+    public static Integer getNextScoringModelVersion(String modelName) {
+        if (String.isBlank(modelName)) {
+            return 1;
+        }
+        List<AggregateResult> agg = [
+            SELECT MAX(Version__c) maxVer
+            FROM Marketing_Dictionary__c
+            WHERE RecordType.DeveloperName = 'Campaign'
+            AND Dictionary_Sub_Type__c = 'Scoring Model'
+            AND Name = :modelName.trim()
+        ];
+        Decimal maxVer = (Decimal) agg[0].get('maxVer');
+        return maxVer == null ? 1 : maxVer.intValue() + 1;
     }
 
     @AuraEnabled
@@ -327,8 +524,39 @@ public with sharing class MarketingDictionaryManagerController {
         try {
             Id campaignRecordTypeId = getRecordTypeId('Campaign');
             record.RecordTypeId = campaignRecordTypeId;
+            // Route Scoring Model saves through versioning rules.
+            if (record.Dictionary_Sub_Type__c == 'Scoring Model') {
+                return saveScoringModel(record, false);
+            }
+            String oldName = null;
+            String subType = record.Dictionary_Sub_Type__c;
+            if (record.Id != null) {
+                List<Marketing_Dictionary__c> existing = [
+                    SELECT Id, Name, Dictionary_Sub_Type__c
+                    FROM Marketing_Dictionary__c
+                    WHERE Id = :record.Id
+                    LIMIT 1
+                ];
+                if (!existing.isEmpty()) {
+                    oldName = existing[0].Name;
+                    if (String.isBlank(subType)) {
+                        subType = existing[0].Dictionary_Sub_Type__c;
+                        record.Dictionary_Sub_Type__c = subType;
+                    }
+                }
+            }
             upsert record;
+            if (record.Id != null
+                && subType == 'Topic'
+                && String.isNotBlank(record.Name)
+                && oldName != record.Name) {
+                CampaignOfferingLabelSync.onDictionaryRename(
+                    record.Id, oldName, record.Name, 'Topic'
+                );
+            }
             return record.Id;
+        } catch (AuraHandledException ahe) {
+            throw ahe;
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());
         }
@@ -850,6 +1078,70 @@ public with sharing class MarketingDictionaryManagerController {
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────────
+
+    private static String normalizeOfferingIds(String raw, String expectedSubType) {
+        List<String> tokens = new List<String>();
+        for (String part : raw.split(';')) {
+            String t = part == null ? '' : part.trim();
+            if (String.isNotBlank(t)) tokens.add(t);
+        }
+        if (tokens.isEmpty()) {
+            throw new AuraHandledException('Select at least one ' + expectedSubType + '.');
+        }
+
+        Set<Id> idTokens = new Set<Id>();
+        Set<String> nameTokens = new Set<String>();
+        for (String token : tokens) {
+            if (token.length() == 15 || token.length() == 18) {
+                try {
+                    idTokens.add((Id) token);
+                } catch (Exception e) {
+                    nameTokens.add(token);
+                }
+            } else {
+                nameTokens.add(token);
+            }
+        }
+
+        Map<Id, Marketing_Dictionary__c> byId = new Map<Id, Marketing_Dictionary__c>();
+        Map<String, Marketing_Dictionary__c> byName = new Map<String, Marketing_Dictionary__c>();
+        for (Marketing_Dictionary__c rec : [
+            SELECT Id, Name, Dictionary_Sub_Type__c
+            FROM Marketing_Dictionary__c
+            WHERE RecordType.DeveloperName = 'Product'
+            AND Dictionary_Sub_Type__c = :expectedSubType
+            LIMIT 1000
+        ]) {
+            byId.put(rec.Id, rec);
+            byName.put(rec.Name, rec);
+        }
+
+        List<String> resolvedIds = new List<String>();
+        Set<Id> seen = new Set<Id>();
+        for (String token : tokens) {
+            Marketing_Dictionary__c match = null;
+            if (token.length() == 15 || token.length() == 18) {
+                try {
+                    match = byId.get((Id) token);
+                } catch (Exception e) {
+                    match = null;
+                }
+            }
+            if (match == null) {
+                match = byName.get(token);
+            }
+            if (match == null) {
+                throw new AuraHandledException(
+                    'Unknown ' + expectedSubType + ': "' + token + '". Re-select offerings from the dictionary.'
+                );
+            }
+            if (!seen.contains(match.Id)) {
+                resolvedIds.add(String.valueOf(match.Id));
+                seen.add(match.Id);
+            }
+        }
+        return String.join(resolvedIds, '; ');
+    }
 
     private static Id getRecordTypeId(String developerName) {
         return Schema.SObjectType.Marketing_Dictionary__c

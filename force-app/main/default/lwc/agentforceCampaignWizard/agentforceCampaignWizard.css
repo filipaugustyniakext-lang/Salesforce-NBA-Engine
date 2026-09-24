@@ -1,68 +1,69 @@
-/* --- WIZARD PROGRESS INDICATOR (SLDS Standard) --- */
-.wizard-progress-bar {
-    padding: 1rem 2rem 2rem 2rem;
+/* --- WIZARD PROGRESS INDICATOR (SLDS blueprint) --- */
+/* https://v1.lightningdesignsystem.com/components/progress-indicator/ */
+.wizard-progress {
+    padding: 1rem 1.5rem 2.25rem;
     position: relative;
 }
 
-.wizard-progress-bar .slds-progress__list {
+.wizard-progress .slds-progress__list {
     position: relative;
     z-index: 2;
-    gap: 2rem;
-    justify-content: space-between;
 }
 
-.wizard-progress-bar .slds-progress__item {
+.wizard-progress .slds-progress__item {
     position: relative;
-    flex: 1;
+    flex: 1 1 0;
+    min-width: 0;
 }
 
-.wizard-progress-bar .slds-progress__item_content {
-    padding-top: 0.7rem;
+.wizard-progress .slds-progress__item_content {
+    padding-top: 0.5rem;
 }
 
 .wizard-step-label {
-    font-size: 11px;
+    font-size: 0.6875rem;
     font-weight: 500;
     color: #706e6b;
     display: block;
-    white-space: nowrap;
+    text-align: center;
+    line-height: 1.2;
+    white-space: normal;
+    max-width: 6.5rem;
 }
 
-.wizard-progress-bar .slds-is-active .wizard-step-label {
+.wizard-progress .slds-is-active .wizard-step-label {
     color: #0176d3;
     font-weight: 700;
 }
 
-.wizard-progress-bar .slds-is-completed .wizard-step-label {
+.wizard-progress .slds-is-completed .wizard-step-label {
     color: #2e844a;
     font-weight: 600;
 }
 
-.wizard-progress-bar .slds-progress__marker {
+.wizard-progress .slds-progress__marker {
     position: relative;
     z-index: 3;
 }
 
-.wizard-progress-bar .slds-progress__marker_icon {
+.wizard-progress .slds-progress__marker_icon {
     position: relative;
     z-index: 3;
-    width: var(--slds-g-sizing-5);
-    height: var(--slds-g-sizing-5);
 }
 
 .step-check-icon {
     --slds-c-icon-color-foreground-default: #ffffff;
 }
 
-.wizard-progress-bar .slds-progress-bar {
+.wizard-progress .slds-progress-bar {
     position: absolute;
     top: calc(1rem + 0.5rem);
-    left: 2rem;
-    right: 2rem;
+    left: 1.5rem;
+    right: 1.5rem;
     z-index: 1;
 }
 
-.wizard-progress-bar .slds-progress-bar__value {
+.wizard-progress .slds-progress-bar__value {
     transition: width 0.3s ease;
 }
 
@@ -389,39 +390,6 @@
 }
 
 
-/* --- PRIORITY ITEM BASE INTERFACE --- */
-.priority-list-item {
-    padding: 1rem 1rem;
-    cursor: pointer;
-    transition: all 0.15s ease-in-out;
-    background-color: #ffffff;
-    color: #001e4e;
-    font-weight: 600;
-}
-
-.priority-list-item:hover:not(.is-disabled) {
-    border-color: #1b66ec;
-    background-color: #f4f6f9;
-}
-
-.priority-item-selected {
-    border: 2px solid #1b66ec !important;
-    background-color: rgba(27, 102, 236, 0.04) !important;
-    color: #1b66ec !important;
-    font-weight: 700;
-}
-
-/* --- NEW: GREYED OUT / DISABLED STATE FOR TIER 1 --- */
-.priority-list-item.is-disabled {
-    background-color: #f3f3f3 !important;
-    color: #969492 !important; /* Muted grey text */
-    border-color: #e5e5e5 !important;
-    cursor: not-allowed !important; /* Shows the universal "cannot click" circle slash icon */
-    pointer-events: none !important; /* Completely deactivates click listeners on the DOM element */
-    opacity: 0.65;
-}
-
-
 /* Hover Actions */
 .scoring-tabs .segment-item:hover:not(.segment-selected),
 .offering-pill-deck .segment-item:hover:not(.segment-selected){
@@ -438,75 +406,6 @@
     color: #ffffff !important; /* Flips text cleanly to white */
     z-index: 3 !important; /* Maximizes frame depth layers over neighboring buttons */
     font-weight: 700 !important;
-}
-
-/* --- HIGH FIDELITY TOOLTIP ENGINE  --- */
-.priority-list-item {
-    position: relative; /* Base anchor point for absolute positioning */
-}
-
-/* 1. The Multi-Line Text Bubble */
-.priority-list-item::after {
-    content: attr(data-tooltip); /* Pulls text from your JavaScript matrix mapping */
-    position: absolute;
-    bottom: 135%; /* Floats perfectly above the button item row */
-    left: -12px; /* Pulls bubble slightly left to frame the pointer nicely */
-    right: auto;
-    width: 290px !important; /* Wide structural bounds matching image_a0eda6.png */
-    white-space: normal !important; /* CRITICAL: Enables multi-line paragraph text wrapping */
-    text-align: left !important; /* CRITICAL: Left-aligns text blocks */
-    background-color: #002b66 !important; /* Deep navy blue matching the image popover */
-    color: #ffffff !important;
-    padding: 0.85rem 1.1rem !important;
-    border-radius: 8px !important; /* Smooth clean rounded box borders */
-    font-size: 0.775rem !important;
-    font-weight: 500 !important;
-    line-height: 1.45 !important;
-    opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
-    transform: translateY(6px); /* Start transition slightly offset down */
-    transition: all 0.15s ease-in-out;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15); /* Soft drop shadow frame depth */
-    z-index: 10000;
-}
-
-/* 2. The Bottom-Left Triangle Pointer Nub */
-.priority-list-item::before {
-    content: '';
-    position: absolute;
-    bottom: 116%;
-    left: 20px; /* FIXED: Anchors the pointer to the bottom-left edge */
-    right: auto;
-    border-width: 9px 8px 0 8px; /* Proportional pointer scaling dimensions */
-    border-style: solid;
-    border-color: #002b66 transparent transparent transparent;
-    opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
-    transform: translateY(6px);
-    transition: all 0.15s ease-in-out;
-    z-index: 10000;
-}
-
-
-/* 3. Smooth Fade-In and Float Elevation Trigger on Hover */
-.priority-list-item:hover::after,
-.priority-list-item:hover::before {
-    opacity: 1;
-    visibility: visible;
-    transform: translateY(0); /* Glides smoothly up to its target resting point */
-}
-
-/* --- FIXED: CUSTOM DISABLED STATE INDEPENDENT OF FRAMEWORK INTERACTION BLOCKS --- */
-.priority-list-item.tier-disabled {
-    background-color: #f3f3f3 !important;
-    color: #969492 !important; 
-    border-color: #e5e5e5 !important;
-    cursor: not-allowed !important; 
-    opacity: 0.65;
-    /* FORCE HOVER RECEPTIVITY: Forces browser renderer engine to capture mouse hover tracks */
-    pointer-events: auto !important; 
 }
 
 /* Ensure the cards stack nicely down the modal page */
@@ -767,13 +666,171 @@
     --slds-c-icon-color-foreground: #c23934;
 }
 
-.priority-list-container {
-    display: grid !important;
-    grid-template-columns: 1fr 1fr !important; /* Configures exactly two equal side-by-side columns */
-    grid-template-rows: repeat(4, auto) !important; /* Forces exactly 5 rows vertically per column */
-    grid-auto-flow: column !important;          /* FIXED: Forces items to fill vertically down columns first */
-    gap: 0.5rem 1rem !important;                 /* Vertical space: 0.5rem, Horizontal space: 1rem */
-    width: 100% !important;
+/* Step 1 — Priority & Exclusions two-column layout */
+.wizard-section-box {
+    background: #ffffff;
+    border: 1px solid #e5e5e5;
+    border-radius: 0.5rem;
+    padding: 1rem 1.25rem 1.25rem;
+}
+
+.wizard-subsection-title {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: #514f4d;
+}
+
+.priority-exclusions-layout {
+    align-items: stretch;
+    min-height: 20rem;
+}
+
+.priority-exclusions-left,
+.priority-exclusions-right {
+    display: flex;
+    flex-direction: column;
+}
+
+.priority-exclusions-right {
+    padding-left: 0.25rem;
+}
+
+/* SLDS vertical visual picker — Priority Tiers
+   https://v1.lightningdesignsystem.com/components/visual-picker/#Base-3 */
+.priority-tier-fieldset {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.priority-tier-picker-control {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    gap: 0.5rem;
+    width: 100%;
+}
+
+.priority-tier-picker-control .slds-visual-picker_vertical {
+    display: block;
+    position: relative;
+    width: 100%;
+    margin: 0;
+}
+
+.priority-tier-picker-control .slds-visual-picker_vertical label {
+    width: 100%;
+}
+
+.priority-tier-picker-control .slds-visual-picker__figure {
+    width: 100%;
+    min-height: 4.5rem;
+    height: auto;
+    padding: 0.75rem 1rem 2rem;
+    justify-content: flex-start;
+    text-align: left;
+}
+
+.tier-picker-content {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    width: 100%;
+}
+
+.tier-details-toggle {
+    position: absolute;
+    right: 0.5rem;
+    bottom: 0.5rem;
+    z-index: 6;
+    background: #ffffff;
+    border: 1px solid #dddbda;
+    border-radius: 0.25rem;
+    width: 1.75rem;
+    height: 1.75rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tier-details-toggle:hover,
+.tier-details-toggle:focus {
+    background: #f3f3f3;
+    border-color: #0176d3;
+}
+
+.tier-picker-description {
+    display: block;
+    white-space: normal;
+    line-height: 1.35;
+    color: #706e6b;
+}
+
+.tier-picker-details {
+    width: 100%;
+    border-top: 1px solid #e5e5e5;
+    padding-top: 0.5rem;
+    margin-top: 0.35rem;
+    padding-bottom: 0.25rem;
+}
+
+.tier-attr-rows {
+    width: 100%;
+}
+
+.tier-attr-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.15rem 0;
+}
+
+.tier-attr-label {
+    font-size: 0.75rem;
+    color: #514f4d;
+    line-height: 1.3;
+}
+
+.tier-type-chip {
+    font-size: 11px;
+}
+
+.cd-badge-yes {
+    background: #e3f3e8;
+    color: #2e844a;
+    border: 1px solid #91d0a5;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.cd-badge-no {
+    background: #f3f3f3;
+    color: #706e6b;
+    border: 1px solid #dddbda;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.cd-badge-dpc {
+    background: #e8f4fd;
+    color: #0176d3;
+    border: 1px solid #afd8f8;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.tier-picker-disabled {
+    opacity: 0.55;
+    pointer-events: none;
+}
+
+.tier-picker-check-icon {
+    --slds-c-icon-color-foreground-default: #ffffff;
 }
 
 .emergency-btn-inactive {
@@ -797,14 +854,6 @@
     align-items: center;
     justify-content: center;
     border-radius: .25rem;
-}
-
-/* FIXED: Forces tooltip pseudo-elements to render text in white */
-.priority-list-item:hover::after,
-.priority-list-item:hover::before {
-    color: #ffffff !important;
-    font-weight: normal !important;
-    font-size: 12px !important;
 }
 
 /* Dynamic Activation Icons in Dropdown */
@@ -1317,23 +1366,7 @@
     border-color: #0176d3;
 }
 
-/* --- TIER DETAIL PANEL --- */
-.tier-detail-panel {
-    background: #f9f9f9;
-    border: 1px solid #dddbda;
-    border-radius: 8px;
-    padding: 12px 16px;
-}
-
-.tier-description {
-    font-size: 13px;
-    color: #444;
-    font-style: italic;
-    border-bottom: 1px solid #e0e0e0;
-    padding-bottom: 8px;
-    margin-bottom: 8px;
-}
-
+/* --- TIER SETTINGS BADGES (inside visual picker options) --- */
 .tier-badge-row {
     margin-bottom: 8px;
 }
@@ -1354,10 +1387,8 @@
     gap: 4px;
 }
 
-.tier-behaviour-badge {
-    background: #e8f4fd;
-    color: #0176d3;
-    border: 1px solid #afd8f8;
+.tier-behaviour-badge,
+.tier-exclusion-badge {
     font-size: 11px;
     font-weight: 500;
     border-radius: 4px;
@@ -1368,14 +1399,29 @@
     background: #fff3e0;
     color: #c23934;
     border: 1px solid #f5c6b8;
-    font-size: 11px;
-    font-weight: 500;
-    border-radius: 4px;
-    padding: 2px 8px;
 }
 
 .suppression-section {
     border-top: 1px solid #dddbda;
     padding-top: 12px;
     margin-top: 8px;
+}
+
+/* --- COPY ASSIGNMENT GHOST STEP --- */
+.copy-assignment-ghost {
+    text-align: center;
+    padding: 2.5rem 2rem;
+    border: 1px dashed #c9c7c5;
+    border-radius: 8px;
+    background: #fafaf9;
+}
+
+.copy-assignment-ghost-icon {
+    --slds-c-icon-color-foreground-default: #706e6b;
+}
+
+.copy-assignment-ghost p {
+    max-width: 36rem;
+    margin-left: auto;
+    margin-right: auto;
 }

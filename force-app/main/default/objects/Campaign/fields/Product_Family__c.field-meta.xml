@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Product_Family__c</fullName>
+    <description>Display labels: semicolon-separated Product Family dictionary Names. Linked via Product_Family_Ids__c (Id SSOT). Labels are refreshed from the dictionary on Campaign save and when a Product Family is renamed.</description>
+    <inlineHelpText>Shows Product Family names from the Marketing Dictionary. Selection is linked by Id in the background.</inlineHelpText>
     <label>Product Family</label>
     <length>4000</length>
     <type>LongTextArea</type>
