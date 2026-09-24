@@ -53,7 +53,31 @@ public with sharing class MarketingDictionaryManagerController {
         try {
             Id productRecordTypeId = getRecordTypeId('Product');
             record.RecordTypeId = productRecordTypeId;
+            String oldName = null;
+            if (record.Id != null) {
+                List<Marketing_Dictionary__c> existing = [
+                    SELECT Id, Name, Dictionary_Sub_Type__c
+                    FROM Marketing_Dictionary__c
+                    WHERE Id = :record.Id
+                    LIMIT 1
+                ];
+                if (!existing.isEmpty()) {
+                    oldName = existing[0].Name;
+                    if (String.isBlank(record.Dictionary_Sub_Type__c)) {
+                        record.Dictionary_Sub_Type__c = existing[0].Dictionary_Sub_Type__c;
+                    }
+                }
+            }
             upsert record;
+            if (record.Id != null
+                && String.isNotBlank(record.Name)
+                && oldName != record.Name
+                && (record.Dictionary_Sub_Type__c == 'Product Family'
+                    || record.Dictionary_Sub_Type__c == 'Family of Needs')) {
+                CampaignOfferingLabelSync.onDictionaryRename(
+                    record.Id, oldName, record.Name, record.Dictionary_Sub_Type__c
+                );
+            }
             return record.Id;
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());
@@ -504,7 +528,32 @@ public with sharing class MarketingDictionaryManagerController {
             if (record.Dictionary_Sub_Type__c == 'Scoring Model') {
                 return saveScoringModel(record, false);
             }
+            String oldName = null;
+            String subType = record.Dictionary_Sub_Type__c;
+            if (record.Id != null) {
+                List<Marketing_Dictionary__c> existing = [
+                    SELECT Id, Name, Dictionary_Sub_Type__c
+                    FROM Marketing_Dictionary__c
+                    WHERE Id = :record.Id
+                    LIMIT 1
+                ];
+                if (!existing.isEmpty()) {
+                    oldName = existing[0].Name;
+                    if (String.isBlank(subType)) {
+                        subType = existing[0].Dictionary_Sub_Type__c;
+                        record.Dictionary_Sub_Type__c = subType;
+                    }
+                }
+            }
             upsert record;
+            if (record.Id != null
+                && subType == 'Topic'
+                && String.isNotBlank(record.Name)
+                && oldName != record.Name) {
+                CampaignOfferingLabelSync.onDictionaryRename(
+                    record.Id, oldName, record.Name, 'Topic'
+                );
+            }
             return record.Id;
         } catch (AuraHandledException ahe) {
             throw ahe;

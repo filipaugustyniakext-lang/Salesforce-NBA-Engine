@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Family_of_Needs__c</fullName>
-    <description>Semicolon-separated Marketing Dictionary Family of Needs record Ids (Id SSOT). Legacy Name tokens are migrated to Ids on the next Campaign Wizard save. Resolve Ids to current Names for display.</description>
-    <inlineHelpText>Stores Family of Needs dictionary Ids so renames in Marketing Dictionary propagate.</inlineHelpText>
+    <description>Display labels: semicolon-separated Family of Needs dictionary Names. Linked via Family_of_Needs_Ids__c (Id SSOT). Labels are refreshed from the dictionary on Campaign save and when a Family of Needs is renamed.</description>
+    <inlineHelpText>Shows Family of Needs names from the Marketing Dictionary. Selection is linked by Id in the background.</inlineHelpText>
     <label>Family of Needs</label>
     <length>4000</length>
     <type>LongTextArea</type>

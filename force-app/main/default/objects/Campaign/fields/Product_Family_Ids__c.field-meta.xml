@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Product_Family_Ids__c</fullName>
+    <description>Background Id SSOT: semicolon-separated Marketing Dictionary Product Family record Ids. Used to link Campaign to dictionary entries. Product_Family__c holds the display labels.</description>
+    <inlineHelpText>Internal Id link to Product Family dictionary entries. Not for end-user display.</inlineHelpText>
+    <label>Product Family Ids</label>
+    <length>4000</length>
+    <type>LongTextArea</type>
+    <visibleLines>2</visibleLines>
+</CustomField>

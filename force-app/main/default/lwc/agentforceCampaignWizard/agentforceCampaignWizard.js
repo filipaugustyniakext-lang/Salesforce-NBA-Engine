@@ -12,6 +12,7 @@ import getProductFamilyCustomerTypes from '@salesforce/apex/MarketingDictionaryC
 import getFamilyOfNeedsCustomerTypes from '@salesforce/apex/MarketingDictionaryController.getFamilyOfNeedsCustomerTypes';
 import getProductOfferingCatalogue from '@salesforce/apex/MarketingDictionaryManagerController.getProductOfferingCatalogue';
 import getCampaignById from '@salesforce/apex/MarketingDictionaryController.getCampaignById';
+import healCampaignOfferingLabels from '@salesforce/apex/MarketingDictionaryController.healCampaignOfferingLabels';
 import getMatchingOffers from '@salesforce/apex/MarketingDictionaryController.getMatchingOffers';
 import getCampaignOffers from '@salesforce/apex/MarketingDictionaryController.getCampaignOffers';
 import saveCampaignOffers from '@salesforce/apex/MarketingDictionaryController.saveCampaignOffers';
@@ -162,6 +163,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         this.loadScoringModels();
         this.loadTopicDictionary();
         this.loadProductOfferingCatalogue();
+        // Migrate any Campaign rows still showing Ids in display fields → Names.
+        healCampaignOfferingLabels().catch(() => {});
         document.addEventListener('click', this.handleOutsideClickBound = this.handleOutsideClick.bind(this));
         if (this.recordId) {
             this.isEditMode = true;
@@ -318,14 +321,14 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             this.applyEditChannels();
         }
 
-        // Stored as semicolon-separated dictionary Ids (preferred) or legacy Names.
-        if (campaign.Product_Family__c) {
-            this.editProductFamilyValues = campaign.Product_Family__c
+        // Id SSOT preferred; fall back to display field (legacy Names or mid-migrate Ids).
+        if (campaign.Product_Family_Ids__c || campaign.Product_Family__c) {
+            this.editProductFamilyValues = (campaign.Product_Family_Ids__c || campaign.Product_Family__c)
                 .split(';').map(p => p.trim()).filter(Boolean);
         }
 
-        if (campaign.Family_of_Needs__c) {
-            this.editFamilyOfNeedsValues = campaign.Family_of_Needs__c
+        if (campaign.Family_of_Needs_Ids__c || campaign.Family_of_Needs__c) {
+            this.editFamilyOfNeedsValues = (campaign.Family_of_Needs_Ids__c || campaign.Family_of_Needs__c)
                 .split(';').map(f => f.trim()).filter(Boolean);
         }
 
@@ -1671,10 +1674,17 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         fields['Assigned_Channels__c'] = this.channels.filter(c => c.checked).map(c => c.label).join('; ');
 
         if (this.isOfferingProductFamily) {
-            fields['Product_Family__c'] = this.productFamilyOptions.filter(o => o.checked).map(o => o.value).join('; ');
+            const selected = this.productFamilyOptions.filter(o => o.checked);
+            // Ids in background; Names on the record page / list views.
+            fields['Product_Family_Ids__c'] = selected.map(o => o.value).join('; ') || null;
+            fields['Product_Family__c'] = selected.map(o => o.name).join('; ') || null;
+            fields['Family_of_Needs_Ids__c'] = null;
             fields['Family_of_Needs__c'] = null;
         } else if (this.isOfferingFamilyOfNeeds) {
-            fields['Family_of_Needs__c'] = this.familyOfNeedsOptions.filter(o => o.checked).map(o => o.value).join('; ');
+            const selected = this.familyOfNeedsOptions.filter(o => o.checked);
+            fields['Family_of_Needs_Ids__c'] = selected.map(o => o.value).join('; ') || null;
+            fields['Family_of_Needs__c'] = selected.map(o => o.name).join('; ') || null;
+            fields['Product_Family_Ids__c'] = null;
             fields['Product_Family__c'] = null;
         }
 

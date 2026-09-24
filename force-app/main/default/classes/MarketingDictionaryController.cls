@@ -40,13 +40,24 @@ public with sharing class MarketingDictionaryController {
                    Scoring_Method__c, Offering_Type__c, Status, IsActive,
                    Overall_Score__c, Fallback_Score__c,
                    Scoring_Model_Dict__c, Scoring_Model_Dict__r.Name,
-                   Assigned_Channels__c, Product_Family__c,
-                   Family_of_Needs__c, Exclude_Onboarding__c
+                   Assigned_Channels__c,
+                   Product_Family__c, Product_Family_Ids__c,
+                   Family_of_Needs__c, Family_of_Needs_Ids__c,
+                   Exclude_Onboarding__c
             FROM Campaign
             WHERE Id = :campaignId
             LIMIT 1
         ];
         return campaigns.isEmpty() ? null : campaigns[0];
+    }
+
+    /**
+     * One-shot heal: move any Ids left in Campaign display fields into the Id SSOT
+     * fields and refresh display labels from the Marketing Dictionary.
+     */
+    @AuraEnabled
+    public static Integer healCampaignOfferingLabels() {
+        return CampaignOfferingLabelSync.healCampaigns(500);
     }
 
     @AuraEnabled(cacheable=true)

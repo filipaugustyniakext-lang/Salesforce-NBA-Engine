@@ -14,6 +14,7 @@ import getProductFamilyByRecordType from '@salesforce/apex/MarketingDictionaryCo
 import getProductFamilyCustomerTypes from '@salesforce/apex/MarketingDictionaryController.getProductFamilyCustomerTypes';
 import getFamilyOfNeedsCustomerTypes from '@salesforce/apex/MarketingDictionaryController.getFamilyOfNeedsCustomerTypes';
 import getProductOfferingCatalogue from '@salesforce/apex/MarketingDictionaryManagerController.getProductOfferingCatalogue';
+import healCampaignOfferingLabels from '@salesforce/apex/MarketingDictionaryController.healCampaignOfferingLabels';
 import {
     TIER_ATTR_FIELDS,
     TIER_EXCL_FIELDS,
@@ -120,6 +121,8 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
 
     connectedCallback() {
         this._loadOfferingOptions();
+        // One-shot: migrate Campaign display fields that still show dictionary Ids → Names.
+        healCampaignOfferingLabels().catch(() => {});
     }
 
     handleSubTabClick(e) {
