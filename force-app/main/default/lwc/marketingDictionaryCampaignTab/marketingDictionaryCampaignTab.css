@@ -232,6 +232,22 @@
 .scoring-row-selected {
     background: #e5f3ff !important;
 }
+.scoring-system-info {
+    border-top: 1px solid #e0e5ee;
+    padding-top: 0.75rem;
+    color: #706e6b;
+}
+.scoring-system-info .slds-dl_horizontal__label {
+    width: 30%;
+    padding-right: 0.75rem;
+    color: #706e6b;
+    font-size: 0.75rem;
+}
+.scoring-system-info .slds-dl_horizontal__detail {
+    width: 70%;
+    color: #181818;
+    font-size: 0.8125rem;
+}
 .scoring-offering-box {
     background: #f9f9f9 !important;
     max-height: 360px;

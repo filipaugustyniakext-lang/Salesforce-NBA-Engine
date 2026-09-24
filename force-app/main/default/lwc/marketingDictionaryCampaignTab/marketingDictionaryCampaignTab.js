@@ -432,8 +432,6 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
                 sortTopic: latest.topicName || '',
                 sortOffering: `${latest.offeringLabel || ''} ${latest.offeringValuesShort || ''}`,
                 sortExpires: latest.Model_Expiration_Date__c || '',
-                sortCreated: latest.CreatedDate || '',
-                sortModified: latest.LastModifiedDate || '',
                 isExpanded,
                 chevronIcon: isExpanded ? 'utility:chevrondown' : 'utility:chevronright',
                 isSelected: allSelected,
@@ -491,10 +489,7 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
             { field: 'Group', label: 'Group', sortable: true },
             { field: 'Topic', label: 'Topic', sortable: true },
             { field: 'Offering', label: 'Offering', sortable: true },
-            { field: 'Expires', label: 'Expires', sortable: true },
-            { field: 'Created', label: 'Created', sortable: true },
-            { field: 'Modified', label: 'Modified', sortable: true },
-            { field: 'CreatedBy', label: 'Created By', sortable: false }
+            { field: 'Expires', label: 'Expires', sortable: true }
         ];
         return cols.map(c => {
             const active = this.scoringSortField === c.field;
@@ -568,9 +563,7 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
             Group: m => m.sortGroup,
             Topic: m => m.sortTopic,
             Offering: m => m.sortOffering,
-            Expires: m => m.sortExpires,
-            Created: m => m.sortCreated,
-            Modified: m => m.sortModified
+            Expires: m => m.sortExpires
         }[field] || (m => m.sortName);
 
         return [...masters].sort((a, b) => {
@@ -672,15 +665,26 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
         });
     }
 
-    get scoringCreatedDisplay() {
-        return this._formatDateTime(this.editScoring.CreatedDate);
+    get scoringCreatedByLine() {
+        const name = this.editScoring.CreatedBy?.Name
+            || this.editScoring.CreatedByName
+            || '—';
+        const when = this._formatDateTime(this.editScoring.CreatedDate);
+        return `${name}, ${when}`;
     }
-    get scoringModifiedDisplay() {
-        return this._formatDateTime(this.editScoring.LastModifiedDate);
+
+    get scoringLastModifiedByLine() {
+        const name = this.editScoring.LastModifiedBy?.Name
+            || this.editScoring.LastModifiedByName
+            || this.editScoring.CreatedBy?.Name
+            || this.editScoring.CreatedByName
+            || '—';
+        const when = this._formatDateTime(
+            this.editScoring.LastModifiedDate || this.editScoring.CreatedDate
+        );
+        return `${name}, ${when}`;
     }
-    get scoringCreatedByDisplay() {
-        return this.editScoring.CreatedBy?.Name || this.editScoring.CreatedByName || '—';
-    }
+
     get showScoringAuditFields() {
         return !!this.editScoring.Id;
     }
@@ -1073,13 +1077,17 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
             Scoring_Model_Group_Dict__r,
             Assigned_Topic_Dict__r,
             CreatedBy,
+            LastModifiedBy,
             ...clean
         } = rec;
         this.scoringAsNewMaster = false;
         this.scoringNameLocked = true;
         this.editScoring = {
             ...clean,
-            CreatedByName: CreatedBy?.Name || ''
+            CreatedByName: CreatedBy?.Name || '',
+            LastModifiedByName: LastModifiedBy?.Name || '',
+            CreatedBy,
+            LastModifiedBy
         };
         this._loadOfferingOptions();
         this.isScoringModalOpen = true;
@@ -1199,6 +1207,8 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
             Assigned_Topic_Dict__r,
             CreatedBy,
             CreatedByName,
+            LastModifiedBy,
+            LastModifiedByName,
             CreatedDate,
             LastModifiedDate,
             groupName,
@@ -1207,6 +1217,7 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
             offeringValuesShort,
             createdDisplay,
             modifiedDisplay,
+            createdByName,
             expirationDisplay,
             activeLabel,
             ...record

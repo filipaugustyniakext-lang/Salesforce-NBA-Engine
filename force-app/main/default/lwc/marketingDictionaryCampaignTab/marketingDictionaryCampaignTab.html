@@ -312,18 +312,6 @@
                                         <template lwc:if={row.isMaster}>—</template>
                                         <template lwc:else>{row.expirationDisplay}</template>
                                     </td>
-                                    <td class="slds-text-body_small">
-                                        <template lwc:if={row.isMaster}>—</template>
-                                        <template lwc:else>{row.createdDisplay}</template>
-                                    </td>
-                                    <td class="slds-text-body_small">
-                                        <template lwc:if={row.isMaster}>—</template>
-                                        <template lwc:else>{row.modifiedDisplay}</template>
-                                    </td>
-                                    <td class="slds-truncate">
-                                        <template lwc:if={row.isMaster}>—</template>
-                                        <template lwc:else>{row.createdByName}</template>
-                                    </td>
                                     <td class="action-col scoring-row-control" onclick={handleStopPropagation}>
                                         <template lwc:if={row.isMaster}>
                                             <lightning-button-icon icon-name="utility:new" variant="border-filled"
@@ -834,7 +822,7 @@
                             </lightning-combobox>
                         </div>
                         <div class="slds-col slds-size_1-of-2 slds-m-top_small">
-                            <lightning-combobox label="Assigned Topic" required
+                            <lightning-combobox label="Topic" required
                                 value={editScoring.Assigned_Topic_Dict__c}
                                 options={topicOptions}
                                 placeholder="Select topic..."
@@ -1027,19 +1015,21 @@
                     </div>
 
                     <template lwc:if={showScoringAuditFields}>
-                        <div class="slds-grid slds-wrap slds-gutters_small scoring-section slds-m-top_medium">
-                            <div class="slds-col slds-size_1-of-3">
-                                <lightning-input type="text" label="Record Creation Date"
-                                    value={scoringCreatedDisplay} disabled></lightning-input>
-                            </div>
-                            <div class="slds-col slds-size_1-of-3">
-                                <lightning-input type="text" label="Last Modified Date"
-                                    value={scoringModifiedDisplay} disabled></lightning-input>
-                            </div>
-                            <div class="slds-col slds-size_1-of-3">
-                                <lightning-input type="text" label="Record Created By"
-                                    value={scoringCreatedByDisplay} disabled></lightning-input>
-                            </div>
+                        <div class="scoring-system-info slds-m-top_medium">
+                            <dl class="slds-dl_horizontal">
+                                <dt class="slds-dl_horizontal__label">
+                                    <span class="slds-truncate" title="Created By">Created By</span>
+                                </dt>
+                                <dd class="slds-dl_horizontal__detail slds-tile__detail slds-text-body_small">
+                                    {scoringCreatedByLine}
+                                </dd>
+                                <dt class="slds-dl_horizontal__label">
+                                    <span class="slds-truncate" title="Last Modified By">Last Modified By</span>
+                                </dt>
+                                <dd class="slds-dl_horizontal__detail slds-tile__detail slds-text-body_small">
+                                    {scoringLastModifiedByLine}
+                                </dd>
+                            </dl>
                         </div>
                     </template>
                 </div>

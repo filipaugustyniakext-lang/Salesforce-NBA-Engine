@@ -362,7 +362,9 @@ public with sharing class MarketingDictionaryManagerController {
                    Scoring_Model_Group_Dict__c, Scoring_Model_Group_Dict__r.Name,
                    Assigned_Topic_Dict__c, Assigned_Topic_Dict__r.Name,
                    Offering_Type__c, Product_Family__c, Family_of_Needs__c,
-                   CreatedDate, LastModifiedDate, CreatedById, CreatedBy.Name
+                   CreatedDate, LastModifiedDate,
+                   CreatedById, CreatedBy.Name,
+                   LastModifiedById, LastModifiedBy.Name
             FROM Marketing_Dictionary__c
             WHERE RecordType.DeveloperName = 'Campaign'
             ORDER BY Dictionary_Sub_Type__c ASC, Name ASC, Version__c ASC NULLS LAST
