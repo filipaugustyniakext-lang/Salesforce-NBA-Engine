@@ -355,6 +355,27 @@ public with sharing class MarketingDictionaryManagerController {
             if (record.Assigned_Topic_Dict__c == null) {
                 throw new AuraHandledException('Assigned Topic is required.');
             }
+
+            // Lookup filters unavailable (object at Salesforce max of 5) — validate subtypes in Apex.
+            Marketing_Dictionary__c groupRec = [
+                SELECT Id, Dictionary_Sub_Type__c
+                FROM Marketing_Dictionary__c
+                WHERE Id = :record.Scoring_Model_Group_Dict__c
+                LIMIT 1
+            ];
+            if (groupRec.Dictionary_Sub_Type__c != 'Scoring Model Group') {
+                throw new AuraHandledException('Model Group must be a Scoring Model Group dictionary entry.');
+            }
+            Marketing_Dictionary__c topicRec = [
+                SELECT Id, Dictionary_Sub_Type__c
+                FROM Marketing_Dictionary__c
+                WHERE Id = :record.Assigned_Topic_Dict__c
+                LIMIT 1
+            ];
+            if (topicRec.Dictionary_Sub_Type__c != 'Topic') {
+                throw new AuraHandledException('Assigned Topic must be a Topic dictionary entry.');
+            }
+
             if (String.isBlank(record.Offering_Type__c)) {
                 throw new AuraHandledException('Offering Type is required.');
             }
