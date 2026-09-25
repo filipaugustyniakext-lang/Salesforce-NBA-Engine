@@ -126,9 +126,9 @@
 
 .channel-btn-disabled,
 .channel-btn-disabled:hover {
-    background-color: #ecebea !important;
-    border-color: #c9c9c9 !important;
-    color: #706e6b !important;
+    background-color: #e5f4ff !important;
+    border-color: #0176d3 !important;
+    color: #014486 !important;
     cursor: not-allowed !important;
     opacity: 0.75;
 }

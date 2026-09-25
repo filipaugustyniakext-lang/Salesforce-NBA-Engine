@@ -340,12 +340,13 @@ public with sharing class MarketingDictionaryManagerController {
                 List<Blackout_Window__c> windows = [
                     SELECT Id, Assigned_Channels__c
                     FROM Blackout_Window__c
-                    LIMIT 2000
                 ];
                 for (Blackout_Window__c window : windows) {
                     Set<String> assigned = new Set<String>();
                     if (String.isNotBlank(window.Assigned_Channels__c)) {
-                        assigned.addAll(window.Assigned_Channels__c.split(';'));
+                        for (String channelName : window.Assigned_Channels__c.split(';')) {
+                            if (String.isNotBlank(channelName)) assigned.add(channelName.trim());
+                        }
                     }
                     assigned.add(channel.Name);
                     List<String> sortedChannels = new List<String>(assigned);

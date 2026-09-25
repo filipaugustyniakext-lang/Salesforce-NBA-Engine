@@ -182,7 +182,9 @@ export default class MarketingDictionaryBlackoutTab extends LightningElement {
                     : (isActive
                         ? 'slds-button slds-button_neutral channel-btn channel-btn-active'
                         : 'slds-button slds-button_neutral channel-btn channel-btn-inactive'),
-                iconClass: isActive ? 'channel-icon-active' : 'channel-icon-inactive',
+                iconClass: disabled
+                    ? 'channel-icon-inactive'
+                    : (isActive ? 'channel-icon-active' : 'channel-icon-inactive'),
                 title: disabled
                     ? `${rec.Name} is inactive and must be excluded`
                     : rec.Name
@@ -250,7 +252,7 @@ export default class MarketingDictionaryBlackoutTab extends LightningElement {
                     : (checked
                         ? 'slds-button slds-button_neutral channel-btn channel-btn-active'
                         : 'slds-button slds-button_neutral channel-btn channel-btn-inactive'),
-                iconClass: ch.disabled || checked ? 'channel-icon-active' : 'channel-icon-inactive'
+                iconClass: !ch.disabled && checked ? 'channel-icon-active' : 'channel-icon-inactive'
             }))
         }));
     }
