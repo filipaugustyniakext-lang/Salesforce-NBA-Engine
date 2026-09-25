@@ -78,7 +78,19 @@
 }
 
 .add-modal-name-part {
-    flex: 1;
+    flex: 1 1 auto;
+    min-width: 10rem;
+}
+
+.add-modal-field-variant-box {
+    flex: 0 0 auto;
+}
+
+.add-modal-name-convention code {
+    font-size: 0.75rem;
+    background: #f3f3f3;
+    padding: 0.1rem 0.35rem;
+    border-radius: 0.2rem;
 }
 
 .add-modal-name-preview {

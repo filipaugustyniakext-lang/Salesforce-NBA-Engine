@@ -17,12 +17,15 @@
                 <!-- ── Section: Message Name ───────────────────────────────── -->
                 <div class="add-modal-fields">
 
-                    <!-- Composed name: prefix + country code + message name -->
+                    <!-- Composed name: ChannelPrefix_CountryCode_MessageName_VariantNumber -->
                     <div class="add-modal-field-full">
+                        <p class="add-modal-name-convention slds-text-body_small slds-text-color_weak slds-m-bottom_x-small">
+                            Naming: <code>{namingConventionHint}</code>
+                        </p>
                         <div class="add-modal-name-row">
                             <div class="add-modal-field-prefix-box">
                                 <span class="add-modal-prefix-label">Channel Prefix</span>
-                                <span class="add-modal-prefix-value">{channelPrefix}</span>
+                                <span class="add-modal-prefix-value" title="Auto from channel type">{channelPrefix}</span>
                             </div>
                             <lightning-input
                                 label="Country Code"
@@ -41,6 +44,10 @@
                                 required
                                 onchange={handleMessageNameChange}
                             ></lightning-input>
+                            <div class="add-modal-field-prefix-box add-modal-field-variant-box">
+                                <span class="add-modal-prefix-label">Variant</span>
+                                <span class="add-modal-prefix-value" title="Auto — next available">{version}</span>
+                            </div>
                         </div>
                         <div class="add-modal-name-preview">
                             <span class="add-modal-name-preview-label">Full name:</span>
@@ -48,7 +55,7 @@
                         </div>
                     </div>
 
-                    <!-- Variant + Language row -->
+                    <!-- Variant (read-only) + Language -->
                     <div class="add-modal-field-row">
                         <div class="add-modal-field-version-wrap">
                             <lightning-input
@@ -58,18 +65,17 @@
                                 min="1"
                                 step="1"
                                 required
-                                onchange={handleVersionChange}
+                                disabled
+                                field-level-help="Read-only. New messages start at 1; additional variants use the next free number."
                             ></lightning-input>
+                            <div class="add-modal-version-hint">
+                                <lightning-icon icon-name="utility:info" size="xx-small" class="slds-m-right_xx-small add-modal-icon-info"></lightning-icon>
+                                {variantHint}
+                            </div>
                             <template lwc:if={hasDuplicateVariant}>
                                 <div class="add-modal-version-error">
                                     <lightning-icon icon-name="utility:warning" size="xx-small" class="slds-m-right_xx-small add-modal-icon-warn"></lightning-icon>
                                     {versionError}
-                                </div>
-                            </template>
-                            <template lwc:if={versionSuggested}>
-                                <div class="add-modal-version-hint">
-                                    <lightning-icon icon-name="utility:info" size="xx-small" class="slds-m-right_xx-small add-modal-icon-info"></lightning-icon>
-                                    Existing variants found — suggested next available.
                                 </div>
                             </template>
                         </div>
@@ -79,8 +85,10 @@
                             value={language}
                             options={languageOptions}
                             required
+                            disabled={isLanguageLocked}
                             onchange={handleLanguageChange}
                             class="add-modal-field-lang"
+                            field-level-help={languageHelp}
                         ></lightning-combobox>
                     </div>
 

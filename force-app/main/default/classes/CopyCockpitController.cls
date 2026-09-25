@@ -129,22 +129,42 @@ public with sharing class CopyCockpitController {
         }
     }
 
-    /** Returns all taken variant numbers for a given message name + channel type. */
+    /**
+     * Taken variant numbers + shared language for a master stem within a channel type.
+     */
     @AuraEnabled(cacheable=false)
-    public static List<Decimal> getExistingVariants(String messageName, String channelType) {
-        if (String.isBlank(messageName) || String.isBlank(channelType)) return new List<Decimal>();
-        List<CC_Message_Metadata__c> rows = [
-            SELECT Version__c
-            FROM CC_Message_Metadata__c
-            WHERE Name = :messageName
-              AND Channel_Type__c = :channelType
-            ORDER BY Version__c ASC NULLS LAST
-        ];
-        List<Decimal> variants = new List<Decimal>();
-        for (CC_Message_Metadata__c r : rows) {
-            if (r.Version__c != null) variants.add(r.Version__c);
+    public static Map<String, Object> getStemVariantInfo(String nameStem, String channelType) {
+        Map<String, Object> info = new Map<String, Object>{
+            'variants' => new List<Decimal>(),
+            'language' => null
+        };
+        if (String.isBlank(nameStem) || String.isBlank(channelType)) {
+            return info;
         }
-        return variants;
+        List<CC_Message_Metadata__c> rows = queryByStem(nameStem.trim(), channelType);
+        List<Decimal> variants = new List<Decimal>();
+        String language = null;
+        for (CC_Message_Metadata__c r : rows) {
+            Decimal v = resolveVariantNumber(r.Name, r.Version__c, nameStem.trim());
+            if (v != null) variants.add(v);
+            if (language == null && String.isNotBlank(r.Language__c)) {
+                language = r.Language__c;
+            }
+        }
+        variants.sort();
+        info.put('variants', variants);
+        info.put('language', language);
+        return info;
+    }
+
+    /**
+     * Taken variant numbers for a master stem (PREFIX_CC_MessageName) within a channel type.
+     * Matches stem_N rows (and legacy rows whose Name equals the stem).
+     */
+    @AuraEnabled(cacheable=false)
+    public static List<Decimal> getExistingVariants(String nameStem, String channelType) {
+        Map<String, Object> info = getStemVariantInfo(nameStem, channelType);
+        return (List<Decimal>) info.get('variants');
     }
 
     @AuraEnabled(cacheable=false)
@@ -170,13 +190,51 @@ public with sharing class CopyCockpitController {
     public static Id createMessage(String messageJson) {
         try {
             Map<String, Object> data = (Map<String, Object>) JSON.deserializeUntyped(messageJson);
+            String fullName = ((String) data.get('messageName'));
+            if (String.isBlank(fullName)) {
+                throw new AuraHandledException('Message name is required.');
+            }
+            fullName = fullName.trim();
+
+            Decimal version = data.get('version') != null
+                ? Decimal.valueOf(String.valueOf(data.get('version')))
+                : 1;
+            if (version == null || version < 1) version = 1;
+
+            // Prefer client-composed full name; ensure it ends with _<version>.
+            String stem = stripVariantSuffix(fullName);
+            if (String.isBlank(stem)) {
+                throw new AuraHandledException('Invalid message name. Expected ChannelPrefix_CountryCode_MessageName_Variant.');
+            }
+            String composed = stem + '_' + String.valueOf(version.intValue());
+
+            String channelType = (String) data.get('channelType');
+            List<CC_Message_Metadata__c> existing = queryByStem(stem, channelType);
+            Set<Decimal> taken = new Set<Decimal>();
+            String masterLanguage = null;
+            for (CC_Message_Metadata__c r : existing) {
+                Decimal v = resolveVariantNumber(r.Name, r.Version__c, stem);
+                if (v != null) taken.add(v);
+                if (masterLanguage == null && String.isNotBlank(r.Language__c)) {
+                    masterLanguage = r.Language__c;
+                }
+            }
+            if (taken.contains(version)) {
+                throw new AuraHandledException(
+                    'Variant ' + String.valueOf(version.intValue())
+                    + ' already exists for this Message Name and Country Code.'
+                );
+            }
+
             CC_Message_Metadata__c rec = new CC_Message_Metadata__c();
-            rec.Name           = (String)  data.get('messageName');
-            rec.Version__c     = data.get('version') != null ? Decimal.valueOf(String.valueOf(data.get('version'))) : 1;
-            rec.Language__c    = (String)  data.get('language');
-            rec.Channel__c     = (String)  data.get('channelName');
-            rec.Channel_Type__c = (String) data.get('channelType');
-            rec.Status__c      = 'Draft';
+            rec.Name            = composed;
+            rec.Version__c      = version;
+            rec.Message_Variant__c = 'Variant ' + String.valueOf(version.intValue());
+            // Language is master-scoped — new variants inherit existing master's language.
+            rec.Language__c     = masterLanguage != null ? masterLanguage : (String) data.get('language');
+            rec.Channel__c      = (String) data.get('channelName');
+            rec.Channel_Type__c = channelType;
+            rec.Status__c       = 'Draft';
             if (data.get('offerId') != null && String.isNotBlank((String) data.get('offerId'))) {
                 rec.Offer__c = (Id) data.get('offerId');
             }
@@ -185,6 +243,8 @@ public with sharing class CopyCockpitController {
             }
             insert rec;
             return rec.Id;
+        } catch (AuraHandledException e) {
+            throw e;
         } catch (Exception e) {
             throw new AuraHandledException('Create failed: ' + e.getMessage());
         }
@@ -193,44 +253,119 @@ public with sharing class CopyCockpitController {
     @AuraEnabled
     public static Id cloneMessage(Id sourceId, Decimal newVersion) {
         try {
+            if (newVersion == null || newVersion < 1) {
+                throw new AuraHandledException('A valid variant number is required.');
+            }
             CC_Message_Metadata__c src = [
                 SELECT Name, Channel__c, Channel_Type__c,
                        Subject__c, Body__c, Language__c,
                        Offer__c, Campaign__c,
-                       Valid_From__c, Valid_To__c
+                       Valid_From__c, Valid_To__c, Version__c
                 FROM CC_Message_Metadata__c
                 WHERE Id = :sourceId
                 LIMIT 1
             ];
+            String stem = stripVariantSuffix(src.Name);
+            if (String.isBlank(stem)) {
+                stem = src.Name;
+            }
+            List<CC_Message_Metadata__c> existing = queryByStem(stem, src.Channel_Type__c);
+            for (CC_Message_Metadata__c r : existing) {
+                Decimal v = resolveVariantNumber(r.Name, r.Version__c, stem);
+                if (v == newVersion) {
+                    throw new AuraHandledException(
+                        'Variant ' + String.valueOf(newVersion.intValue()) + ' already exists for this message.'
+                    );
+                }
+            }
+
             CC_Message_Metadata__c copy = src.clone(false, false, false, false);
             copy.Version__c = newVersion;
+            copy.Name = stem + '_' + String.valueOf(newVersion.intValue());
+            copy.Message_Variant__c = 'Variant ' + String.valueOf(newVersion.intValue());
             copy.Status__c  = 'Draft';
             insert copy;
             return copy.Id;
+        } catch (AuraHandledException e) {
+            throw e;
         } catch (Exception e) {
             throw new AuraHandledException('Clone failed: ' + e.getMessage());
         }
     }
 
+    /**
+     * Update master-level naming parts + language for every variant under oldStem.
+     * Country Code / Message Name changes rewrite each variant Name as newStem_VariantNumber.
+     * Channel prefix and variant numbers are preserved.
+     */
     @AuraEnabled
-    public static void renameMessageGroup(String oldName, String newName, String channelType) {
-        if (String.isBlank(oldName) || String.isBlank(newName) || String.isBlank(channelType)) {
-            throw new AuraHandledException('Invalid rename parameters.');
+    public static void updateMessageMaster(
+        String oldStem,
+        String countryCode,
+        String messageNamePart,
+        String language,
+        String channelType
+    ) {
+        if (String.isBlank(oldStem) || String.isBlank(channelType)) {
+            throw new AuraHandledException('Invalid master update parameters.');
         }
-        List<CC_Message_Metadata__c> rows = [
-            SELECT Id, Name
-            FROM CC_Message_Metadata__c
-            WHERE Name = :oldName
-              AND Channel_Type__c = :channelType
-        ];
+        String cc = countryCode == null ? '' : countryCode.trim().toUpperCase();
+        String mn = messageNamePart == null ? '' : messageNamePart.trim();
+        if (String.isBlank(cc) || String.isBlank(mn)) {
+            throw new AuraHandledException('Country Code and Message Name are required.');
+        }
+
+        ParsedName oldParsed = parseName(oldStem);
+        String prefix = String.isNotBlank(oldParsed.prefix) ? oldParsed.prefix : oldStem.split('_')[0];
+        String newStem = prefix + '_' + cc + '_' + mn;
+
+        List<CC_Message_Metadata__c> rows = queryByStem(oldStem.trim(), channelType);
+        if (rows.isEmpty()) {
+            throw new AuraHandledException('No message variants found for this master.');
+        }
+
+        if (newStem != oldStem.trim()) {
+            List<CC_Message_Metadata__c> collisions = queryByStem(newStem, channelType);
+            if (!collisions.isEmpty()) {
+                throw new AuraHandledException(
+                    'A message with Country Code "' + cc + '" and Message Name "' + mn
+                    + '" already exists on this channel.'
+                );
+            }
+        }
+
         for (CC_Message_Metadata__c r : rows) {
-            r.Name = newName;
+            Decimal v = resolveVariantNumber(r.Name, r.Version__c, oldStem.trim());
+            if (v == null) v = 1;
+            r.Name = newStem + '_' + String.valueOf(v.intValue());
+            r.Version__c = v;
+            r.Message_Variant__c = 'Variant ' + String.valueOf(v.intValue());
+            if (String.isNotBlank(language)) {
+                r.Language__c = language;
+            }
         }
         try {
             update rows;
         } catch (DmlException e) {
-            throw new AuraHandledException('Rename failed: ' + e.getDmlMessage(0));
+            throw new AuraHandledException('Update failed: ' + e.getDmlMessage(0));
         }
+    }
+
+    /** @deprecated Prefer updateMessageMaster — kept for older clients. */
+    @AuraEnabled
+    public static void renameMessageGroup(String oldName, String newName, String channelType) {
+        ParsedName parsedNew = parseName(newName);
+        String stemOld = stripVariantSuffix(oldName);
+        if (String.isBlank(stemOld)) stemOld = oldName;
+        String cc = parsedNew.countryCode;
+        String mn = parsedNew.messageName;
+        if (String.isBlank(cc) || String.isBlank(mn)) {
+            // Treat newName as a full stem PREFIX_CC_MessageName
+            ParsedName stemParts = parseName(stripVariantSuffix(newName));
+            cc = stemParts.countryCode;
+            mn = stemParts.messageName;
+        }
+        updateMessageMaster(stemOld, cc, mn, null, channelType);
     }
 
     @AuraEnabled
@@ -240,6 +375,86 @@ public with sharing class CopyCockpitController {
         } catch (DmlException e) {
             throw new AuraHandledException('Delete failed: ' + e.getDmlMessage(0));
         }
+    }
+
+    // ── Naming helpers ────────────────────────────────────────────────────────
+
+    private class ParsedName {
+        public String prefix;
+        public String countryCode;
+        public String messageName;
+        public Decimal variant;
+    }
+
+    private static ParsedName parseName(String fullName) {
+        ParsedName p = new ParsedName();
+        if (String.isBlank(fullName)) return p;
+        List<String> parts = fullName.split('_');
+        if (parts.isEmpty()) return p;
+        p.prefix = parts[0];
+        if (parts.size() >= 2) p.countryCode = parts[1];
+        if (parts.size() >= 3) {
+            String last = parts[parts.size() - 1];
+            Boolean lastIsVariant = last.isNumeric() && parts.size() >= 4;
+            if (lastIsVariant) {
+                p.variant = Decimal.valueOf(last);
+                List<String> mid = new List<String>();
+                for (Integer i = 2; i < parts.size() - 1; i++) mid.add(parts[i]);
+                p.messageName = String.join(mid, '_');
+            } else {
+                List<String> mid = new List<String>();
+                for (Integer i = 2; i < parts.size(); i++) mid.add(parts[i]);
+                p.messageName = String.join(mid, '_');
+            }
+        }
+        return p;
+    }
+
+    private static String stripVariantSuffix(String fullName) {
+        if (String.isBlank(fullName)) return fullName;
+        List<String> parts = fullName.split('_');
+        if (parts.size() < 4) return fullName;
+        String last = parts[parts.size() - 1];
+        if (!last.isNumeric()) return fullName;
+        List<String> stemParts = new List<String>();
+        for (Integer i = 0; i < parts.size() - 1; i++) stemParts.add(parts[i]);
+        return String.join(stemParts, '_');
+    }
+
+    private static Decimal resolveVariantNumber(String fullName, Decimal versionField, String stem) {
+        if (String.isNotBlank(fullName) && String.isNotBlank(stem) && fullName.startsWith(stem + '_')) {
+            String suffix = fullName.substring(stem.length() + 1);
+            if (suffix.isNumeric()) return Decimal.valueOf(suffix);
+        }
+        ParsedName p = parseName(fullName);
+        if (p.variant != null) return p.variant;
+        return versionField;
+    }
+
+    private static List<CC_Message_Metadata__c> queryByStem(String stem, String channelType) {
+        if (String.isBlank(stem) || String.isBlank(channelType)) {
+            return new List<CC_Message_Metadata__c>();
+        }
+        String likePattern = stem + '_%';
+        List<CC_Message_Metadata__c> candidates = [
+            SELECT Id, Name, Version__c, Language__c
+            FROM CC_Message_Metadata__c
+            WHERE Channel_Type__c = :channelType
+              AND (Name = :stem OR Name LIKE :likePattern)
+            LIMIT 500
+        ];
+        List<CC_Message_Metadata__c> matched = new List<CC_Message_Metadata__c>();
+        for (CC_Message_Metadata__c r : candidates) {
+            if (r.Name == stem) {
+                matched.add(r);
+                continue;
+            }
+            if (r.Name != null && r.Name.startsWith(stem + '_')) {
+                String suffix = r.Name.substring(stem.length() + 1);
+                if (suffix.isNumeric()) matched.add(r);
+            }
+        }
+        return matched;
     }
 
     // ── Version History ───────────────────────────────────────────────────────

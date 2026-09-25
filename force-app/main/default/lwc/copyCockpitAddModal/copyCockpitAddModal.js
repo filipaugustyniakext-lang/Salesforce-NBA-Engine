@@ -2,19 +2,13 @@ import { LightningElement, api, track, wire } from 'lwc';
 import getProductFamilies from '@salesforce/apex/CopyCockpitController.getProductFamilies';
 import getActiveOffersByFamily from '@salesforce/apex/CopyCockpitController.getActiveOffersByFamily';
 import getPlaceholders from '@salesforce/apex/CopyCockpitController.getPlaceholders';
-import getExistingVariants from '@salesforce/apex/CopyCockpitController.getExistingVariants';
-
-const CHANNEL_PREFIX_MAP = {
-    'Email':             'EMA',
-    'SMS':               'SMS',
-    'Push':              'PUSH',
-    'Banner':            'BAN',
-    'In-App':            'INAPP',
-    'AI Agent Inbound':  'AII',
-    'AI Agent Outbound': 'AIO',
-    'Branch Agent':      'BRA',
-    'WhatsApp':          'WHP',
-};
+import getStemVariantInfo from '@salesforce/apex/CopyCockpitController.getStemVariantInfo';
+import {
+    channelPrefixForType,
+    composeFullName,
+    composeStem,
+    nextAvailableVariant
+} from 'c/copyMessageNaming';
 
 const SUBTYPE_OPTIONS = {
     Email: [
@@ -33,24 +27,17 @@ const LANGUAGE_OPTIONS = [
     { label: 'ES', value: 'ES' },
 ];
 
-function nextAvailableVariant(takenVariants) {
-    const taken = new Set((takenVariants || []).map(Number));
-    let v = 1;
-    while (taken.has(v)) v++;
-    return v;
-}
-
 export default class CopyCockpitAddModal extends LightningElement {
 
     @api channelName = '';
     @api channelType = '';
     @api bannerTypes = [];
 
-    // Composed name parts
+    // Editable name parts (master-level)
     @track countryCode = '';
     @track messageName = '';
 
-    // Variant + language
+    // Auto parts
     @track version  = 1;
     @track language = 'PL';
 
@@ -72,9 +59,10 @@ export default class CopyCockpitAddModal extends LightningElement {
     @track isSaving         = false;
     @track variantError     = '';
     @track variantSuggested = false;
+    @track isExistingMaster = false;
 
     _takenVariants    = [];
-    _variantCheckName = '';
+    _variantCheckStem = '';
 
     @wire(getProductFamilies)
     _wiredFamilies;
@@ -85,20 +73,26 @@ export default class CopyCockpitAddModal extends LightningElement {
     // ── derived ───────────────────────────────────────────────────────────────
 
     get channelPrefix() {
-        return CHANNEL_PREFIX_MAP[this.channelType] || this.channelType || '';
+        return channelPrefixForType(this.channelType);
+    }
+
+    get nameStem() {
+        return composeStem(this.channelPrefix, this.countryCode, this.messageName);
     }
 
     get composedName() {
-        const cc = (this.countryCode || '').trim().toUpperCase();
-        const mn = (this.messageName || '').trim();
-        if (!cc || !mn) return '';
-        return `${this.channelPrefix}_${cc}_${mn}`;
+        return composeFullName(this.channelPrefix, this.countryCode, this.messageName, this.version);
     }
 
     get composedNamePreview() {
         const cc = (this.countryCode || '').trim().toUpperCase() || '<CountryCode>';
         const mn = (this.messageName || '').trim() || '<MessageName>';
-        return `${this.channelPrefix}_${cc}_${mn}`;
+        const v  = this.version != null ? this.version : '<Variant>';
+        return `${this.channelPrefix}_${cc}_${mn}_${v}`;
+    }
+
+    get namingConventionHint() {
+        return 'ChannelPrefix_CountryCode_MessageName_VariantNumber';
     }
 
     get languageOptions() { return LANGUAGE_OPTIONS; }
@@ -167,6 +161,23 @@ export default class CopyCockpitAddModal extends LightningElement {
     get versionError()        { return this.variantError; }
     get versionSuggested()    { return this.variantSuggested; }
 
+    get variantHint() {
+        if (this.isExistingMaster) {
+            return `Existing master found — creating Variant ${this.version}.`;
+        }
+        return 'New message — Variant 1.';
+    }
+
+    get isLanguageLocked() {
+        return this.isExistingMaster;
+    }
+
+    get languageHelp() {
+        return this.isExistingMaster
+            ? 'Locked to the existing master message language. Change it from the master row.'
+            : 'Shared by all variants of this message. Change later from the master row.';
+    }
+
     get canSave() {
         if (!(this.countryCode || '').trim())  return false;
         if (!(this.messageName || '').trim())  return false;
@@ -192,11 +203,6 @@ export default class CopyCockpitAddModal extends LightningElement {
     handleMessageNameChange(e) {
         this.messageName = e.target.value;
         this._onNamePartChanged();
-    }
-
-    handleVersionChange(e) {
-        this.version = Number(e.target.value);
-        this._validateVariant();
     }
 
     handleLanguageChange(e) { this.language = e.detail.value; }
@@ -240,8 +246,9 @@ export default class CopyCockpitAddModal extends LightningElement {
     // ── private ───────────────────────────────────────────────────────────────
 
     _onNamePartChanged() {
-        this.variantError    = '';
+        this.variantError     = '';
         this.variantSuggested = false;
+        this.isExistingMaster = false;
         this._checkNameVariants();
     }
 
@@ -257,53 +264,51 @@ export default class CopyCockpitAddModal extends LightningElement {
     }
 
     _checkNameVariants() {
-        const name = this.composedName;
-        if (!name || name === this._variantCheckName) return;
-        this._variantCheckName = name;
+        const stem = this.nameStem;
+        if (!stem || stem === this._variantCheckStem) return;
+        this._variantCheckStem = stem;
 
-        getExistingVariants({ messageName: name, channelType: this.channelType })
-            .then(variants => {
-                if (this._variantCheckName !== this.composedName) return;
-                this._takenVariants = variants || [];
-                if (this._takenVariants.length > 0) {
-                    const next = nextAvailableVariant(this._takenVariants);
-                    this.version        = next;
+        getStemVariantInfo({ nameStem: stem, channelType: this.channelType })
+            .then(info => {
+                if (this._variantCheckStem !== this.nameStem) return;
+                const variants = info?.variants || [];
+                this._takenVariants = variants;
+                if (variants.length > 0) {
+                    const next = nextAvailableVariant(variants);
+                    this.version          = next;
+                    this.isExistingMaster = true;
                     this.variantSuggested = true;
-                    this.variantError   = '';
+                    this.variantError     = '';
+                    if (info.language) this.language = info.language;
                 } else {
-                    this.version        = 1;
+                    this.version          = 1;
+                    this.isExistingMaster = false;
                     this.variantSuggested = false;
-                    this.variantError   = '';
+                    this.variantError     = '';
                 }
             })
             .catch(() => {});
     }
 
-    _validateVariant() {
-        const v     = Number(this.version);
-        const taken = new Set(this._takenVariants.map(Number));
-        if (taken.has(v)) {
-            this.variantError = `Variant ${v} already exists for "${this.composedName}". Use variant ${nextAvailableVariant(this._takenVariants)} instead.`;
-        } else {
-            this.variantError = '';
-        }
-        this.variantSuggested = false;
-    }
-
     _dispatchSave(action) {
         this.isSaving = true;
+        const fullName = this.composedName;
         this.dispatchEvent(new CustomEvent('save', {
             detail: {
-                messageName:      this.composedName,
-                version:          Number(this.version),
-                language:         this.language,
-                offerId:          this.offerId || null,
-                productFamilyId:  this.productFamilyId || null,
+                messageName:       fullName,
+                nameStem:          this.nameStem,
+                countryCode:       (this.countryCode || '').trim().toUpperCase(),
+                messageNamePart:   (this.messageName || '').trim(),
+                channelPrefix:     this.channelPrefix,
+                version:           Number(this.version),
+                language:          this.language,
+                offerId:           this.offerId || null,
+                productFamilyId:   this.productFamilyId || null,
                 productFamilyName: this.productFamilyName || null,
-                placeholders:     this.isBannerChannel ? [...this.selectedPlaceholders] : [],
-                channelName:      this.channelName,
-                channelType:      this.channelType,
-                messageSubtype:   this.selectedSubtype,
+                placeholders:      this.isBannerChannel ? [...this.selectedPlaceholders] : [],
+                channelName:       this.channelName,
+                channelType:       this.channelType,
+                messageSubtype:    this.selectedSubtype,
                 action,
             },
         }));
