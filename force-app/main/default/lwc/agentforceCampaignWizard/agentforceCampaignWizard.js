@@ -455,7 +455,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 }
                 // New campaigns start with channels unchecked to avoid accidental all-channel selection.
                 // Edit mode restores the campaign's previously assigned channels.
-                const isActive = !disabled && this.editChannelValues
+                const isActive = this.editChannelValues
                     ? this.editChannelValues.includes(rec.Name)
                     : false;
                 allChannels.push({ label: rec.Name, value: rec.Name, checked: isActive, disabled });
@@ -487,7 +487,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         this.channelGroups = this.channelGroups.map(group => ({
             ...group,
             items: group.items.map(ch => {
-                const isActive = !ch.disabled && this.editChannelValues.includes(ch.label);
+                const isActive = this.editChannelValues.includes(ch.label);
                 return {
                     ...ch,
                     active: isActive,
@@ -501,7 +501,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         }));
         this.channels = this.channels.map(ch => ({
             ...ch,
-            checked: !ch.disabled && this.editChannelValues.includes(ch.label)
+            checked: this.editChannelValues.includes(ch.label)
         }));
         const enabledChannels = this.channels.filter(c => !c.disabled);
         this.selectAllChecked = enabledChannels.length > 0 && enabledChannels.every(c => c.checked);
@@ -873,13 +873,13 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         this.selectAllChecked = event.target.checked;
         this.channels = this.channels.map(c => ({
             ...c,
-            checked: c.disabled ? false : this.selectAllChecked
+            checked: c.disabled ? c.checked : this.selectAllChecked
         }));
         this.channelGroups = this.channelGroups.map(group => ({
             ...group,
             items: group.items.map(ch => ({
                 ...ch,
-                active: ch.disabled ? false : this.selectAllChecked,
+                active: ch.disabled ? ch.active : this.selectAllChecked,
                 buttonClass: ch.disabled
                     ? 'slds-button slds-button_neutral channel-btn channel-btn-disabled'
                     : (this.selectAllChecked ? 'slds-button slds-button_neutral channel-btn channel-btn-active' : 'slds-button slds-button_neutral channel-btn channel-btn-inactive'),
@@ -914,8 +914,11 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     handleChannelChange(event) {
         const val = event.target.dataset.value;
+        const channel = this.channels.find(c => c.value === val);
+        if (!channel || channel.disabled) return;
         this.channels = this.channels.map(c => c.value === val ? { ...c, checked: event.target.checked } : c);
-        this.selectAllChecked = this.channels.every(c => c.checked);
+        const enabledChannels = this.channels.filter(c => !c.disabled);
+        this.selectAllChecked = enabledChannels.length > 0 && enabledChannels.every(c => c.checked);
     }
 
     // --- WIZARD STEP NAVIGATION ---
@@ -1039,7 +1042,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get hasSelectedChannel() {
-        return this.channels.some(c => c.checked);
+        return this.channels.some(c => c.checked && !c.disabled);
     }
 
     get hasOfferingSelection() {
