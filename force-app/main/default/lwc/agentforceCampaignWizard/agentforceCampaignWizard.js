@@ -449,6 +449,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             data.forEach(rec => {
                 const type = rec.Channel_Type__c || 'Other';
                 const icon = rec.Channel_Icon__c || 'utility:connected_apps';
+                const disabled = rec.Is_Active__c === false;
                 if (!groupMap[type]) {
                     groupMap[type] = { type, icon, items: [] };
                 }
@@ -457,20 +458,25 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 const isActive = this.editChannelValues
                     ? this.editChannelValues.includes(rec.Name)
                     : false;
-                allChannels.push({ label: rec.Name, value: rec.Name, checked: isActive });
+                allChannels.push({ label: rec.Name, value: rec.Name, checked: isActive, disabled });
                 groupMap[type].items.push({
                     label: rec.Name,
                     value: rec.Name,
                     icon: rec.Channel_Icon__c || 'utility:connected_apps',
                     active: isActive,
-                    buttonClass: isActive ? 'slds-button slds-button_neutral channel-btn channel-btn-active' : 'slds-button slds-button_neutral channel-btn channel-btn-inactive',
-                    iconClass: isActive ? 'channel-icon-active' : 'channel-icon-inactive'
+                    disabled,
+                    buttonClass: disabled
+                        ? 'slds-button slds-button_neutral channel-btn channel-btn-disabled'
+                        : (isActive ? 'slds-button slds-button_neutral channel-btn channel-btn-active' : 'slds-button slds-button_neutral channel-btn channel-btn-inactive'),
+                    iconClass: isActive ? 'channel-icon-active' : 'channel-icon-inactive',
+                    title: disabled ? `${rec.Name} is inactive in Marketing Dictionary` : rec.Name
                 });
             });
 
             this.channelGroups = Object.values(groupMap);
             this.channels = allChannels;
-            this.selectAllChecked = allChannels.length > 0 && allChannels.every(c => c.checked);
+            const enabledChannels = allChannels.filter(c => !c.disabled);
+            this.selectAllChecked = enabledChannels.length > 0 && enabledChannels.every(c => c.checked);
         } else if (error) {
             console.error('Error fetching channel dictionary records:', error);
         }
@@ -485,7 +491,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 return {
                     ...ch,
                     active: isActive,
-                    buttonClass: isActive ? 'slds-button slds-button_neutral channel-btn channel-btn-active' : 'slds-button slds-button_neutral channel-btn channel-btn-inactive',
+                    buttonClass: ch.disabled
+                        ? 'slds-button slds-button_neutral channel-btn channel-btn-disabled'
+                        : (isActive ? 'slds-button slds-button_neutral channel-btn channel-btn-active' : 'slds-button slds-button_neutral channel-btn channel-btn-inactive'),
                     iconClass: isActive ? 'channel-icon-active' : 'channel-icon-inactive',
                     icon: ch.icon
                 };
@@ -495,7 +503,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             ...ch,
             checked: this.editChannelValues.includes(ch.label)
         }));
-        this.selectAllChecked = this.channels.every(c => c.checked);
+        const enabledChannels = this.channels.filter(c => !c.disabled);
+        this.selectAllChecked = enabledChannels.length > 0 && enabledChannels.every(c => c.checked);
     }
 
     // Topic + Product Family / FoN catalogues load imperatively (Id + Name SSOT).
@@ -862,20 +871,27 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     handleSelectAllChange(event) {
         this.selectAllChecked = event.target.checked;
-        this.channels = this.channels.map(c => ({ ...c, checked: this.selectAllChecked }));
+        this.channels = this.channels.map(c => ({
+            ...c,
+            checked: c.disabled ? c.checked : this.selectAllChecked
+        }));
         this.channelGroups = this.channelGroups.map(group => ({
             ...group,
             items: group.items.map(ch => ({
                 ...ch,
-                active: this.selectAllChecked,
-                buttonClass: this.selectAllChecked ? 'slds-button slds-button_neutral channel-btn channel-btn-active' : 'slds-button slds-button_neutral channel-btn channel-btn-inactive',
-                iconClass: this.selectAllChecked ? 'channel-icon-active' : 'channel-icon-inactive'
+                active: ch.disabled ? ch.active : this.selectAllChecked,
+                buttonClass: ch.disabled
+                    ? 'slds-button slds-button_neutral channel-btn channel-btn-disabled'
+                    : (this.selectAllChecked ? 'slds-button slds-button_neutral channel-btn channel-btn-active' : 'slds-button slds-button_neutral channel-btn channel-btn-inactive'),
+                iconClass: !ch.disabled && this.selectAllChecked ? 'channel-icon-active' : 'channel-icon-inactive'
             }))
         }));
     }
 
     handleChannelTileToggle(event) {
         const val = event.currentTarget.dataset.value;
+        const current = this.channels.find(c => c.value === val);
+        if (!current || current.disabled) return;
         this.channelGroups = this.channelGroups.map(group => ({
             ...group,
             items: group.items.map(ch => {
@@ -892,13 +908,17 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             })
         }));
         this.channels = this.channels.map(c => c.value === val ? { ...c, checked: !c.checked } : c);
-        this.selectAllChecked = this.channels.every(c => c.checked);
+        const enabledChannels = this.channels.filter(c => !c.disabled);
+        this.selectAllChecked = enabledChannels.length > 0 && enabledChannels.every(c => c.checked);
     }
 
     handleChannelChange(event) {
         const val = event.target.dataset.value;
+        const channel = this.channels.find(c => c.value === val);
+        if (!channel || channel.disabled) return;
         this.channels = this.channels.map(c => c.value === val ? { ...c, checked: event.target.checked } : c);
-        this.selectAllChecked = this.channels.every(c => c.checked);
+        const enabledChannels = this.channels.filter(c => !c.disabled);
+        this.selectAllChecked = enabledChannels.length > 0 && enabledChannels.every(c => c.checked);
     }
 
     // --- WIZARD STEP NAVIGATION ---
@@ -1022,7 +1042,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get hasSelectedChannel() {
-        return this.channels.some(c => c.checked);
+        return this.channels.some(c => c.checked && !c.disabled);
     }
 
     get hasOfferingSelection() {

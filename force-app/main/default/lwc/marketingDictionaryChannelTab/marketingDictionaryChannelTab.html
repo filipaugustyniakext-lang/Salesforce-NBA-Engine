@@ -50,10 +50,26 @@
                             </template>
                             <div class="slds-media__body">
                                 <p class="slds-text-heading_small">{activeChannel.Name}</p>
-                                <p class="slds-text-body_small slds-text-color_weak">{activeChannel.Channel_Type__c}</p>
+                                <p class="slds-text-body_small slds-text-color_weak">
+                                    {activeChannel.Channel_Type__c}
+                                    <span class={activeChannel.statusClass}>{activeChannel.statusLabel}</span>
+                                </p>
                             </div>
                         </div>
-                        <div class="slds-no-flex slds-button-group">
+                        <div class="slds-no-flex slds-grid slds-grid_vertical-align-center">
+                            <lightning-input
+                                type="toggle"
+                                label="Channel availability"
+                                variant="label-hidden"
+                                message-toggle-active="Active"
+                                message-toggle-inactive="Inactive"
+                                checked={activeChannel.Is_Active__c}
+                                data-id={activeChannel.Id}
+                                data-name={activeChannel.Name}
+                                onchange={handleChannelActiveToggle}
+                                class="slds-m-right_small">
+                            </lightning-input>
+                            <div class="slds-button-group">
                             <lightning-button-icon icon-name="utility:edit" variant="bare"
                                 alternative-text="Edit channel" title="Edit channel"
                                 data-id={activeChannel.Id} onclick={handleEditChannel}>
@@ -62,6 +78,7 @@
                                 alternative-text="Delete channel" title="Delete channel"
                                 data-id={activeChannel.Id} data-name={activeChannel.Name} onclick={handleDeleteChannel}>
                             </lightning-button-icon>
+                            </div>
                         </div>
                     </div>
 
@@ -110,11 +127,84 @@
                                 </div>
                             </lightning-tab>
 
+                            <!-- Weekly Restrictions tab (per channel) -->
+                            <lightning-tab value="weekly" label="Weekly Restrictions" data-channelid={activeChannel.Id}>
+                                <div class="tab-content slds-p-around_small">
+                                    <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
+                                        Define which days of the week this channel may send, and optional hour-range blocks.
+                                        Days without a rule are unrestricted for this channel.
+                                    </p>
+                                    <div class="bo-week-grid">
+                                        <template for:each={activeChannel.weekDays} for:item="day">
+                                            <div key={day.name} class={day.cardClass}>
+                                                <div class="bo-day-header">
+                                                    <span class="slds-text-title_caps">{day.name}</span>
+                                                    <div class="bo-day-actions">
+                                                        <template lwc:if={day.rule}>
+                                                            <lightning-button-icon icon-name="utility:edit" variant="bare" size="x-small"
+                                                                alternative-text="Edit rule" title="Edit rule"
+                                                                data-day={day.name} data-channelid={activeChannel.Id}
+                                                                onclick={handleEditDayRule}>
+                                                            </lightning-button-icon>
+                                                            <lightning-button-icon icon-name="utility:delete" variant="bare" size="x-small"
+                                                                alternative-text="Remove rule" title="Remove rule"
+                                                                class="slds-m-left_xx-small"
+                                                                data-id={day.rule.Id} data-day={day.name}
+                                                                onclick={handleDeleteDayRule}>
+                                                            </lightning-button-icon>
+                                                        </template>
+                                                        <template lwc:else>
+                                                            <lightning-button-icon icon-name="utility:add" variant="bare" size="x-small"
+                                                                alternative-text="Add restriction" title="Add restriction"
+                                                                data-day={day.name} data-channelid={activeChannel.Id}
+                                                                onclick={handleNewDayRule}>
+                                                            </lightning-button-icon>
+                                                        </template>
+                                                    </div>
+                                                </div>
+                                                <div class="bo-day-body">
+                                                    <template lwc:if={day.rule}>
+                                                        <template lwc:if={day.rule.Is_Fully_Blocked__c}>
+                                                            <span class="slds-badge bo-badge-blocked">All Day Blocked</span>
+                                                        </template>
+                                                        <template lwc:else>
+                                                            <span class="slds-badge bo-badge-partial">
+                                                                {day.rule.Blocked_From_Hour__c}:00 – {day.rule.Blocked_To_Hour__c}:00
+                                                            </span>
+                                                        </template>
+                                                    </template>
+                                                    <template lwc:else>
+                                                        <span class="slds-badge slds-badge_lightest bo-badge-open">Unrestricted</span>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </lightning-tab>
+
+                            <!-- Placeholder for channel-specific message templates -->
+                            <template lwc:if={activeChannel.isNotBanner}>
+                                <lightning-tab value="templates" label={activeChannel.templatesTabLabel}>
+                                    <div class="tab-content slds-p-around_small">
+                                        <div class="slds-box slds-theme_shade slds-text-align_center slds-p-around_large">
+                                            <lightning-icon icon-name="utility:layout" size="small"
+                                                alternative-text="Templates" class="slds-m-bottom_small">
+                                            </lightning-icon>
+                                            <p class="slds-text-heading_small">{activeChannel.templatesTabLabel}</p>
+                                            <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">
+                                                Channel template management will be available here.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </lightning-tab>
+                            </template>
+
                             <!-- Banner sub-tabs (Banner channels only) -->
                             <template lwc:if={activeChannel.isBanner}>
 
                                 <!-- Banner Types tab -->
-                                <lightning-tab value="banner-types" label="Banner Types">
+                                <lightning-tab value="banner-types" label={activeChannel.templatesTabLabel}>
                                     <div class="tab-content slds-p-around_small">
                                         <div class="tab-toolbar slds-m-bottom_x-small">
                                             <div class="tab-toolbar__actions">
@@ -447,6 +537,59 @@
                     <lightning-button label="Cancel" onclick={handleCloseCooldownModal}></lightning-button>
                     <lightning-button variant="brand" label="Save" disabled={isSaving}
                         onclick={handleSaveCooldown} class="slds-m-left_x-small">
+                    </lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open" role="presentation"></div>
+    </template>
+
+    <!-- Weekly Restriction (day rule) modal -->
+    <template lwc:if={isDayRuleModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true"
+                 aria-labelledby="dayrule-modal-heading" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header">
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse"
+                            title="Close" onclick={handleCloseDayRuleModal}>
+                        <lightning-icon icon-name="utility:close" size="small" alternative-text="Close"></lightning-icon>
+                    </button>
+                    <h2 id="dayrule-modal-heading" class="slds-modal__title">{dayRuleModalTitle}</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <div class="slds-form slds-form_stacked">
+                        <div class="slds-form-element">
+                            <label class="slds-form-element__label">Day</label>
+                            <div class="slds-form-element__control">
+                                <span class="slds-text-body_regular slds-text-title_caps">{editDayRule.Day_Of_Week__c}</span>
+                            </div>
+                        </div>
+                        <lightning-input type="checkbox" label="Block entire day"
+                            checked={editDayRule.Is_Fully_Blocked__c}
+                            data-field="Is_Fully_Blocked__c" onchange={handleDayRuleCheckboxChange}>
+                        </lightning-input>
+                        <template lwc:if={showDayRuleHourRange}>
+                            <div class="slds-grid slds-gutters_small">
+                                <div class="slds-col">
+                                    <lightning-input type="number" label="Blocked From (hour 0–23)" min="0" max="23"
+                                        step="1" value={editDayRule.Blocked_From_Hour__c}
+                                        data-field="Blocked_From_Hour__c" onchange={handleDayRuleFieldChange}>
+                                    </lightning-input>
+                                </div>
+                                <div class="slds-col">
+                                    <lightning-input type="number" label="Blocked Until (hour 0–23)" min="0" max="23"
+                                        step="1" value={editDayRule.Blocked_To_Hour__c}
+                                        data-field="Blocked_To_Hour__c" onchange={handleDayRuleFieldChange}>
+                                    </lightning-input>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={handleCloseDayRuleModal}></lightning-button>
+                    <lightning-button variant="brand" label="Save Rule" disabled={isSaving}
+                        onclick={handleSaveDayRule} class="slds-m-left_x-small">
                     </lightning-button>
                 </footer>
             </div>

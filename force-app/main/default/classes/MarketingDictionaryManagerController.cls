@@ -143,8 +143,10 @@ public with sharing class MarketingDictionaryManagerController {
     @AuraEnabled(cacheable=true)
     public static List<Marketing_Dictionary__c> getChannelRecords() {
         return [
-            SELECT Id, Name, Channel_Type__c, Channel_Icon__c,
+            SELECT Id, Name, Channel_Type__c, Channel_Icon__c, Is_Active__c,
                 (SELECT Id, Audience_Type_Dict__c, Audience_Type_Dict__r.Name, Cooldown_Days__c FROM Channel_Cooldowns__r ORDER BY Audience_Type_Dict__r.Name ASC),
+                (SELECT Id, Day_Of_Week__c, Is_Fully_Blocked__c, Blocked_From_Hour__c, Blocked_To_Hour__c
+                 FROM Blackout_Day_Rules__r ORDER BY Day_Of_Week__c ASC),
                 (SELECT Id, Name, Description__c, Image_URL__c FROM Channel_Banner_Types__r ORDER BY Name ASC),
                 (SELECT Id, Name, App_Screen__c, Banner_Type__c, Banner_Type__r.Name, Position_Description__c
                  FROM Channel_Banner_Placements__r ORDER BY App_Screen__c ASC, Name ASC),
@@ -304,8 +306,57 @@ public with sharing class MarketingDictionaryManagerController {
         try {
             Id channelRecordTypeId = getRecordTypeId('Channel');
             record.RecordTypeId = channelRecordTypeId;
+            if (record.Id == null && record.Is_Active__c == null) {
+                record.Is_Active__c = true;
+            }
             upsert record;
             return record.Id;
+        } catch (Exception e) {
+            throw new AuraHandledException(e.getMessage());
+        }
+    }
+
+    /**
+     * Activates or deactivates a channel. Deactivated channels are added to every
+     * blackout date so existing campaigns cannot send through them.
+     */
+    @AuraEnabled
+    public static void toggleChannelActive(Id channelId, Boolean isActive) {
+        if (channelId == null || isActive == null) {
+            throw new AuraHandledException('Channel and active state are required.');
+        }
+        try {
+            Marketing_Dictionary__c channel = [
+                SELECT Id, Name
+                FROM Marketing_Dictionary__c
+                WHERE Id = :channelId
+                AND RecordType.DeveloperName = 'Channel'
+                LIMIT 1
+            ];
+            channel.Is_Active__c = isActive;
+            update channel;
+
+            if (!isActive) {
+                List<Blackout_Window__c> windows = [
+                    SELECT Id, Assigned_Channels__c
+                    FROM Blackout_Window__c
+                ];
+                for (Blackout_Window__c window : windows) {
+                    Set<String> assigned = new Set<String>();
+                    if (String.isNotBlank(window.Assigned_Channels__c)) {
+                        for (String channelName : window.Assigned_Channels__c.split(';')) {
+                            if (String.isNotBlank(channelName)) assigned.add(channelName.trim());
+                        }
+                    }
+                    assigned.add(channel.Name);
+                    List<String> sortedChannels = new List<String>(assigned);
+                    sortedChannels.sort();
+                    window.Assigned_Channels__c = String.join(sortedChannels, ';');
+                }
+                if (!windows.isEmpty()) update windows;
+            }
+        } catch (AuraHandledException e) {
+            throw e;
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());
         }
@@ -733,27 +784,40 @@ public with sharing class MarketingDictionaryManagerController {
     public static List<Blackout_Window__c> getBlackoutWindows() {
         return [
             SELECT Id, Name, Blackout_Date__c, Blackout_End_Date__c, Blackout_Type__c,
-                   Is_Recurring_Annually__c, Description__c
+                   Is_Recurring_Annually__c, Description__c, Assigned_Channels__c
             FROM Blackout_Window__c
             ORDER BY Blackout_Date__c ASC NULLS LAST, Name ASC
             LIMIT 500
         ];
     }
 
+    /**
+     * Weekly day rules for one Channel (or all rules when channelId is null — legacy).
+     * Sorted Monday → Sunday.
+     */
     @AuraEnabled(cacheable=true)
-    public static List<Blackout_Day_Rule__c> getBlackoutDayRules() {
-        // Fetch all then sort in Apex using a sort-key prefix so Mon < Tue etc.
+    public static List<Blackout_Day_Rule__c> getBlackoutDayRules(Id channelId) {
         Map<String, String> dayPrefix = new Map<String, String>{
             'Monday' => '1', 'Tuesday' => '2', 'Wednesday' => '3',
             'Thursday' => '4', 'Friday' => '5', 'Saturday' => '6', 'Sunday' => '7'
         };
-        List<Blackout_Day_Rule__c> rules = [
-            SELECT Id, Name, Day_Of_Week__c, Is_Fully_Blocked__c,
-                   Blocked_From_Hour__c, Blocked_To_Hour__c
-            FROM Blackout_Day_Rule__c
-            LIMIT 500
-        ];
-        // Build a sortable map keyed by prefix+Id, then extract values in order
+        List<Blackout_Day_Rule__c> rules;
+        if (channelId != null) {
+            rules = [
+                SELECT Id, Name, Channel__c, Day_Of_Week__c, Is_Fully_Blocked__c,
+                       Blocked_From_Hour__c, Blocked_To_Hour__c
+                FROM Blackout_Day_Rule__c
+                WHERE Channel__c = :channelId
+                LIMIT 50
+            ];
+        } else {
+            rules = [
+                SELECT Id, Name, Channel__c, Day_Of_Week__c, Is_Fully_Blocked__c,
+                       Blocked_From_Hour__c, Blocked_To_Hour__c
+                FROM Blackout_Day_Rule__c
+                LIMIT 500
+            ];
+        }
         Map<String, Blackout_Day_Rule__c> sorted = new Map<String, Blackout_Day_Rule__c>();
         for (Blackout_Day_Rule__c r : rules) {
             String prefix = dayPrefix.containsKey(r.Day_Of_Week__c) ? dayPrefix.get(r.Day_Of_Week__c) : '8';
@@ -769,8 +833,33 @@ public with sharing class MarketingDictionaryManagerController {
     @AuraEnabled
     public static Id saveBlackoutWindow(Blackout_Window__c record) {
         try {
+            if (String.isBlank(record.Name) || record.Blackout_Date__c == null) {
+                throw new AuraHandledException('Name and Start Date are required.');
+            }
+            Set<String> assigned = new Set<String>();
+            if (String.isNotBlank(record.Assigned_Channels__c)) {
+                for (String channelName : record.Assigned_Channels__c.split(';')) {
+                    if (String.isNotBlank(channelName)) assigned.add(channelName.trim());
+                }
+            }
+            for (Marketing_Dictionary__c channel : [
+                SELECT Name
+                FROM Marketing_Dictionary__c
+                WHERE RecordType.DeveloperName = 'Channel'
+                AND Is_Active__c = false
+            ]) {
+                assigned.add(channel.Name);
+            }
+            List<String> sortedChannels = new List<String>(assigned);
+            sortedChannels.sort();
+            record.Assigned_Channels__c = String.join(sortedChannels, ';');
+            if (String.isBlank(record.Assigned_Channels__c)) {
+                throw new AuraHandledException('Select at least one channel for this blackout date.');
+            }
             upsert record;
             return record.Id;
+        } catch (AuraHandledException e) {
+            throw e;
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());
         }
@@ -788,8 +877,39 @@ public with sharing class MarketingDictionaryManagerController {
     @AuraEnabled
     public static Id saveBlackoutDayRule(Blackout_Day_Rule__c record) {
         try {
+            if (record.Channel__c == null) {
+                throw new AuraHandledException('Channel is required for weekly restrictions.');
+            }
+            if (String.isBlank(record.Day_Of_Week__c)) {
+                throw new AuraHandledException('Day of Week is required.');
+            }
+            // One rule per channel + day
+            List<Blackout_Day_Rule__c> existing;
+            if (record.Id == null) {
+                existing = [
+                    SELECT Id FROM Blackout_Day_Rule__c
+                    WHERE Channel__c = :record.Channel__c
+                    AND Day_Of_Week__c = :record.Day_Of_Week__c
+                    LIMIT 1
+                ];
+            } else {
+                existing = [
+                    SELECT Id FROM Blackout_Day_Rule__c
+                    WHERE Channel__c = :record.Channel__c
+                    AND Day_Of_Week__c = :record.Day_Of_Week__c
+                    AND Id != :record.Id
+                    LIMIT 1
+                ];
+            }
+            if (!existing.isEmpty()) {
+                throw new AuraHandledException(
+                    'A weekly restriction for ' + record.Day_Of_Week__c + ' already exists on this channel.'
+                );
+            }
             upsert record;
             return record.Id;
+        } catch (AuraHandledException e) {
+            throw e;
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());
         }

@@ -4,9 +4,12 @@ import { refreshApex } from '@salesforce/apex';
 import getChannelRecords from '@salesforce/apex/MarketingDictionaryManagerController.getChannelRecords';
 import getPersonRecords from '@salesforce/apex/MarketingDictionaryManagerController.getPersonRecords';
 import saveChannelRecord from '@salesforce/apex/MarketingDictionaryManagerController.saveChannelRecord';
+import toggleChannelActive from '@salesforce/apex/MarketingDictionaryManagerController.toggleChannelActive';
 import deleteDictionaryRecord from '@salesforce/apex/MarketingDictionaryManagerController.deleteDictionaryRecord';
 import saveCooldownRecord from '@salesforce/apex/MarketingDictionaryManagerController.saveCooldownRecord';
 import deleteCooldownRecord from '@salesforce/apex/MarketingDictionaryManagerController.deleteCooldownRecord';
+import saveBlackoutDayRule from '@salesforce/apex/MarketingDictionaryManagerController.saveBlackoutDayRule';
+import deleteBlackoutDayRule from '@salesforce/apex/MarketingDictionaryManagerController.deleteBlackoutDayRule';
 import saveBannerType from '@salesforce/apex/MarketingDictionaryManagerController.saveBannerType';
 import deleteBannerType from '@salesforce/apex/MarketingDictionaryManagerController.deleteBannerType';
 import saveBannerPlacement from '@salesforce/apex/MarketingDictionaryManagerController.saveBannerPlacement';
@@ -20,6 +23,7 @@ import deleteBannerIntent from '@salesforce/apex/MarketingDictionaryManagerContr
 
 const CHANNEL_TYPES = ['Email', 'SMS', 'Push', 'Banner', 'In-App', 'AI Agent', 'Branch Agent', 'WhatsApp'];
 const VALID_ICON = /^[a-zA-Z0-9_]+:[a-zA-Z0-9_]+$/;
+const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 let _key = 0;
 const newKey = () => String(++_key);
@@ -28,8 +32,15 @@ const newPlRow = () => ({ key: newKey(), placeholderId: '', appScreen: '', banne
 const newITRow = (i) => ({ key: newKey(), name: '', label: `Target ${i}` });
 const newIntentRow = () => ({ key: newKey(), intentValue: '', intentTargetId: '' });
 
-const EMPTY_CHANNEL = () => ({ Name: '', Channel_Type__c: '', Channel_Icon__c: '' });
+const EMPTY_CHANNEL = () => ({ Name: '', Channel_Type__c: '', Channel_Icon__c: '', Is_Active__c: true });
 const EMPTY_COOLDOWN = () => ({ Audience_Type_Dict__c: '', Cooldown_Days__c: null, Channel__c: null });
+const EMPTY_DAY_RULE = (day, channelId) => ({
+    Day_Of_Week__c: day || '',
+    Channel__c: channelId || null,
+    Is_Fully_Blocked__c: false,
+    Blocked_From_Hour__c: 22,
+    Blocked_To_Hour__c: 8
+});
 const EMPTY_PLACEMENT = () => ({ Name: '', App_Screen__c: '', Banner_Type__c: null, Position_Description__c: '', Channel__c: null });
 
 // Per-channel UI state (not part of wire data)
@@ -46,6 +57,7 @@ const defaultChState = () => ({
 export default class MarketingDictionaryChannelTab extends LightningElement {
     @track isChannelModalOpen = false;
     @track isCooldownModalOpen = false;
+    @track isDayRuleModalOpen = false;
     @track isBannerTypeModalOpen = false;
     @track isPlacementModalOpen = false;
     @track isIntentTargetModalOpen = false;
@@ -53,6 +65,7 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
     @track isDeleteModalOpen = false;
     @track editChannel = EMPTY_CHANNEL();
     @track editCooldown = EMPTY_COOLDOWN();
+    @track editDayRule = EMPTY_DAY_RULE();
     @track editPlacement = EMPTY_PLACEMENT();
     @track bannerTypeRows = [newBTRow(1)];
     @track editBannerType = {};
@@ -126,10 +139,19 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
                 ...cd,
                 audienceName: cd.Audience_Type_Dict__r ? cd.Audience_Type_Dict__r.Name : '(Unassigned)'
             }));
+            const weekDays = this._buildWeekDays(ch.Blackout_Day_Rules__r || [], ch.Id);
             return {
                 ...ch,
+                Is_Active__c: ch.Is_Active__c !== false,
                 Channel_Cooldowns__r: cooldowns.length ? cooldowns : null,
+                weekDays,
                 isBanner: ch.Channel_Type__c === 'Banner',
+                isNotBanner: ch.Channel_Type__c !== 'Banner',
+                templatesTabLabel: `${ch.Name} Templates`,
+                statusLabel: ch.Is_Active__c === false ? 'Inactive' : 'Active',
+                statusClass: ch.Is_Active__c === false
+                    ? 'slds-badge channel-status channel-status_inactive'
+                    : 'slds-badge channel-status channel-status_active',
                 sidebarClass: `ch-sidebar__item${isActive ? ' ch-sidebar__item_active' : ''}`,
                 activeTab: state.activeTab,
                 placementSearch: state.placementSearch,
@@ -144,6 +166,20 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
                 intentSortIconValue: this._intentSortIcon(state, 'Name'),
                 intentSortIconTarget: this._intentSortIcon(state, 'Intent_Target__r.Name')
             };
+        });
+    }
+
+    _buildWeekDays(rules, channelId) {
+        const rulesMap = {};
+        (rules || []).forEach(r => { rulesMap[r.Day_Of_Week__c] = r; });
+        return WEEK_DAYS.map(day => {
+            const rule = rulesMap[day] || null;
+            const isWeekend = day === 'Saturday' || day === 'Sunday';
+            let cardClass = 'bo-day-card';
+            if (rule && rule.Is_Fully_Blocked__c) cardClass += ' bo-day-card_blocked';
+            else if (rule) cardClass += ' bo-day-card_partial';
+            else if (isWeekend) cardClass += ' bo-day-card_weekend';
+            return { name: day, rule, cardClass, isWeekend, channelId };
         });
     }
 
@@ -240,10 +276,13 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
     get isEmpty() { return !this.isLoading && this._rawChannels.length === 0; }
     get channelModalTitle() { return this.editChannel.Id ? 'Edit Channel' : 'New Channel'; }
     get cooldownModalTitle() { return this.editCooldown.Id ? 'Edit Cooldown Rule' : 'New Cooldown Rule'; }
+    get dayRuleModalTitle() { return `Restrictions for ${this.editDayRule.Day_Of_Week__c || '—'}`; }
+    get showDayRuleHourRange() { return !this.editDayRule.Is_Fully_Blocked__c; }
     get pendingDeleteName() { return this._pendingDeleteName; }
     get deleteModalMessage() {
         if (this._pendingDeleteType === 'channel') return `Permanently delete the channel "${this._pendingDeleteName}" and all its rules and placeholders?`;
         if (this._pendingDeleteType === 'cooldown') return `Delete the cooldown rule for "${this._pendingDeleteName}"?`;
+        if (this._pendingDeleteType === 'dayRule') return `Remove the weekly restriction ${this._pendingDeleteName}?`;
         if (this._pendingDeleteType === 'bannerType') return `Delete banner type "${this._pendingDeleteName}"? Placeholders using it will lose their type link.`;
         if (this._pendingDeleteType === 'intentTarget') return `Delete intent target "${this._pendingDeleteName}"? Intents mapped to it will lose their target link.`;
         if (this._pendingDeleteType === 'intent') return `Delete intent "${this._pendingDeleteName}"?`;
@@ -363,6 +402,32 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
         this.editChannel = { ...this.editChannel, [event.currentTarget.dataset.field]: event.detail.value };
     }
 
+    async handleChannelActiveToggle(event) {
+        const channelId = event.target.dataset.id;
+        const isActive = event.target.checked;
+        const previous = this._rawChannels;
+        this._rawChannels = this._rawChannels.map(ch =>
+            ch.Id === channelId ? { ...ch, Is_Active__c: isActive } : ch
+        );
+        try {
+            await toggleChannelActive({ channelId, isActive });
+            this.dispatchEvent(new CustomEvent('channelactivechange', {
+                detail: { channelId, isActive },
+                bubbles: true,
+                composed: true
+            }));
+            this._showToast(
+                'Channel updated',
+                `${event.target.dataset.name} is now ${isActive ? 'active' : 'inactive'}.`,
+                'success'
+            );
+            await refreshApex(this._wiredResult);
+        } catch (e) {
+            this._rawChannels = previous;
+            this._showToast('Error', e.body?.message || e.message, 'error');
+        }
+    }
+
     async handleSaveChannel() {
         if (!this.editChannel.Name?.trim()) { this._showToast('Validation', 'Channel Name is required', 'error'); return; }
         const icon = this.editChannel.Channel_Icon__c?.trim();
@@ -430,6 +495,79 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
     }
 
     handleCloseCooldownModal() { this.isCooldownModalOpen = false; }
+
+    // ── Weekly Restriction handlers ──────────────────────────────────────
+
+    handleNewDayRule(event) {
+        const day = event.currentTarget.dataset.day;
+        const channelId = event.currentTarget.dataset.channelid;
+        this.editDayRule = EMPTY_DAY_RULE(day, channelId);
+        this.isDayRuleModalOpen = true;
+    }
+
+    handleEditDayRule(event) {
+        const day = event.currentTarget.dataset.day;
+        const channelId = event.currentTarget.dataset.channelid;
+        const ch = this._rawChannels.find(c => c.Id === channelId);
+        const rule = (ch?.Blackout_Day_Rules__r || []).find(r => r.Day_Of_Week__c === day);
+        if (rule) {
+            this.editDayRule = {
+                Id: rule.Id,
+                Channel__c: channelId,
+                Day_Of_Week__c: rule.Day_Of_Week__c,
+                Is_Fully_Blocked__c: !!rule.Is_Fully_Blocked__c,
+                Blocked_From_Hour__c: rule.Blocked_From_Hour__c,
+                Blocked_To_Hour__c: rule.Blocked_To_Hour__c
+            };
+            this.isDayRuleModalOpen = true;
+        }
+    }
+
+    handleDayRuleFieldChange(event) {
+        const field = event.target.dataset.field;
+        this.editDayRule = { ...this.editDayRule, [field]: Number(event.target.value) };
+    }
+
+    handleDayRuleCheckboxChange(event) {
+        const field = event.target.dataset.field;
+        this.editDayRule = { ...this.editDayRule, [field]: event.target.checked };
+    }
+
+    handleCloseDayRuleModal() { this.isDayRuleModalOpen = false; }
+
+    async handleSaveDayRule() {
+        const r = this.editDayRule;
+        if (!r.Channel__c || !r.Day_Of_Week__c) {
+            this._showToast('Validation', 'Channel and day are required.', 'error');
+            return;
+        }
+        if (!r.Is_Fully_Blocked__c) {
+            const from = Number(r.Blocked_From_Hour__c);
+            const to = Number(r.Blocked_To_Hour__c);
+            if (Number.isNaN(from) || Number.isNaN(to) || from < 0 || from > 23 || to < 0 || to > 23) {
+                this._showToast('Validation', 'Hours must be between 0 and 23.', 'warning');
+                return;
+            }
+        }
+        this.isSaving = true;
+        try {
+            await saveBlackoutDayRule({ record: this.editDayRule });
+            this._showToast('Success', `Rule for ${r.Day_Of_Week__c} saved.`, 'success');
+            this.isDayRuleModalOpen = false;
+            await refreshApex(this._wiredResult);
+        } catch (e) {
+            this._showToast('Error', e.body?.message || e.message, 'error');
+        } finally {
+            this.isSaving = false;
+        }
+    }
+
+    handleDeleteDayRule(event) {
+        this._pendingDeleteId = event.currentTarget.dataset.id;
+        this._pendingDeleteName = `for ${event.currentTarget.dataset.day}`;
+        this._pendingDeleteType = 'dayRule';
+        this.isDeleteModalOpen = true;
+    }
 
     // ── Banner Type handlers ─────────────────────────────────────────────
 
@@ -613,6 +751,7 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
         try {
             if (type === 'channel') { await deleteDictionaryRecord({ recordId: id }); this._showToast('Success', 'Channel deleted', 'success'); }
             else if (type === 'cooldown') { await deleteCooldownRecord({ cooldownId: id }); this._showToast('Success', 'Cooldown rule deleted', 'success'); }
+            else if (type === 'dayRule') { await deleteBlackoutDayRule({ recordId: id }); this._showToast('Success', 'Weekly restriction removed', 'success'); }
             else if (type === 'bannerType') { await deleteBannerType({ recordId: id }); this._showToast('Success', 'Banner type deleted', 'success'); }
             else if (type === 'intentTarget') { await deleteIntentTarget({ recordId: id }); this._showToast('Success', 'Intent target deleted', 'success'); }
             else if (type === 'intent') { await deleteBannerIntent({ recordId: id }); this._showToast('Success', 'Intent deleted', 'success'); }
