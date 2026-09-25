@@ -143,7 +143,7 @@ public with sharing class MarketingDictionaryManagerController {
     @AuraEnabled(cacheable=true)
     public static List<Marketing_Dictionary__c> getChannelRecords() {
         return [
-            SELECT Id, Name, Channel_Type__c, Channel_Icon__c,
+            SELECT Id, Name, Channel_Type__c, Channel_Icon__c, Is_Active__c,
                 (SELECT Id, Audience_Type_Dict__c, Audience_Type_Dict__r.Name, Cooldown_Days__c FROM Channel_Cooldowns__r ORDER BY Audience_Type_Dict__r.Name ASC),
                 (SELECT Id, Day_Of_Week__c, Is_Fully_Blocked__c, Blocked_From_Hour__c, Blocked_To_Hour__c
                  FROM Blackout_Day_Rules__r ORDER BY Day_Of_Week__c ASC),
@@ -306,8 +306,56 @@ public with sharing class MarketingDictionaryManagerController {
         try {
             Id channelRecordTypeId = getRecordTypeId('Channel');
             record.RecordTypeId = channelRecordTypeId;
+            if (record.Id == null && record.Is_Active__c == null) {
+                record.Is_Active__c = true;
+            }
             upsert record;
             return record.Id;
+        } catch (Exception e) {
+            throw new AuraHandledException(e.getMessage());
+        }
+    }
+
+    /**
+     * Activates or deactivates a channel. Deactivated channels are added to every
+     * blackout date so existing campaigns cannot send through them.
+     */
+    @AuraEnabled
+    public static void toggleChannelActive(Id channelId, Boolean isActive) {
+        if (channelId == null || isActive == null) {
+            throw new AuraHandledException('Channel and active state are required.');
+        }
+        try {
+            Marketing_Dictionary__c channel = [
+                SELECT Id, Name
+                FROM Marketing_Dictionary__c
+                WHERE Id = :channelId
+                AND RecordType.DeveloperName = 'Channel'
+                LIMIT 1
+            ];
+            channel.Is_Active__c = isActive;
+            update channel;
+
+            if (!isActive) {
+                List<Blackout_Window__c> windows = [
+                    SELECT Id, Assigned_Channels__c
+                    FROM Blackout_Window__c
+                    LIMIT 2000
+                ];
+                for (Blackout_Window__c window : windows) {
+                    Set<String> assigned = new Set<String>();
+                    if (String.isNotBlank(window.Assigned_Channels__c)) {
+                        assigned.addAll(window.Assigned_Channels__c.split(';'));
+                    }
+                    assigned.add(channel.Name);
+                    List<String> sortedChannels = new List<String>(assigned);
+                    sortedChannels.sort();
+                    window.Assigned_Channels__c = String.join(sortedChannels, ';');
+                }
+                if (!windows.isEmpty()) update windows;
+            }
+        } catch (AuraHandledException e) {
+            throw e;
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());
         }

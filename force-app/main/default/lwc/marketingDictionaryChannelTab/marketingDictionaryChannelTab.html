@@ -50,10 +50,26 @@
                             </template>
                             <div class="slds-media__body">
                                 <p class="slds-text-heading_small">{activeChannel.Name}</p>
-                                <p class="slds-text-body_small slds-text-color_weak">{activeChannel.Channel_Type__c}</p>
+                                <p class="slds-text-body_small slds-text-color_weak">
+                                    {activeChannel.Channel_Type__c}
+                                    <span class={activeChannel.statusClass}>{activeChannel.statusLabel}</span>
+                                </p>
                             </div>
                         </div>
-                        <div class="slds-no-flex slds-button-group">
+                        <div class="slds-no-flex slds-grid slds-grid_vertical-align-center">
+                            <lightning-input
+                                type="toggle"
+                                label="Channel availability"
+                                variant="label-hidden"
+                                message-toggle-active="Active"
+                                message-toggle-inactive="Inactive"
+                                checked={activeChannel.Is_Active__c}
+                                data-id={activeChannel.Id}
+                                data-name={activeChannel.Name}
+                                onchange={handleChannelActiveToggle}
+                                class="slds-m-right_small">
+                            </lightning-input>
+                            <div class="slds-button-group">
                             <lightning-button-icon icon-name="utility:edit" variant="bare"
                                 alternative-text="Edit channel" title="Edit channel"
                                 data-id={activeChannel.Id} onclick={handleEditChannel}>
@@ -62,6 +78,7 @@
                                 alternative-text="Delete channel" title="Delete channel"
                                 data-id={activeChannel.Id} data-name={activeChannel.Name} onclick={handleDeleteChannel}>
                             </lightning-button-icon>
+                            </div>
                         </div>
                     </div>
 
@@ -166,11 +183,28 @@
                                 </div>
                             </lightning-tab>
 
+                            <!-- Placeholder for channel-specific message templates -->
+                            <template lwc:if={activeChannel.isNotBanner}>
+                                <lightning-tab value="templates" label={activeChannel.templatesTabLabel}>
+                                    <div class="tab-content slds-p-around_small">
+                                        <div class="slds-box slds-theme_shade slds-text-align_center slds-p-around_large">
+                                            <lightning-icon icon-name="utility:layout" size="small"
+                                                alternative-text="Templates" class="slds-m-bottom_small">
+                                            </lightning-icon>
+                                            <p class="slds-text-heading_small">{activeChannel.templatesTabLabel}</p>
+                                            <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">
+                                                Channel template management will be available here.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </lightning-tab>
+                            </template>
+
                             <!-- Banner sub-tabs (Banner channels only) -->
                             <template lwc:if={activeChannel.isBanner}>
 
                                 <!-- Banner Types tab -->
-                                <lightning-tab value="banner-types" label="Banner Types">
+                                <lightning-tab value="banner-types" label={activeChannel.templatesTabLabel}>
                                     <div class="tab-content slds-p-around_small">
                                         <div class="tab-toolbar slds-m-bottom_x-small">
                                             <div class="tab-toolbar__actions">

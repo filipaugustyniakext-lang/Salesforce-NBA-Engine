@@ -169,21 +169,28 @@ export default class MarketingDictionaryBlackoutTab extends LightningElement {
             if (!groupMap[type]) {
                 groupMap[type] = { type, items: [] };
             }
-            const isActive = selected.has(rec.Name);
+            const disabled = rec.Is_Active__c === false;
+            const isActive = disabled || selected.has(rec.Name);
             groupMap[type].items.push({
                 label: rec.Name,
                 value: rec.Name,
                 icon: rec.Channel_Icon__c || 'utility:connected_apps',
                 active: isActive,
-                buttonClass: isActive
-                    ? 'slds-button slds-button_neutral channel-btn channel-btn-active'
-                    : 'slds-button slds-button_neutral channel-btn channel-btn-inactive',
-                iconClass: isActive ? 'channel-icon-active' : 'channel-icon-inactive'
+                disabled,
+                buttonClass: disabled
+                    ? 'slds-button slds-button_neutral channel-btn channel-btn-disabled'
+                    : (isActive
+                        ? 'slds-button slds-button_neutral channel-btn channel-btn-active'
+                        : 'slds-button slds-button_neutral channel-btn channel-btn-inactive'),
+                iconClass: isActive ? 'channel-icon-active' : 'channel-icon-inactive',
+                title: disabled
+                    ? `${rec.Name} is inactive and must be excluded`
+                    : rec.Name
             });
         });
         this.channelGroups = Object.values(groupMap);
-        const all = this.channelGroups.flatMap(g => g.items);
-        this.selectAllChannels = all.length > 0 && all.every(c => c.active);
+        const enabled = this.channelGroups.flatMap(g => g.items).filter(c => !c.disabled);
+        this.selectAllChannels = enabled.length > 0 && enabled.every(c => c.active);
     }
 
     _selectedChannelNames() {
@@ -237,17 +244,23 @@ export default class MarketingDictionaryBlackoutTab extends LightningElement {
             ...group,
             items: group.items.map(ch => ({
                 ...ch,
-                active: checked,
-                buttonClass: checked
-                    ? 'slds-button slds-button_neutral channel-btn channel-btn-active'
-                    : 'slds-button slds-button_neutral channel-btn channel-btn-inactive',
-                iconClass: checked ? 'channel-icon-active' : 'channel-icon-inactive'
+                active: ch.disabled ? true : checked,
+                buttonClass: ch.disabled
+                    ? 'slds-button slds-button_neutral channel-btn channel-btn-disabled'
+                    : (checked
+                        ? 'slds-button slds-button_neutral channel-btn channel-btn-active'
+                        : 'slds-button slds-button_neutral channel-btn channel-btn-inactive'),
+                iconClass: ch.disabled || checked ? 'channel-icon-active' : 'channel-icon-inactive'
             }))
         }));
     }
 
     handleChannelTileToggle(event) {
         const value = event.currentTarget.dataset.value;
+        const selected = this.channelGroups
+            .flatMap(group => group.items)
+            .find(channel => channel.value === value);
+        if (!selected || selected.disabled) return;
         this.channelGroups = this.channelGroups.map(group => ({
             ...group,
             items: group.items.map(ch => {
@@ -263,8 +276,8 @@ export default class MarketingDictionaryBlackoutTab extends LightningElement {
                 };
             })
         }));
-        const all = this.channelGroups.flatMap(g => g.items);
-        this.selectAllChannels = all.length > 0 && all.every(c => c.active);
+        const enabled = this.channelGroups.flatMap(g => g.items).filter(c => !c.disabled);
+        this.selectAllChannels = enabled.length > 0 && enabled.every(c => c.active);
     }
 
     closeBlackoutModal() {

@@ -4,6 +4,7 @@ import { refreshApex } from '@salesforce/apex';
 import getChannelRecords from '@salesforce/apex/MarketingDictionaryManagerController.getChannelRecords';
 import getPersonRecords from '@salesforce/apex/MarketingDictionaryManagerController.getPersonRecords';
 import saveChannelRecord from '@salesforce/apex/MarketingDictionaryManagerController.saveChannelRecord';
+import toggleChannelActive from '@salesforce/apex/MarketingDictionaryManagerController.toggleChannelActive';
 import deleteDictionaryRecord from '@salesforce/apex/MarketingDictionaryManagerController.deleteDictionaryRecord';
 import saveCooldownRecord from '@salesforce/apex/MarketingDictionaryManagerController.saveCooldownRecord';
 import deleteCooldownRecord from '@salesforce/apex/MarketingDictionaryManagerController.deleteCooldownRecord';
@@ -31,7 +32,7 @@ const newPlRow = () => ({ key: newKey(), placeholderId: '', appScreen: '', banne
 const newITRow = (i) => ({ key: newKey(), name: '', label: `Target ${i}` });
 const newIntentRow = () => ({ key: newKey(), intentValue: '', intentTargetId: '' });
 
-const EMPTY_CHANNEL = () => ({ Name: '', Channel_Type__c: '', Channel_Icon__c: '' });
+const EMPTY_CHANNEL = () => ({ Name: '', Channel_Type__c: '', Channel_Icon__c: '', Is_Active__c: true });
 const EMPTY_COOLDOWN = () => ({ Audience_Type_Dict__c: '', Cooldown_Days__c: null, Channel__c: null });
 const EMPTY_DAY_RULE = (day, channelId) => ({
     Day_Of_Week__c: day || '',
@@ -141,9 +142,16 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
             const weekDays = this._buildWeekDays(ch.Blackout_Day_Rules__r || [], ch.Id);
             return {
                 ...ch,
+                Is_Active__c: ch.Is_Active__c !== false,
                 Channel_Cooldowns__r: cooldowns.length ? cooldowns : null,
                 weekDays,
                 isBanner: ch.Channel_Type__c === 'Banner',
+                isNotBanner: ch.Channel_Type__c !== 'Banner',
+                templatesTabLabel: `${ch.Name} Templates`,
+                statusLabel: ch.Is_Active__c === false ? 'Inactive' : 'Active',
+                statusClass: ch.Is_Active__c === false
+                    ? 'slds-badge channel-status channel-status_inactive'
+                    : 'slds-badge channel-status channel-status_active',
                 sidebarClass: `ch-sidebar__item${isActive ? ' ch-sidebar__item_active' : ''}`,
                 activeTab: state.activeTab,
                 placementSearch: state.placementSearch,
@@ -392,6 +400,27 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
 
     handleChannelFieldChange(event) {
         this.editChannel = { ...this.editChannel, [event.currentTarget.dataset.field]: event.detail.value };
+    }
+
+    async handleChannelActiveToggle(event) {
+        const channelId = event.target.dataset.id;
+        const isActive = event.target.checked;
+        const previous = this._rawChannels;
+        this._rawChannels = this._rawChannels.map(ch =>
+            ch.Id === channelId ? { ...ch, Is_Active__c: isActive } : ch
+        );
+        try {
+            await toggleChannelActive({ channelId, isActive });
+            this._showToast(
+                'Channel updated',
+                `${event.target.dataset.name} is now ${isActive ? 'active' : 'inactive'}.`,
+                'success'
+            );
+            await refreshApex(this._wiredResult);
+        } catch (e) {
+            this._rawChannels = previous;
+            this._showToast('Error', e.body?.message || e.message, 'error');
+        }
     }
 
     async handleSaveChannel() {
