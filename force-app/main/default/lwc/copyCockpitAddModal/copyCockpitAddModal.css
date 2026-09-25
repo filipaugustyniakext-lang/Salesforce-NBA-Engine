@@ -19,9 +19,13 @@
 
 .add-modal-field-full { width: 100%; }
 
-.add-modal-field-lang {
-    flex: 0 0 120px;
+.add-modal-field-row {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
 }
+
+.add-modal-field-lang { flex: 1; }
 
 .add-modal-title-name {
     font-family: 'Courier New', Courier, monospace;

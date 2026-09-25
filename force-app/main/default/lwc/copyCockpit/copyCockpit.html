@@ -415,9 +415,9 @@
     <!-- Add Copy modal -->
     <template lwc:if={isAddModalOpen}>
         <c-copy-cockpit-add-modal
-            channel-name={activeChannelName}
-            channel-type={activeChannelType}
-            banner-types={activeBannerTypes}
+            channel-name={addChannelName}
+            channel-type={addChannelType}
+            banner-types={addBannerTypes}
             onclose={handleAddModalClose}
             onsave={handleAddModalSave}
         ></c-copy-cockpit-add-modal>

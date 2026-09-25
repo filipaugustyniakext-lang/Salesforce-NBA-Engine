@@ -47,16 +47,6 @@
                                 <span class="add-modal-prefix-label">Variant</span>
                                 <span class="add-modal-prefix-value" title={variantHint}>{version}</span>
                             </div>
-                            <lightning-combobox
-                                label="Language"
-                                value={language}
-                                options={languageOptions}
-                                required
-                                disabled={isLanguageLocked}
-                                onchange={handleLanguageChange}
-                                class="add-modal-field-lang"
-                                field-level-help={languageHelp}
-                            ></lightning-combobox>
                         </div>
                         <template lwc:if={hasDuplicateVariant}>
                             <div class="add-modal-version-error slds-m-top_x-small">
@@ -64,6 +54,19 @@
                                 {versionError}
                             </div>
                         </template>
+                    </div>
+
+                    <div class="add-modal-field-row">
+                        <lightning-combobox
+                            label="Language"
+                            value={language}
+                            options={languageOptions}
+                            required
+                            disabled={isLanguageLocked}
+                            onchange={handleLanguageChange}
+                            class="add-modal-field-lang"
+                            field-level-help={languageHelp}
+                        ></lightning-combobox>
                     </div>
 
                 </div>

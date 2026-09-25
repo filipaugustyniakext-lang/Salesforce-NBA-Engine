@@ -220,6 +220,9 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     @track _versionCounts = {};
 
     @track isAddModalOpen = false;
+    @track _addChannelName = '';
+    @track _addChannelType = '';
+    @track _addBannerTypes = [];
 
     @track isDeleteModalOpen = false;
     @track deleteTargetId = null;
@@ -299,18 +302,9 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         return { ...found, safeIcon: resolveIcon(found) };
     }
 
-    get activeBannerTypes() {
-        if (!this.activeChannel) return [];
-        return this.activeChannel.Channel_Banner_Types__r || [];
-    }
-
-    get activeChannelName() {
-        return this.activeChannel?.Name || '';
-    }
-
-    get activeChannelType() {
-        return this.activeChannel?.Channel_Type__c || '';
-    }
+    get addChannelName() { return this._addChannelName; }
+    get addChannelType() { return this._addChannelType; }
+    get addBannerTypes() { return this._addBannerTypes; }
 
     // ── messages & groups ──────────────────────────────────────────────────
 
@@ -577,11 +571,20 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     // ── handlers: add copy ────────────────────────────────────────────────
 
     handleAddCopy() {
+        const channel = this.activeChannel;
+        if (!channel) {
+            this._showToast('Error', 'Select a channel before creating a message.', 'error');
+            return;
+        }
+        this._addChannelName = channel.Name || '';
+        this._addChannelType = channel.Channel_Type__c || '';
+        this._addBannerTypes = [...(channel.Channel_Banner_Types__r || [])];
         this.isAddModalOpen = true;
     }
 
     handleAddModalClose() {
         this.isAddModalOpen = false;
+        this._clearAddChannelContext();
     }
 
     handleAddModalSave(e) {
@@ -589,6 +592,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         createMessage({ messageJson: JSON.stringify(data) })
             .then(newId => {
                 this.isAddModalOpen = false;
+                this._clearAddChannelContext();
                 this._showToast('Created', `"${data.messageName}" Variant ${data.version} saved as draft.`, 'success');
                 this._loadMessages(this.activeChannel?.Channel_Type__c);
                 if (data.action === 'edit') {
@@ -600,6 +604,12 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
                 if (modal) modal.resetSaving();
                 this._showToast('Error', err?.body?.message || 'Create failed.', 'error');
             });
+    }
+
+    _clearAddChannelContext() {
+        this._addChannelName = '';
+        this._addChannelType = '';
+        this._addBannerTypes = [];
     }
 
     // ── handlers: edit / clone / delete ───────────────────────────────────
