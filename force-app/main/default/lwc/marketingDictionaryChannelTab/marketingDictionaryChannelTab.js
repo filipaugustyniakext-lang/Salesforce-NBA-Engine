@@ -411,6 +411,11 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
         );
         try {
             await toggleChannelActive({ channelId, isActive });
+            this.dispatchEvent(new CustomEvent('channelactivechange', {
+                detail: { channelId, isActive },
+                bubbles: true,
+                composed: true
+            }));
             this._showToast(
                 'Channel updated',
                 `${event.target.dataset.name} is now ${isActive ? 'active' : 'inactive'}.`,

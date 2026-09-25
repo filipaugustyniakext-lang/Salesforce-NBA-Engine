@@ -1,4 +1,4 @@
-import { LightningElement, track, wire } from 'lwc';
+import { LightningElement, api, track, wire } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import { refreshApex } from '@salesforce/apex';
 import getBlackoutWindows from '@salesforce/apex/MarketingDictionaryManagerController.getBlackoutWindows';
@@ -70,6 +70,15 @@ export default class MarketingDictionaryBlackoutTab extends LightningElement {
         } else if (error) {
             console.error('Error loading channels for blackout form', error);
         }
+    }
+
+    @api
+    handleChannelAvailabilityChange(channelId, isActive) {
+        const selectedNames = this._selectedChannelNames();
+        this._channelCatalogue = this._channelCatalogue.map(channel =>
+            channel.Id === channelId ? { ...channel, Is_Active__c: isActive } : channel
+        );
+        this._rebuildChannelGroups(selectedNames);
     }
 
     get hasBlackouts() {

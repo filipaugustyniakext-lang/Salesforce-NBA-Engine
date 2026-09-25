@@ -836,6 +836,23 @@ public with sharing class MarketingDictionaryManagerController {
             if (String.isBlank(record.Name) || record.Blackout_Date__c == null) {
                 throw new AuraHandledException('Name and Start Date are required.');
             }
+            Set<String> assigned = new Set<String>();
+            if (String.isNotBlank(record.Assigned_Channels__c)) {
+                for (String channelName : record.Assigned_Channels__c.split(';')) {
+                    if (String.isNotBlank(channelName)) assigned.add(channelName.trim());
+                }
+            }
+            for (Marketing_Dictionary__c channel : [
+                SELECT Name
+                FROM Marketing_Dictionary__c
+                WHERE RecordType.DeveloperName = 'Channel'
+                AND Is_Active__c = false
+            ]) {
+                assigned.add(channel.Name);
+            }
+            List<String> sortedChannels = new List<String>(assigned);
+            sortedChannels.sort();
+            record.Assigned_Channels__c = String.join(sortedChannels, ';');
             if (String.isBlank(record.Assigned_Channels__c)) {
                 throw new AuraHandledException('Select at least one channel for this blackout date.');
             }
