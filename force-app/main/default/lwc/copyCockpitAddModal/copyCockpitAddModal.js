@@ -6,6 +6,7 @@ import getStemVariantInfo from '@salesforce/apex/CopyCockpitController.getStemVa
 import {
     channelPrefixForType,
     composeFullName,
+    composeLocale,
     composeStem,
     nextAvailableVariant
 } from 'c/copyMessageNaming';
@@ -82,22 +83,25 @@ export default class CopyCockpitAddModal extends LightningElement {
     }
 
     get nameStem() {
-        return composeStem(this.channelPrefix, this.countryCode, this.messageName);
+        return composeStem(this.channelPrefix, this.countryCode, this.language, this.messageName);
     }
 
     get composedName() {
-        return composeFullName(this.channelPrefix, this.countryCode, this.messageName, this.version);
+        return composeFullName(
+            this.channelPrefix, this.countryCode, this.language, this.messageName, this.version
+        );
     }
 
     get composedNamePreview() {
         const cc = (this.countryCode || '').trim().toUpperCase() || '<CountryCode>';
+        const lang = (this.language || '').trim().toUpperCase() || '<Language>';
         const mn = (this.messageName || '').trim() || '<MessageName>';
         const v  = this.version != null ? this.version : '<Variant>';
-        return `${this.channelPrefix}_${cc}_${mn}_${v}`;
+        return `${this.channelPrefix}_${cc}-${lang}_${mn}_${v}`;
     }
 
     get namingConventionHint() {
-        return 'ChannelPrefix_CountryCode_MessageName_VariantNumber';
+        return 'ChannelPrefix_Locale_MessageName_VariantNumber';
     }
 
     get languageOptions() { return LANGUAGE_OPTIONS; }
@@ -305,6 +309,7 @@ export default class CopyCockpitAddModal extends LightningElement {
                 messageName:       fullName,
                 nameStem:          this.nameStem,
                 countryCode:       (this.countryCode || '').trim().toUpperCase(),
+                locale:            composeLocale(this.countryCode, this.language),
                 messageNamePart:   (this.messageName || '').trim(),
                 channelPrefix:     this.channelPrefix,
                 version:           Number(this.version),

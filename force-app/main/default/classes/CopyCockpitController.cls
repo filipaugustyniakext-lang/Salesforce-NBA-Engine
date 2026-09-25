@@ -158,7 +158,8 @@ public with sharing class CopyCockpitController {
     }
 
     /**
-     * Taken variant numbers for a master stem (PREFIX_CC_MessageName) within a channel type.
+     * Taken variant numbers for a master stem (PREFIX_Locale_MessageName) within a channel type.
+     * Locale is CountryCode-LanguageCode (e.g. PL-EN).
      * Matches stem_N rows (and legacy rows whose Name equals the stem).
      */
     @AuraEnabled(cacheable=false)
@@ -204,7 +205,7 @@ public with sharing class CopyCockpitController {
             // Prefer client-composed full name; ensure it ends with _<version>.
             String stem = stripVariantSuffix(fullName);
             if (String.isBlank(stem)) {
-                throw new AuraHandledException('Invalid message name. Expected ChannelPrefix_CountryCode_MessageName_Variant.');
+                throw new AuraHandledException('Invalid message name. Expected ChannelPrefix_Locale_MessageName_Variant.');
             }
             String composed = stem + '_' + String.valueOf(version.intValue());
 
@@ -222,7 +223,7 @@ public with sharing class CopyCockpitController {
             if (taken.contains(version)) {
                 throw new AuraHandledException(
                     'Variant ' + String.valueOf(version.intValue())
-                    + ' already exists for this Message Name and Country Code.'
+                    + ' already exists for this Message Name and Locale.'
                 );
             }
 
@@ -295,8 +296,8 @@ public with sharing class CopyCockpitController {
 
     /**
      * Update master-level naming parts + language for every variant under oldStem.
-     * Country Code / Message Name changes rewrite each variant Name as newStem_VariantNumber.
-     * Channel prefix and variant numbers are preserved.
+     * Locale / Message Name changes rewrite each variant Name as newStem_VariantNumber.
+     * Locale is CountryCode-LanguageCode. Channel prefix and variant numbers are preserved.
      */
     @AuraEnabled
     public static void updateMessageMaster(
@@ -310,14 +311,16 @@ public with sharing class CopyCockpitController {
             throw new AuraHandledException('Invalid master update parameters.');
         }
         String cc = countryCode == null ? '' : countryCode.trim().toUpperCase();
+        String lang = language == null ? '' : language.trim().toUpperCase();
         String mn = messageNamePart == null ? '' : messageNamePart.trim();
-        if (String.isBlank(cc) || String.isBlank(mn)) {
-            throw new AuraHandledException('Country Code and Message Name are required.');
+        if (String.isBlank(cc) || String.isBlank(lang) || String.isBlank(mn)) {
+            throw new AuraHandledException('Country Code, Language, and Message Name are required.');
         }
 
         ParsedName oldParsed = parseName(oldStem);
         String prefix = String.isNotBlank(oldParsed.prefix) ? oldParsed.prefix : oldStem.split('_')[0];
-        String newStem = prefix + '_' + cc + '_' + mn;
+        String locale = cc + '-' + lang;
+        String newStem = prefix + '_' + locale + '_' + mn;
 
         List<CC_Message_Metadata__c> rows = queryByStem(oldStem.trim(), channelType);
         if (rows.isEmpty()) {
@@ -328,7 +331,7 @@ public with sharing class CopyCockpitController {
             List<CC_Message_Metadata__c> collisions = queryByStem(newStem, channelType);
             if (!collisions.isEmpty()) {
                 throw new AuraHandledException(
-                    'A message with Country Code "' + cc + '" and Message Name "' + mn
+                    'A message with locale "' + locale + '" and Message Name "' + mn
                     + '" already exists on this channel.'
                 );
             }
@@ -340,9 +343,7 @@ public with sharing class CopyCockpitController {
             r.Name = newStem + '_' + String.valueOf(v.intValue());
             r.Version__c = v;
             r.Message_Variant__c = 'Variant ' + String.valueOf(v.intValue());
-            if (String.isNotBlank(language)) {
-                r.Language__c = language;
-            }
+            r.Language__c = lang;
         }
         try {
             update rows;
@@ -358,14 +359,16 @@ public with sharing class CopyCockpitController {
         String stemOld = stripVariantSuffix(oldName);
         if (String.isBlank(stemOld)) stemOld = oldName;
         String cc = parsedNew.countryCode;
+        String lang = parsedNew.language;
         String mn = parsedNew.messageName;
         if (String.isBlank(cc) || String.isBlank(mn)) {
-            // Treat newName as a full stem PREFIX_CC_MessageName
+            // Treat newName as a full stem PREFIX_Locale_MessageName
             ParsedName stemParts = parseName(stripVariantSuffix(newName));
             cc = stemParts.countryCode;
+            lang = stemParts.language;
             mn = stemParts.messageName;
         }
-        updateMessageMaster(stemOld, cc, mn, null, channelType);
+        updateMessageMaster(stemOld, cc, mn, lang, channelType);
     }
 
     @AuraEnabled
@@ -381,9 +384,25 @@ public with sharing class CopyCockpitController {
 
     private class ParsedName {
         public String prefix;
+        public String locale;
         public String countryCode;
+        public String language;
         public String messageName;
         public Decimal variant;
+    }
+
+    /** Locale token is CountryCode-LanguageCode. Legacy names may store CountryCode only. */
+    private static void applyLocaleToken(ParsedName p, String token) {
+        if (String.isBlank(token)) return;
+        Integer dash = token.indexOf('-');
+        if (dash > 0 && dash < token.length() - 1) {
+            p.countryCode = token.substring(0, dash).toUpperCase();
+            p.language = token.substring(dash + 1).toUpperCase();
+            p.locale = p.countryCode + '-' + p.language;
+        } else {
+            p.countryCode = token.toUpperCase();
+            p.locale = p.countryCode;
+        }
     }
 
     private static ParsedName parseName(String fullName) {
@@ -392,7 +411,7 @@ public with sharing class CopyCockpitController {
         List<String> parts = fullName.split('_');
         if (parts.isEmpty()) return p;
         p.prefix = parts[0];
-        if (parts.size() >= 2) p.countryCode = parts[1];
+        if (parts.size() >= 2) applyLocaleToken(p, parts[1]);
         if (parts.size() >= 3) {
             String last = parts[parts.size() - 1];
             Boolean lastIsVariant = last.isNumeric() && parts.size() >= 4;

@@ -488,7 +488,7 @@
         <div class="slds-backdrop slds-backdrop_open"></div>
     </template>
 
-    <!-- Master naming edit modal (Country Code / Message Name / Language) -->
+    <!-- Master naming edit modal (Locale = CountryCode-LanguageCode, Message Name) -->
     <template lwc:if={isRenameOpen}>
         <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="rename-modal-title" class="slds-modal slds-fade-in-open">
             <div class="slds-modal__container">
@@ -498,6 +498,7 @@
                     </button>
                     <h2 id="rename-modal-title" class="slds-modal__title">Edit Message Name</h2>
                     <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">
+                        Name pattern: ChannelPrefix_Locale_MessageName_VariantNumber (Locale = CountryCode-LanguageCode).
                         Channel Prefix and Variant numbers stay fixed. Changes apply to every variant.
                     </p>
                 </header>

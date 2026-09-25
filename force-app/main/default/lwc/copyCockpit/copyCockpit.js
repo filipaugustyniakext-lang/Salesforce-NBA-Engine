@@ -174,7 +174,7 @@ function buildGroups(records, expandedSet, editingGroupName, selectedIds, versio
         });
 
         const allSelected = enrichedVariants.length > 0 && enrichedVariants.every(v => selectedIds.has(v.Id));
-        const language = variants[0]?.Language__c || null;
+        const language = parsed.language || variants[0]?.Language__c || null;
         const displayName = stem;
 
         return {
@@ -182,6 +182,7 @@ function buildGroups(records, expandedSet, editingGroupName, selectedIds, versio
             displayName,
             channelPrefix:        parsed.prefix || '',
             countryCode:          parsed.countryCode || '',
+            locale:               parsed.locale || '',
             messageNamePart:      parsed.messageName || '',
             totalVariants,
             publishedCount,
@@ -341,6 +342,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         const stem = composeStem(
             this._editingChannelPrefix,
             this._editingCountryCode,
+            this._editingLanguage,
             this._editingMessageNamePart
         );
         return stem ? `${stem}_<Variant>` : '—';
@@ -373,6 +375,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
                 (g.messageName || '').toLowerCase().includes(term) ||
                 (g.messageNamePart || '').toLowerCase().includes(term) ||
                 (g.countryCode || '').toLowerCase().includes(term) ||
+                (g.locale || '').toLowerCase().includes(term) ||
                 g.variants.some(v =>
                     (v.Subject__c || '').toLowerCase().includes(term) ||
                     (v.Name || '').toLowerCase().includes(term)
@@ -806,6 +809,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             ? {
                 prefix: group.channelPrefix,
                 countryCode: group.countryCode,
+                language: group.language,
                 messageName: group.messageNamePart,
             }
             : parseFullName(stem);
@@ -813,7 +817,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         this._editingChannelPrefix = parsed.prefix || channelPrefixForType(this.activeChannel?.Channel_Type__c);
         this._editingCountryCode = parsed.countryCode || '';
         this._editingMessageNamePart = parsed.messageName || '';
-        this._editingLanguage = group?.language || 'PL';
+        this._editingLanguage = parsed.language || group?.language || 'PL';
         this._renameError = '';
     }
 
@@ -849,28 +853,22 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         const language = this._editingLanguage || null;
         const prefix = this._editingChannelPrefix;
 
-        if (!cc || !mn) {
-            this._renameError = 'Country Code and Message Name are required.';
+        if (!cc || !mn || !language) {
+            this._renameError = 'Country Code, Language, and Message Name are required.';
             return;
         }
 
-        const newStem = composeStem(prefix, cc, mn);
-        const unchanged =
-            newStem === oldStem
-            && language === (this.allGroups.find(g => g.messageName === oldStem)?.language || null);
-
-        if (unchanged) {
+        const newStem = composeStem(prefix, cc, language, mn);
+        if (newStem === oldStem) {
             this._cancelRename();
             return;
         }
 
-        // Client-side uniqueness for a different stem
-        if (newStem !== oldStem) {
-            const collision = this.allGroups.some(g => g.messageName === newStem);
-            if (collision) {
-                this._renameError = `A message with Country Code "${cc}" and Message Name "${mn}" already exists.`;
-                return;
-            }
+        // Client-side uniqueness for a different stem (locale + message name)
+        const collision = this.allGroups.some(g => g.messageName === newStem);
+        if (collision) {
+            this._renameError = `A message with locale "${cc}-${language}" and Message Name "${mn}" already exists.`;
+            return;
         }
 
         updateMessageMaster({
