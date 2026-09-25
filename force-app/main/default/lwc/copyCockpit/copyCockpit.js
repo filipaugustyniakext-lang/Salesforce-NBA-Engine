@@ -304,6 +304,14 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         return this.activeChannel.Channel_Banner_Types__r || [];
     }
 
+    get activeChannelName() {
+        return this.activeChannel?.Name || '';
+    }
+
+    get activeChannelType() {
+        return this.activeChannel?.Channel_Type__c || '';
+    }
+
     // ── messages & groups ──────────────────────────────────────────────────
 
     get isMessagesLoading() { return this._isMessagesLoading; }

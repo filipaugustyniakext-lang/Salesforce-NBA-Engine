@@ -64,12 +64,6 @@ export default class CopyCockpitAddModal extends LightningElement {
 
     _takenVariants    = [];
     _variantCheckStem = '';
-    _variantCheckTimer = null;
-
-    disconnectedCallback() {
-        window.clearTimeout(this._variantCheckTimer);
-    }
-
     @wire(getProductFamilies)
     _wiredFamilies;
 
@@ -214,10 +208,13 @@ export default class CopyCockpitAddModal extends LightningElement {
         this._onNamePartChanged();
     }
 
-    handleLanguageChange(e) { this.language = e.detail.value; }
+    handleLanguageChange(e) {
+        this.language = e.detail?.value || e.target?.value || '';
+        this._onNamePartChanged();
+    }
 
     handleFamilyChange(e) {
-        const familyId = e.detail.value;
+        const familyId = e.detail?.value || e.target?.value || '';
         const familyOption = (this.familyOptions || []).find(f => f.value === familyId);
         this.productFamilyId   = familyId || null;
         this.productFamilyName = familyOption?.label || null;
@@ -228,7 +225,7 @@ export default class CopyCockpitAddModal extends LightningElement {
         }
     }
 
-    handleOfferChange(e) { this.offerId = e.detail.value; }
+    handleOfferChange(e) { this.offerId = e.detail?.value || e.target?.value || ''; }
 
     handlePlaceholderChange(e) { this.selectedPlaceholders = e.detail.value; }
 
@@ -258,9 +255,8 @@ export default class CopyCockpitAddModal extends LightningElement {
         this.variantError     = '';
         this.variantSuggested = false;
         this.isExistingMaster = false;
-        // Preview re-renders immediately; the variant lookup is debounced per keystroke.
-        window.clearTimeout(this._variantCheckTimer);
-        this._variantCheckTimer = window.setTimeout(() => this._checkNameVariants(), 300);
+        this._variantCheckStem = '';
+        this._checkNameVariants();
     }
 
     _loadOffers(familyName) {
