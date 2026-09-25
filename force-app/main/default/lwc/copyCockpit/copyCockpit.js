@@ -793,6 +793,11 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
 
     // ── handlers: group rename (master MessageName / Country / Language) ──
 
+    handleNameCellClick(e) {
+        // Keep expand/collapse on the row chrome; name cell opens rename via dblclick only.
+        e.stopPropagation();
+    }
+
     handleGroupNameDblClick(e) {
         e.stopPropagation();
         const stem = e.currentTarget.dataset.name;

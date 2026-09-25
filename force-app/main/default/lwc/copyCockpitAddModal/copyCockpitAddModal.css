@@ -19,20 +19,16 @@
 
 .add-modal-field-full { width: 100%; }
 
-.add-modal-field-row {
-    display: flex;
-    gap: 1rem;
-    align-items: flex-start;
+.add-modal-field-lang {
+    flex: 0 0 120px;
 }
 
-.add-modal-field-version-wrap {
-    flex: 0 0 200px;
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
+.add-modal-title-name {
+    font-family: 'Courier New', Courier, monospace;
+    color: #014486;
+    letter-spacing: 0.01em;
+    word-break: break-all;
 }
-
-.add-modal-field-lang { flex: 1; }
 
 /* ─── Composed name ───────────────────────────────────────────────────────── */
 
@@ -40,6 +36,7 @@
     display: flex;
     gap: 0.75rem;
     align-items: flex-start;
+    flex-wrap: wrap;
 }
 
 .add-modal-field-prefix-box {
@@ -86,35 +83,9 @@
     flex: 0 0 auto;
 }
 
-.add-modal-name-convention code {
-    font-size: 0.75rem;
-    background: #f3f3f3;
-    padding: 0.1rem 0.35rem;
-    border-radius: 0.2rem;
-}
-
-.add-modal-name-preview {
-    margin-top: 0.4rem;
-    font-size: 0.75rem;
-    color: #706e6b;
-}
-
-.add-modal-name-preview-label {
-    font-weight: 600;
-    color: #3e3e3c;
-    margin-right: 0.3rem;
-}
-
-.add-modal-name-preview-value {
-    font-family: 'Courier New', Courier, monospace;
-    color: #014486;
-    letter-spacing: 0.01em;
-}
-
 /* ─── Version feedback ────────────────────────────────────────────────────── */
 
-.add-modal-version-error,
-.add-modal-version-hint {
+.add-modal-version-error {
     display: flex;
     align-items: flex-start;
     font-size: 0.75rem;
@@ -122,18 +93,9 @@
     gap: 0.25rem;
     padding: 0.25rem 0.4rem;
     border-radius: 0.25rem;
-}
-
-.add-modal-version-error {
     background: #fff1ee;
     color: #ba0517;
     border: 1px solid #f9b9b4;
-}
-
-.add-modal-version-hint {
-    background: #eaf4ff;
-    color: #014486;
-    border: 1px solid #b0d4f5;
 }
 
 .add-modal-icon-warn { --sds-c-icon-color-foreground-default: #ba0517; flex-shrink: 0; }

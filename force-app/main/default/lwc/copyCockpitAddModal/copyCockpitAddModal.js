@@ -63,6 +63,11 @@ export default class CopyCockpitAddModal extends LightningElement {
 
     _takenVariants    = [];
     _variantCheckStem = '';
+    _variantCheckTimer = null;
+
+    disconnectedCallback() {
+        window.clearTimeout(this._variantCheckTimer);
+    }
 
     @wire(getProductFamilies)
     _wiredFamilies;
@@ -249,7 +254,9 @@ export default class CopyCockpitAddModal extends LightningElement {
         this.variantError     = '';
         this.variantSuggested = false;
         this.isExistingMaster = false;
-        this._checkNameVariants();
+        // Preview re-renders immediately; the variant lookup is debounced per keystroke.
+        window.clearTimeout(this._variantCheckTimer);
+        this._variantCheckTimer = window.setTimeout(() => this._checkNameVariants(), 300);
     }
 
     _loadOffers(familyName) {

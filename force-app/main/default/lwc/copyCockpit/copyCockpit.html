@@ -206,7 +206,10 @@
                                             </span>
 
                                             <div class="cockpit-master-content">
-                                                <div class="cockpit-col-name" onclick={handleGroupNameDblClick} data-name={grp.messageName}>
+                                                <div class="cockpit-col-name"
+                                                    onclick={handleNameCellClick}
+                                                    ondblclick={handleGroupNameDblClick}
+                                                    data-name={grp.messageName}>
                                                     <span class="cockpit-msg-name" title="Double-click to edit Message Name, Country Code, and Language">{grp.displayName}</span>
                                                     <template lwc:if={grp.language}>
                                                         <span class="cockpit-copy-lang">{grp.language}</span>

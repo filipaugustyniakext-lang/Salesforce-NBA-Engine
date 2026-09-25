@@ -5,9 +5,9 @@
             <!-- Header -->
             <header class="slds-modal__header">
                 <lightning-icon icon-name="utility:add" size="small" class="slds-m-right_x-small add-modal-header-icon"></lightning-icon>
-                <h2 id="add-modal-title" class="slds-modal__title">New Copy</h2>
+                <h2 id="add-modal-title" class="slds-modal__title add-modal-title-name">{composedNamePreview}</h2>
                 <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">
-                    {channelName} &middot; {channelType}
+                    {channelName} &middot; {channelType} &middot; <code>{namingConventionHint}</code>
                 </p>
             </header>
 
@@ -19,9 +19,6 @@
 
                     <!-- Composed name: ChannelPrefix_CountryCode_MessageName_VariantNumber -->
                     <div class="add-modal-field-full">
-                        <p class="add-modal-name-convention slds-text-body_small slds-text-color_weak slds-m-bottom_x-small">
-                            Naming: <code>{namingConventionHint}</code>
-                        </p>
                         <div class="add-modal-name-row">
                             <div class="add-modal-field-prefix-box">
                                 <span class="add-modal-prefix-label">Channel Prefix</span>
@@ -34,6 +31,7 @@
                                 maxlength="10"
                                 class="add-modal-name-country"
                                 required
+                                onkeyup={handleCountryCodeChange}
                                 onchange={handleCountryCodeChange}
                             ></lightning-input>
                             <lightning-input
@@ -42,54 +40,30 @@
                                 value={messageName}
                                 class="add-modal-name-part"
                                 required
+                                onkeyup={handleMessageNameChange}
                                 onchange={handleMessageNameChange}
                             ></lightning-input>
                             <div class="add-modal-field-prefix-box add-modal-field-variant-box">
                                 <span class="add-modal-prefix-label">Variant</span>
-                                <span class="add-modal-prefix-value" title="Auto — next available">{version}</span>
+                                <span class="add-modal-prefix-value" title={variantHint}>{version}</span>
                             </div>
-                        </div>
-                        <div class="add-modal-name-preview">
-                            <span class="add-modal-name-preview-label">Full name:</span>
-                            <span class="add-modal-name-preview-value">{composedNamePreview}</span>
-                        </div>
-                    </div>
-
-                    <!-- Variant (read-only) + Language -->
-                    <div class="add-modal-field-row">
-                        <div class="add-modal-field-version-wrap">
-                            <lightning-input
-                                type="number"
-                                label="Message Variant"
-                                value={version}
-                                min="1"
-                                step="1"
+                            <lightning-combobox
+                                label="Language"
+                                value={language}
+                                options={languageOptions}
                                 required
-                                disabled
-                                field-level-help="Read-only. New messages start at 1; additional variants use the next free number."
-                            ></lightning-input>
-                            <div class="add-modal-version-hint">
-                                <lightning-icon icon-name="utility:info" size="xx-small" class="slds-m-right_xx-small add-modal-icon-info"></lightning-icon>
-                                {variantHint}
-                            </div>
-                            <template lwc:if={hasDuplicateVariant}>
-                                <div class="add-modal-version-error">
-                                    <lightning-icon icon-name="utility:warning" size="xx-small" class="slds-m-right_xx-small add-modal-icon-warn"></lightning-icon>
-                                    {versionError}
-                                </div>
-                            </template>
+                                disabled={isLanguageLocked}
+                                onchange={handleLanguageChange}
+                                class="add-modal-field-lang"
+                                field-level-help={languageHelp}
+                            ></lightning-combobox>
                         </div>
-
-                        <lightning-combobox
-                            label="Language"
-                            value={language}
-                            options={languageOptions}
-                            required
-                            disabled={isLanguageLocked}
-                            onchange={handleLanguageChange}
-                            class="add-modal-field-lang"
-                            field-level-help={languageHelp}
-                        ></lightning-combobox>
+                        <template lwc:if={hasDuplicateVariant}>
+                            <div class="add-modal-version-error slds-m-top_x-small">
+                                <lightning-icon icon-name="utility:warning" size="xx-small" class="slds-m-right_xx-small add-modal-icon-warn"></lightning-icon>
+                                {versionError}
+                            </div>
+                        </template>
                     </div>
 
                 </div>
