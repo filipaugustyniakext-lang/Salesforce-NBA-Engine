@@ -342,7 +342,13 @@ export default class MarketingDictionaryProductTab extends LightningElement {
             this._showToast('Success', 'Record deleted', 'success');
             await refreshApex(this._wiredResult);
         } catch (e) {
-            this._showToast('Error', e.body?.message || e.message, 'error');
+            const message = e.body?.message || e.message || 'Delete failed.';
+            const blockedByDependency = message.includes('Please remove dependencies first');
+            this._showToast(
+                blockedByDependency ? 'Cannot delete' : 'Error',
+                message,
+                blockedByDependency ? 'warning' : 'error'
+            );
         }
     }
 

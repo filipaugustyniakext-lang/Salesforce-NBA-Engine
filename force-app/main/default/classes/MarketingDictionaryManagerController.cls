@@ -112,12 +112,49 @@ public with sharing class MarketingDictionaryManagerController {
     public static void deleteDictionaryRecord(Id recordId) {
         try {
             Marketing_Dictionary__c rec = [
-                SELECT Id FROM Marketing_Dictionary__c WHERE Id = :recordId WITH SECURITY_ENFORCED LIMIT 1
+                SELECT Id, Name, Dictionary_Sub_Type__c
+                FROM Marketing_Dictionary__c
+                WHERE Id = :recordId
+                WITH SECURITY_ENFORCED
+                LIMIT 1
             ];
+            if (rec.Dictionary_Sub_Type__c == 'Family of Needs') {
+                List<String> dependencies = new List<String>();
+                for (FamilyOfNeeds_CustomerType__c link : [
+                    SELECT Name, Customer_Type__r.Name
+                    FROM FamilyOfNeeds_CustomerType__c
+                    WHERE Family_of_Needs__c = :recordId
+                    ORDER BY Customer_Type__r.Name ASC
+                ]) {
+                    dependencies.add(
+                        String.isNotBlank(link.Customer_Type__r.Name) ? link.Customer_Type__r.Name : link.Name
+                    );
+                }
+                if (!dependencies.isEmpty()) {
+                    throw dependencyDeleteException(rec.Name, 'Family of Needs Customer Types: ' + String.join(dependencies, ', '));
+                }
+            }
             delete rec;
+        } catch (AuraHandledException e) {
+            throw e;
+        } catch (DmlException e) {
+            String detail = e.getNumDml() > 0 ? e.getDmlMessage(0) : e.getMessage();
+            if (detail != null && (detail.contains('DELETE_FAILED') || detail.containsIgnoreCase('associated with'))) {
+                throw dependencyDeleteException(null, 'related records');
+            }
+            throw new AuraHandledException(detail);
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());
         }
+    }
+
+    private static AuraHandledException dependencyDeleteException(String recordName, String dependency) {
+        String message = (String.isBlank(recordName) ? 'This value' : 'The value ' + recordName)
+            + ' has a dependency to ' + dependency
+            + '. Please remove dependencies first to delete this record.';
+        AuraHandledException ex = new AuraHandledException(message);
+        ex.setMessage(message);
+        return ex;
     }
 
     // ─── Person RT ───────────────────────────────────────────────────────────
