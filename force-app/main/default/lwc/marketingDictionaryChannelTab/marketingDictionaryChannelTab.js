@@ -152,7 +152,7 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
                 statusClass: ch.Is_Active__c === false
                     ? 'slds-badge channel-status channel-status_inactive'
                     : 'slds-badge channel-status channel-status_active',
-                sidebarClass: `ch-sidebar__item${isActive ? ' ch-sidebar__item_active' : ''}`,
+                sidebarClass: `ch-sidebar__item${isActive ? ' ch-sidebar__item_active' : ''}${ch.Is_Active__c === false ? ' ch-sidebar__item_inactive' : ''}`,
                 activeTab: state.activeTab,
                 placementSearch: state.placementSearch,
                 filteredPlacements: filtered.length ? filtered : null,

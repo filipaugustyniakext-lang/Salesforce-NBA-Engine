@@ -24,6 +24,7 @@
                     <button key={ch.Id}
                         class={ch.sidebarClass}
                         data-id={ch.Id}
+                        title={ch.statusLabel}
                         onclick={handleSelectChannel}>
                         <template lwc:if={ch.Channel_Icon__c}>
                             <lightning-icon icon-name={ch.Channel_Icon__c} size="x-small"
@@ -32,6 +33,7 @@
                         </template>
                         <span class="ch-sidebar__name">{ch.Name}</span>
                         <span class="ch-sidebar__type slds-text-body_small">{ch.Channel_Type__c}</span>
+                        <span class={ch.statusClass}>{ch.statusLabel}</span>
                     </button>
                 </template>
             </div>

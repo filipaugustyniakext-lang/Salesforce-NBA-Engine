@@ -61,6 +61,16 @@
     font-weight: 600;
 }
 
+.ch-sidebar__item_inactive .ch-sidebar__name,
+.ch-sidebar__item_inactive .ch-sidebar__type {
+    color: #706e6b;
+}
+
+.ch-sidebar__item .channel-status {
+    margin-left: 0;
+    margin-top: 0.35rem;
+}
+
 .ch-sidebar__name {
     font-size: 0.8125rem;
     color: #181818;
