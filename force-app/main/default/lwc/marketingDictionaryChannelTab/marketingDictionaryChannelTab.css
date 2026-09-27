@@ -1,3 +1,18 @@
+.channel-status {
+    margin-left: 0.5rem;
+    font-size: 0.625rem;
+}
+
+.channel-status_active {
+    background: #daf5e3;
+    color: #194e31;
+}
+
+.channel-status_inactive {
+    background: #f3f3f3;
+    color: #706e6b;
+}
+
 /* ── Vertical channel layout ─────────────────────────────────────── */
 
 .ch-layout {

@@ -124,6 +124,15 @@
     background-color: #f3f3f3 !important;
 }
 
+.channel-btn-disabled,
+.channel-btn-disabled:hover {
+    background-color: #e5f4ff !important;
+    border-color: #0176d3 !important;
+    color: #014486 !important;
+    cursor: not-allowed !important;
+    opacity: 0.75;
+}
+
 .channel-btn-label {
     margin-left: 0.25rem;
 }
