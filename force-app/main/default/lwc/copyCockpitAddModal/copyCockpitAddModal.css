@@ -25,14 +25,14 @@
     align-items: flex-start;
 }
 
-.add-modal-field-version-wrap {
-    flex: 0 0 200px;
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
-}
-
 .add-modal-field-lang { flex: 1; }
+
+.add-modal-title-name {
+    font-family: 'Courier New', Courier, monospace;
+    color: #014486;
+    letter-spacing: 0.01em;
+    word-break: break-all;
+}
 
 /* ─── Composed name ───────────────────────────────────────────────────────── */
 
@@ -40,6 +40,7 @@
     display: flex;
     gap: 0.75rem;
     align-items: flex-start;
+    flex-wrap: wrap;
 }
 
 .add-modal-field-prefix-box {
@@ -78,31 +79,17 @@
 }
 
 .add-modal-name-part {
-    flex: 1;
+    flex: 1 1 auto;
+    min-width: 10rem;
 }
 
-.add-modal-name-preview {
-    margin-top: 0.4rem;
-    font-size: 0.75rem;
-    color: #706e6b;
-}
-
-.add-modal-name-preview-label {
-    font-weight: 600;
-    color: #3e3e3c;
-    margin-right: 0.3rem;
-}
-
-.add-modal-name-preview-value {
-    font-family: 'Courier New', Courier, monospace;
-    color: #014486;
-    letter-spacing: 0.01em;
+.add-modal-field-variant-box {
+    flex: 0 0 auto;
 }
 
 /* ─── Version feedback ────────────────────────────────────────────────────── */
 
-.add-modal-version-error,
-.add-modal-version-hint {
+.add-modal-version-error {
     display: flex;
     align-items: flex-start;
     font-size: 0.75rem;
@@ -110,18 +97,9 @@
     gap: 0.25rem;
     padding: 0.25rem 0.4rem;
     border-radius: 0.25rem;
-}
-
-.add-modal-version-error {
     background: #fff1ee;
     color: #ba0517;
     border: 1px solid #f9b9b4;
-}
-
-.add-modal-version-hint {
-    background: #eaf4ff;
-    color: #014486;
-    border: 1px solid #b0d4f5;
 }
 
 .add-modal-icon-warn { --sds-c-icon-color-foreground-default: #ba0517; flex-shrink: 0; }
