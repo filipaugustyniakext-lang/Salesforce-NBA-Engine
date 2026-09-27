@@ -279,6 +279,14 @@
                                 options={familyOfNeedsOptions}
                                 placeholder="Select Family of Needs..."
                                 onchange={handleBulkFonChange}
+                                class="slds-m-bottom_small">
+                            </lightning-combobox>
+                            <lightning-combobox
+                                label="Product Type (applies to all entries below)"
+                                value={bulkProductTypeId}
+                                options={productTypeOptions}
+                                placeholder="Select Product Type..."
+                                onchange={handleBulkProductTypeChange}
                                 class="slds-m-bottom_medium">
                             </lightning-combobox>
                         </template>
