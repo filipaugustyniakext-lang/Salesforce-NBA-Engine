@@ -138,7 +138,7 @@ private class ChannelTemplateControllerTest {
 
         System.assertEquals(0, [SELECT COUNT() FROM Channel_Template__c WHERE Id = :template.Id]);
         System.assertEquals(0, [SELECT COUNT() FROM ContentDocumentLink WHERE LinkedEntityId = :template.Id]);
-        System.assertEquals(0, [SELECT COUNT() FROM ContentDocument WHERE Id = :documentId]);
+        System.assertEquals(0, [SELECT COUNT() FROM ContentDocument WHERE Id = :shellDocumentId]);
     }
 
     @IsTest

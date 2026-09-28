@@ -136,7 +136,12 @@ public with sharing class ChannelTemplateController {
                 throw new TemplateAssetException('Unsupported template asset type.');
             }
             // Enforces template access and prevents classifying files linked elsewhere.
-            [SELECT Id FROM Channel_Template__c WHERE Id = :templateId LIMIT 1];
+            Channel_Template__c template = [
+                SELECT Id FROM Channel_Template__c WHERE Id = :templateId LIMIT 1
+            ];
+            if (template == null) {
+                throw new TemplateAssetException('Template is required.');
+            }
             Set<Id> linkedDocumentIds = new Set<Id>();
             for (ContentDocumentLink link : [
                 SELECT ContentDocumentId
@@ -208,8 +213,10 @@ public with sharing class ChannelTemplateController {
     @AuraEnabled
     public static void deleteTemplateAsset(Id templateId, Id documentId) {
         if (templateId == null || documentId == null) return;
-        [SELECT Id FROM Channel_Template__c WHERE Id = :templateId LIMIT 1];
-        removeTemplateFileLinks(templateId, new Set<Id>{ documentId });
+        Channel_Template__c template = [
+            SELECT Id FROM Channel_Template__c WHERE Id = :templateId LIMIT 1
+        ];
+        removeTemplateFileLinks(template.Id, new Set<Id>{ documentId });
     }
 
     @AuraEnabled
