@@ -1,0 +1,35 @@
+# Source path map (Content at Scale → export)
+
+## Email
+public/mock/email-templates/SFMC_CB_Email_Master_Commercial.html → email/master/
+public/mock/email-templates/blocks/*.html → email/blocks/
+public/mock/email-templates.json → email/config/
+public/mock/email-business-templates.json → email/config/
+src/config/hardcodedEmailMaster.js → email/config/
+src/config/hardcodedContentBlocks.js → email/config/
+src/utils/emailTemplatePreview.js → email/preview-js/
+src/utils/emailPreviewIframe.js → email/preview-js/
+src/utils/masterShellResolver.js → email/preview-js/
+src/utils/syncShellLoader.js → email/preview-js/
+src/utils/adminEmailPreviewManifest.js → email/preview-js/
+src/utils/emailBlockHtml/*.js → email/preview-js/
+
+## Web Banners (per type)
+cloudpages/banner/{main,photo,small,vas}-banner.css → banners/{type}/
+src/utils/{main,photo,small,vas}BannerContent.js → banners/{type}/
+src/components/{Main,Photo,Small,Vas}BannerPreview.vue → banners/{type}/
+src/components/{Main,Photo,Small,Vas}BannerEditor.vue → banners/{type}/
+src/components/MainBannerCarouselPreview.vue → banners/mainBanner/
+src/components/VasBannerGridPreview.vue → banners/vasBanner/
+src/config/bannerTypes.js, bannerPlacements.js, bannerIntents.js → banners/shared/
+src/components/BannerActionTargetField.vue, BannerImageSourcePanel.vue → banners/shared/
+src/styles/app.css (preview rules excerpt) → banners/shared/editor-preview-excerpt.css
+
+## Push
+src/components/PushDevicePreview.vue → push/
+src/config/pushTypes.js, pushBehaviours.js → push/
+src/utils/contentBuilderPushMessage.js → push/
+
+## SMS
+src/App.vue (renderSmsPreviewHtml) → sms/renderSmsPreviewHtml.js
+src/styles/app.css (sms-* rules) → sms/sms-preview.css
