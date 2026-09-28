@@ -47,10 +47,15 @@ private class ChannelTemplateControllerTest {
     @IsTest
     static void activeTemplateArchivesPriorActiveTemplate() {
         Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
-        Channel_Template__c first = new Channel_Template__c(
-            Name = 'First', Channel__c = channel.Id, Status__c = 'Active', Version__c = 1
+        Id firstId = createDraftTemplate(channel.Id, 'First', 1);
+        Id firstShellId = uploadFile(firstId, 'first.html', '<html>first</html>');
+        ChannelTemplateController.classifyUploadedFiles(
+            firstId, new List<Id>{ firstShellId }, 'SHELL_HTML'
         );
-        insert first;
+        ChannelTemplateController.saveTemplate(
+            new Channel_Template__c(Id = firstId, Name = 'First', Status__c = 'Active', Version__c = 1),
+            channel.Id
+        );
         Channel_Template__c second = new Channel_Template__c(
             Name = 'Second', Status__c = 'Draft', Version__c = 2
         );
@@ -66,26 +71,23 @@ private class ChannelTemplateControllerTest {
         ChannelTemplateController.saveTemplate(second, channel.Id);
         Test.stopTest();
 
-        Set<Id> templateIds = new Set<Id>{ first.Id, secondId };
+        Set<Id> templateIds = new Set<Id>{ firstId, secondId };
         Map<Id, Channel_Template__c> records = new Map<Id, Channel_Template__c>([
             SELECT Id, Status__c FROM Channel_Template__c WHERE Id IN :templateIds
         ]);
-        System.assertEquals('Archived', records.get(first.Id).Status__c);
+        System.assertEquals('Archived', records.get(firstId).Status__c);
         System.assertEquals('Active', records.get(secondId).Status__c);
     }
 
     @IsTest
     static void invalidExtensionIsUnlinkedAndReturnsMessage() {
         Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
-        Channel_Template__c template = new Channel_Template__c(
-            Name = 'Invalid Upload Test', Channel__c = channel.Id, Status__c = 'Draft', Version__c = 1
-        );
-        insert template;
-        Id documentId = uploadFile(template.Id, 'wrong.html', '<html></html>');
+        Id templateId = createDraftTemplate(channel.Id, 'Invalid Upload Test', 1);
+        Id documentId = uploadFile(templateId, 'wrong.html', '<html></html>');
 
         Test.startTest();
         String errorMessage = ChannelTemplateController.classifyUploadedFiles(
-            template.Id, new List<Id>{ documentId }, 'SHELL_CSS'
+            templateId, new List<Id>{ documentId }, 'SHELL_CSS'
         );
         Test.stopTest();
 
@@ -93,7 +95,7 @@ private class ChannelTemplateControllerTest {
         System.assertEquals(0, [
             SELECT COUNT()
             FROM ContentDocumentLink
-            WHERE LinkedEntityId = :template.Id
+            WHERE LinkedEntityId = :templateId
               AND ContentDocumentId = :documentId
         ]);
     }
@@ -118,47 +120,48 @@ private class ChannelTemplateControllerTest {
     @IsTest
     static void deletesAssetAndTemplateWithoutDeletingSharedFiles() {
         Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
-        Channel_Template__c template = new Channel_Template__c(
-            Name = 'Delete Test', Channel__c = channel.Id, Status__c = 'Draft', Version__c = 1
-        );
-        insert template;
-        Id assetDocumentId = uploadFile(template.Id, 'block.html', '<div>block</div>');
+        Id templateId = createDraftTemplate(channel.Id, 'Delete Test', 1);
+        Id assetDocumentId = uploadFile(templateId, 'block.html', '<div>block</div>');
         ChannelTemplateController.classifyUploadedFiles(
-            template.Id, new List<Id>{ assetDocumentId }, 'CONTENT_BLOCK'
+            templateId, new List<Id>{ assetDocumentId }, 'CONTENT_BLOCK'
         );
 
         Test.startTest();
-        ChannelTemplateController.deleteTemplateAsset(template.Id, assetDocumentId);
-        Id shellDocumentId = uploadFile(template.Id, 'shell.css', 'body {}');
+        ChannelTemplateController.deleteTemplateAsset(templateId, assetDocumentId);
+        Id shellDocumentId = uploadFile(templateId, 'shell.css', 'body {}');
         ChannelTemplateController.classifyUploadedFiles(
-            template.Id, new List<Id>{ shellDocumentId }, 'SHELL_CSS'
+            templateId, new List<Id>{ shellDocumentId }, 'SHELL_CSS'
         );
-        ChannelTemplateController.deleteTemplate(template.Id);
+        ChannelTemplateController.deleteTemplate(templateId);
         Test.stopTest();
 
-        System.assertEquals(0, [SELECT COUNT() FROM Channel_Template__c WHERE Id = :template.Id]);
-        System.assertEquals(0, [SELECT COUNT() FROM ContentDocumentLink WHERE LinkedEntityId = :template.Id]);
+        System.assertEquals(0, [SELECT COUNT() FROM Channel_Template__c WHERE Id = :templateId]);
+        System.assertEquals(0, [SELECT COUNT() FROM ContentDocumentLink WHERE LinkedEntityId = :templateId]);
         System.assertEquals(0, [SELECT COUNT() FROM ContentDocument WHERE Id = :shellDocumentId]);
     }
 
     @IsTest
     static void deletingChannelCleansUpTemplateFileLinks() {
         Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
-        Channel_Template__c template = new Channel_Template__c(
-            Name = 'Channel Cascade Test', Channel__c = channel.Id, Status__c = 'Draft', Version__c = 1
-        );
-        insert template;
-        Id documentId = uploadFile(template.Id, 'channel-shell.html', '<html></html>');
+        Id templateId = createDraftTemplate(channel.Id, 'Channel Cascade Test', 1);
+        Id documentId = uploadFile(templateId, 'channel-shell.html', '<html></html>');
         ChannelTemplateController.classifyUploadedFiles(
-            template.Id, new List<Id>{ documentId }, 'SHELL_HTML'
+            templateId, new List<Id>{ documentId }, 'SHELL_HTML'
         );
 
         Test.startTest();
         MarketingDictionaryManagerController.deleteDictionaryRecord(channel.Id);
         Test.stopTest();
 
-        System.assertEquals(0, [SELECT COUNT() FROM Channel_Template__c WHERE Id = :template.Id]);
-        System.assertEquals(0, [SELECT COUNT() FROM ContentDocumentLink WHERE LinkedEntityId = :template.Id]);
+        System.assertEquals(0, [SELECT COUNT() FROM Channel_Template__c WHERE Id = :templateId]);
+        System.assertEquals(0, [SELECT COUNT() FROM ContentDocumentLink WHERE LinkedEntityId = :templateId]);
+    }
+
+    private static Id createDraftTemplate(Id channelId, String name, Decimal version) {
+        return ChannelTemplateController.saveTemplate(
+            new Channel_Template__c(Name = name, Status__c = 'Draft', Version__c = version),
+            channelId
+        );
     }
 
     private static Id uploadFile(Id templateId, String path, String body) {

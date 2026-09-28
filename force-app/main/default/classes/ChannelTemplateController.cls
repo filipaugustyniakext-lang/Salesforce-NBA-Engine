@@ -85,7 +85,19 @@ public with sharing class ChannelTemplateController {
         }
 
         record.Name = record.Name.trim();
-        record.Channel__c = channelId;
+        if (record.Id == null) {
+            record.put('Channel__c', channelId);
+        } else {
+            Channel_Template__c existing = [
+                SELECT Channel__c
+                FROM Channel_Template__c
+                WHERE Id = :record.Id
+                LIMIT 1
+            ];
+            if (existing.Channel__c != channelId) {
+                throw new AuraHandledException('A template cannot be moved to another channel.');
+            }
+        }
         if (String.isBlank(record.Status__c)) record.Status__c = 'Draft';
         if (record.Version__c == null || record.Version__c < 1) record.Version__c = 1;
 
