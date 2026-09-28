@@ -76,11 +76,34 @@
     flex-wrap: wrap;
 }
 .cd-col-flag { width: 10rem; }
+.cd-col-ct-name { width: 12rem; max-width: 16rem; }
+.cd-col-groups { min-width: 14rem; }
 .cd-col-desc { max-width: 260px; }
 .action-col  { width: 5rem; white-space: nowrap; }
 .cd-check-icon { color: #2e844a; }
 .cd-search-input { min-width: 180px; }
 .cd-warn-text { color: #c23934; font-size: 0.75rem; }
+
+.cd-inline-groups {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.375rem 0.5rem;
+}
+.cd-inline-groups__list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.375rem;
+    align-items: center;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.cd-inline-groups__add {
+    flex: 0 0 auto;
+}
+.cd-groups-disabled {
+    font-style: italic;
+}
 
 /* Campaign Type / Value badges */
 .cd-badge-yes { background: #e3f5e1; color: #2e844a; border: 1px solid #91db8b; }
