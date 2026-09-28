@@ -118,6 +118,30 @@ private class ChannelTemplateControllerTest {
     }
 
     @IsTest
+    static void nonEmailTemplateCanActivateWithoutHtmlShell() {
+        Id channelRecordTypeId = Schema.SObjectType.Marketing_Dictionary__c
+            .getRecordTypeInfosByDeveloperName().get('Channel').getRecordTypeId();
+        Marketing_Dictionary__c bannerChannel = new Marketing_Dictionary__c(
+            Name = 'Web Main Banner',
+            RecordTypeId = channelRecordTypeId,
+            Channel_Type__c = 'Banner',
+            Is_Active__c = true
+        );
+        insert bannerChannel;
+
+        Test.startTest();
+        Id templateId = ChannelTemplateController.saveTemplate(
+            new Channel_Template__c(Name = 'Main Banner', Status__c = 'Active', Version__c = 1),
+            bannerChannel.Id
+        );
+        Test.stopTest();
+
+        System.assertEquals('Active', [
+            SELECT Status__c FROM Channel_Template__c WHERE Id = :templateId
+        ].Status__c);
+    }
+
+    @IsTest
     static void deletesAssetAndTemplateWithoutDeletingSharedFiles() {
         Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
         Id templateId = createDraftTemplate(channel.Id, 'Delete Test', 1);

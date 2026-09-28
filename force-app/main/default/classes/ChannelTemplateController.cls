@@ -84,6 +84,12 @@ public with sharing class ChannelTemplateController {
             throw new AuraHandledException('Template Name is required.');
         }
 
+        Marketing_Dictionary__c channel = [
+            SELECT Id, Channel_Type__c
+            FROM Marketing_Dictionary__c
+            WHERE Id = :channelId
+            LIMIT 1
+        ];
         record.Name = record.Name.trim();
         if (record.Id == null) {
             record.put('Channel__c', channelId);
@@ -101,10 +107,10 @@ public with sharing class ChannelTemplateController {
         if (String.isBlank(record.Status__c)) record.Status__c = 'Draft';
         if (record.Version__c == null || record.Version__c < 1) record.Version__c = 1;
 
-        if (record.Status__c == 'Active') {
+        if (record.Status__c == 'Active' && channel.Channel_Type__c == 'Email') {
             if (record.Id == null) {
                 throw new AuraHandledException(
-                    'Create the template as Draft and attach a Shell HTML file before activating it.'
+                    'Create the Email template as Draft and attach a Shell HTML file before activating it.'
                 );
             }
             Boolean hasShellHtml = false;
@@ -119,8 +125,10 @@ public with sharing class ChannelTemplateController {
                 }
             }
             if (!hasShellHtml) {
-                throw new AuraHandledException('A Shell HTML file is required before this template can be Active.');
+                throw new AuraHandledException('A Shell HTML file is required before an Email template can be Active.');
             }
+        }
+        if (record.Status__c == 'Active') {
             List<Channel_Template__c> activeTemplates = [
                 SELECT Id, Status__c
                 FROM Channel_Template__c
