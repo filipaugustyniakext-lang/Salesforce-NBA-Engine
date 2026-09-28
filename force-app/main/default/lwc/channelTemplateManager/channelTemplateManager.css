@@ -49,6 +49,16 @@
     color: #706e6b;
 }
 
+.template-validation_valid {
+    background: #daf5e3;
+    color: #194e31;
+}
+
+.template-validation_invalid {
+    background: #feded8;
+    color: #8e030f;
+}
+
 .template-assets {
     border-top: 1px solid #e5e5e5;
     margin-top: 0.75rem;

@@ -34,8 +34,15 @@
                                 <div class="template-card__title-row">
                                     <h4 class="slds-text-heading_small">{item.name}</h4>
                                     <span class={item.statusClass}>{item.status}</span>
+                                    <span class={item.validationClass}>{item.validationLabel}</span>
                                     <span class="slds-badge">{item.versionLabel}</span>
                                 </div>
+                                <template lwc:if={item.packageLabel}>
+                                    <p class="slds-text-body_small slds-m-top_xx-small">{item.packageLabel}</p>
+                                </template>
+                                <template lwc:if={item.hashLabel}>
+                                    <p class="slds-text-body_small slds-text-color_weak">{item.hashLabel}</p>
+                                </template>
                                 <template lwc:if={item.description}>
                                     <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">
                                         {item.description}
@@ -79,6 +86,7 @@
                                             title="Remove file"
                                             data-id={asset.documentId}
                                             data-template-id={item.id}
+                                            disabled={asset.deleteDisabled}
                                             onclick={handleDeleteAsset}>
                                         </lightning-button-icon>
                                     </li>
@@ -162,6 +170,23 @@
 
                     <template lwc:if={hasSavedTemplate}>
                         <div class="template-upload-section">
+                            <h3 class="slds-text-heading_small">Package Manifest</h3>
+                            <p class="slds-text-body_small slds-text-color_weak">
+                                Upload one template.manifest.json file. It defines package identity, compiler, slots, blocks, and placeholders.
+                            </p>
+                            <div class="template-upload-card slds-m-top_small">
+                                <lightning-file-upload
+                                    label="Template Manifest JSON"
+                                    name="manifest"
+                                    record-id={editTemplate.Id}
+                                    accept={acceptedJson}
+                                    disabled={isEditingActive}
+                                    onuploadfinished={handleManifestUpload}>
+                                </lightning-file-upload>
+                            </div>
+                        </div>
+
+                        <div class="template-upload-section">
                             <h3 class="slds-text-heading_small">Template Shell Files</h3>
                             <p class="slds-text-body_small slds-text-color_weak">
                                 Attach HTML, CSS, or JS source when this channel uses a file-based shell. JavaScript is stored as source only and is not executed by Copy Center.
@@ -176,6 +201,7 @@
                                         name="shellHtml"
                                         record-id={editTemplate.Id}
                                         accept={acceptedHtml}
+                                        disabled={isEditingActive}
                                         onuploadfinished={handleShellHtmlUpload}>
                                     </lightning-file-upload>
                                     <span class="slds-text-body_small slds-text-color_weak">.html</span>
@@ -186,6 +212,7 @@
                                         name="shellCss"
                                         record-id={editTemplate.Id}
                                         accept={acceptedCss}
+                                        disabled={isEditingActive}
                                         onuploadfinished={handleShellCssUpload}>
                                     </lightning-file-upload>
                                     <span class="slds-text-body_small slds-text-color_weak">.css</span>
@@ -196,6 +223,7 @@
                                         name="shellJs"
                                         record-id={editTemplate.Id}
                                         accept={acceptedJs}
+                                        disabled={isEditingActive}
                                         onuploadfinished={handleShellJsUpload}>
                                     </lightning-file-upload>
                                     <span class="slds-text-body_small slds-text-color_weak">.js · stored only</span>
@@ -215,6 +243,7 @@
                                     record-id={editTemplate.Id}
                                     accept={acceptedHtml}
                                     multiple
+                                    disabled={isEditingActive}
                                     onuploadfinished={handleContentBlockUpload}>
                                 </lightning-file-upload>
                             </div>
@@ -230,6 +259,15 @@
 
                 <footer class="slds-modal__footer">
                     <lightning-button label="Done" onclick={closeModal}></lightning-button>
+                    <template lwc:if={hasSavedTemplate}>
+                        <lightning-button
+                            label="Validate Package"
+                            icon-name="utility:check"
+                            disabled={isSaving}
+                            onclick={handleValidate}
+                            class="slds-m-left_x-small">
+                        </lightning-button>
+                    </template>
                     <lightning-button
                         label={saveLabel}
                         variant="brand"

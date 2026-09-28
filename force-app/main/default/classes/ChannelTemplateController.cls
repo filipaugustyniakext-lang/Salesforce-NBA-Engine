@@ -1,5 +1,6 @@
 public with sharing class ChannelTemplateController {
     private static final Map<String, String> ASSET_PREFIXES = new Map<String, String>{
+        'MANIFEST' => '[MANIFEST]',
         'SHELL_HTML' => '[SHELL_HTML]',
         'SHELL_CSS' => '[SHELL_CSS]',
         'SHELL_JS' => '[SHELL_JS]',
@@ -24,8 +25,24 @@ public with sharing class ChannelTemplateController {
         @AuraEnabled public String status;
         @AuraEnabled public Decimal version;
         @AuraEnabled public String description;
+        @AuraEnabled public String packageId;
+        @AuraEnabled public String semVer;
+        @AuraEnabled public String packageHash;
+        @AuraEnabled public String compilerVersion;
+        @AuraEnabled public String validationStatus;
+        @AuraEnabled public String validationMessage;
+        @AuraEnabled public Datetime validatedAt;
         @AuraEnabled public Datetime lastModifiedDate;
         @AuraEnabled public List<TemplateAsset> assets = new List<TemplateAsset>();
+    }
+
+    public class ValidationResponse {
+        @AuraEnabled public Boolean valid;
+        @AuraEnabled public String message;
+        @AuraEnabled public String packageId;
+        @AuraEnabled public String semVer;
+        @AuraEnabled public String packageHash;
+        @AuraEnabled public String compilerVersion;
     }
 
     @AuraEnabled(cacheable=true)
@@ -33,7 +50,10 @@ public with sharing class ChannelTemplateController {
         if (channelId == null) return new List<TemplateDefinition>();
 
         List<Channel_Template__c> records = [
-            SELECT Id, Name, Status__c, Version__c, Description__c, LastModifiedDate
+            SELECT Id, Name, Status__c, Version__c, Description__c,
+                   Package_Id__c, SemVer__c, Package_Hash__c, Compiler_Version__c,
+                   Validation_Status__c, Validation_Message__c, Validated_At__c,
+                   LastModifiedDate
             FROM Channel_Template__c
             WHERE Channel__c = :channelId
             ORDER BY Status__c ASC, Version__c DESC NULLS LAST, Name ASC
@@ -48,6 +68,13 @@ public with sharing class ChannelTemplateController {
             definition.status = record.Status__c;
             definition.version = record.Version__c;
             definition.description = record.Description__c;
+            definition.packageId = record.Package_Id__c;
+            definition.semVer = record.SemVer__c;
+            definition.packageHash = record.Package_Hash__c;
+            definition.compilerVersion = record.Compiler_Version__c;
+            definition.validationStatus = record.Validation_Status__c;
+            definition.validationMessage = record.Validation_Message__c;
+            definition.validatedAt = record.Validated_At__c;
             definition.lastModifiedDate = record.LastModifiedDate;
             byId.put(record.Id, definition);
         }
@@ -91,11 +118,12 @@ public with sharing class ChannelTemplateController {
             LIMIT 1
         ];
         record.Name = record.Name.trim();
+        Channel_Template__c existing;
         if (record.Id == null) {
             record.put('Channel__c', channelId);
         } else {
-            Channel_Template__c existing = [
-                SELECT Channel__c
+            existing = [
+                SELECT Channel__c, Status__c
                 FROM Channel_Template__c
                 WHERE Id = :record.Id
                 LIMIT 1
@@ -103,32 +131,29 @@ public with sharing class ChannelTemplateController {
             if (existing.Channel__c != channelId) {
                 throw new AuraHandledException('A template cannot be moved to another channel.');
             }
+            if (existing.Status__c == 'Active' && record.Status__c != 'Archived') {
+                throw new AuraHandledException(
+                    'Active template packages are immutable. Archive this version before changing it.'
+                );
+            }
         }
         if (String.isBlank(record.Status__c)) record.Status__c = 'Draft';
         if (record.Version__c == null || record.Version__c < 1) record.Version__c = 1;
 
-        if (record.Status__c == 'Active' && channel.Channel_Type__c == 'Email') {
+        if (record.Status__c == 'Active') {
             if (record.Id == null) {
                 throw new AuraHandledException(
-                    'Create the Email template as Draft and attach a Shell HTML file before activating it.'
+                    'Create the template as Draft, attach its manifest and source files, then validate it before activation.'
                 );
             }
-            Boolean hasShellHtml = false;
-            for (ContentDocumentLink link : [
-                SELECT ContentDocument.Title
-                FROM ContentDocumentLink
-                WHERE LinkedEntityId = :record.Id
-            ]) {
-                if (link.ContentDocument.Title.startsWith(ASSET_PREFIXES.get('SHELL_HTML'))) {
-                    hasShellHtml = true;
-                    break;
-                }
+            ChannelTemplateManifestService.ValidationResult validation =
+                ChannelTemplateManifestService.validate(record.Id, channel.Channel_Type__c);
+            if (!validation.valid) {
+                throw new AuraHandledException(
+                    'Template package validation failed:\n' + validation.message
+                );
             }
-            if (!hasShellHtml) {
-                throw new AuraHandledException('A Shell HTML file is required before an Email template can be Active.');
-            }
-        }
-        if (record.Status__c == 'Active') {
+            applyValidation(record, validation);
             List<Channel_Template__c> activeTemplates = [
                 SELECT Id, Status__c
                 FROM Channel_Template__c
@@ -147,6 +172,32 @@ public with sharing class ChannelTemplateController {
     }
 
     @AuraEnabled
+    public static ValidationResponse validateTemplate(Id templateId) {
+        Channel_Template__c template = [
+            SELECT Id, Status__c, Channel__r.Channel_Type__c
+            FROM Channel_Template__c
+            WHERE Id = :templateId
+            LIMIT 1
+        ];
+        ChannelTemplateManifestService.ValidationResult validation =
+            ChannelTemplateManifestService.validate(
+                template.Id,
+                template.Channel__r.Channel_Type__c
+            );
+        applyValidation(template, validation);
+        update template;
+
+        ValidationResponse response = new ValidationResponse();
+        response.valid = validation.valid;
+        response.message = validation.message;
+        response.packageId = validation.packageId;
+        response.semVer = validation.semVer;
+        response.packageHash = validation.packageHash;
+        response.compilerVersion = validation.compilerVersion;
+        return response;
+    }
+
+    @AuraEnabled
     public static String classifyUploadedFiles(Id templateId, List<Id> documentIds, String assetType) {
         if (documentIds == null || documentIds.isEmpty()) return null;
         Set<Id> uploadedDocumentIds = new Set<Id>(documentIds);
@@ -157,10 +208,15 @@ public with sharing class ChannelTemplateController {
             }
             // Enforces template access and prevents classifying files linked elsewhere.
             Channel_Template__c template = [
-                SELECT Id FROM Channel_Template__c WHERE Id = :templateId LIMIT 1
+                SELECT Id, Status__c FROM Channel_Template__c WHERE Id = :templateId LIMIT 1
             ];
             if (template == null) {
                 throw new TemplateAssetException('Template is required.');
+            }
+            if (template.Status__c == 'Active') {
+                throw new TemplateAssetException(
+                    'Active template packages are immutable. Archive this version before replacing files.'
+                );
             }
             Set<Id> linkedDocumentIds = new Set<Id>();
             for (ContentDocumentLink link : [
@@ -175,7 +231,9 @@ public with sharing class ChannelTemplateController {
                 throw new TemplateAssetException('One or more uploaded files are not linked to this template.');
             }
 
-            String requiredExtension = assetType == 'SHELL_CSS'
+            String requiredExtension = assetType == 'MANIFEST'
+                ? 'json'
+                : assetType == 'SHELL_CSS'
                 ? 'css'
                 : assetType == 'SHELL_JS' ? 'js' : 'html';
             String prefix = ASSET_PREFIXES.get(assetType);
@@ -217,6 +275,7 @@ public with sharing class ChannelTemplateController {
                 }
                 removeTemplateFileLinks(templateId, replacedDocumentIds);
             }
+            markNeedsValidation(templateId);
             return null;
         } catch (Exception e) {
             // File upload runs in an earlier transaction. Return an error rather
@@ -234,9 +293,15 @@ public with sharing class ChannelTemplateController {
     public static void deleteTemplateAsset(Id templateId, Id documentId) {
         if (templateId == null || documentId == null) return;
         Channel_Template__c template = [
-            SELECT Id FROM Channel_Template__c WHERE Id = :templateId LIMIT 1
+            SELECT Id, Status__c FROM Channel_Template__c WHERE Id = :templateId LIMIT 1
         ];
+        if (template.Status__c == 'Active') {
+            throw new AuraHandledException(
+                'Active template packages are immutable. Archive this version before removing files.'
+            );
+        }
         removeTemplateFileLinks(template.Id, new Set<Id>{ documentId });
+        markNeedsValidation(template.Id);
     }
 
     @AuraEnabled
@@ -293,6 +358,30 @@ public with sharing class ChannelTemplateController {
             }
         }
         delete templates;
+    }
+
+    private static void applyValidation(
+        Channel_Template__c template,
+        ChannelTemplateManifestService.ValidationResult validation
+    ) {
+        template.Package_Id__c = validation.packageId;
+        template.SemVer__c = validation.semVer;
+        template.Package_Hash__c = validation.packageHash;
+        template.Compiler_Version__c = validation.compilerVersion;
+        template.Manifest_JSON__c = validation.manifestJson;
+        template.Validation_Status__c = validation.valid ? 'Valid' : 'Invalid';
+        template.Validation_Message__c = validation.message;
+        template.Validated_At__c = System.now();
+    }
+
+    private static void markNeedsValidation(Id templateId) {
+        update new Channel_Template__c(
+            Id = templateId,
+            Validation_Status__c = 'Not Validated',
+            Validation_Message__c = 'Source files changed. Validate the package again.',
+            Package_Hash__c = null,
+            Validated_At__c = null
+        );
     }
 
     private static void removeTemplateFileLinks(Id templateId, Set<Id> documentIds) {
@@ -355,6 +444,7 @@ public with sharing class ChannelTemplateController {
     }
 
     private static String assetTypeLabel(String assetType) {
+        if (assetType == 'MANIFEST') return 'Package Manifest';
         if (assetType == 'SHELL_HTML') return 'Shell HTML';
         if (assetType == 'SHELL_CSS') return 'Shell CSS';
         if (assetType == 'SHELL_JS') return 'Shell JavaScript';

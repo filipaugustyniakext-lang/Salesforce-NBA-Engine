@@ -48,10 +48,11 @@ private class ChannelTemplateControllerTest {
     static void activeTemplateArchivesPriorActiveTemplate() {
         Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
         Id firstId = createDraftTemplate(channel.Id, 'First', 1);
-        Id firstShellId = uploadFile(firstId, 'first.html', '<html>first</html>');
+        Id firstShellId = uploadFile(firstId, 'first.html', '<html>{{CONTENT}}</html>');
         ChannelTemplateController.classifyUploadedFiles(
             firstId, new List<Id>{ firstShellId }, 'SHELL_HTML'
         );
+        attachManifest(firstId, 'email.first', 'Email', 'email-preview@1');
         ChannelTemplateController.saveTemplate(
             new Channel_Template__c(Id = firstId, Name = 'First', Status__c = 'Active', Version__c = 1),
             channel.Id
@@ -62,10 +63,11 @@ private class ChannelTemplateControllerTest {
 
         Test.startTest();
         Id secondId = ChannelTemplateController.saveTemplate(second, channel.Id);
-        Id shellDocumentId = uploadFile(secondId, 'second.html', '<html>second</html>');
+        Id shellDocumentId = uploadFile(secondId, 'second.html', '<html>{{CONTENT}}</html>');
         ChannelTemplateController.classifyUploadedFiles(
             secondId, new List<Id>{ shellDocumentId }, 'SHELL_HTML'
         );
+        attachManifest(secondId, 'email.second', 'Email', 'email-preview@1');
         second.Id = secondId;
         second.Status__c = 'Active';
         ChannelTemplateController.saveTemplate(second, channel.Id);
@@ -118,6 +120,35 @@ private class ChannelTemplateControllerTest {
     }
 
     @IsTest
+    static void validatesManifestAndPersistsPackageIdentity() {
+        Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
+        Id templateId = createDraftTemplate(channel.Id, 'Validated Email', 1);
+        Id shellId = uploadFile(templateId, 'validated.html', '<html>{{CONTENT}}</html>');
+        ChannelTemplateController.classifyUploadedFiles(
+            templateId, new List<Id>{ shellId }, 'SHELL_HTML'
+        );
+        attachManifest(templateId, 'email.validated', 'Email', 'email-preview@1');
+
+        Test.startTest();
+        ChannelTemplateController.ValidationResponse response =
+            ChannelTemplateController.validateTemplate(templateId);
+        Test.stopTest();
+
+        Channel_Template__c template = [
+            SELECT Package_Id__c, SemVer__c, Package_Hash__c,
+                   Compiler_Version__c, Validation_Status__c
+            FROM Channel_Template__c
+            WHERE Id = :templateId
+        ];
+        System.assertEquals(true, response.valid);
+        System.assertEquals('email.validated', template.Package_Id__c);
+        System.assertEquals('1.0.0', template.SemVer__c);
+        System.assertEquals(64, template.Package_Hash__c.length());
+        System.assertEquals('email-preview@1', template.Compiler_Version__c);
+        System.assertEquals('Valid', template.Validation_Status__c);
+    }
+
+    @IsTest
     static void nonEmailTemplateCanActivateWithoutHtmlShell() {
         Id channelRecordTypeId = Schema.SObjectType.Marketing_Dictionary__c
             .getRecordTypeInfosByDeveloperName().get('Channel').getRecordTypeId();
@@ -129,9 +160,17 @@ private class ChannelTemplateControllerTest {
         );
         insert bannerChannel;
 
-        Test.startTest();
         Id templateId = ChannelTemplateController.saveTemplate(
-            new Channel_Template__c(Name = 'Main Banner', Status__c = 'Active', Version__c = 1),
+            new Channel_Template__c(Name = 'Main Banner', Status__c = 'Draft', Version__c = 1),
+            bannerChannel.Id
+        );
+        attachManifest(templateId, 'banner.main', 'webBanner', 'banner-lwc@1');
+
+        Test.startTest();
+        ChannelTemplateController.saveTemplate(
+            new Channel_Template__c(
+                Id = templateId, Name = 'Main Banner', Status__c = 'Active', Version__c = 1
+            ),
             bannerChannel.Id
         );
         Test.stopTest();
@@ -186,6 +225,33 @@ private class ChannelTemplateControllerTest {
             new Channel_Template__c(Name = name, Status__c = 'Draft', Version__c = version),
             channelId
         );
+    }
+
+    private static Id attachManifest(
+        Id templateId,
+        String packageId,
+        String channelKind,
+        String compilerVersion
+    ) {
+        String manifest = JSON.serialize(new Map<String, Object>{
+            'schemaVersion' => '1.0',
+            'packageId' => packageId,
+            'semver' => '1.0.0',
+            'channelKind' => channelKind,
+            'runtime' => new Map<String, Object>{ 'previewCompiler' => compilerVersion },
+            'masterShell' => new Map<String, Object>{
+                'injection' => new Map<String, Object>{
+                    'fallbackPlaceholder' => '{{CONTENT}}'
+                }
+            },
+            'contentBlocks' => new List<Object>()
+        });
+        Id documentId = uploadFile(templateId, 'template.manifest.json', manifest);
+        String error = ChannelTemplateController.classifyUploadedFiles(
+            templateId, new List<Id>{ documentId }, 'MANIFEST'
+        );
+        System.assertEquals(null, error);
+        return documentId;
     }
 
     private static Id uploadFile(Id templateId, String path, String body) {
