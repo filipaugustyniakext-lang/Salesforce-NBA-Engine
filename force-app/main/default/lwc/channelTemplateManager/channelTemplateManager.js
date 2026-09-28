@@ -96,6 +96,38 @@ export default class ChannelTemplateManager extends LightningElement {
         return !!this.editTemplate.Id;
     }
 
+    get editingTemplate() {
+        return this.templates.find(template => template.id === this.editTemplate.Id);
+    }
+
+    get editingAssets() {
+        return this.editingTemplate?.assets || [];
+    }
+
+    get manifestAssets() {
+        return this._assetsOfType('MANIFEST');
+    }
+
+    get shellHtmlAssets() {
+        return this._assetsOfType('SHELL_HTML');
+    }
+
+    get shellCssAssets() {
+        return this._assetsOfType('SHELL_CSS');
+    }
+
+    get shellJsAssets() {
+        return this._assetsOfType('SHELL_JS');
+    }
+
+    get contentBlockAssets() {
+        return this._assetsOfType('CONTENT_BLOCK');
+    }
+
+    get unclassifiedAssets() {
+        return this._assetsOfType('UNCLASSIFIED');
+    }
+
     get isEditingActive() {
         return this.editTemplate.Status__c === 'Active';
     }
@@ -261,6 +293,10 @@ export default class ChannelTemplateManager extends LightningElement {
     closeModal() {
         this.isModalOpen = false;
         this.editTemplate = EMPTY_TEMPLATE();
+    }
+
+    _assetsOfType(assetType) {
+        return this.editingAssets.filter(asset => asset.assetType === assetType);
     }
 
     _formatBytes(value) {
