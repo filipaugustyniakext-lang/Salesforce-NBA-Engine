@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://copy-center.example/schemas/template-manifest/v1",
+  "title": "Copy Center Channel Template Manifest",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "packageId",
+    "semver",
+    "channelKind",
+    "runtime"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^1\\."
+    },
+    "packageId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]+$"
+    },
+    "semver": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$"
+    },
+    "channelKind": {
+      "enum": ["Email", "webBanner", "Push", "SMS"]
+    },
+    "displayName": {
+      "type": "string"
+    },
+    "runtime": {
+      "type": "object",
+      "required": ["previewCompiler"],
+      "properties": {
+        "previewCompiler": {
+          "enum": [
+            "email-preview@1",
+            "banner-lwc@1",
+            "push-device@1",
+            "sms-preview@1"
+          ]
+        },
+        "allowShellJs": {
+          "const": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "masterShell": {
+      "type": "object",
+      "properties": {
+        "fileName": {
+          "type": "string"
+        },
+        "injection": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "enum": ["slot", "placeholder", "none"]
+            },
+            "bodySlotKey": {
+              "type": "string"
+            },
+            "bodySlotLabel": {
+              "type": "string"
+            },
+            "fallbackPlaceholder": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "slots": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["key", "label", "role"],
+            "properties": {
+              "key": { "type": "string" },
+              "label": { "type": "string" },
+              "role": { "enum": ["fixed", "injectable"] },
+              "allowedBlocks": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "maxBlocks": { "type": "integer", "minimum": 1 }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "contentBlocks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "fileName", "rendererId", "placeholders"],
+        "properties": {
+          "id": { "type": "string" },
+          "type": { "type": "string" },
+          "displayName": { "type": "string" },
+          "fileName": { "type": "string" },
+          "rendererId": { "type": "string" },
+          "placeholders": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^\\{\\{[A-Za-z0-9_.:-]+\\}\\}$"
+            }
+          },
+          "aliases": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["path", "kind"],
+              "properties": {
+                "path": { "type": "string" },
+                "kind": { "type": "string" },
+                "label": { "type": "string" },
+                "required": { "type": "boolean" },
+                "default": {}
+              },
+              "additionalProperties": true
+            }
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

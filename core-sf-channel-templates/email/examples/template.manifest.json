@@ -1,0 +1,119 @@
+{
+  "$schema": "../../contract/template.manifest.schema.v1.json",
+  "schemaVersion": "1.0",
+  "packageId": "email.commercial.master",
+  "semver": "1.0.0",
+  "channelKind": "Email",
+  "displayName": "Email Commercial Master",
+  "runtime": {
+    "previewCompiler": "email-preview@1",
+    "allowShellJs": false
+  },
+  "masterShell": {
+    "fileName": "SFMC_CB_Email_Master_Commercial.html",
+    "injection": {
+      "mode": "slot",
+      "bodySlotKey": "49fwfqshzd9",
+      "bodySlotLabel": "BODY",
+      "fallbackPlaceholder": "{{CONTENT}}"
+    },
+    "slots": [
+      {
+        "key": "bxctk7dwic4",
+        "label": "AMPscript",
+        "role": "fixed",
+        "allowedBlocks": ["codesnippetblock", "referenceblock"]
+      },
+      {
+        "key": "89k9yhfyvnj",
+        "label": "HEADER",
+        "role": "fixed"
+      },
+      {
+        "key": "49fwfqshzd9",
+        "label": "BODY",
+        "role": "injectable"
+      },
+      {
+        "key": "elffysyxus6",
+        "label": "FOOTER",
+        "role": "fixed",
+        "allowedBlocks": ["referenceblock"],
+        "maxBlocks": 1
+      }
+    ]
+  },
+  "contentBlocks": [
+    {
+      "id": "cb-richtext",
+      "type": "RichText",
+      "displayName": "Rich Text",
+      "fileName": "SFMC_CB_Email_RichText.html",
+      "rendererId": "email/populateRichTextBlock@1",
+      "placeholders": ["{{CELL_PADDING_STYLE}}", "{{RICH_TEXT_ROWS}}"],
+      "aliases": ["ArrowList"],
+      "fields": [
+        { "path": "content[0].segments", "kind": "richTextSegments", "label": "Content" },
+        { "path": "content[1].blockSettings.padding", "kind": "spacingBox", "label": "Padding" }
+      ]
+    },
+    {
+      "id": "cb-image",
+      "type": "Image",
+      "displayName": "Image",
+      "fileName": "SFMC_CB_Email_Image.html",
+      "rendererId": "email/populateImageBlock@1",
+      "placeholders": [
+        "{{CELL_ALIGN}}",
+        "{{CELL_PADDING_STYLE}}",
+        "{{DESKTOP_IMAGE_HTML}}",
+        "{{MOBILE_IMAGE_HTML}}"
+      ]
+    },
+    {
+      "id": "cb-textimage",
+      "type": "TextImage",
+      "displayName": "Text-Image",
+      "fileName": "SFMC_CB_Email_TextImage.html",
+      "rendererId": "email/populateTextImageBlock@1",
+      "placeholders": ["{{CELL_PADDING_STYLE}}", "{{COLUMNS_HTML}}"]
+    },
+    {
+      "id": "cb-banner",
+      "type": "Banner",
+      "displayName": "Email Banner",
+      "fileName": "SFMC_CB_Email_Banner.html",
+      "rendererId": "email/populateBannerBlock@1",
+      "placeholders": [
+        "{{VML_HEIGHT}}",
+        "{{VML_FILL_SRC}}",
+        "{{VML_TEXTBOX_INSET}}",
+        "{{BG_IMAGE_URL}}",
+        "{{MOBILE_BG_CLASS}}",
+        "{{INNER_CELL_PADDING}}",
+        "{{MSO_FIRST_COLUMN_OPEN}}",
+        "{{COLUMNS_HTML}}"
+      ]
+    },
+    {
+      "id": "cb-prefooter",
+      "type": "Prefooter",
+      "displayName": "Prefooter",
+      "fileName": "SFMC_CB_Email_Prefooter.html",
+      "rendererId": "email/populatePrefooterBlock@1",
+      "placeholders": [
+        "{{CELL_PADDING_STYLE}}",
+        "{{PREFOOTER_PRODUCT_HTML}}",
+        "{{PREFOOTER_LEGAL_HTML}}"
+      ]
+    },
+    {
+      "id": "cb-spacer",
+      "type": "Spacer",
+      "displayName": "Spacer",
+      "fileName": "SFMC_CB_Email_Spacer.html",
+      "rendererId": "email/populateSpacerBlock@1",
+      "placeholders": ["{{DESKTOP_SPACER_HTML}}", "{{MOBILE_SPACER_HTML}}"]
+    }
+  ]
+}
