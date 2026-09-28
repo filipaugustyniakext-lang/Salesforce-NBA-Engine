@@ -3,8 +3,8 @@ public with sharing class ChannelTemplateManifestService {
     private static final String SHELL_HTML_PREFIX = '[SHELL_HTML]';
     private static final Set<String> SOURCE_EXTENSIONS =
         new Set<String>{ 'json', 'html', 'css', 'js' };
-    private static final Integer MAX_SOURCE_FILE_BYTES = 1000000;
-    private static final Integer MAX_PACKAGE_BYTES = 4000000;
+    private static final Integer MAX_SOURCE_FILE_BYTES = 500000;
+    private static final Integer MAX_PACKAGE_BYTES = 1500000;
 
     public class ValidationResult {
         public Boolean valid = false;
@@ -54,7 +54,7 @@ public with sharing class ChannelTemplateManifestService {
             }
         }
         if (packageBytes > MAX_PACKAGE_BYTES) {
-            errors.add('Template package source files exceed the 4 MB validation limit.');
+            errors.add('Template package source files exceed the 1.5 MB validation limit.');
         }
         if (manifestAsset == null) {
             errors.add('Attach template.manifest.json before validating or activating this template.');
@@ -107,6 +107,20 @@ public with sharing class ChannelTemplateManifestService {
         validateContentBlocks(manifest, assetsByName, errors);
 
         return finish(result, errors, assets);
+    }
+
+    public static void applyToTemplate(
+        Channel_Template__c template,
+        ValidationResult validation
+    ) {
+        template.Package_Id__c = validation.packageId;
+        template.SemVer__c = validation.semVer;
+        template.Package_Hash__c = validation.packageHash;
+        template.Compiler_Version__c = validation.compilerVersion;
+        template.Manifest_JSON__c = validation.manifestJson;
+        template.Validation_Status__c = validation.valid ? 'Valid' : 'Invalid';
+        template.Validation_Message__c = validation.message;
+        template.Validated_At__c = System.now();
     }
 
     private static List<SourceAsset> loadSourceAssets(Id templateId, List<String> errors) {
@@ -270,12 +284,18 @@ public with sharing class ChannelTemplateManifestService {
     }
 
     private static String packageHash(List<SourceAsset> assets) {
-        List<String> parts = new List<String>();
+        List<String> digestLines = new List<String>();
         for (SourceAsset asset : assets) {
-            parts.add(asset.fullName.toLowerCase() + '\n' + asset.body);
+            String fileHash = EncodingUtil.convertToHex(
+                Crypto.generateDigest('SHA-256', Blob.valueOf(asset.body))
+            ).toLowerCase();
+            digestLines.add(asset.fullName.toLowerCase() + ':' + fileHash);
         }
-        parts.sort();
-        Blob digest = Crypto.generateDigest('SHA-256', Blob.valueOf(String.join(parts, '\n---\n')));
+        digestLines.sort();
+        Blob digest = Crypto.generateDigest(
+            'SHA-256',
+            Blob.valueOf(String.join(digestLines, '\n'))
+        );
         return EncodingUtil.convertToHex(digest).toLowerCase();
     }
 

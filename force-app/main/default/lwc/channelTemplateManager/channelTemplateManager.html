@@ -62,6 +62,7 @@
                                     alternative-text="Delete template"
                                     title="Delete template"
                                     data-id={item.id}
+                                    disabled={item.deleteDisabled}
                                     onclick={handleDeleteTemplate}>
                                 </lightning-button-icon>
                             </div>
@@ -263,7 +264,7 @@
                         <lightning-button
                             label="Validate Package"
                             icon-name="utility:check"
-                            disabled={isSaving}
+                            disabled={validateDisabled}
                             onclick={handleValidate}
                             class="slds-m-left_x-small">
                         </lightning-button>

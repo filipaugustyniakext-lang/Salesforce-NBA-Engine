@@ -181,6 +181,53 @@ private class ChannelTemplateControllerTest {
     }
 
     @IsTest
+    static void activePackageRejectsDirectDeleteAndNewFileVersion() {
+        Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
+        Id templateId = createDraftTemplate(channel.Id, 'Immutable Email', 1);
+        Id shellDocumentId = uploadFile(
+            templateId,
+            'immutable.html',
+            '<html>{{CONTENT}}</html>'
+        );
+        ChannelTemplateController.classifyUploadedFiles(
+            templateId, new List<Id>{ shellDocumentId }, 'SHELL_HTML'
+        );
+        attachManifest(templateId, 'email.immutable', 'Email', 'email-preview@1');
+        ChannelTemplateController.saveTemplate(
+            new Channel_Template__c(
+                Id = templateId,
+                Name = 'Immutable Email',
+                Status__c = 'Active',
+                Version__c = 1
+            ),
+            channel.Id
+        );
+
+        Boolean deleteRejected = false;
+        Boolean fileVersionRejected = false;
+        Test.startTest();
+        try {
+            delete new Channel_Template__c(Id = templateId);
+        } catch (DmlException error) {
+            deleteRejected = true;
+        }
+        try {
+            insert new ContentVersion(
+                Title = 'immutable-v2',
+                PathOnClient = 'immutable-v2.html',
+                VersionData = Blob.valueOf('<html>changed</html>'),
+                ContentDocumentId = shellDocumentId
+            );
+        } catch (DmlException error) {
+            fileVersionRejected = true;
+        }
+        Test.stopTest();
+
+        System.assertEquals(true, deleteRejected);
+        System.assertEquals(true, fileVersionRejected);
+    }
+
+    @IsTest
     static void deletesAssetAndTemplateWithoutDeletingSharedFiles() {
         Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
         Id templateId = createDraftTemplate(channel.Id, 'Delete Test', 1);

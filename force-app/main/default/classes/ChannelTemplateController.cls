@@ -174,11 +174,24 @@ public with sharing class ChannelTemplateController {
     @AuraEnabled
     public static ValidationResponse validateTemplate(Id templateId) {
         Channel_Template__c template = [
-            SELECT Id, Status__c, Channel__r.Channel_Type__c
+            SELECT Id, Status__c, Channel__r.Channel_Type__c,
+                   Package_Id__c, SemVer__c, Package_Hash__c,
+                   Compiler_Version__c, Validation_Status__c,
+                   Validation_Message__c
             FROM Channel_Template__c
             WHERE Id = :templateId
             LIMIT 1
         ];
+        if (template.Status__c == 'Active') {
+            ValidationResponse frozenResponse = new ValidationResponse();
+            frozenResponse.valid = template.Validation_Status__c == 'Valid';
+            frozenResponse.message = template.Validation_Message__c;
+            frozenResponse.packageId = template.Package_Id__c;
+            frozenResponse.semVer = template.SemVer__c;
+            frozenResponse.packageHash = template.Package_Hash__c;
+            frozenResponse.compilerVersion = template.Compiler_Version__c;
+            return frozenResponse;
+        }
         ChannelTemplateManifestService.ValidationResult validation =
             ChannelTemplateManifestService.validate(
                 template.Id,
@@ -307,6 +320,17 @@ public with sharing class ChannelTemplateController {
     @AuraEnabled
     public static void deleteTemplate(Id templateId) {
         if (templateId == null) return;
+        Channel_Template__c template = [
+            SELECT Id, Status__c
+            FROM Channel_Template__c
+            WHERE Id = :templateId
+            LIMIT 1
+        ];
+        if (template.Status__c == 'Active') {
+            throw new AuraHandledException(
+                'Active template packages cannot be deleted. Archive this version first.'
+            );
+        }
         Set<Id> documentIds = new Set<Id>();
         for (ContentDocumentLink link : [
             SELECT ContentDocumentId
@@ -316,7 +340,7 @@ public with sharing class ChannelTemplateController {
             documentIds.add(link.ContentDocumentId);
         }
         removeTemplateFileLinks(templateId, documentIds);
-        delete new Channel_Template__c(Id = templateId);
+        delete template;
     }
 
     public static void deleteTemplatesForChannel(Id channelId) {
@@ -357,21 +381,19 @@ public with sharing class ChannelTemplateController {
                 );
             }
         }
-        delete templates;
+        ChannelTemplateTriggerHandler.allowActiveDelete = true;
+        try {
+            delete templates;
+        } finally {
+            ChannelTemplateTriggerHandler.allowActiveDelete = false;
+        }
     }
 
     private static void applyValidation(
         Channel_Template__c template,
         ChannelTemplateManifestService.ValidationResult validation
     ) {
-        template.Package_Id__c = validation.packageId;
-        template.SemVer__c = validation.semVer;
-        template.Package_Hash__c = validation.packageHash;
-        template.Compiler_Version__c = validation.compilerVersion;
-        template.Manifest_JSON__c = validation.manifestJson;
-        template.Validation_Status__c = validation.valid ? 'Valid' : 'Invalid';
-        template.Validation_Message__c = validation.message;
-        template.Validated_At__c = System.now();
+        ChannelTemplateManifestService.applyToTemplate(template, validation);
     }
 
     private static void markNeedsValidation(Id templateId) {

@@ -67,6 +67,7 @@ export default class ChannelTemplateManager extends LightningElement {
                 ? `SHA-256 ${template.packageHash.substring(0, 12)}…`
                 : '',
             canModify: template.status !== 'Active',
+            deleteDisabled: template.status === 'Active',
             hasAssets: (template.assets || []).length > 0,
             assets: (template.assets || []).map(asset => ({
                 ...asset,
@@ -97,6 +98,10 @@ export default class ChannelTemplateManager extends LightningElement {
 
     get isEditingActive() {
         return this.editTemplate.Status__c === 'Active';
+    }
+
+    get validateDisabled() {
+        return this.isSaving || this.isEditingActive;
     }
 
     get saveLabel() {
