@@ -1072,6 +1072,13 @@
     min-height: 520px;
 }
 
+.editor-preview__iframe-host {
+    display: flex;
+    flex: 1;
+    width: 100%;
+    min-height: 520px;
+}
+
 .editor-preview__iframe {
     width: 100%;
     border: 0;
@@ -1080,6 +1087,7 @@
     min-height: 520px;
 }
 
+.editor-preview_mobile .editor-preview__iframe-host,
 .editor-preview_mobile .editor-preview__iframe {
     min-height: 0;
     height: 100%;

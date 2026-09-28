@@ -973,7 +973,7 @@
                                         </div>
                                     </template>
                                     <template lwc:elseif={hasShellPreview}>
-                                        <iframe class="editor-preview__iframe" title="Message preview" sandbox="" srcdoc={previewDocument}></iframe>
+                                        <div class="editor-preview__iframe-host" lwc:dom="manual" data-preview-host></div>
                                     </template>
                                     <template lwc:elseif={previewIsEmpty}>
                                         <div class="editor-preview__empty">

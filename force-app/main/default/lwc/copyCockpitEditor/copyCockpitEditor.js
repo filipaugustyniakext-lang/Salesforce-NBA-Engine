@@ -159,6 +159,7 @@ export default class CopyCockpitEditor extends LightningElement {
             const next = block[field.dataset.field] ?? '';
             if (field.value !== String(next)) field.value = next;
         });
+        this._syncPreviewFrame();
     }
 
     connectedCallback() {
@@ -970,6 +971,42 @@ export default class CopyCockpitEditor extends LightningElement {
                 this._errorMsg = err?.body?.message || 'Failed to load message.';
                 this._isLoading = false;
             });
+    }
+
+    _syncPreviewFrame() {
+        const host = this.template.querySelector('[data-preview-host]');
+        if (!host) return;
+        let frame = host.querySelector('iframe');
+        if (!frame) {
+            frame = document.createElement('iframe');
+            frame.className = 'editor-preview__iframe';
+            frame.title = 'Message preview';
+            frame.src = 'about:blank';
+            frame.addEventListener('load', () => {
+                if (!frame._needsWrite) return;
+                this._writePreviewDocument(frame);
+            });
+            host.appendChild(frame);
+        }
+        this._writePreviewDocument(frame);
+    }
+
+    _writePreviewDocument(frame) {
+        const html = this.previewDocument || '';
+        if (frame._previewHtml === html) {
+            frame._needsWrite = false;
+            return;
+        }
+        const doc = frame.contentDocument || frame.contentWindow?.document;
+        if (!doc) {
+            frame._needsWrite = true;
+            return;
+        }
+        frame._needsWrite = false;
+        frame._previewHtml = html;
+        doc.open();
+        doc.write(html);
+        doc.close();
     }
 
     _loadRenderSource() {
