@@ -205,7 +205,7 @@ private class ChannelTemplateControllerTest {
 
         ChannelTemplateController.ValidationResponse response =
             ChannelTemplateController.validateTemplate(templateId);
-        System.assertEquals(null, response.message);
+        System.assertEquals('Package is valid.', response.message);
         System.assertEquals(true, response.valid);
     }
 
