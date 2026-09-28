@@ -5,7 +5,7 @@ import getMessageById from '@salesforce/apex/CopyCockpitController.getMessageByI
 import saveMessageEditor from '@salesforce/apex/CopyCockpitController.saveMessageEditor';
 import getVersionsByMessageId from '@salesforce/apex/CopyCockpitController.getVersionsByMessageId';
 import getTemplateRenderSource from '@salesforce/apex/ChannelTemplateController.getTemplateRenderSource';
-import { previewFragment, renderTemplatePreview } from './templatePreview';
+import { renderTemplatePreview } from './templatePreview';
 
 const STATUS_OPTIONS = [
     { label: 'Active',           value: 'Active' },
@@ -975,28 +975,11 @@ export default class CopyCockpitEditor extends LightningElement {
 
     _syncPreviewFrame() {
         const frame = this.template.querySelector('[data-preview-frame]');
-        const fallback = this.template.querySelector('[data-preview-fallback]');
         if (!frame) return;
         const html = this.previewDocument || '';
         if (!html || frame._previewHtml === html) return;
         frame._previewHtml = html;
-        let painted = false;
-        try {
-            frame.srcdoc = html;
-            painted = typeof frame.srcdoc === 'string' && frame.srcdoc.length > 0;
-        } catch (e) {
-            painted = false;
-        }
-        frame.classList.toggle('slds-hide', !painted);
-        if (!fallback) return;
-        fallback.classList.toggle('slds-hide', painted);
-        if (!painted) {
-            try {
-                fallback.innerHTML = previewFragment(html);
-            } catch (e) {
-                fallback.textContent = 'The source template shell could not be displayed in this preview.';
-            }
-        }
+        frame.srcdoc = html;
     }
 
     _loadRenderSource() {

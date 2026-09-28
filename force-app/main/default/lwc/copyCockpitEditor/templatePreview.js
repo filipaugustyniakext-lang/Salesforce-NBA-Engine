@@ -4,28 +4,7 @@ export function renderTemplatePreview(source, blocks, device) {
     const templates = new Map((source.blocks || []).map(block => [block.type, block.html || '']));
     const visible = (blocks || []).filter(block => isVisibleOnDevice(block, device));
     const rendered = visible.map(block => renderBlock(block, templates.get(block.blockType) || '')).join('');
-    return stripExecutableMarkup(fitPreviewWidth(injectBody(shell, rendered, source.bodySlotKey)));
-}
-
-export function previewFragment(html) {
-    const source = String(html || '');
-    const styles = [];
-    const stylePattern = /<style\b[^>]*>([\s\S]*?)<\/style>/gi;
-    let match = stylePattern.exec(source);
-    while (match) {
-        styles.push(match[1]);
-        match = stylePattern.exec(source);
-    }
-    const bodyMatch = source.match(/<body\b[^>]*>([\s\S]*)<\/body>/i);
-    const body = bodyMatch ? bodyMatch[1] : source;
-    return `<style>${styles.join('\n')}</style>${body}`;
-}
-
-function fitPreviewWidth(html) {
-    const fit = '<style>html,body{margin:0;background:#fff;}img{max-width:100%;height:auto;}table{max-width:100%!important;}</style>';
-    const head = html.toLowerCase().indexOf('</head>');
-    if (head >= 0) return html.slice(0, head) + fit + html.slice(head);
-    return fit + html;
+    return stripExecutableMarkup(injectBody(shell, rendered, source.bodySlotKey));
 }
 
 function isVisibleOnDevice(block, device) {
