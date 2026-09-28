@@ -163,6 +163,53 @@ private class ChannelTemplateControllerTest {
     }
 
     @IsTest
+    static void acceptsMasterFileNameAndBlockPlaceholders() {
+        Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
+        Id templateId = createDraftTemplate(channel.Id, 'Placeholder Email', 1);
+        Id shellId = uploadFile(
+            templateId,
+            'SFMC_CB_Email_Master_Commercial.html',
+            '<div data-key="49fwfqshzd9"></div>'
+        );
+        Id blockId = uploadFile(
+            templateId,
+            'SFMC_CB_Email_RichText.html',
+            '<td>{{CELL_PADDING_STYLE}}{{RICH_TEXT_ROWS}}</td>'
+        );
+        ChannelTemplateController.classifyUploadedFiles(
+            templateId, new List<Id>{ shellId, blockId }, 'CONTENT_BLOCK'
+        );
+        String manifest = JSON.serialize(new Map<String, Object>{
+            'schemaVersion' => '1.0',
+            'packageId' => 'email.placeholders',
+            'semver' => '1.0.0',
+            'channelKind' => 'Email',
+            'runtime' => new Map<String, Object>{ 'previewCompiler' => 'email-preview@1' },
+            'masterShell' => new Map<String, Object>{
+                'fileName' => 'SFMC_CB_Email_Master_Commercial.html',
+                'injection' => new Map<String, Object>{ 'bodySlotKey' => '49fwfqshzd9' }
+            },
+            'contentBlocks' => new List<Object>{
+                new Map<String, Object>{
+                    'type' => 'RichText',
+                    'fileName' => 'SFMC_CB_Email_RichText.html',
+                    'rendererId' => 'email/populateRichTextBlock@1',
+                    'placeholders' => new List<String>{ '{{CELL_PADDING_STYLE}}', '{{RICH_TEXT_ROWS}}' }
+                }
+            }
+        });
+        Id manifestId = uploadFile(templateId, 'template.manifest.json', manifest);
+        System.assertEquals(null, ChannelTemplateController.classifyUploadedFiles(
+            templateId, new List<Id>{ manifestId }, 'MANIFEST'
+        ));
+
+        ChannelTemplateController.ValidationResponse response =
+            ChannelTemplateController.validateTemplate(templateId);
+        System.assertEquals(null, response.message);
+        System.assertEquals(true, response.valid);
+    }
+
+    @IsTest
     static void nonEmailTemplateCanActivateWithoutHtmlShell() {
         Id channelRecordTypeId = Schema.SObjectType.Marketing_Dictionary__c
             .getRecordTypeInfosByDeveloperName().get('Channel').getRecordTypeId();

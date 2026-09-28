@@ -42,7 +42,7 @@ public with sharing class ChannelTemplateManifestService {
 
         for (SourceAsset asset : assets) {
             packageBytes += asset.contentSize == null ? 0 : asset.contentSize;
-            assetsByName.put(asset.fullName.toLowerCase(), asset);
+            indexAsset(assetsByName, asset);
             if (asset.title.startsWith(MANIFEST_PREFIX)) {
                 if (manifestAsset != null) errors.add('Only one template.manifest.json file is allowed.');
                 manifestAsset = asset;
@@ -68,7 +68,9 @@ public with sharing class ChannelTemplateManifestService {
         result.manifestJson = manifestAsset.body;
         Map<String, Object> manifest;
         try {
-            manifest = (Map<String, Object>) JSON.deserializeUntyped(manifestAsset.body);
+            manifest = (Map<String, Object>) JSON.deserializeUntyped(
+                protectPlaceholders(manifestAsset.body)
+            );
         } catch (Exception error) {
             errors.add('template.manifest.json is not valid JSON: ' + error.getMessage());
             return finish(result, errors, assets);
@@ -106,7 +108,7 @@ public with sharing class ChannelTemplateManifestService {
 
         String normalizedChannel = normalizeChannel(channelType);
         if (normalizedChannel == 'email') {
-            validateEmailManifest(manifest, shellHtmlAsset, errors);
+            validateEmailManifest(manifest, shellHtmlAsset, assetsByName, errors);
         }
         validateContentBlocks(manifest, assetsByName, errors);
 
@@ -188,13 +190,20 @@ public with sharing class ChannelTemplateManifestService {
     private static void validateEmailManifest(
         Map<String, Object> manifest,
         SourceAsset shellHtmlAsset,
+        Map<String, SourceAsset> assetsByName,
         List<String> errors
     ) {
+        Map<String, Object> master = asMap(manifest.get('masterShell'));
         if (shellHtmlAsset == null || String.isBlank(shellHtmlAsset.body)) {
-            errors.add('Email packages require one Shell HTML file.');
+            shellHtmlAsset = findAsset(
+                assetsByName,
+                firstString(master, new List<String>{ 'fileName', 'html' })
+            );
+        }
+        if (shellHtmlAsset == null || String.isBlank(shellHtmlAsset.body)) {
+            errors.add('Email packages require one non-empty Shell HTML file. Upload it with the Shell HTML control, or use the file name declared in masterShell.fileName.');
             return;
         }
-        Map<String, Object> master = asMap(manifest.get('masterShell'));
         Map<String, Object> injection = asMap(master.get('injection'));
         String bodySlotKey = stringValue(injection.get('bodySlotKey'));
         String fallbackPlaceholder = stringValue(injection.get('fallbackPlaceholder'));
@@ -236,7 +245,7 @@ public with sharing class ChannelTemplateManifestService {
                 errors.add('Content block "' + type + '" requires a fileName.');
                 continue;
             }
-            SourceAsset asset = assetsByName.get(baseName(fileName).toLowerCase());
+            SourceAsset asset = findAsset(assetsByName, fileName);
             if (asset == null) {
                 errors.add('Content block "' + type + '" references missing file "' + fileName + '".');
                 continue;
@@ -254,26 +263,85 @@ public with sharing class ChannelTemplateManifestService {
         String source,
         List<String> errors
     ) {
+        if (String.isBlank(source)) {
+            errors.add('Block "' + blockType + '" file is empty.');
+            return;
+        }
         Set<String> declared = new Set<String>();
         Object rawPlaceholders = block.get('placeholders');
         if (rawPlaceholders instanceof List<Object>) {
             for (Object item : (List<Object>) rawPlaceholders) {
-                String token = stringValue(item);
-                if (String.isNotBlank(token)) declared.add(token);
+                declared.addAll(placeholderNames(stringValue(item)));
             }
         }
-        Matcher matcher = Pattern.compile('\\{\\{[A-Za-z0-9_.:\\-]+\\}\\}').matcher(source);
-        while (matcher.find()) {
-            String token = matcher.group(0);
-            if (!declared.contains(token)) {
-                errors.add('Block "' + blockType + '" uses undeclared placeholder ' + token + '.');
+        Set<String> used = placeholderNames(source);
+        for (String name : declared) {
+            if (!used.contains(name)) {
+                errors.add('Block "' + blockType + '" does not contain placeholder ' + name + '.');
             }
         }
-        for (String token : declared) {
-            if (!source.contains(token)) {
-                errors.add('Block "' + blockType + '" declares placeholder ' + token + ' but its file does not use it.');
+        for (String name : used) {
+            if (!declared.contains(name)) {
+                errors.add('Block "' + blockType + '" contains undeclared placeholder ' + name + '.');
             }
         }
+    }
+
+    private static void indexAsset(Map<String, SourceAsset> assetsByName, SourceAsset asset) {
+        String fullName = asset.fullName.toLowerCase();
+        assetsByName.put(fullName, asset);
+        Integer extensionLength = asset.extension.length() + 1;
+        String doubledExtension = '.' + asset.extension + '.' + asset.extension;
+        if (fullName.endsWith(doubledExtension)) {
+            assetsByName.put(fullName.substring(0, fullName.length() - extensionLength), asset);
+        }
+        Integer dot = fullName.lastIndexOf('.');
+        if (dot > 0) assetsByName.put(fullName.substring(0, dot), asset);
+    }
+
+    private static SourceAsset findAsset(Map<String, SourceAsset> assetsByName, String fileName) {
+        String normalized = baseName(fileName).toLowerCase();
+        if (String.isBlank(normalized)) return null;
+        if (assetsByName.containsKey(normalized)) return assetsByName.get(normalized);
+        Integer dot = normalized.lastIndexOf('.');
+        return dot > 0 ? assetsByName.get(normalized.substring(0, dot)) : null;
+    }
+
+    private static String protectPlaceholders(String jsonText) {
+        String source = String.valueOf(jsonText);
+        String result = '';
+        Integer cursor = 0;
+        while (cursor < source.length()) {
+            Integer open = source.indexOf('{{', cursor);
+            if (open < 0) return result + source.substring(cursor);
+            Integer close = source.indexOf('}}', open + 2);
+            if (close < 0) return result + source.substring(cursor);
+            String name = source.substring(open + 2, close).trim();
+            if (Pattern.matches('[A-Za-z0-9_.:\\-]+', name)) {
+                result += source.substring(cursor, open) + '[[CC:' + name + ']]';
+                cursor = close + 2;
+            } else {
+                result += source.substring(cursor, open + 2);
+                cursor = open + 2;
+            }
+        }
+        return result;
+    }
+
+    private static Set<String> placeholderNames(String value) {
+        Set<String> names = new Set<String>();
+        String source = String.valueOf(value);
+        Integer cursor = 0;
+        while (cursor < source.length()) {
+            Integer open = source.indexOf('{{', cursor);
+            if (open < 0) break;
+            Integer close = source.indexOf('}}', open + 2);
+            if (close < 0) break;
+            String name = source.substring(open + 2, close).trim();
+            if (String.isNotBlank(name)) names.add(name);
+            cursor = close + 2;
+        }
+        return names;
     }
 
     private static ValidationResult finish(
@@ -354,7 +422,18 @@ public with sharing class ChannelTemplateManifestService {
     }
 
     private static String stringValue(Object value) {
-        return value == null ? '' : String.valueOf(value).trim();
+        String text = value == null ? '' : String.valueOf(value).trim();
+        Integer cursor = 0;
+        String restored = '';
+        while (cursor < text.length()) {
+            Integer open = text.indexOf('[[CC:', cursor);
+            if (open < 0) return restored + text.substring(cursor);
+            Integer close = text.indexOf(']]', open + 5);
+            if (close < 0) return restored + text.substring(cursor);
+            restored += text.substring(cursor, open) + '{{' + text.substring(open + 5, close) + '}}';
+            cursor = close + 2;
+        }
+        return restored;
     }
 
     private static String stripPrefix(String title) {
