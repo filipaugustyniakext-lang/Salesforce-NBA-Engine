@@ -280,7 +280,7 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
     get showDayRuleHourRange() { return !this.editDayRule.Is_Fully_Blocked__c; }
     get pendingDeleteName() { return this._pendingDeleteName; }
     get deleteModalMessage() {
-        if (this._pendingDeleteType === 'channel') return `Permanently delete the channel "${this._pendingDeleteName}" and all its rules and placeholders?`;
+        if (this._pendingDeleteType === 'channel') return `Permanently delete the channel "${this._pendingDeleteName}" and all its rules, templates, attached template files, and placeholders?`;
         if (this._pendingDeleteType === 'cooldown') return `Delete the cooldown rule for "${this._pendingDeleteName}"?`;
         if (this._pendingDeleteType === 'dayRule') return `Remove the weekly restriction ${this._pendingDeleteName}?`;
         if (this._pendingDeleteType === 'bannerType') return `Delete banner type "${this._pendingDeleteName}"? Placeholders using it will lose their type link.`;

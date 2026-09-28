@@ -90,6 +90,25 @@ public with sharing class ChannelTemplateController {
         if (record.Version__c == null || record.Version__c < 1) record.Version__c = 1;
 
         if (record.Status__c == 'Active') {
+            if (record.Id == null) {
+                throw new AuraHandledException(
+                    'Create the template as Draft and attach a Shell HTML file before activating it.'
+                );
+            }
+            Boolean hasShellHtml = false;
+            for (ContentDocumentLink link : [
+                SELECT ContentDocument.Title
+                FROM ContentDocumentLink
+                WHERE LinkedEntityId = :record.Id
+            ]) {
+                if (link.ContentDocument.Title.startsWith(ASSET_PREFIXES.get('SHELL_HTML'))) {
+                    hasShellHtml = true;
+                    break;
+                }
+            }
+            if (!hasShellHtml) {
+                throw new AuraHandledException('A Shell HTML file is required before this template can be Active.');
+            }
             List<Channel_Template__c> activeTemplates = [
                 SELECT Id, Status__c
                 FROM Channel_Template__c
@@ -206,6 +225,41 @@ public with sharing class ChannelTemplateController {
         }
         removeTemplateFileLinks(templateId, documentIds);
         delete new Channel_Template__c(Id = templateId);
+    }
+
+    public static void deleteTemplatesForChannel(Id channelId) {
+        if (channelId == null) return;
+        List<Channel_Template__c> templates = [
+            SELECT Id
+            FROM Channel_Template__c
+            WHERE Channel__c = :channelId
+        ];
+        if (templates.isEmpty()) return;
+
+        Set<Id> templateIds = new Map<Id, Channel_Template__c>(templates).keySet();
+        List<ContentDocumentLink> links = [
+            SELECT Id, ContentDocumentId
+            FROM ContentDocumentLink
+            WHERE LinkedEntityId IN :templateIds
+        ];
+        Set<Id> documentIds = new Set<Id>();
+        for (ContentDocumentLink link : links) documentIds.add(link.ContentDocumentId);
+        if (!links.isEmpty()) delete links;
+
+        Set<Id> orphanIds = new Set<Id>(documentIds);
+        if (!orphanIds.isEmpty()) {
+            for (ContentDocumentLink remainingLink : [
+                SELECT ContentDocumentId
+                FROM ContentDocumentLink
+                WHERE ContentDocumentId IN :orphanIds
+            ]) {
+                orphanIds.remove(remainingLink.ContentDocumentId);
+            }
+            if (!orphanIds.isEmpty()) {
+                delete [SELECT Id FROM ContentDocument WHERE Id IN :orphanIds];
+            }
+        }
+        delete templates;
     }
 
     private static void removeTemplateFileLinks(Id templateId, Set<Id> documentIds) {

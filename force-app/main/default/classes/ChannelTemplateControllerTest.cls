@@ -52,11 +52,18 @@ private class ChannelTemplateControllerTest {
         );
         insert first;
         Channel_Template__c second = new Channel_Template__c(
-            Name = 'Second', Status__c = 'Active', Version__c = 2
+            Name = 'Second', Status__c = 'Draft', Version__c = 2
         );
 
         Test.startTest();
         Id secondId = ChannelTemplateController.saveTemplate(second, channel.Id);
+        Id shellDocumentId = uploadFile(secondId, 'second.html', '<html>second</html>');
+        ChannelTemplateController.classifyUploadedFiles(
+            secondId, new List<Id>{ shellDocumentId }, 'SHELL_HTML'
+        );
+        second.Id = secondId;
+        second.Status__c = 'Active';
+        ChannelTemplateController.saveTemplate(second, channel.Id);
         Test.stopTest();
 
         Set<Id> templateIds = new Set<Id>{ first.Id, secondId };
@@ -92,6 +99,23 @@ private class ChannelTemplateControllerTest {
     }
 
     @IsTest
+    static void rejectsActivationBeforeShellHtmlExists() {
+        Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
+        Boolean rejected = false;
+        Test.startTest();
+        try {
+            ChannelTemplateController.saveTemplate(
+                new Channel_Template__c(Name = 'Incomplete Active', Status__c = 'Active', Version__c = 1),
+                channel.Id
+            );
+        } catch (AuraHandledException error) {
+            rejected = true;
+        }
+        Test.stopTest();
+        System.assertEquals(true, rejected);
+    }
+
+    @IsTest
     static void deletesAssetAndTemplateWithoutDeletingSharedFiles() {
         Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
         Channel_Template__c template = new Channel_Template__c(
@@ -110,6 +134,26 @@ private class ChannelTemplateControllerTest {
             template.Id, new List<Id>{ shellDocumentId }, 'SHELL_CSS'
         );
         ChannelTemplateController.deleteTemplate(template.Id);
+        Test.stopTest();
+
+        System.assertEquals(0, [SELECT COUNT() FROM Channel_Template__c WHERE Id = :template.Id]);
+        System.assertEquals(0, [SELECT COUNT() FROM ContentDocumentLink WHERE LinkedEntityId = :template.Id]);
+    }
+
+    @IsTest
+    static void deletingChannelCleansUpTemplateFileLinks() {
+        Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
+        Channel_Template__c template = new Channel_Template__c(
+            Name = 'Channel Cascade Test', Channel__c = channel.Id, Status__c = 'Draft', Version__c = 1
+        );
+        insert template;
+        Id documentId = uploadFile(template.Id, 'channel-shell.html', '<html></html>');
+        ChannelTemplateController.classifyUploadedFiles(
+            template.Id, new List<Id>{ documentId }, 'SHELL_HTML'
+        );
+
+        Test.startTest();
+        MarketingDictionaryManagerController.deleteDictionaryRecord(channel.Id);
         Test.stopTest();
 
         System.assertEquals(0, [SELECT COUNT() FROM Channel_Template__c WHERE Id = :template.Id]);

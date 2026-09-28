@@ -112,7 +112,7 @@ public with sharing class MarketingDictionaryManagerController {
     public static void deleteDictionaryRecord(Id recordId) {
         try {
             Marketing_Dictionary__c rec = [
-                SELECT Id, Name, Dictionary_Sub_Type__c
+                SELECT Id, Name, Dictionary_Sub_Type__c, RecordType.DeveloperName
                 FROM Marketing_Dictionary__c
                 WHERE Id = :recordId
                 WITH SECURITY_ENFORCED
@@ -133,6 +133,9 @@ public with sharing class MarketingDictionaryManagerController {
                 if (!dependencies.isEmpty()) {
                     throw dependencyDeleteException(rec.Name, 'Family of Needs Customer Types: ' + String.join(dependencies, ', '));
                 }
+            }
+            if (rec.RecordType.DeveloperName == 'Channel') {
+                ChannelTemplateController.deleteTemplatesForChannel(rec.Id);
             }
             delete rec;
         } catch (AuraHandledException e) {
