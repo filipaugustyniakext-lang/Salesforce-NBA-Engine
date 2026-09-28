@@ -1,0 +1,112 @@
+/**
+ * Small Banner (mobile app) client styles — aligned to Figma smallBanner.
+ * Strip: width 100%, height hug / min 48px, radius 12; illustration 40×40 @ 8px radius.
+ * Background: teal (light) / burgundy (dark) with decorative blur layers.
+ */
+
+.small-banner-preview {
+  position: relative;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 4px 12px 4px 4px;
+  border-radius: 12px;
+  color: #fff;
+  font-family: 'UniCredit', sans-serif;
+  overflow: hidden;
+  background: linear-gradient(90deg, #002129 0%, #002d36 55%, #003944 100%);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+  outline: none;
+}
+
+.small-banner-preview_dark {
+  background: linear-gradient(90deg, #160003 0%, #210004 55%, #2a0508 100%);
+}
+
+.small-banner-preview::before,
+.small-banner-preview::after {
+  content: '';
+  position: absolute;
+  width: 64px;
+  height: 72px;
+  border-radius: 50px;
+  background: #fff;
+  opacity: 0.1;
+  filter: blur(18px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.small-banner-preview::before {
+  top: -40%;
+  left: 28%;
+  transform: rotate(35deg);
+}
+
+.small-banner-preview::after {
+  top: -20%;
+  right: -4%;
+  transform: rotate(45deg);
+}
+
+.small-banner-preview:focus-visible {
+  box-shadow:
+    0 0 0 3px #ff6a00,
+    0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+.small-banner-preview__media {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background-color: rgba(255, 255, 255, 0.12);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.small-banner-preview__media_placeholder {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.small-banner-preview__text {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 2px 0;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.small-banner-preview__chevron {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  color: #fff;
+  pointer-events: none;
+}

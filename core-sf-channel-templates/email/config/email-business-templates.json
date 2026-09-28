@@ -1,0 +1,220 @@
+{
+  "templates": [
+    {
+      "id": "welcome-series",
+      "name": "Welcome Series",
+      "description": "Intro email with hero, onboarding copy, and a primary CTA.",
+      "subjectLine": "Welcome to our community",
+      "preheader": "Let us show you how to get started.",
+      "sendClassification": "Commercial",
+      "fromName": "Customer Success",
+      "blocks": [
+        {
+          "type": "RichText",
+          "content": [
+            {
+              "segments": [
+                {
+                  "type": "richtext",
+                  "nodes": [
+                    { "h1": "Welcome aboard" },
+                    {
+                      "paragraph": "<p>We are glad you are here. Start with your first quick win.</p>"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "blockSettings": {
+                "padding": {
+                  "top": "15px",
+                  "right": "40px",
+                  "bottom": "40px",
+                  "left": "40px"
+                },
+                "background": {
+                  "mode": "none",
+                  "colorPreset": "none",
+                  "fallbackColor": "",
+                  "imageUrl": "",
+                  "gradientPreset": "brand-blue-dawn"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "promo-launch",
+      "name": "Promo Launch",
+      "description": "Campaign layout with promo banner, offer copy, and CTA.",
+      "subjectLine": "Limited-time offer just launched",
+      "preheader": "See what is new and claim your offer today.",
+      "sendClassification": "Commercial",
+      "fromName": "Marketing Team",
+      "blocks": [
+        {
+          "type": "Image",
+          "content": [
+            {
+              "imageURLDesktop": "https://picsum.photos/1200/360",
+              "imageURLMobile": "https://picsum.photos/1200/360",
+              "altText": "Promotional banner",
+              "imageAlign": "center",
+              "imageLink": "",
+              "imageLinkTarget": "_blank",
+              "imageWidth": "",
+              "imageHeight": "auto"
+            },
+            {
+              "blockSettings": {
+                "padding": {
+                  "top": "10px",
+                  "right": "40px",
+                  "bottom": "10px",
+                  "left": "40px"
+                },
+                "background": {
+                  "mode": "none",
+                  "colorPreset": "none",
+                  "fallbackColor": "",
+                  "imageUrl": "",
+                  "gradientPreset": "brand-blue-dawn"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "RichText",
+          "content": [
+            {
+              "segments": [
+                {
+                  "type": "richtext",
+                  "nodes": [
+                    { "h1": "Big savings are here" },
+                    {
+                      "paragraph": "<p>Explore our latest launch with a special campaign offer.</p>"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "blockSettings": {
+                "padding": {
+                  "top": "15px",
+                  "right": "40px",
+                  "bottom": "40px",
+                  "left": "40px"
+                },
+                "background": {
+                  "mode": "none",
+                  "colorPreset": "none",
+                  "fallbackColor": "",
+                  "imageUrl": "",
+                  "gradientPreset": "brand-blue-dawn"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "newsletter-digest",
+      "name": "Newsletter Digest",
+      "description": "Editorial-style structure for monthly updates and highlights.",
+      "subjectLine": "Your monthly highlights",
+      "preheader": "Top updates, stories, and announcements in one place.",
+      "sendClassification": "Commercial",
+      "fromName": "Editorial Team",
+      "blocks": [
+        {
+          "type": "RichText",
+          "content": [
+            {
+              "segments": [
+                {
+                  "type": "richtext",
+                  "nodes": [
+                    { "h1": "This month in review" },
+                    {
+                      "paragraph": "<p>Catch up on the most important updates from this month.</p>"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "blockSettings": {
+                "padding": {
+                  "top": "15px",
+                  "right": "40px",
+                  "bottom": "40px",
+                  "left": "40px"
+                },
+                "background": {
+                  "mode": "none",
+                  "colorPreset": "none",
+                  "fallbackColor": "",
+                  "imageUrl": "",
+                  "gradientPreset": "brand-blue-dawn"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "newsletter-digest-2",
+      "name": "Newsletter Digest 2",
+      "description": "Editorial-style structure for monthly updates and highlights.",
+      "subjectLine": "Your monthly highlights",
+      "preheader": "Top updates, stories, and announcements in one place.",
+      "sendClassification": "Commercial",
+      "fromName": "Editorial Team",
+      "blocks": [
+        {
+          "type": "RichText",
+          "content": [
+            {
+              "segments": [
+                {
+                  "type": "richtext",
+                  "nodes": [
+                    { "h1": "This month in review" },
+                    {
+                      "paragraph": "<p>Catch up on the most important updates from this month.</p>"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "blockSettings": {
+                "padding": {
+                  "top": "15px",
+                  "right": "40px",
+                  "bottom": "40px",
+                  "left": "40px"
+                },
+                "background": {
+                  "mode": "none",
+                  "colorPreset": "none",
+                  "fallbackColor": "",
+                  "imageUrl": "",
+                  "gradientPreset": "brand-blue-dawn"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

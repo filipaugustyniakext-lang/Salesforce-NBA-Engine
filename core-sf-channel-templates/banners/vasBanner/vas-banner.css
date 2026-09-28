@@ -1,0 +1,193 @@
+/**
+ * VAS Banner (mobile app) client styles — aligned to Figma vasBanner.
+ * Layouts: expanded 100%×164, half long/short 50%×240|164.
+ * Grid gap 8px; solo vertical margin 16px.
+ */
+
+.vas-banner-preview-wrap_solo {
+  margin: 16px 0;
+  width: 100%;
+  max-width: 100%;
+}
+
+.vas-banner-preview-wrap_solo.vas-banner-preview-wrap_half {
+  width: 50%;
+  max-width: 50%;
+}
+
+.vas-banner-preview-wrap_half {
+  width: 50%;
+  max-width: 50%;
+}
+
+.vas-banner-preview-wrap_grid {
+  width: 100%;
+  max-width: 100%;
+}
+
+.vas-banner-preview {
+  position: relative;
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  color: #fff;
+  font-family: 'UniCredit', sans-serif;
+  background: #2a2a2a;
+  cursor: pointer;
+  outline: none;
+  --vas-focus-border: #ff6a00;
+}
+
+.vas-banner-grid__cell_half .vas-banner-preview-wrap,
+.vas-banner-grid__cell_half .vas-banner-preview {
+  width: 100%;
+}
+
+.vas-banner-preview:hover .vas-banner-preview__close {
+  color: #bfebf3;
+  text-shadow: none;
+}
+
+.vas-banner-preview:active .vas-banner-preview__close {
+  color: #9fd8e2;
+  text-shadow: none;
+}
+
+.vas-banner-preview:focus-visible {
+  box-shadow: 0 0 0 2px var(--vas-focus-border, #ff6a00);
+}
+
+.vas-banner-preview_placeholder {
+  cursor: default;
+  opacity: 0.92;
+}
+
+.vas-banner-grid__cell_current .vas-banner-preview:not(.vas-banner-preview_placeholder) {
+  box-shadow: 0 0 0 2px var(--vas-focus-border, #0176d3);
+}
+
+.vas-banner-preview__media {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-color: #cfcfcf;
+  background-position: 50% 50%;
+  background-repeat: no-repeat;
+  background-size: cover;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.vas-banner-preview__media_placeholder {
+  background-color: #e5e5e5;
+  background-image: none;
+}
+
+.vas-banner-preview__logo {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: #cfcfcf;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 25px auto;
+  pointer-events: none;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+
+.vas-banner-preview__logo_placeholder {
+  background-color: #e5e5e5;
+  background-image: none;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+.vas-banner-preview__close {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 2;
+  box-sizing: border-box;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #fff;
+  font-size: 22px;
+  line-height: 1;
+  font-weight: 300;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  transition: color 120ms ease;
+}
+
+.vas-banner-preview__title-bar {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  z-index: 2;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(38, 38, 38, 0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  pointer-events: none;
+}
+
+.vas-banner-preview__title {
+  margin: 0;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.vas-banner-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-flow: row dense;
+  align-items: start;
+  justify-items: stretch;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.vas-banner-grid__cell_full {
+  grid-column: 1 / -1;
+  justify-self: stretch;
+}
+
+.vas-banner-grid__cell_full .vas-banner-preview-wrap,
+.vas-banner-grid__cell_full .vas-banner-preview {
+  width: 100% !important;
+  max-width: 100%;
+}
+
+.vas-banner-grid__cell_half {
+  justify-self: stretch;
+}
+
+.vas-banner-grid__cell_half .vas-banner-preview-wrap,
+.vas-banner-grid__cell_half .vas-banner-preview {
+  width: 100% !important;
+  max-width: 100%;
+}
