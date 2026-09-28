@@ -1,0 +1,119 @@
+.template-manager {
+    min-height: 10rem;
+}
+
+.template-toolbar,
+.template-card__header,
+.template-card__title-row,
+.template-asset {
+    display: flex;
+    align-items: center;
+}
+
+.template-toolbar,
+.template-card__header {
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.template-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.template-card {
+    border: 1px solid #dddbda;
+    border-radius: 0.375rem;
+    background: #fff;
+    padding: 0.875rem;
+}
+
+.template-card__header {
+    align-items: flex-start;
+}
+
+.template-card__title-row {
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.template-status_active {
+    background: #daf5e3;
+    color: #194e31;
+}
+
+.template-status_archived {
+    background: #f3f3f3;
+    color: #706e6b;
+}
+
+.template-assets {
+    border-top: 1px solid #e5e5e5;
+    margin-top: 0.75rem;
+    padding-top: 0.5rem;
+}
+
+.template-asset {
+    gap: 0.5rem;
+    padding: 0.35rem 0;
+}
+
+.template-asset__body {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    flex-direction: column;
+}
+
+.template-asset__body a {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.template-card__empty,
+.template-empty {
+    color: #706e6b;
+    text-align: center;
+}
+
+.template-card__empty {
+    border-top: 1px solid #e5e5e5;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    font-size: 0.8125rem;
+}
+
+.template-empty {
+    border: 1px dashed #c9c9c9;
+    border-radius: 0.375rem;
+    margin-top: 1rem;
+    padding: 2rem;
+}
+
+.template-upload-section {
+    border-top: 1px solid #e5e5e5;
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+}
+
+.template-upload-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.template-upload-card {
+    border: 1px solid #dddbda;
+    border-radius: 0.375rem;
+    background: #f8f9fb;
+    padding: 0.75rem;
+}
+
+@media (max-width: 48rem) {
+    .template-upload-grid {
+        grid-template-columns: 1fr;
+    }
+}

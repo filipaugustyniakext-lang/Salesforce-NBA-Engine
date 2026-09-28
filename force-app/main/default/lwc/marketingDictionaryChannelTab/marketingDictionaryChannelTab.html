@@ -185,19 +185,14 @@
                                 </div>
                             </lightning-tab>
 
-                            <!-- Placeholder for channel-specific message templates -->
+                            <!-- Channel-specific message templates -->
                             <template lwc:if={activeChannel.isNotBanner}>
                                 <lightning-tab value="templates" label={activeChannel.templatesTabLabel}>
                                     <div class="tab-content slds-p-around_small">
-                                        <div class="slds-box slds-theme_shade slds-text-align_center slds-p-around_large">
-                                            <lightning-icon icon-name="utility:layout" size="small"
-                                                alternative-text="Templates" class="slds-m-bottom_small">
-                                            </lightning-icon>
-                                            <p class="slds-text-heading_small">{activeChannel.templatesTabLabel}</p>
-                                            <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">
-                                                Channel template management will be available here.
-                                            </p>
-                                        </div>
+                                        <c-channel-template-manager
+                                            channel-id={activeChannel.Id}
+                                            channel-name={activeChannel.Name}>
+                                        </c-channel-template-manager>
                                     </div>
                                 </lightning-tab>
                             </template>
@@ -208,6 +203,16 @@
                                 <!-- Banner Types tab -->
                                 <lightning-tab value="banner-types" label={activeChannel.templatesTabLabel}>
                                     <div class="tab-content slds-p-around_small">
+                                        <c-channel-template-manager
+                                            channel-id={activeChannel.Id}
+                                            channel-name={activeChannel.Name}>
+                                        </c-channel-template-manager>
+                                        <div class="slds-border_top slds-m-top_large slds-p-top_medium">
+                                            <h3 class="slds-text-heading_small">Banner Types</h3>
+                                            <p class="slds-text-body_small slds-text-color_weak">
+                                                Legacy banner type definitions and their representative images.
+                                            </p>
+                                        </div>
                                         <div class="tab-toolbar slds-m-bottom_x-small">
                                             <div class="tab-toolbar__actions">
                                                 <lightning-button label="Add Types" icon-name="utility:add" variant="neutral"
