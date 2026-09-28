@@ -78,6 +78,7 @@
                                             alternative-text="Remove file"
                                             title="Remove file"
                                             data-id={asset.documentId}
+                                            data-template-id={item.id}
                                             onclick={handleDeleteAsset}>
                                         </lightning-button-icon>
                                     </li>
@@ -164,6 +165,9 @@
                             <h3 class="slds-text-heading_small">Template Shell Files</h3>
                             <p class="slds-text-body_small slds-text-color_weak">
                                 Upload one HTML shell and optional CSS/JS files. JavaScript is stored as source only and is not executed by Copy Center.
+                            </p>
+                            <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">
+                                Salesforce Setup must allow HTML uploads as attachments and document records.
                             </p>
                             <div class="template-upload-grid slds-m-top_small">
                                 <div class="template-upload-card">

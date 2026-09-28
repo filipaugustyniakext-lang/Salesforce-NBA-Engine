@@ -108,42 +108,89 @@ public with sharing class ChannelTemplateController {
     }
 
     @AuraEnabled
-    public static void classifyUploadedFiles(List<Id> documentIds, String assetType) {
-        if (documentIds == null || documentIds.isEmpty()) return;
-        if (!ASSET_PREFIXES.containsKey(assetType)) {
-            throw new AuraHandledException('Unsupported template asset type.');
-        }
-
-        String requiredExtension = assetType == 'SHELL_CSS'
-            ? 'css'
-            : assetType == 'SHELL_JS' ? 'js' : 'html';
-        String prefix = ASSET_PREFIXES.get(assetType);
-        List<ContentDocument> updates = new List<ContentDocument>();
-
-        for (ContentDocument document : [
-            SELECT Id, Title, LatestPublishedVersion.FileExtension
-            FROM ContentDocument
-            WHERE Id IN :documentIds
-        ]) {
-            String extension = document.LatestPublishedVersion.FileExtension == null
-                ? ''
-                : document.LatestPublishedVersion.FileExtension.toLowerCase();
-            if (extension != requiredExtension) {
-                throw new AuraHandledException(
-                    'File "' + document.Title + '" must use the .' + requiredExtension + ' extension.'
-                );
+    public static String classifyUploadedFiles(Id templateId, List<Id> documentIds, String assetType) {
+        if (documentIds == null || documentIds.isEmpty()) return null;
+        Set<Id> uploadedDocumentIds = new Set<Id>(documentIds);
+        try {
+            if (templateId == null) throw new TemplateAssetException('Template is required.');
+            if (!ASSET_PREFIXES.containsKey(assetType)) {
+                throw new TemplateAssetException('Unsupported template asset type.');
             }
-            String cleanTitle = stripKnownPrefix(document.Title);
-            document.Title = prefix + ' ' + cleanTitle;
-            updates.add(document);
+            // Enforces template access and prevents classifying files linked elsewhere.
+            [SELECT Id FROM Channel_Template__c WHERE Id = :templateId LIMIT 1];
+            Set<Id> linkedDocumentIds = new Set<Id>();
+            for (ContentDocumentLink link : [
+                SELECT ContentDocumentId
+                FROM ContentDocumentLink
+                WHERE LinkedEntityId = :templateId
+                  AND ContentDocumentId IN :uploadedDocumentIds
+            ]) {
+                linkedDocumentIds.add(link.ContentDocumentId);
+            }
+            if (linkedDocumentIds.size() != uploadedDocumentIds.size()) {
+                throw new TemplateAssetException('One or more uploaded files are not linked to this template.');
+            }
+
+            String requiredExtension = assetType == 'SHELL_CSS'
+                ? 'css'
+                : assetType == 'SHELL_JS' ? 'js' : 'html';
+            String prefix = ASSET_PREFIXES.get(assetType);
+            List<ContentDocument> updates = [
+                SELECT Id, Title, LatestPublishedVersion.FileExtension
+                FROM ContentDocument
+                WHERE Id IN :uploadedDocumentIds
+            ];
+            if (updates.size() != uploadedDocumentIds.size()) {
+                throw new TemplateAssetException('One or more uploaded files could not be found.');
+            }
+
+            for (ContentDocument document : updates) {
+                String extension = document.LatestPublishedVersion.FileExtension == null
+                    ? ''
+                    : document.LatestPublishedVersion.FileExtension.toLowerCase();
+                if (extension != requiredExtension) {
+                    throw new TemplateAssetException(
+                        'File "' + document.Title + '" must use the .' + requiredExtension + ' extension.'
+                    );
+                }
+                document.Title = prefix + ' ' + stripKnownPrefix(document.Title);
+            }
+            update updates;
+
+            // A master shell has at most one file of each source type. A new
+            // upload replaces the old file while content blocks remain additive.
+            if (assetType != 'CONTENT_BLOCK') {
+                Set<Id> replacedDocumentIds = new Set<Id>();
+                for (ContentDocumentLink link : [
+                    SELECT ContentDocumentId, ContentDocument.Title
+                    FROM ContentDocumentLink
+                    WHERE LinkedEntityId = :templateId
+                ]) {
+                    if (!uploadedDocumentIds.contains(link.ContentDocumentId)
+                        && link.ContentDocument.Title.startsWith(prefix)) {
+                        replacedDocumentIds.add(link.ContentDocumentId);
+                    }
+                }
+                removeTemplateFileLinks(templateId, replacedDocumentIds);
+            }
+            return null;
+        } catch (Exception e) {
+            // File upload runs in an earlier transaction. Return an error rather
+            // than throwing so this cleanup is committed.
+            try {
+                removeTemplateFileLinks(templateId, uploadedDocumentIds);
+            } catch (Exception cleanupError) {
+                return e.getMessage() + ' The invalid upload could not be removed automatically.';
+            }
+            return e.getMessage();
         }
-        if (!updates.isEmpty()) update updates;
     }
 
     @AuraEnabled
-    public static void deleteTemplateAsset(Id documentId) {
-        if (documentId == null) return;
-        delete [SELECT Id FROM ContentDocument WHERE Id = :documentId LIMIT 1];
+    public static void deleteTemplateAsset(Id templateId, Id documentId) {
+        if (templateId == null || documentId == null) return;
+        [SELECT Id FROM Channel_Template__c WHERE Id = :templateId LIMIT 1];
+        removeTemplateFileLinks(templateId, new Set<Id>{ documentId });
     }
 
     @AuraEnabled
@@ -157,11 +204,34 @@ public with sharing class ChannelTemplateController {
         ]) {
             documentIds.add(link.ContentDocumentId);
         }
-        if (!documentIds.isEmpty()) {
-            delete [SELECT Id FROM ContentDocument WHERE Id IN :documentIds];
-        }
+        removeTemplateFileLinks(templateId, documentIds);
         delete new Channel_Template__c(Id = templateId);
     }
+
+    private static void removeTemplateFileLinks(Id templateId, Set<Id> documentIds) {
+        if (templateId == null || documentIds == null || documentIds.isEmpty()) return;
+        List<ContentDocumentLink> links = [
+            SELECT Id, ContentDocumentId
+            FROM ContentDocumentLink
+            WHERE LinkedEntityId = :templateId
+              AND ContentDocumentId IN :documentIds
+        ];
+        if (!links.isEmpty()) delete links;
+
+        Set<Id> orphanIds = new Set<Id>(documentIds);
+        for (ContentDocumentLink remainingLink : [
+            SELECT ContentDocumentId
+            FROM ContentDocumentLink
+            WHERE ContentDocumentId IN :orphanIds
+        ]) {
+            orphanIds.remove(remainingLink.ContentDocumentId);
+        }
+        if (!orphanIds.isEmpty()) {
+            delete [SELECT Id FROM ContentDocument WHERE Id IN :orphanIds];
+        }
+    }
+
+    private class TemplateAssetException extends Exception {}
 
     private static TemplateAsset toAsset(ContentDocumentLink link) {
         String title = link.ContentDocument.Title;

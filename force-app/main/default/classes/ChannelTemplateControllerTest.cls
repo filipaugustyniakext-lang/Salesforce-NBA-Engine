@@ -1,0 +1,134 @@
+@IsTest
+private class ChannelTemplateControllerTest {
+    @TestSetup
+    static void setupData() {
+        Id channelRecordTypeId = Schema.SObjectType.Marketing_Dictionary__c
+            .getRecordTypeInfosByDeveloperName().get('Channel').getRecordTypeId();
+        insert new Marketing_Dictionary__c(
+            Name = 'Email Main',
+            RecordTypeId = channelRecordTypeId,
+            Channel_Type__c = 'Email',
+            Is_Active__c = true
+        );
+    }
+
+    @IsTest
+    static void savesClassifiesAndReplacesShellFiles() {
+        Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
+        Channel_Template__c template = new Channel_Template__c(
+            Name = 'Standard Email',
+            Status__c = 'Draft',
+            Version__c = 1,
+            Description__c = 'Default responsive shell'
+        );
+
+        Test.startTest();
+        Id templateId = ChannelTemplateController.saveTemplate(template, channel.Id);
+        Id firstDocumentId = uploadFile(templateId, 'email-shell.html', '<html>first</html>');
+        String firstError = ChannelTemplateController.classifyUploadedFiles(
+            templateId, new List<Id>{ firstDocumentId }, 'SHELL_HTML'
+        );
+        Id replacementDocumentId = uploadFile(templateId, 'email-shell-v2.html', '<html>second</html>');
+        String replacementError = ChannelTemplateController.classifyUploadedFiles(
+            templateId, new List<Id>{ replacementDocumentId }, 'SHELL_HTML'
+        );
+        List<ChannelTemplateController.TemplateDefinition> definitions =
+            ChannelTemplateController.getChannelTemplates(channel.Id);
+        Test.stopTest();
+
+        System.assertEquals(null, firstError);
+        System.assertEquals(null, replacementError);
+        System.assertEquals(1, definitions.size());
+        System.assertEquals(1, definitions[0].assets.size(), 'A replacement shell must remove the prior shell link.');
+        System.assertEquals('SHELL_HTML', definitions[0].assets[0].assetType);
+        System.assertEquals(replacementDocumentId, definitions[0].assets[0].documentId);
+    }
+
+    @IsTest
+    static void activeTemplateArchivesPriorActiveTemplate() {
+        Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
+        Channel_Template__c first = new Channel_Template__c(
+            Name = 'First', Channel__c = channel.Id, Status__c = 'Active', Version__c = 1
+        );
+        insert first;
+        Channel_Template__c second = new Channel_Template__c(
+            Name = 'Second', Status__c = 'Active', Version__c = 2
+        );
+
+        Test.startTest();
+        Id secondId = ChannelTemplateController.saveTemplate(second, channel.Id);
+        Test.stopTest();
+
+        Set<Id> templateIds = new Set<Id>{ first.Id, secondId };
+        Map<Id, Channel_Template__c> records = new Map<Id, Channel_Template__c>([
+            SELECT Id, Status__c FROM Channel_Template__c WHERE Id IN :templateIds
+        ]);
+        System.assertEquals('Archived', records.get(first.Id).Status__c);
+        System.assertEquals('Active', records.get(secondId).Status__c);
+    }
+
+    @IsTest
+    static void invalidExtensionIsUnlinkedAndReturnsMessage() {
+        Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
+        Channel_Template__c template = new Channel_Template__c(
+            Name = 'Invalid Upload Test', Channel__c = channel.Id, Status__c = 'Draft', Version__c = 1
+        );
+        insert template;
+        Id documentId = uploadFile(template.Id, 'wrong.html', '<html></html>');
+
+        Test.startTest();
+        String errorMessage = ChannelTemplateController.classifyUploadedFiles(
+            template.Id, new List<Id>{ documentId }, 'SHELL_CSS'
+        );
+        Test.stopTest();
+
+        System.assert(errorMessage.contains('.css'));
+        System.assertEquals(0, [
+            SELECT COUNT()
+            FROM ContentDocumentLink
+            WHERE LinkedEntityId = :template.Id
+              AND ContentDocumentId = :documentId
+        ]);
+    }
+
+    @IsTest
+    static void deletesAssetAndTemplateWithoutDeletingSharedFiles() {
+        Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
+        Channel_Template__c template = new Channel_Template__c(
+            Name = 'Delete Test', Channel__c = channel.Id, Status__c = 'Draft', Version__c = 1
+        );
+        insert template;
+        Id assetDocumentId = uploadFile(template.Id, 'block.html', '<div>block</div>');
+        ChannelTemplateController.classifyUploadedFiles(
+            template.Id, new List<Id>{ assetDocumentId }, 'CONTENT_BLOCK'
+        );
+
+        Test.startTest();
+        ChannelTemplateController.deleteTemplateAsset(template.Id, assetDocumentId);
+        Id shellDocumentId = uploadFile(template.Id, 'shell.css', 'body {}');
+        ChannelTemplateController.classifyUploadedFiles(
+            template.Id, new List<Id>{ shellDocumentId }, 'SHELL_CSS'
+        );
+        ChannelTemplateController.deleteTemplate(template.Id);
+        Test.stopTest();
+
+        System.assertEquals(0, [SELECT COUNT() FROM Channel_Template__c WHERE Id = :template.Id]);
+        System.assertEquals(0, [SELECT COUNT() FROM ContentDocumentLink WHERE LinkedEntityId = :template.Id]);
+    }
+
+    private static Id uploadFile(Id templateId, String path, String body) {
+        String title = path.contains('.') ? path.substring(0, path.lastIndexOf('.')) : path;
+        ContentVersion version = new ContentVersion(
+            Title = title,
+            PathOnClient = path,
+            VersionData = Blob.valueOf(body),
+            FirstPublishLocationId = templateId
+        );
+        insert version;
+        return [
+            SELECT ContentDocumentId
+            FROM ContentVersion
+            WHERE Id = :version.Id
+        ].ContentDocumentId;
+    }
+}

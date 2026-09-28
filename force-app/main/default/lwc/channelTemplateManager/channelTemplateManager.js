@@ -160,7 +160,12 @@ export default class ChannelTemplateManager extends LightningElement {
         const documentIds = (event.detail.files || []).map(file => file.documentId);
         if (!documentIds.length) return;
         try {
-            await classifyUploadedFiles({ documentIds, assetType });
+            const classificationError = await classifyUploadedFiles({
+                templateId: this.editTemplate.Id,
+                documentIds,
+                assetType
+            });
+            if (classificationError) throw new Error(classificationError);
             await refreshApex(this._wiredTemplates);
             this._toast('Files attached', `${documentIds.length} template file(s) attached.`, 'success');
         } catch (error) {
@@ -170,7 +175,10 @@ export default class ChannelTemplateManager extends LightningElement {
 
     async handleDeleteAsset(event) {
         try {
-            await deleteTemplateAsset({ documentId: event.currentTarget.dataset.id });
+            await deleteTemplateAsset({
+                templateId: event.currentTarget.dataset.templateId,
+                documentId: event.currentTarget.dataset.id
+            });
             await refreshApex(this._wiredTemplates);
             this._toast('File removed', 'Template file removed.', 'success');
         } catch (error) {
