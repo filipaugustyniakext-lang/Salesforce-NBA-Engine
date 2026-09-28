@@ -79,6 +79,20 @@ private class ChannelTemplateControllerTest {
         ]);
         System.assertEquals('Archived', records.get(firstId).Status__c);
         System.assertEquals('Active', records.get(secondId).Status__c);
+
+        ChannelTemplateController.saveTemplate(
+            new Channel_Template__c(
+                Id = secondId,
+                Name = 'Second',
+                Status__c = 'Archived',
+                Version__c = 2,
+                Description__c = ''
+            ),
+            channel.Id
+        );
+        System.assertEquals('Archived', [
+            SELECT Status__c FROM Channel_Template__c WHERE Id = :secondId
+        ].Status__c);
     }
 
     @IsTest
@@ -202,9 +216,23 @@ private class ChannelTemplateControllerTest {
             ),
             channel.Id
         );
+        Id externalDocumentId = uploadFile(
+            channel.Id,
+            'external-reference.html',
+            '<html>external</html>'
+        );
+        ContentDocumentLink shellLink = [
+            SELECT Id, LinkedEntityId, ContentDocumentId
+            FROM ContentDocumentLink
+            WHERE LinkedEntityId = :templateId
+              AND ContentDocumentId = :shellDocumentId
+            LIMIT 1
+        ];
 
         Boolean deleteRejected = false;
         Boolean fileVersionRejected = false;
+        Boolean linkInsertRejected = false;
+        Boolean linkDeleteRejected = false;
         Test.startTest();
         try {
             delete new Channel_Template__c(Id = templateId);
@@ -221,10 +249,26 @@ private class ChannelTemplateControllerTest {
         } catch (DmlException error) {
             fileVersionRejected = true;
         }
+        try {
+            insert new ContentDocumentLink(
+                LinkedEntityId = templateId,
+                ContentDocumentId = externalDocumentId,
+                ShareType = 'V'
+            );
+        } catch (DmlException error) {
+            linkInsertRejected = true;
+        }
+        try {
+            delete shellLink;
+        } catch (DmlException error) {
+            linkDeleteRejected = true;
+        }
         Test.stopTest();
 
         System.assertEquals(true, deleteRejected);
         System.assertEquals(true, fileVersionRejected);
+        System.assertEquals(true, linkInsertRejected);
+        System.assertEquals(true, linkDeleteRejected);
     }
 
     @IsTest

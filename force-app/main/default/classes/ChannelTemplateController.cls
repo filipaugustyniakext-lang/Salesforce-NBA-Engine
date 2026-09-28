@@ -131,6 +131,10 @@ public with sharing class ChannelTemplateController {
             if (existing.Channel__c != channelId) {
                 throw new AuraHandledException('A template cannot be moved to another channel.');
             }
+            if (existing.Status__c == 'Active' && record.Status__c == 'Archived') {
+                update new Channel_Template__c(Id = record.Id, Status__c = 'Archived');
+                return record.Id;
+            }
             if (existing.Status__c == 'Active' && record.Status__c != 'Archived') {
                 throw new AuraHandledException(
                     'Active template packages are immutable. Archive this version before changing it.'
@@ -360,29 +364,29 @@ public with sharing class ChannelTemplateController {
         ];
         Set<Id> documentIds = new Set<Id>();
         for (ContentDocumentLink link : links) documentIds.add(link.ContentDocumentId);
-        if (!links.isEmpty()) delete links;
-
-        Set<Id> orphanIds = new Set<Id>(documentIds);
-        if (!orphanIds.isEmpty()) {
-            for (ContentDocumentLink remainingLink : [
-                SELECT ContentDocumentId
-                FROM ContentDocumentLink
-                WHERE ContentDocumentId IN :orphanIds
-            ]) {
-                orphanIds.remove(remainingLink.ContentDocumentId);
-            }
-            if (!orphanIds.isEmpty()) {
-                // File ownership may prevent deleting the underlying document.
-                // The template links are already removed, so orphan cleanup is
-                // best-effort and must not block channel deletion.
-                Database.delete(
-                    [SELECT Id FROM ContentDocument WHERE Id IN :orphanIds],
-                    false
-                );
-            }
-        }
         ChannelTemplateTriggerHandler.allowActiveDelete = true;
         try {
+            if (!links.isEmpty()) delete links;
+
+            Set<Id> orphanIds = new Set<Id>(documentIds);
+            if (!orphanIds.isEmpty()) {
+                for (ContentDocumentLink remainingLink : [
+                    SELECT ContentDocumentId
+                    FROM ContentDocumentLink
+                    WHERE ContentDocumentId IN :orphanIds
+                ]) {
+                    orphanIds.remove(remainingLink.ContentDocumentId);
+                }
+                if (!orphanIds.isEmpty()) {
+                    // File ownership may prevent deleting the underlying document.
+                    // The template links are already removed, so orphan cleanup is
+                    // best-effort and must not block channel deletion.
+                    Database.delete(
+                        [SELECT Id FROM ContentDocument WHERE Id IN :orphanIds],
+                        false
+                    );
+                }
+            }
             delete templates;
         } finally {
             ChannelTemplateTriggerHandler.allowActiveDelete = false;

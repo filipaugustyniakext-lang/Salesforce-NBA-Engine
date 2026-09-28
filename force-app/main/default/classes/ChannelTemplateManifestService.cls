@@ -60,6 +60,10 @@ public with sharing class ChannelTemplateManifestService {
             errors.add('Attach template.manifest.json before validating or activating this template.');
             return finish(result, errors, assets);
         }
+        if (manifestAsset.body != null && manifestAsset.body.length() > 131072) {
+            errors.add('template.manifest.json exceeds the 131,072 character storage limit.');
+            return finish(result, errors, assets);
+        }
 
         result.manifestJson = manifestAsset.body;
         Map<String, Object> manifest;
