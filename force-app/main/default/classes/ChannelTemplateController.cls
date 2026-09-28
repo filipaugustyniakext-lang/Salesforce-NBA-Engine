@@ -256,7 +256,13 @@ public with sharing class ChannelTemplateController {
                 orphanIds.remove(remainingLink.ContentDocumentId);
             }
             if (!orphanIds.isEmpty()) {
-                delete [SELECT Id FROM ContentDocument WHERE Id IN :orphanIds];
+                // File ownership may prevent deleting the underlying document.
+                // The template links are already removed, so orphan cleanup is
+                // best-effort and must not block channel deletion.
+                Database.delete(
+                    [SELECT Id FROM ContentDocument WHERE Id IN :orphanIds],
+                    false
+                );
             }
         }
         delete templates;
@@ -281,7 +287,10 @@ public with sharing class ChannelTemplateController {
             orphanIds.remove(remainingLink.ContentDocumentId);
         }
         if (!orphanIds.isEmpty()) {
-            delete [SELECT Id FROM ContentDocument WHERE Id IN :orphanIds];
+            Database.delete(
+                [SELECT Id FROM ContentDocument WHERE Id IN :orphanIds],
+                false
+            );
         }
     }
 
