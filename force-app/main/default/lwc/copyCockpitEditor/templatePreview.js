@@ -7,6 +7,113 @@ export function renderTemplatePreview(source, blocks, device) {
     return stripExecutableMarkup(injectBody(shell, rendered, source.bodySlotKey));
 }
 
+const PREVIEW_SCOPE = '.cc-preview';
+
+export function scopePreviewDocument(html, options = {}) {
+    const device = options.device === 'desktop' ? 'desktop' : 'mobile';
+    const theme = options.theme === 'dark' ? 'dark' : 'light';
+    const source = String(html || '').replace(/<!--\[if[\s\S]*?<!\[endif\]-->/gi, '');
+    const styles = [];
+    const withoutStyles = source.replace(/<style\b([^>]*)>([\s\S]*?)<\/style>/gi, (match, attrs, css) => {
+        const media = /media\s*=\s*(['"])(.*?)\1/i.exec(attrs || '');
+        const sheet = media ? `@media ${media[2]} {${css}}` : css;
+        styles.push(rewriteCss(sheet, device, theme));
+        return '';
+    });
+    const bodyMatch = withoutStyles.match(/<body\b[^>]*>([\s\S]*)<\/body>/i);
+    const body = previewTokens(bodyMatch ? bodyMatch[1] : withoutStyles).replace(/<custom\b[^>]*\/?>/gi, '');
+    return `<div class="cc-preview"><style>${styles.join('\n')}</style>${body}</div>`;
+}
+
+function previewTokens(html) {
+    const year = String(new Date().getFullYear());
+    return String(html)
+        .replace(/%%xtyear%%/gi, year)
+        .replace(/%%view_email_url%%/gi, '#');
+}
+
+function rewriteCss(css, device, theme) {
+    const source = String(css || '').replace(/\/\*[\s\S]*?\*\//g, '');
+    let result = '';
+    let index = 0;
+    while (index < source.length) {
+        while (index < source.length && /\s/.test(source[index])) index += 1;
+        if (index >= source.length) break;
+        if (source.startsWith('@media', index)) {
+            const open = source.indexOf('{', index);
+            const close = matchingBrace(source, open);
+            const condition = source.slice(index, open).trim();
+            const body = source.slice(open + 1, close);
+            result += rewriteMedia(condition, body, device, theme);
+            index = close + 1;
+            continue;
+        }
+        if (source[index] === '@') {
+            const open = source.indexOf('{', index);
+            const close = matchingBrace(source, open);
+            result += source.slice(index, close + 1);
+            index = close + 1;
+            continue;
+        }
+        const open = source.indexOf('{', index);
+        if (open < 0) break;
+        const close = matchingBrace(source, open);
+        const selector = source.slice(index, open).trim();
+        if (selector) result += `${scopeSelectorList(selector)} ${source.slice(open, close + 1)}`;
+        index = close + 1;
+    }
+    return result;
+}
+
+function rewriteMedia(condition, body, device, theme) {
+    const text = condition.toLowerCase();
+    if (text.includes('prefers-color-scheme')) {
+        if (text.includes('dark') && theme !== 'dark') return '';
+        if (text.includes('light') && theme !== 'light') return '';
+        if (text.includes('dark') || text.includes('light')) return rewriteCss(body, device, theme);
+    }
+    const maxWidth = /max-width\s*:\s*(\d+)/.exec(text);
+    const minWidth = /min-width\s*:\s*(\d+)/.exec(text);
+    if (maxWidth && !minWidth) {
+        return device === 'mobile' ? rewriteCss(body, device, theme) : '';
+    }
+    if (minWidth && !maxWidth) {
+        return device === 'desktop' ? rewriteCss(body, device, theme) : '';
+    }
+    return `${condition}{${rewriteCss(body, device, theme)}}`;
+}
+
+function scopeSelectorList(selector) {
+    return selector.split(',').map(part => {
+        let rule = part.trim().replace(/\bhtml\b/gi, PREVIEW_SCOPE).replace(/\bbody\b/gi, PREVIEW_SCOPE).replace(/:root\b/gi, PREVIEW_SCOPE);
+        if (!rule) return '';
+        if (
+            rule === PREVIEW_SCOPE
+            || rule.startsWith(PREVIEW_SCOPE + ' ')
+            || rule.startsWith(PREVIEW_SCOPE + '>')
+            || rule.startsWith(PREVIEW_SCOPE + '.')
+            || rule.startsWith(PREVIEW_SCOPE + ':')
+            || rule.startsWith(PREVIEW_SCOPE + '[')
+            || rule.startsWith(PREVIEW_SCOPE + '#')
+        ) {
+            return rule;
+        }
+        return `${PREVIEW_SCOPE} ${rule}`;
+    }).filter(Boolean).join(', ');
+}
+
+function matchingBrace(source, openIndex) {
+    let depth = 0;
+    for (let index = openIndex; index < source.length; index += 1) {
+        if (source[index] === '{') depth += 1;
+        else if (source[index] === '}') {
+            depth -= 1;
+            if (depth === 0) return index;
+        }
+    }
+    return source.length - 1;
+}
+
 function isVisibleOnDevice(block, device) {
     if (device === 'mobile') return block.visMobile !== 'hide';
     if (device === 'desktop') return block.visDesktop !== 'hide';

@@ -5,7 +5,7 @@ import getMessageById from '@salesforce/apex/CopyCockpitController.getMessageByI
 import saveMessageEditor from '@salesforce/apex/CopyCockpitController.saveMessageEditor';
 import getVersionsByMessageId from '@salesforce/apex/CopyCockpitController.getVersionsByMessageId';
 import getTemplateRenderSource from '@salesforce/apex/ChannelTemplateController.getTemplateRenderSource';
-import { renderTemplatePreview } from './templatePreview';
+import { renderTemplatePreview, scopePreviewDocument } from './templatePreview';
 
 const STATUS_OPTIONS = [
     { label: 'Active',           value: 'Active' },
@@ -974,12 +974,16 @@ export default class CopyCockpitEditor extends LightningElement {
     }
 
     _syncPreviewFrame() {
-        const frame = this.template.querySelector('[data-preview-frame]');
-        if (!frame) return;
+        const host = this.template.querySelector('[data-preview-host]');
+        if (!host) return;
         const html = this.previewDocument || '';
-        if (!html || frame._previewHtml === html) return;
-        frame._previewHtml = html;
-        frame.srcdoc = html;
+        const stamp = `${this._previewDevice}|${this._previewTheme}|${html}`;
+        if (!html || host._previewStamp === stamp) return;
+        host._previewStamp = stamp;
+        host.innerHTML = scopePreviewDocument(html, {
+            device: this._previewDevice,
+            theme: this._previewTheme,
+        });
     }
 
     _loadRenderSource() {
