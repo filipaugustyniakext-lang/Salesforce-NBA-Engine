@@ -7,6 +7,16 @@
     </classAccesses>
     <fieldPermissions>
         <editable>true</editable>
+        <field>CC_Message_Metadata__c.Source_Template__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>CC_Message_Metadata__c.Canvas_Blocks_JSON__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
         <field>Campaign.Campaign_Group_Dict__c</field>
         <readable>true</readable>
     </fieldPermissions>

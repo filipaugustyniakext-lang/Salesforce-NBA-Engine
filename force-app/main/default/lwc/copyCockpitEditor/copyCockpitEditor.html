@@ -146,7 +146,7 @@
 
                         <!-- Save / Schedule / Revert / Activate button group -->
                         <div class="slds-button-group toolbar-crud-group" role="group" aria-label="Save Actions">
-                            <button class="slds-button slds-button_neutral toolbar-action-btn" type="button" onclick={handleToolbarSave} title={saveButtonLabel}>
+                            <button class="slds-button slds-button_neutral toolbar-action-btn" type="button" onclick={handleToolbarSave} title={saveButtonLabel} disabled={isSaving}>
                                 <lightning-icon icon-name="utility:save" size="x-small" class="slds-button__icon slds-button__icon_left"></lightning-icon>
                                 {saveButtonLabel}
                             </button>
@@ -689,9 +689,64 @@
                                                                 aria-labelledby={blk.contentTabId}
                                                                 style={blk.contentPanelStyle}
                                                             >
-                                                                <p class="slds-text-body_small slds-text-color_weak slds-p-around_small">
-                                                                    Content editor for <strong>{blk.label}</strong> — coming soon.
-                                                                </p>
+                                                                <div class="block-content-fields">
+                                                                    <template lwc:if={blk.showCopy}>
+                                                                        <lightning-textarea
+                                                                            label="Copy"
+                                                                            value={blk.copyText}
+                                                                            data-instance-id={blk.instanceId}
+                                                                            data-field="copyText"
+                                                                            onchange={handleBlockContentChange}
+                                                                        ></lightning-textarea>
+                                                                    </template>
+                                                                    <template lwc:if={blk.showImage}>
+                                                                        <lightning-input
+                                                                            type="url"
+                                                                            label="Image URL"
+                                                                            placeholder="https://"
+                                                                            value={blk.imageUrl}
+                                                                            data-instance-id={blk.instanceId}
+                                                                            data-field="imageUrl"
+                                                                            onchange={handleBlockContentChange}
+                                                                            class="slds-m-top_small"
+                                                                        ></lightning-input>
+                                                                        <lightning-input
+                                                                            type="text"
+                                                                            label="Alt text"
+                                                                            value={blk.altText}
+                                                                            data-instance-id={blk.instanceId}
+                                                                            data-field="altText"
+                                                                            onchange={handleBlockContentChange}
+                                                                            class="slds-m-top_x-small"
+                                                                        ></lightning-input>
+                                                                    </template>
+                                                                    <template lwc:if={blk.showLegal}>
+                                                                        <lightning-textarea
+                                                                            label="Legal copy"
+                                                                            value={blk.legalText}
+                                                                            data-instance-id={blk.instanceId}
+                                                                            data-field="legalText"
+                                                                            onchange={handleBlockContentChange}
+                                                                            class="slds-m-top_small"
+                                                                        ></lightning-textarea>
+                                                                    </template>
+                                                                    <template lwc:if={blk.showSpacer}>
+                                                                        <lightning-input
+                                                                            type="number"
+                                                                            label="Spacer height (px)"
+                                                                            min="0"
+                                                                            value={blk.spacerHeight}
+                                                                            data-instance-id={blk.instanceId}
+                                                                            data-field="spacerHeight"
+                                                                            onchange={handleBlockContentChange}
+                                                                        ></lightning-input>
+                                                                    </template>
+                                                                    <template lwc:if={blk.missingBlockTemplate}>
+                                                                        <p class="slds-text-color_error slds-text-body_small slds-m-top_small">
+                                                                            This source template has no HTML file for {blk.blockType}.
+                                                                        </p>
+                                                                    </template>
+                                                                </div>
                                                             </div>
 
                                                             <!-- Settings panel -->
@@ -924,14 +979,22 @@
                                     </div>
                                 </template>
 
-                                <div class="editor-preview__content">
-                                    <template lwc:if={previewIsEmpty}>
+                                <div class={previewContentClass}>
+                                    <template lwc:if={renderSourceLoading}>
                                         <div class="editor-preview__empty">
-                                            <lightning-icon icon-name="utility:preview" size="medium" class="slds-m-bottom_small editor-preview__empty-icon"></lightning-icon>
-                                            <p class="slds-text-body_small slds-text-color_weak">Add components to the canvas to see a preview.</p>
+                                            <lightning-spinner alternative-text="Loading template" size="small"></lightning-spinner>
                                         </div>
                                     </template>
-                                    <template lwc:else>
+                                    <template lwc:elseif={hasShellPreview}>
+                                        <iframe class="editor-preview__iframe" title="Message preview" sandbox="" srcdoc={previewDocument}></iframe>
+                                    </template>
+                                    <template lwc:elseif={previewIsEmpty}>
+                                        <div class="editor-preview__empty">
+                                            <lightning-icon icon-name="utility:preview" size="medium" class="slds-m-bottom_small editor-preview__empty-icon"></lightning-icon>
+                                            <p class="slds-text-body_small slds-text-color_weak">{previewStatusMessage}</p>
+                                        </div>
+                                    </template>
+                                    <template lwc:elseif={showIconPreview}>
                                         <template for:each={previewBlocks} for:item="pb">
                                             <div key={pb.instanceId} class={pb.previewBlockClass}>
                                                 <lightning-icon icon-name={pb.icon} size="x-small" class="slds-m-right_x-small editor-preview-block__icon"></lightning-icon>

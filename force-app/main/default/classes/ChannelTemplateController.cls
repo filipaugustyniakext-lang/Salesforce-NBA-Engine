@@ -469,6 +469,172 @@ public with sharing class ChannelTemplateController {
         return title;
     }
 
+    @AuraEnabled(cacheable=true)
+    public static List<TemplateOption> getSelectableTemplates(String channelName, String channelType) {
+        List<TemplateOption> options = new List<TemplateOption>();
+        if (String.isBlank(channelName) && String.isBlank(channelType)) return options;
+        for (Channel_Template__c template : [
+            SELECT Id, Name, Package_Id__c, SemVer__c, Channel__r.Name, Channel__r.Channel_Type__c
+            FROM Channel_Template__c
+            WHERE Status__c = 'Active'
+              AND Validation_Status__c = 'Valid'
+              AND (Channel__r.Name = :channelName OR Channel__r.Channel_Type__c = :channelType)
+            ORDER BY Channel__r.Name ASC, Name ASC
+        ]) {
+            Boolean exactChannel = template.Channel__r.Name == channelName;
+            if (String.isNotBlank(channelName) && !exactChannel) continue;
+            TemplateOption option = new TemplateOption();
+            option.id = template.Id;
+            option.name = template.Name;
+            option.packageLabel = String.isBlank(template.Package_Id__c)
+                ? template.Name
+                : template.Package_Id__c + ' · ' + template.SemVer__c;
+            options.add(option);
+        }
+        return options;
+    }
+
+    @AuraEnabled
+    public static TemplateRenderSource getTemplateRenderSource(Id templateId) {
+        Channel_Template__c template = [
+            SELECT Id, Name, Manifest_JSON__c, Status__c, Validation_Status__c
+            FROM Channel_Template__c
+            WHERE Id = :templateId
+            LIMIT 1
+        ];
+        TemplateRenderSource source = new TemplateRenderSource();
+        source.templateId = template.Id;
+        source.name = template.Name;
+        source.bodySlotKey = '49fwfqshzd9';
+        Map<String, String> htmlByName = readHtmlFiles(template.Id);
+        String shellName = '';
+        if (String.isNotBlank(template.Manifest_JSON__c)) {
+            Map<String, Object> manifest = (Map<String, Object>) JSON.deserializeUntyped(
+                protectManifest(template.Manifest_JSON__c)
+            );
+            Map<String, Object> master = manifest.get('masterShell') instanceof Map<String, Object>
+                ? (Map<String, Object>) manifest.get('masterShell') : new Map<String, Object>();
+            Map<String, Object> injection = master.get('injection') instanceof Map<String, Object>
+                ? (Map<String, Object>) master.get('injection') : new Map<String, Object>();
+            shellName = stringValue(master.get('fileName'));
+            if (String.isNotBlank(stringValue(injection.get('bodySlotKey')))) {
+                source.bodySlotKey = restorePlaceholder(stringValue(injection.get('bodySlotKey')));
+            }
+            Object rawBlocks = manifest.containsKey('contentBlocks') ? manifest.get('contentBlocks') : manifest.get('blocks');
+            if (rawBlocks instanceof List<Object>) {
+                for (Object rawBlock : (List<Object>) rawBlocks) {
+                    if (!(rawBlock instanceof Map<String, Object>)) continue;
+                    Map<String, Object> block = (Map<String, Object>) rawBlock;
+                    RenderBlock renderBlock = new RenderBlock();
+                    renderBlock.type = restorePlaceholder(stringValue(block.get('type')));
+                    renderBlock.fileName = restorePlaceholder(stringValue(block.get('fileName')));
+                    renderBlock.html = htmlByName.get(baseName(renderBlock.fileName).toLowerCase());
+                    if (String.isNotBlank(renderBlock.type)) source.blocks.add(renderBlock);
+                }
+            }
+        }
+        source.shellHtml = htmlByName.get(baseName(shellName).toLowerCase());
+        if (String.isBlank(source.shellHtml)) {
+            for (String name : htmlByName.keySet()) {
+                if (name.contains('master')) {
+                    source.shellHtml = htmlByName.get(name);
+                    break;
+                }
+            }
+        }
+        return source;
+    }
+
+    public class TemplateOption {
+        @AuraEnabled public Id id;
+        @AuraEnabled public String name;
+        @AuraEnabled public String packageLabel;
+    }
+
+    public class TemplateRenderSource {
+        @AuraEnabled public Id templateId;
+        @AuraEnabled public String name;
+        @AuraEnabled public String shellHtml;
+        @AuraEnabled public String bodySlotKey;
+        @AuraEnabled public List<RenderBlock> blocks = new List<RenderBlock>();
+    }
+
+    public class RenderBlock {
+        @AuraEnabled public String type;
+        @AuraEnabled public String fileName;
+        @AuraEnabled public String html;
+    }
+
+    private static Map<String, String> readHtmlFiles(Id templateId) {
+        Map<String, String> result = new Map<String, String>();
+        List<ContentDocumentLink> links = [
+            SELECT ContentDocument.Title, ContentDocument.LatestPublishedVersionId,
+                   ContentDocument.LatestPublishedVersion.FileExtension
+            FROM ContentDocumentLink
+            WHERE LinkedEntityId = :templateId
+        ];
+        Set<Id> versionIds = new Set<Id>();
+        for (ContentDocumentLink link : links) {
+            if ('html'.equalsIgnoreCase(link.ContentDocument.LatestPublishedVersion.FileExtension)) {
+                versionIds.add(link.ContentDocument.LatestPublishedVersionId);
+            }
+        }
+        Map<Id, ContentVersion> versions = versionIds.isEmpty()
+            ? new Map<Id, ContentVersion>()
+            : new Map<Id, ContentVersion>([SELECT Id, VersionData FROM ContentVersion WHERE Id IN :versionIds]);
+        for (ContentDocumentLink link : links) {
+            if (!'html'.equalsIgnoreCase(link.ContentDocument.LatestPublishedVersion.FileExtension)) continue;
+            ContentVersion version = versions.get(link.ContentDocument.LatestPublishedVersionId);
+            if (version == null || version.VersionData == null) continue;
+            String title = link.ContentDocument.Title;
+            Integer marker = title.indexOf(']');
+            if (title.startsWith('[') && marker >= 0) title = title.substring(marker + 1).trim();
+            result.put((title + '.html').toLowerCase(), version.VersionData.toString());
+            result.put(title.toLowerCase(), version.VersionData.toString());
+        }
+        return result;
+    }
+
+    private static String protectManifest(String jsonText) {
+        String source = String.valueOf(jsonText);
+        String result = '';
+        Integer cursor = 0;
+        while (cursor < source.length()) {
+            Integer open = source.indexOf('{{', cursor);
+            if (open < 0) return result + source.substring(cursor);
+            Integer close = source.indexOf('}}', open + 2);
+            if (close < 0) return result + source.substring(cursor);
+            result += source.substring(cursor, open) + '[[CC:' + source.substring(open + 2, close) + ']]';
+            cursor = close + 2;
+        }
+        return result;
+    }
+
+    private static String restorePlaceholder(String value) {
+        String text = String.valueOf(value);
+        Integer cursor = 0;
+        String restored = '';
+        while (cursor < text.length()) {
+            Integer open = text.indexOf('[[CC:', cursor);
+            if (open < 0) return restored + text.substring(cursor);
+            Integer close = text.indexOf(']]', open + 5);
+            if (close < 0) return restored + text.substring(cursor);
+            restored += text.substring(cursor, open) + '{{' + text.substring(open + 5, close) + '}}';
+            cursor = close + 2;
+        }
+        return restored;
+    }
+
+    private static String stringValue(Object value) {
+        return value == null ? '' : String.valueOf(value).trim();
+    }
+
+    private static String baseName(String path) {
+        String normalized = String.valueOf(path).replace('\\', '/');
+        Integer slash = normalized.lastIndexOf('/');
+        return slash >= 0 ? normalized.substring(slash + 1) : normalized;
+    }
+
     private static String assetTypeLabel(String assetType) {
         if (assetType == 'MANIFEST') return 'Package Manifest';
         if (assetType == 'SHELL_HTML') return 'Shell HTML';

@@ -180,6 +180,8 @@ public with sharing class CopyCockpitController {
                    Valid_From__c, Valid_To__c,
                    Offer__c, Offer__r.Name,
                    Campaign__c, Campaign__r.Name,
+                   Source_Template__c, Source_Template__r.Name,
+                   Canvas_Blocks_JSON__c,
                    CreatedDate, LastModifiedDate
             FROM CC_Message_Metadata__c
             WHERE Id = :recordId
@@ -235,6 +237,9 @@ public with sharing class CopyCockpitController {
             rec.Language__c     = masterLanguage != null ? masterLanguage : (String) data.get('language');
             rec.Channel__c      = (String) data.get('channelName');
             rec.Channel_Type__c = channelType;
+            if (String.isNotBlank((String) data.get('sourceTemplateId'))) {
+                rec.Source_Template__c = (Id) data.get('sourceTemplateId');
+            }
             rec.Status__c       = 'Draft';
             if (data.get('offerId') != null && String.isNotBlank((String) data.get('offerId'))) {
                 rec.Offer__c = (Id) data.get('offerId');
@@ -252,6 +257,19 @@ public with sharing class CopyCockpitController {
     }
 
     @AuraEnabled
+    public static void saveMessageEditor(Id recordId, String status, String canvasJson) {
+        if (recordId == null) {
+            throw new AuraHandledException('Message is required.');
+        }
+        CC_Message_Metadata__c rec = [
+            SELECT Id FROM CC_Message_Metadata__c WHERE Id = :recordId LIMIT 1
+        ];
+        if (String.isNotBlank(status)) rec.Status__c = status;
+        rec.Canvas_Blocks_JSON__c = canvasJson;
+        update rec;
+    }
+
+    @AuraEnabled
     public static Id cloneMessage(Id sourceId, Decimal newVersion) {
         try {
             if (newVersion == null || newVersion < 1) {
@@ -260,6 +278,7 @@ public with sharing class CopyCockpitController {
             CC_Message_Metadata__c src = [
                 SELECT Name, Channel__c, Channel_Type__c,
                        Subject__c, Body__c, Language__c,
+                       Source_Template__c, Canvas_Blocks_JSON__c,
                        Offer__c, Campaign__c,
                        Valid_From__c, Valid_To__c, Version__c
                 FROM CC_Message_Metadata__c

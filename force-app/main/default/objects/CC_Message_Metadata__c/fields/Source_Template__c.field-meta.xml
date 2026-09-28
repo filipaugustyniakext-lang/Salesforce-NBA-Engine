@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Source_Template__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description>Validated channel template used to render this message variant.</description>
+    <label>Source Template</label>
+    <referenceTo>Channel_Template__c</referenceTo>
+    <relationshipLabel>Message Variants</relationshipLabel>
+    <relationshipName>Message_Variants</relationshipName>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

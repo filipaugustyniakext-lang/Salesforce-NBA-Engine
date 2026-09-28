@@ -71,6 +71,26 @@
 
                 </div>
 
+                <div class="add-modal-section-divider"></div>
+                <lightning-combobox
+                    label="Source Template"
+                    placeholder="Select a validated template…"
+                    value={sourceTemplateId}
+                    options={templateOptions}
+                    required
+                    disabled={templatesLoading}
+                    field-level-help="Active, validated templates for this channel. The editor preview uses this shell."
+                    onchange={handleSourceTemplateChange}>
+                </lightning-combobox>
+                <template lwc:if={templatesLoading}>
+                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">Loading templates…</p>
+                </template>
+                <template lwc:if={showMissingTemplate}>
+                    <p class="slds-text-color_error slds-text-body_small slds-m-top_xx-small">
+                        No active validated template is available for this channel.
+                    </p>
+                </template>
+
                 <!-- ── Section: Product Family & Offer ────────────────────── -->
                 <div class="add-modal-section-divider"></div>
                 <div class="add-modal-section-header">

@@ -210,6 +210,72 @@ private class ChannelTemplateControllerTest {
     }
 
     @IsTest
+    static void selectableTemplateExposesShellAndBlockHtml() {
+        Marketing_Dictionary__c channel = [SELECT Id, Name, Channel_Type__c FROM Marketing_Dictionary__c LIMIT 1];
+        Id templateId = createDraftTemplate(channel.Id, 'Commercial Email', 3);
+        Id shellId = uploadFile(
+            templateId,
+            'SFMC_CB_Email_Master_Commercial.html',
+            '<div data-key="49fwfqshzd9" data-label="BODY"></div>'
+        );
+        Id blockId = uploadFile(
+            templateId,
+            'SFMC_CB_Email_RichText.html',
+            '<td>{{CELL_PADDING_STYLE}}{{RICH_TEXT_ROWS}}</td>'
+        );
+        System.assertEquals(null, ChannelTemplateController.classifyUploadedFiles(
+            templateId, new List<Id>{ shellId }, 'SHELL_HTML'
+        ));
+        System.assertEquals(null, ChannelTemplateController.classifyUploadedFiles(
+            templateId, new List<Id>{ blockId }, 'CONTENT_BLOCK'
+        ));
+        String manifest = JSON.serialize(new Map<String, Object>{
+            'schemaVersion' => '1.0',
+            'packageId' => 'email.commercial.preview',
+            'semver' => '1.2.0',
+            'channelKind' => 'Email',
+            'runtime' => new Map<String, Object>{ 'previewCompiler' => 'email-preview@1' },
+            'masterShell' => new Map<String, Object>{
+                'fileName' => 'SFMC_CB_Email_Master_Commercial.html',
+                'injection' => new Map<String, Object>{ 'bodySlotKey' => '49fwfqshzd9' }
+            },
+            'contentBlocks' => new List<Object>{
+                new Map<String, Object>{
+                    'type' => 'RichText',
+                    'fileName' => 'SFMC_CB_Email_RichText.html',
+                    'rendererId' => 'email/populateRichTextBlock@1',
+                    'placeholders' => new List<String>{ '{{CELL_PADDING_STYLE}}', '{{RICH_TEXT_ROWS}}' }
+                }
+            }
+        });
+        Id manifestId = uploadFile(templateId, 'template.manifest.json', manifest);
+        System.assertEquals(null, ChannelTemplateController.classifyUploadedFiles(
+            templateId, new List<Id>{ manifestId }, 'MANIFEST'
+        ));
+        System.assertEquals(0, ChannelTemplateController.getSelectableTemplates(channel.Name, channel.Channel_Type__c).size());
+
+        Test.startTest();
+        ChannelTemplateController.saveTemplate(
+            new Channel_Template__c(Id = templateId, Name = 'Commercial Email', Status__c = 'Active', Version__c = 3),
+            channel.Id
+        );
+        List<ChannelTemplateController.TemplateOption> options =
+            ChannelTemplateController.getSelectableTemplates(channel.Name, channel.Channel_Type__c);
+        ChannelTemplateController.TemplateRenderSource source =
+            ChannelTemplateController.getTemplateRenderSource(templateId);
+        Test.stopTest();
+
+        System.assertEquals(0, ChannelTemplateController.getSelectableTemplates('Other Channel', 'Email').size());
+        System.assertEquals(1, options.size());
+        System.assertEquals(templateId, options[0].id);
+        System.assert(source.shellHtml.contains('49fwfqshzd9'));
+        System.assertEquals('49fwfqshzd9', source.bodySlotKey);
+        System.assertEquals(1, source.blocks.size());
+        System.assertEquals('RichText', source.blocks[0].type);
+        System.assert(source.blocks[0].html.contains('{{RICH_TEXT_ROWS}}'));
+    }
+
+    @IsTest
     static void nonEmailTemplateCanActivateWithoutHtmlShell() {
         Id channelRecordTypeId = Schema.SObjectType.Marketing_Dictionary__c
             .getRecordTypeInfosByDeveloperName().get('Channel').getRecordTypeId();

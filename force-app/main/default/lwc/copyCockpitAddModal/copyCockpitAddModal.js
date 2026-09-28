@@ -3,6 +3,7 @@ import getProductFamilies from '@salesforce/apex/CopyCockpitController.getProduc
 import getActiveOffersByFamily from '@salesforce/apex/CopyCockpitController.getActiveOffersByFamily';
 import getPlaceholders from '@salesforce/apex/CopyCockpitController.getPlaceholders';
 import getStemVariantInfo from '@salesforce/apex/CopyCockpitController.getStemVariantInfo';
+import getSelectableTemplates from '@salesforce/apex/ChannelTemplateController.getSelectableTemplates';
 import {
     channelPrefixForType,
     composeFullName,
@@ -56,6 +57,7 @@ export default class CopyCockpitAddModal extends LightningElement {
 
     // Per-channel subtype
     @track selectedSubtype = null;
+    @track sourceTemplateId = '';
 
     @track isSaving         = false;
     @track variantError     = '';
@@ -69,6 +71,9 @@ export default class CopyCockpitAddModal extends LightningElement {
 
     @wire(getPlaceholders)
     _wiredPlaceholders;
+
+    @wire(getSelectableTemplates, { channelName: '$channelName', channelType: '$channelType' })
+    _wiredTemplates;
 
     // ── derived ───────────────────────────────────────────────────────────────
 
@@ -99,6 +104,25 @@ export default class CopyCockpitAddModal extends LightningElement {
     }
 
     get languageOptions() { return LANGUAGE_OPTIONS; }
+
+    get templateOptions() {
+        return (this._wiredTemplates?.data || []).map(template => ({
+            value: template.id,
+            label: `${template.name} (${template.packageLabel})`
+        }));
+    }
+
+    get hasTemplateOptions() {
+        return this.templateOptions.length > 0;
+    }
+
+    get showMissingTemplate() {
+        return !this.templatesLoading && !this.hasTemplateOptions;
+    }
+
+    get templatesLoading() {
+        return !this._wiredTemplates?.data && !this._wiredTemplates?.error;
+    }
 
     get familyOptions() {
         if (!this._wiredFamilies.data) return [];
@@ -186,6 +210,7 @@ export default class CopyCockpitAddModal extends LightningElement {
         if (!(this.messageName || '').trim())  return false;
         if (!this.version || this.version < 1) return false;
         if (!this.language)                    return false;
+        if (!this.sourceTemplateId)            return false;
         if (!this.productFamilyId)             return false;
         if (this.hasDuplicateVariant)          return false;
         if (this.subtypeRequired && !this.selectedSubtype) return false;
@@ -206,6 +231,10 @@ export default class CopyCockpitAddModal extends LightningElement {
     handleMessageNameChange(e) {
         this.messageName = e.target.value;
         this._onNamePartChanged();
+    }
+
+    handleSourceTemplateChange(e) {
+        this.sourceTemplateId = e.detail?.value || '';
     }
 
     handleLanguageChange(e) {
@@ -316,6 +345,7 @@ export default class CopyCockpitAddModal extends LightningElement {
                 placeholders:      this.isBannerChannel ? [...this.selectedPlaceholders] : [],
                 channelName:       this.channelName,
                 channelType:       this.channelType,
+                sourceTemplateId:  this.sourceTemplateId,
                 messageSubtype:    this.selectedSubtype,
                 action,
             },
