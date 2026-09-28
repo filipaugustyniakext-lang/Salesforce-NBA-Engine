@@ -120,6 +120,7 @@ export default class CopyCockpitEditor extends LightningElement {
     @track _renderSourceLoading = false;
     @track _renderSourceError = '';
     @track _isSaving = false;
+    @track _previewTick = 0;
     @track _activeBlockId  = null;
     @track _addPopoverOpen  = false;
     @track _addSearchQuery  = '';
@@ -148,6 +149,17 @@ export default class CopyCockpitEditor extends LightningElement {
     @track _emptyZoneDragOver = false;
 
     // ── lifecycle ─────────────────────────────────────────────────────────────
+
+    renderedCallback() {
+        const active = this.template.activeElement;
+        this.template.querySelectorAll('[data-content-field]').forEach(field => {
+            if (field === active) return;
+            const block = this._canvasBlocks.find(item => item.instanceId === field.dataset.instanceId);
+            if (!block) return;
+            const next = block[field.dataset.field] ?? '';
+            if (field.value !== String(next)) field.value = next;
+        });
+    }
 
     connectedCallback() {
         this._loadRecord();
@@ -465,7 +477,8 @@ export default class CopyCockpitEditor extends LightningElement {
     get renderSourceLoading() { return this._renderSourceLoading; }
     get hasShellPreview() { return !!this._renderSource?.shellHtml && !this._renderSourceLoading; }
     get previewDocument() {
-        if (!this._renderSource?.shellHtml) return '';
+        const revision = this._previewTick;
+        if (!this._renderSource?.shellHtml || revision < 0) return '';
         return renderTemplatePreview(this._renderSource, this._canvasBlocks, this._previewDevice);
     }
     get previewContentClass() {
@@ -846,10 +859,11 @@ export default class CopyCockpitEditor extends LightningElement {
         const instanceId = e.currentTarget.dataset.instanceId;
         const field = e.currentTarget.dataset.field;
         if (!instanceId || !field) return;
-        const value = e.detail?.value ?? e.target.value;
-        this._canvasBlocks = this._canvasBlocks.map(b =>
-            b.instanceId === instanceId ? { ...b, [field]: value } : b
-        );
+        const value = e.target.value ?? '';
+        const block = this._canvasBlocks.find(item => item.instanceId === instanceId);
+        if (!block || block[field] === value) return;
+        block[field] = value;
+        this._previewTick += 1;
         this._isDirty = true;
     }
 

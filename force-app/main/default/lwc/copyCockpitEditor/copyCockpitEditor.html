@@ -691,55 +691,42 @@
                                                             >
                                                                 <div class="block-content-fields">
                                                                     <template lwc:if={blk.showCopy}>
-                                                                        <lightning-textarea
-                                                                            label="Copy"
-                                                                            value={blk.copyText}
-                                                                            data-instance-id={blk.instanceId}
-                                                                            data-field="copyText"
-                                                                            onchange={handleBlockContentChange}
-                                                                        ></lightning-textarea>
+                                                                        <div class="slds-form-element">
+                                                                            <label class="slds-form-element__label" for={blk.copyFieldId}>Copy</label>
+                                                                            <div class="slds-form-element__control">
+                                                                                <textarea id={blk.copyFieldId} class="slds-textarea" rows="4" data-content-field data-instance-id={blk.instanceId} data-field="copyText" oninput={handleBlockContentChange}></textarea>
+                                                                            </div>
+                                                                        </div>
                                                                     </template>
                                                                     <template lwc:if={blk.showImage}>
-                                                                        <lightning-input
-                                                                            type="url"
-                                                                            label="Image URL"
-                                                                            placeholder="https://"
-                                                                            value={blk.imageUrl}
-                                                                            data-instance-id={blk.instanceId}
-                                                                            data-field="imageUrl"
-                                                                            onchange={handleBlockContentChange}
-                                                                            class="slds-m-top_small"
-                                                                        ></lightning-input>
-                                                                        <lightning-input
-                                                                            type="text"
-                                                                            label="Alt text"
-                                                                            value={blk.altText}
-                                                                            data-instance-id={blk.instanceId}
-                                                                            data-field="altText"
-                                                                            onchange={handleBlockContentChange}
-                                                                            class="slds-m-top_x-small"
-                                                                        ></lightning-input>
+                                                                        <div class="slds-form-element slds-m-top_small">
+                                                                            <label class="slds-form-element__label" for={blk.imageFieldId}>Image URL</label>
+                                                                            <div class="slds-form-element__control">
+                                                                                <input id={blk.imageFieldId} class="slds-input" type="url" placeholder="https://" data-content-field data-instance-id={blk.instanceId} data-field="imageUrl" oninput={handleBlockContentChange} />
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="slds-form-element slds-m-top_x-small">
+                                                                            <label class="slds-form-element__label" for={blk.altFieldId}>Alt text</label>
+                                                                            <div class="slds-form-element__control">
+                                                                                <input id={blk.altFieldId} class="slds-input" type="text" data-content-field data-instance-id={blk.instanceId} data-field="altText" oninput={handleBlockContentChange} />
+                                                                            </div>
+                                                                        </div>
                                                                     </template>
                                                                     <template lwc:if={blk.showLegal}>
-                                                                        <lightning-textarea
-                                                                            label="Legal copy"
-                                                                            value={blk.legalText}
-                                                                            data-instance-id={blk.instanceId}
-                                                                            data-field="legalText"
-                                                                            onchange={handleBlockContentChange}
-                                                                            class="slds-m-top_small"
-                                                                        ></lightning-textarea>
+                                                                        <div class="slds-form-element slds-m-top_small">
+                                                                            <label class="slds-form-element__label" for={blk.legalFieldId}>Legal copy</label>
+                                                                            <div class="slds-form-element__control">
+                                                                                <textarea id={blk.legalFieldId} class="slds-textarea" rows="3" data-content-field data-instance-id={blk.instanceId} data-field="legalText" oninput={handleBlockContentChange}></textarea>
+                                                                            </div>
+                                                                        </div>
                                                                     </template>
                                                                     <template lwc:if={blk.showSpacer}>
-                                                                        <lightning-input
-                                                                            type="number"
-                                                                            label="Spacer height (px)"
-                                                                            min="0"
-                                                                            value={blk.spacerHeight}
-                                                                            data-instance-id={blk.instanceId}
-                                                                            data-field="spacerHeight"
-                                                                            onchange={handleBlockContentChange}
-                                                                        ></lightning-input>
+                                                                        <div class="slds-form-element">
+                                                                            <label class="slds-form-element__label" for={blk.spacerFieldId}>Spacer height (px)</label>
+                                                                            <div class="slds-form-element__control">
+                                                                                <input id={blk.spacerFieldId} class="slds-input" type="number" min="0" data-content-field data-instance-id={blk.instanceId} data-field="spacerHeight" oninput={handleBlockContentChange} />
+                                                                            </div>
+                                                                        </div>
                                                                     </template>
                                                                     <template lwc:if={blk.missingBlockTemplate}>
                                                                         <p class="slds-text-color_error slds-text-body_small slds-m-top_small">
