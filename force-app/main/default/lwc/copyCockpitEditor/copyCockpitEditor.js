@@ -5,7 +5,7 @@ import getMessageById from '@salesforce/apex/CopyCockpitController.getMessageByI
 import saveMessageEditor from '@salesforce/apex/CopyCockpitController.saveMessageEditor';
 import getVersionsByMessageId from '@salesforce/apex/CopyCockpitController.getVersionsByMessageId';
 import getTemplateRenderSource from '@salesforce/apex/ChannelTemplateController.getTemplateRenderSource';
-import { renderTemplatePreview } from './templatePreview';
+import { previewFragment, renderTemplatePreview } from './templatePreview';
 
 const STATUS_OPTIONS = [
     { label: 'Active',           value: 'Active' },
@@ -974,42 +974,28 @@ export default class CopyCockpitEditor extends LightningElement {
     }
 
     _syncPreviewFrame() {
-        const host = this.template.querySelector('[data-preview-host]');
-        if (!host) return;
-        let frame = host.querySelector('iframe');
-        if (!frame) {
-            frame = document.createElement('iframe');
-            frame.className = 'editor-preview__iframe';
-            frame.title = 'Message preview';
-            frame.src = 'about:blank';
-            frame.addEventListener('load', () => {
-                if (!frame._needsWrite) return;
-                this._writePreviewDocument(frame);
-            });
-            host.appendChild(frame);
-        }
-        this._writePreviewDocument(frame);
-    }
-
-    _writePreviewDocument(frame) {
+        const frame = this.template.querySelector('[data-preview-frame]');
+        const fallback = this.template.querySelector('[data-preview-fallback]');
+        if (!frame) return;
         const html = this.previewDocument || '';
-        if (frame._previewHtml === html) {
-            frame._needsWrite = false;
-            return;
-        }
-        const doc = frame.contentDocument || frame.contentWindow?.document;
-        if (!doc) {
-            frame._needsWrite = true;
-            return;
-        }
-        frame._needsWrite = false;
+        if (!html || frame._previewHtml === html) return;
         frame._previewHtml = html;
+        let painted = false;
         try {
-            doc.open();
-            doc.write(html);
-            doc.close();
+            frame.srcdoc = html;
+            painted = typeof frame.srcdoc === 'string' && frame.srcdoc.length > 0;
         } catch (e) {
-            frame._previewHtml = null;
+            painted = false;
+        }
+        frame.classList.toggle('slds-hide', !painted);
+        if (!fallback) return;
+        fallback.classList.toggle('slds-hide', painted);
+        if (!painted) {
+            try {
+                fallback.innerHTML = previewFragment(html);
+            } catch (e) {
+                fallback.textContent = 'The source template shell could not be displayed in this preview.';
+            }
         }
     }
 

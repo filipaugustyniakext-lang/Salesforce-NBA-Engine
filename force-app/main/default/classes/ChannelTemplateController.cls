@@ -506,7 +506,8 @@ public with sharing class ChannelTemplateController {
         source.templateId = template.Id;
         source.name = template.Name;
         source.bodySlotKey = '49fwfqshzd9';
-        Map<String, String> htmlByName = readHtmlFiles(template.Id);
+        HtmlLibrary library = readHtmlFiles(template.Id);
+        Map<String, String> htmlByName = library.byName;
         String shellName = '';
         if (String.isNotBlank(template.Manifest_JSON__c)) {
             Map<String, Object> manifest = (Map<String, Object>) JSON.deserializeUntyped(
@@ -533,7 +534,10 @@ public with sharing class ChannelTemplateController {
                 }
             }
         }
-        source.shellHtml = htmlByName.get(baseName(shellName).toLowerCase());
+        source.shellHtml = library.shellHtml;
+        if (String.isBlank(source.shellHtml)) {
+            source.shellHtml = htmlByName.get(baseName(shellName).toLowerCase());
+        }
         if (String.isBlank(source.shellHtml)) {
             for (String name : htmlByName.keySet()) {
                 if (name.contains('master')) {
@@ -565,8 +569,13 @@ public with sharing class ChannelTemplateController {
         @AuraEnabled public String html;
     }
 
-    private static Map<String, String> readHtmlFiles(Id templateId) {
-        Map<String, String> result = new Map<String, String>();
+    private class HtmlLibrary {
+        public String shellHtml = '';
+        public Map<String, String> byName = new Map<String, String>();
+    }
+
+    private static HtmlLibrary readHtmlFiles(Id templateId) {
+        HtmlLibrary library = new HtmlLibrary();
         List<ContentDocumentLink> links = [
             SELECT ContentDocument.Title, ContentDocument.LatestPublishedVersionId,
                    ContentDocument.LatestPublishedVersion.FileExtension
@@ -575,24 +584,33 @@ public with sharing class ChannelTemplateController {
         ];
         Set<Id> versionIds = new Set<Id>();
         for (ContentDocumentLink link : links) {
-            if ('html'.equalsIgnoreCase(link.ContentDocument.LatestPublishedVersion.FileExtension)) {
-                versionIds.add(link.ContentDocument.LatestPublishedVersionId);
-            }
+            if (isHtmlFile(link)) versionIds.add(link.ContentDocument.LatestPublishedVersionId);
         }
         Map<Id, ContentVersion> versions = versionIds.isEmpty()
             ? new Map<Id, ContentVersion>()
             : new Map<Id, ContentVersion>([SELECT Id, VersionData FROM ContentVersion WHERE Id IN :versionIds]);
         for (ContentDocumentLink link : links) {
-            if (!'html'.equalsIgnoreCase(link.ContentDocument.LatestPublishedVersion.FileExtension)) continue;
+            if (!isHtmlFile(link)) continue;
             ContentVersion version = versions.get(link.ContentDocument.LatestPublishedVersionId);
             if (version == null || version.VersionData == null) continue;
-            String title = link.ContentDocument.Title;
+            String rawTitle = link.ContentDocument.Title == null ? '' : link.ContentDocument.Title;
+            Boolean shellFile = rawTitle.startsWith('[SHELL_HTML]');
+            String title = rawTitle;
             Integer marker = title.indexOf(']');
             if (title.startsWith('[') && marker >= 0) title = title.substring(marker + 1).trim();
-            result.put((title + '.html').toLowerCase(), version.VersionData.toString());
-            result.put(title.toLowerCase(), version.VersionData.toString());
+            String html = version.VersionData.toString();
+            library.byName.put((title + '.html').toLowerCase(), html);
+            library.byName.put(title.toLowerCase(), html);
+            if (shellFile) library.shellHtml = html;
         }
-        return result;
+        return library;
+    }
+
+    private static Boolean isHtmlFile(ContentDocumentLink link) {
+        if (link.ContentDocument == null || link.ContentDocument.LatestPublishedVersion == null) return false;
+        String extension = link.ContentDocument.LatestPublishedVersion.FileExtension;
+        String title = link.ContentDocument.Title == null ? '' : link.ContentDocument.Title.toLowerCase();
+        return 'html'.equalsIgnoreCase(extension) || title.endsWith('.html');
     }
 
     private static String protectManifest(String jsonText) {
