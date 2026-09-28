@@ -1004,9 +1004,13 @@ export default class CopyCockpitEditor extends LightningElement {
         }
         frame._needsWrite = false;
         frame._previewHtml = html;
-        doc.open();
-        doc.write(html);
-        doc.close();
+        try {
+            doc.open();
+            doc.write(html);
+            doc.close();
+        } catch (e) {
+            frame._previewHtml = null;
+        }
     }
 
     _loadRenderSource() {
