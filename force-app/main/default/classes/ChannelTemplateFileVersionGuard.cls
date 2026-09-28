@@ -1,4 +1,4 @@
-public with sharing class ChannelTemplateFileVersionGuard {
+public without sharing class ChannelTemplateFileVersionGuard {
     public static void beforeInsert(List<ContentVersion> versions) {
         Set<Id> firstPublishIds = new Set<Id>();
         Set<Id> documentIds = new Set<Id>();

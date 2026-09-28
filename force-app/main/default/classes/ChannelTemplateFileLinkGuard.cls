@@ -1,4 +1,4 @@
-public with sharing class ChannelTemplateFileLinkGuard {
+public without sharing class ChannelTemplateFileLinkGuard {
     public static void protectActiveTemplateLinks(List<ContentDocumentLink> links) {
         if (ChannelTemplateTriggerHandler.allowActiveDelete || links == null || links.isEmpty()) {
             return;
