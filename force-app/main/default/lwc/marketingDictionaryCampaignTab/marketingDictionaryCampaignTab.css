@@ -57,6 +57,9 @@
     flex: 1;
     min-width: 0;
 }
+.scoring-embedded {
+    min-width: 0;
+}
 
 /* Shared */
 .cd-toolbar {

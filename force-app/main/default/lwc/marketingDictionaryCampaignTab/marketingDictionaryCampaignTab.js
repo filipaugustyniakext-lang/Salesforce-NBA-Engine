@@ -1,4 +1,4 @@
-import { LightningElement, track, wire } from 'lwc';
+import { LightningElement, api, track, wire } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import { refreshApex } from '@salesforce/apex';
 import getCampaignRecords from '@salesforce/apex/MarketingDictionaryManagerController.getCampaignRecords';
@@ -66,6 +66,7 @@ const SCORING_SOURCE_SYSTEMS = [
 ];
 
 export default class MarketingDictionaryCampaignTab extends LightningElement {
+    @api scoringOnly = false;
 
     @track isLoading = true;
     @track isSaving = false;
@@ -137,6 +138,7 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
     _allTiers = [];
 
     connectedCallback() {
+        if (this.scoringOnly) this.activeSubTab = 'scorings';
         this._loadOfferingOptions();
         this._loadData360DmoOptions();
         // One-shot: migrate Campaign display fields that still show dictionary Ids → Names.
@@ -300,10 +302,18 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
         this.groupedProductFamilyOptions = groups;
     }
 
+    get layoutClass() {
+        return this.scoringOnly ? 'scoring-embedded' : 'vtab-layout';
+    }
+
+    get showCampaignNavigation() {
+        return !this.scoringOnly;
+    }
+
     get isTab() {
         return {
-            campaignTypes: this.activeSubTab === 'campaignTypes',
-            scorings: this.activeSubTab === 'scorings',
+            campaignTypes: !this.scoringOnly && this.activeSubTab === 'campaignTypes',
+            scorings: this.scoringOnly || this.activeSubTab === 'scorings',
             tiers: this.activeSubTab === 'tiers',
             topics: this.activeSubTab === 'topics',
             activationPaths: this.activeSubTab === 'activationPaths',

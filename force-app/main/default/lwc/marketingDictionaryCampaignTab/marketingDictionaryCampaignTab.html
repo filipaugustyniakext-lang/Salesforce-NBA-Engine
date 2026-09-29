@@ -1,17 +1,13 @@
 <template>
-    <div class="vtab-layout">
+    <div class={layoutClass}>
 
         <!-- Vertical nav sidebar -->
+        <template lwc:if={showCampaignNavigation}>
         <nav class="vtab-sidebar" role="tablist" aria-orientation="vertical">
             <button role="tab" class={vtabClass.campaignTypes} data-tab="campaignTypes" onclick={handleSubTabClick}
                 aria-selected={vtabSelected.campaignTypes}>
                 <lightning-icon icon-name="utility:campaign" size="x-small" class="vtab-icon" alternative-text=""></lightning-icon>
                 Campaign Types
-            </button>
-            <button role="tab" class={vtabClass.scorings} data-tab="scorings" onclick={handleSubTabClick}
-                aria-selected={vtabSelected.scorings}>
-                <lightning-icon icon-name="utility:rating" size="x-small" class="vtab-icon" alternative-text=""></lightning-icon>
-                Scoring Models
             </button>
             <button role="tab" class={vtabClass.tiers} data-tab="tiers" onclick={handleSubTabClick}
                 aria-selected={vtabSelected.tiers}>
@@ -34,6 +30,7 @@
                 Sales Process Types
             </button>
         </nav>
+        </template>
 
         <!-- Content panel -->
         <div class="vtab-content" role="tabpanel">

@@ -1,0 +1,27 @@
+<template>
+    <div class="vtab-layout">
+        <nav class="vtab-sidebar" role="tablist" aria-orientation="vertical">
+            <button role="tab" class={definitionsClass} data-tab="definitions" onclick={handleSubTabClick}
+                aria-selected={isDefinitions}>
+                <lightning-icon icon-name="utility:rating" size="x-small" class="vtab-icon" alternative-text=""></lightning-icon>
+                Models Definitions
+            </button>
+            <button role="tab" class={settingsClass} data-tab="settings" onclick={handleSubTabClick}
+                aria-selected={isSettings}>
+                <lightning-icon icon-name="utility:settings" size="x-small" class="vtab-icon" alternative-text=""></lightning-icon>
+                Model Settings
+            </button>
+        </nav>
+        <div class="vtab-content" role="tabpanel">
+            <template lwc:if={isDefinitions}>
+                <c-marketing-dictionary-campaign-tab scoring-only></c-marketing-dictionary-campaign-tab>
+            </template>
+            <template lwc:if={isSettings}>
+                <div class="slds-p-around_medium">
+                    <h2 class="slds-text-heading_small">Model Settings</h2>
+                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">No model settings yet.</p>
+                </div>
+            </template>
+        </div>
+    </div>
+</template>
