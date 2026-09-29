@@ -494,13 +494,9 @@ public with sharing class MarketingDictionaryManagerController {
     }
 
     /**
-     * Upserts a Scoring Model dictionary row with versioning and uniqueness rules:
-     * - New master (asNewMaster=true): Version = 1; Name must not already exist
-     * - New version (asNewMaster=false, no Id): Version = max(existing) + 1; Name must exist
-     * - Edit (has Id): Name and Version are locked to existing values
-     * - Model_Id__c = Name + '_' + Version (unique)
-     * - Draft (Is_Active__c = false): only Model Name is required
-     * - Active (Is_Active__c = true): full required set must be complete
+     * Upserts one Scoring Model dictionary row.
+     * Model ID is the next unused positive integer and does not change after create.
+     * asNewMaster is retained for older clients and is not used.
      */
     @AuraEnabled
     public static Id saveScoringModel(Marketing_Dictionary__c record, Boolean asNewMaster) {
@@ -518,53 +514,22 @@ public with sharing class MarketingDictionaryManagerController {
             if (record.Is_Active__c == null) {
                 record.Is_Active__c = false;
             }
-            Boolean isActive = record.Is_Active__c == true;
-
-            if (isActive) {
-                validateScoringModelForActivation(record);
-            } else {
-                // Draft: soft-validate any fields that were provided.
-                normalizeScoringModelDraftFields(record);
-            }
+            validateScoringModelForActivation(record);
+            assertUniqueScoringModelName(record.Id, modelName);
 
             if (record.Id != null) {
                 Marketing_Dictionary__c existing = [
-                    SELECT Id, Name, Version__c
+                    SELECT Id, Model_Id__c, Version__c
                     FROM Marketing_Dictionary__c
                     WHERE Id = :record.Id
                     LIMIT 1
                 ];
-                // Name and Version are immutable after create.
-                record.Name = existing.Name;
+                record.Model_Id__c = existing.Model_Id__c;
                 record.Version__c = existing.Version__c;
             } else {
-                List<AggregateResult> agg = [
-                    SELECT MAX(Version__c) maxVer
-                    FROM Marketing_Dictionary__c
-                    WHERE RecordType.DeveloperName = 'Campaign'
-                    AND Dictionary_Sub_Type__c = 'Scoring Model'
-                    AND Name = :modelName
-                ];
-                Decimal maxVer = (Decimal) agg[0].get('maxVer');
-                Boolean nameExists = maxVer != null;
-
-                if (asNewMaster == true) {
-                    if (nameExists) {
-                        throw new AuraHandledException(
-                            'A Scoring Model named "' + modelName + '" already exists. ' +
-                            'Use New Version on the existing model, or choose a unique name.'
-                        );
-                    }
-                    record.Version__c = 1;
-                } else if (nameExists) {
-                    record.Version__c = maxVer + 1;
-                } else {
-                    // First version of this name (implicit master create)
-                    record.Version__c = 1;
-                }
+                record.Model_Id__c = nextScoringModelId();
+                record.Version__c = null;
             }
-
-            record.Model_Id__c = modelName + '_' + String.valueOf(record.Version__c.intValue());
 
             upsert record;
             return record.Id;
@@ -574,7 +539,7 @@ public with sharing class MarketingDictionaryManagerController {
             String msg = dml.getDmlMessage(0);
             if (msg != null && msg.toLowerCase().contains('duplicate')) {
                 throw new AuraHandledException(
-                    'A Scoring Model with this Name/Version (Model ID) already exists.'
+                    'A Scoring Model with this Model ID already exists.'
                 );
             }
             throw new AuraHandledException(msg);
@@ -586,24 +551,11 @@ public with sharing class MarketingDictionaryManagerController {
     /** Full required-field gate used when Is_Active__c = true. */
     private static void validateScoringModelForActivation(Marketing_Dictionary__c record) {
         if (record.Scoring_Model_Group_Dict__c == null) {
-            throw new AuraHandledException('Model Group is required to activate a Scoring Model.');
+            throw new AuraHandledException('Model Group is required.');
         }
         if (record.Assigned_Topic_Dict__c == null) {
-            throw new AuraHandledException('Assigned Topic is required to activate a Scoring Model.');
+            throw new AuraHandledException('Model Topic is required.');
         }
-        if (String.isBlank(record.Scoring_Model_Source_System__c)) {
-            throw new AuraHandledException('Scoring Model Source System is required to activate.');
-        }
-        if (record.Scoring_Model_Source_System__c != 'GCP'
-            && record.Scoring_Model_Source_System__c != 'Salesforce (Einstein)') {
-            throw new AuraHandledException(
-                'Scoring Model Source System must be GCP or Salesforce (Einstein).'
-            );
-        }
-        if (String.isBlank(record.Data360_DMO__c)) {
-            throw new AuraHandledException('Data360 DMO is required to activate a Scoring Model.');
-        }
-        record.Data360_DMO__c = record.Data360_DMO__c.trim();
 
         Marketing_Dictionary__c groupRec = [
             SELECT Id, Dictionary_Sub_Type__c
@@ -625,11 +577,11 @@ public with sharing class MarketingDictionaryManagerController {
         }
 
         if (String.isBlank(record.Offering_Type__c)) {
-            throw new AuraHandledException('Offering Type is required to activate a Scoring Model.');
+            throw new AuraHandledException('Offering Type is required.');
         }
         if (record.Offering_Type__c == 'Product Family') {
             if (String.isBlank(record.Product_Family__c)) {
-                throw new AuraHandledException('Select at least one Product Family to activate.');
+                throw new AuraHandledException('Select at least one Product Family.');
             }
             record.Product_Family__c = normalizeOfferingIds(
                 record.Product_Family__c, 'Product Family'
@@ -637,7 +589,7 @@ public with sharing class MarketingDictionaryManagerController {
             record.Family_of_Needs__c = null;
         } else if (record.Offering_Type__c == 'Family of Needs') {
             if (String.isBlank(record.Family_of_Needs__c)) {
-                throw new AuraHandledException('Select at least one Family of Needs to activate.');
+                throw new AuraHandledException('Select at least one Family of Needs.');
             }
             record.Family_of_Needs__c = normalizeOfferingIds(
                 record.Family_of_Needs__c, 'Family of Needs'
@@ -709,6 +661,38 @@ public with sharing class MarketingDictionaryManagerController {
         } else {
             throw new AuraHandledException('Offering Type must be Product Family or Family of Needs.');
         }
+    }
+
+    private static void assertUniqueScoringModelName(Id recordId, String modelName) {
+        List<Marketing_Dictionary__c> existing = [
+            SELECT Id
+            FROM Marketing_Dictionary__c
+            WHERE Dictionary_Sub_Type__c = 'Scoring Model'
+            AND Name = :modelName
+        ];
+        for (Marketing_Dictionary__c row : existing) {
+            if (row.Id != recordId) {
+                throw new AuraHandledException(
+                    'A Scoring Model named "' + modelName + '" already exists.'
+                );
+            }
+        }
+    }
+
+    private static String nextScoringModelId() {
+        Integer maxId = 0;
+        for (Marketing_Dictionary__c row : [
+            SELECT Model_Id__c
+            FROM Marketing_Dictionary__c
+            WHERE Dictionary_Sub_Type__c = 'Scoring Model'
+            AND Model_Id__c != null
+        ]) {
+            if (row.Model_Id__c != null && row.Model_Id__c.isNumeric()) {
+                Integer value = Integer.valueOf(row.Model_Id__c);
+                if (value > maxId) maxId = value;
+            }
+        }
+        return String.valueOf(maxId + 1);
     }
 
     /**
