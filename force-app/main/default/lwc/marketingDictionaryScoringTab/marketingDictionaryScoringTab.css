@@ -383,3 +383,27 @@
 [part="label-container"] {
     cursor:pointer;
 }
+
+.scoring-settings-table {
+    font-size: 0.8125rem;
+    min-width: 980px;
+}
+.score-map-card {
+    border: 1px solid #e0e5ee;
+    border-radius: 0.25rem;
+    padding: 0.75rem;
+    background: #fafbfd;
+    height: 100%;
+}
+.score-formula-preview {
+    font-family: Consolas, "SFMono-Regular", monospace;
+    background: #fff;
+    border: 1px solid #d8dde6;
+    border-radius: 0.25rem;
+    padding: 0.4rem 0.6rem;
+    color: #080707;
+    word-break: break-all;
+}
+.score-map-loading {
+    min-height: 4rem;
+}

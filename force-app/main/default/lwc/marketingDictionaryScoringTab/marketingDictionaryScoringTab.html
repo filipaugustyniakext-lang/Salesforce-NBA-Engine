@@ -172,9 +172,70 @@
             </div>
             </template>
             <template lwc:if={isSettings}>
-                <div class="slds-p-around_medium">
-                    <h2 class="slds-text-heading_small">Model Settings</h2>
-                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">No model settings yet.</p>
+                <div class="slds-p-around_small">
+                    <div class="cd-toolbar slds-m-bottom_small">
+                        <h2 class="slds-text-heading_small">
+                            Model Settings
+                            <span class="slds-badge slds-badge_lightest slds-m-left_x-small">{settingsCount}</span>
+                        </h2>
+                        <lightning-button label="Configure Model" icon-name="utility:add" variant="brand"
+                            onclick={handleNewModelSetting}>
+                        </lightning-button>
+                    </div>
+                    <template lwc:if={modelSettingsLoading}>
+                        <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
+                    </template>
+                    <template lwc:elseif={hasModelSettings}>
+                        <div class="scoring-table-wrap">
+                            <table class="slds-table slds-table_bordered slds-table_cell-buffer scoring-settings-table"
+                                aria-label="Model Settings">
+                                <thead>
+                                    <tr class="slds-line-height_reset">
+                                        <th scope="col">Model</th>
+                                        <th scope="col">Model ID</th>
+                                        <th scope="col">Data360 DMO</th>
+                                        <th scope="col">Source</th>
+                                        <th scope="col">Source Model ID</th>
+                                        <th scope="col">Base Score</th>
+                                        <th scope="col">Calibrated Base Score</th>
+                                        <th scope="col">From</th>
+                                        <th scope="col">To</th>
+                                        <th scope="col"><span class="slds-assistive-text">Actions</span></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template for:each={modelSettingRows} for:item="row">
+                                        <tr key={row.Id}>
+                                            <td><span class="slds-truncate" title={row.modelName}>{row.modelName}</span></td>
+                                            <td><code class="scoring-model-id" title={row.modelId}>{row.modelId}</code></td>
+                                            <td><span class="slds-truncate" title={row.Data360_DMO__c}>{row.Data360_DMO__c}</span></td>
+                                            <td>{row.Model_Source__c}</td>
+                                            <td><span class="slds-truncate" title={row.Source_Model_Id_Column__c}>{row.Source_Model_Id_Column__c}</span></td>
+                                            <td><code class="scoring-model-id" title={row.Base_Score_Formula__c}>{row.Base_Score_Formula__c}</code></td>
+                                            <td><code class="scoring-model-id" title={row.Calibrated_Score_Formula__c}>{row.Calibrated_Score_Formula__c}</code></td>
+                                            <td>{row.fromDisplay}</td>
+                                            <td>{row.toDisplay}</td>
+                                            <td>
+                                                <div class="scoring-actions">
+                                                    <lightning-button-icon icon-name="utility:edit" variant="border-filled"
+                                                        size="x-small" alternative-text="Edit" title="Edit"
+                                                        data-id={row.Id} onclick={handleEditModelSetting}>
+                                                    </lightning-button-icon>
+                                                    <lightning-button-icon icon-name="utility:delete" variant="border-filled"
+                                                        size="x-small" alternative-text="Delete" title="Delete"
+                                                        data-id={row.Id} data-name={row.modelName} onclick={handleDeleteModelSetting}>
+                                                    </lightning-button-icon>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </template>
+                    <template lwc:else>
+                        <p class="slds-text-body_small slds-text-color_weak">No model settings yet.</p>
+                    </template>
                 </div>
             </template>
         </div>
@@ -510,6 +571,163 @@
         <div class="slds-backdrop slds-backdrop_open"></div>
     </template>
 
+
+    <!-- ══════════════════════════════════════════════════════════
+         CONFIGURE MODEL
+    ══════════════════════════════════════════════════════════ -->
+    <template lwc:if={isConfigureModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="cfg-modal-title"
+            class="slds-modal slds-fade-in-open slds-modal_large">
+            <div class="slds-modal__container scoring-modal-container">
+                <div class="slds-modal__header">
+                    <h2 id="cfg-modal-title" class="slds-modal__title">{configureModalTitle}</h2>
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse"
+                        onclick={closeConfigureModal} title="Close">
+                        <lightning-icon icon-name="utility:close" size="small" alternative-text="Close"></lightning-icon>
+                    </button>
+                </div>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <div class="slds-grid slds-gutters_small slds-wrap">
+                        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                            <lightning-combobox label="Data360 DMO" required
+                                placeholder="Select a Data360 DMO" options={data360DmoOptions}
+                                value={editSetting.Data360_DMO__c} data-field="Data360_DMO__c"
+                                onchange={handleSettingFieldChange}>
+                            </lightning-combobox>
+                        </div>
+                        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                            <lightning-combobox label="Model ID" required
+                                placeholder="Select a model definition" options={modelDefinitionOptions}
+                                value={editSetting.Scoring_Model__c} data-field="Scoring_Model__c"
+                                onchange={handleSettingFieldChange}>
+                            </lightning-combobox>
+                        </div>
+                    </div>
+
+                    <template lwc:if={showColumnMapping}>
+                        <template lwc:if={isLoadingDmoFields}>
+                            <div class="slds-is-relative slds-m-top_medium score-map-loading">
+                                <lightning-spinner alternative-text="Loading columns" size="small"></lightning-spinner>
+                            </div>
+                        </template>
+                        <template lwc:elseif={hasDmoColumns}>
+                            <h3 class="slds-text-title_caps slds-text-color_weak slds-m-top_medium slds-m-bottom_x-small">Column mapping</h3>
+                            <div class="slds-grid slds-gutters_small slds-wrap">
+                                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                                    <lightning-combobox label="Source Model ID" required
+                                        placeholder="Column from the DMO" options={dmoColumnOptions}
+                                        value={editSetting.Source_Model_Id_Column__c}
+                                        data-field="Source_Model_Id_Column__c"
+                                        onchange={handleSettingFieldChange}>
+                                    </lightning-combobox>
+                                </div>
+                                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                                    <lightning-combobox label="Model Source" required
+                                        placeholder="Select a source" options={modelSourceOptions}
+                                        value={editSetting.Model_Source__c} data-field="Model_Source__c"
+                                        onchange={handleSettingFieldChange}>
+                                    </lightning-combobox>
+                                </div>
+                            </div>
+
+                            <p class="slds-text-body_small slds-text-color_weak slds-m-top_medium">
+                                Base Score and Calibrated Base Score are always formulas. Use the source column as it comes from the DMO, or multiply or divide it by a factor.
+                            </p>
+                            <template lwc:if={hasNoNumericColumns}>
+                                <p class="cd-warn-text slds-m-top_x-small">This DMO has no numeric columns. Both scores need a number column that allows decimals.</p>
+                            </template>
+
+                            <div class="slds-grid slds-gutters_small slds-wrap slds-m-top_small">
+                                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                                    <div class="score-map-card">
+                                        <h4 class="slds-text-heading_small slds-m-bottom_x-small">Base Score</h4>
+                                        <lightning-combobox label="Source column" required
+                                            placeholder="Numeric column" options={dmoNumericColumnOptions}
+                                            value={editSetting.Base_Score_Column__c}
+                                            data-field="Base_Score_Column__c"
+                                            onchange={handleSettingFieldChange}>
+                                        </lightning-combobox>
+                                        <lightning-combobox label="Formula" required class="slds-m-top_x-small"
+                                            options={scoreFormulaModeOptions}
+                                            value={editSetting.Base_Score_Formula_Mode__c}
+                                            data-field="Base_Score_Formula_Mode__c"
+                                            onchange={handleSettingFieldChange}>
+                                        </lightning-combobox>
+                                        <template lwc:if={showBaseScoreFactor}>
+                                            <lightning-input type="number" step="any" required
+                                                label="Factor" class="slds-m-top_x-small"
+                                                value={editSetting.Base_Score_Factor__c}
+                                                data-field="Base_Score_Factor__c"
+                                                onchange={handleSettingFactorChange}
+                                                field-level-help="Non-zero number. Decimals are allowed, for example 1.5.">
+                                            </lightning-input>
+                                        </template>
+                                        <p class="slds-text-body_small slds-m-top_x-small">Formula</p>
+                                        <div class="score-formula-preview">{baseScoreFormulaPreview}</div>
+                                    </div>
+                                </div>
+                                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                                    <div class="score-map-card">
+                                        <h4 class="slds-text-heading_small slds-m-bottom_x-small">Calibrated Base Score</h4>
+                                        <lightning-combobox label="Source column" required
+                                            placeholder="Numeric column" options={dmoNumericColumnOptions}
+                                            value={editSetting.Calibrated_Base_Score_Column__c}
+                                            data-field="Calibrated_Base_Score_Column__c"
+                                            onchange={handleSettingFieldChange}>
+                                        </lightning-combobox>
+                                        <lightning-combobox label="Formula" required class="slds-m-top_x-small"
+                                            options={scoreFormulaModeOptions}
+                                            value={editSetting.Calibrated_Score_Formula_Mode__c}
+                                            data-field="Calibrated_Score_Formula_Mode__c"
+                                            onchange={handleSettingFieldChange}>
+                                        </lightning-combobox>
+                                        <template lwc:if={showCalibratedScoreFactor}>
+                                            <lightning-input type="number" step="any" required
+                                                label="Factor" class="slds-m-top_x-small"
+                                                value={editSetting.Calibrated_Score_Factor__c}
+                                                data-field="Calibrated_Score_Factor__c"
+                                                onchange={handleSettingFactorChange}
+                                                field-level-help="Non-zero number. Decimals are allowed, for example 1.5.">
+                                            </lightning-input>
+                                        </template>
+                                        <p class="slds-text-body_small slds-m-top_x-small">Formula</p>
+                                        <div class="score-formula-preview">{calibratedScoreFormulaPreview}</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="slds-grid slds-gutters_small slds-wrap slds-m-top_medium">
+                                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                                    <lightning-input type="date" label="Model From Date" required
+                                        value={editSetting.Model_From_Date__c}
+                                        data-field="Model_From_Date__c"
+                                        onchange={handleSettingFieldChange}>
+                                    </lightning-input>
+                                </div>
+                                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                                    <lightning-input type="date" label="Model To Date" required
+                                        value={editSetting.Model_To_Date__c}
+                                        data-field="Model_To_Date__c"
+                                        onchange={handleSettingFieldChange}>
+                                    </lightning-input>
+                                </div>
+                            </div>
+                        </template>
+                        <template lwc:else>
+                            <p class="slds-text-body_small slds-text-color_weak slds-m-top_medium">No columns were returned for this Data360 DMO.</p>
+                        </template>
+                    </template>
+                </div>
+                <div class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={closeConfigureModal}></lightning-button>
+                    <lightning-button label="Save" variant="brand" class="slds-m-left_x-small"
+                        onclick={handleSaveModelSetting} disabled={isConfigureSaveDisabled}>
+                    </lightning-button>
+                </div>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
 
     <!-- ══════════════════════════════════════════════════════════
          DELETE CONFIRMATION

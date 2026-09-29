@@ -1413,4 +1413,269 @@ public with sharing class MarketingDictionaryManagerController {
             .get(developerName)
             ?.getRecordTypeId();
     }
+
+    /**
+     * Columns on a Data360 DMO. numeric is "true" for number, currency, percent, and numeric formulas.
+     */
+    @AuraEnabled
+    public static List<Map<String, String>> getData360DmoFields(String dmoApiName) {
+        List<Map<String, String>> options = new List<Map<String, String>>();
+        for (FieldDefinition fd : queryDmoFields(dmoApiName)) {
+            String api = fd.QualifiedApiName;
+            if (String.isBlank(api) || !isSafeColumnApi(api)) {
+                continue;
+            }
+            String label = String.isNotBlank(fd.Label) ? fd.Label : api;
+            String display = label == api ? api : label + ' (' + api + ')';
+            options.add(new Map<String, String>{
+                'label' => display,
+                'value' => api,
+                'dataType' => fd.DataType == null ? '' : fd.DataType,
+                'numeric' => isNumericDataType(fd.DataType) ? 'true' : 'false'
+            });
+        }
+        return options;
+    }
+
+    @AuraEnabled(cacheable=true)
+    public static List<Scoring_Model_Setting__c> getScoringModelSettings() {
+        return [
+            SELECT Id, Name,
+                   Scoring_Model__c, Scoring_Model__r.Name, Scoring_Model__r.Model_Id__c,
+                   Data360_DMO__c, Source_Model_Id_Column__c, Model_Source__c,
+                   Base_Score_Column__c, Base_Score_Formula_Mode__c, Base_Score_Factor__c, Base_Score_Formula__c,
+                   Calibrated_Base_Score_Column__c, Calibrated_Score_Formula_Mode__c,
+                   Calibrated_Score_Factor__c, Calibrated_Score_Formula__c,
+                   Model_From_Date__c, Model_To_Date__c
+            FROM Scoring_Model_Setting__c
+            ORDER BY Scoring_Model__r.Name ASC NULLS LAST, Name ASC
+            LIMIT 2000
+        ];
+    }
+
+    @AuraEnabled
+    public static Id saveScoringModelSetting(Scoring_Model_Setting__c record) {
+        try {
+            if (record == null || record.Scoring_Model__c == null) {
+                throw new AuraHandledException('Model ID is required.');
+            }
+            List<Marketing_Dictionary__c> models = [
+                SELECT Id, Name, Dictionary_Sub_Type__c
+                FROM Marketing_Dictionary__c
+                WHERE Id = :record.Scoring_Model__c
+                LIMIT 1
+            ];
+            if (models.isEmpty() || models[0].Dictionary_Sub_Type__c != 'Scoring Model') {
+                throw new AuraHandledException('Select a model from Model Definitions.');
+            }
+            Marketing_Dictionary__c model = models[0];
+
+            String dmo = record.Data360_DMO__c == null ? '' : record.Data360_DMO__c.trim();
+            Map<String, String> canonicalByLower = new Map<String, String>();
+            Map<String, String> typeByLower = new Map<String, String>();
+            for (FieldDefinition fd : queryDmoFields(dmo)) {
+                if (String.isBlank(fd.QualifiedApiName) || !isSafeColumnApi(fd.QualifiedApiName)) {
+                    continue;
+                }
+                String key = fd.QualifiedApiName.toLowerCase();
+                canonicalByLower.put(key, fd.QualifiedApiName);
+                typeByLower.put(key, fd.DataType);
+            }
+            if (canonicalByLower.isEmpty()) {
+                throw new AuraHandledException('The selected Data360 DMO has no columns to map.');
+            }
+
+            String sourceColumn = requireDmoColumn(
+                record.Source_Model_Id_Column__c, canonicalByLower, typeByLower, 'Source Model ID', false
+            );
+            String modelSource = record.Model_Source__c;
+            if (modelSource != 'GCP' && modelSource != 'Einstein' && modelSource != 'Other') {
+                throw new AuraHandledException('Model Source must be GCP, Einstein, or Other.');
+            }
+            String baseColumn = requireDmoColumn(
+                record.Base_Score_Column__c, canonicalByLower, typeByLower, 'Base Score', true
+            );
+            String calibratedColumn = requireDmoColumn(
+                record.Calibrated_Base_Score_Column__c, canonicalByLower, typeByLower, 'Calibrated Base Score', true
+            );
+            ScoreFormula baseFormula = buildScoreFormula(
+                baseColumn, record.Base_Score_Formula_Mode__c, record.Base_Score_Factor__c, 'Base Score'
+            );
+            ScoreFormula calibratedFormula = buildScoreFormula(
+                calibratedColumn,
+                record.Calibrated_Score_Formula_Mode__c,
+                record.Calibrated_Score_Factor__c,
+                'Calibrated Base Score'
+            );
+            if (record.Model_From_Date__c == null) {
+                throw new AuraHandledException('Model From Date is required.');
+            }
+            if (record.Model_To_Date__c == null) {
+                throw new AuraHandledException('Model To Date is required.');
+            }
+            if (record.Model_From_Date__c > record.Model_To_Date__c) {
+                throw new AuraHandledException('Model From Date must be on or before Model To Date.');
+            }
+
+            List<Scoring_Model_Setting__c> dupes = [
+                SELECT Id
+                FROM Scoring_Model_Setting__c
+                WHERE Scoring_Model__c = :model.Id
+                AND Id != :record.Id
+                LIMIT 1
+            ];
+            if (!dupes.isEmpty()) {
+                throw new AuraHandledException('This model already has a setting. Edit the existing configuration.');
+            }
+
+            String settingName = model.Name == null ? 'Model Setting' : model.Name.trim();
+            if (settingName.length() > 80) {
+                settingName = settingName.substring(0, 80);
+            }
+            Scoring_Model_Setting__c row = new Scoring_Model_Setting__c(
+                Id = record.Id,
+                Name = settingName,
+                Scoring_Model__c = model.Id,
+                Model_Definition_Key__c = String.valueOf(model.Id),
+                Data360_DMO__c = dmo,
+                Source_Model_Id_Column__c = sourceColumn,
+                Model_Source__c = modelSource,
+                Base_Score_Column__c = baseColumn,
+                Base_Score_Formula_Mode__c = baseFormula.mode,
+                Base_Score_Factor__c = baseFormula.factor,
+                Base_Score_Formula__c = baseFormula.expression,
+                Calibrated_Base_Score_Column__c = calibratedColumn,
+                Calibrated_Score_Formula_Mode__c = calibratedFormula.mode,
+                Calibrated_Score_Factor__c = calibratedFormula.factor,
+                Calibrated_Score_Formula__c = calibratedFormula.expression,
+                Model_From_Date__c = record.Model_From_Date__c,
+                Model_To_Date__c = record.Model_To_Date__c
+            );
+            upsert row;
+            return row.Id;
+        } catch (AuraHandledException ahe) {
+            throw ahe;
+        } catch (DmlException dml) {
+            String msg = dml.getDmlMessage(0);
+            if (msg != null && msg.toLowerCase().contains('duplicate')) {
+                throw new AuraHandledException('This model already has a setting. Edit the existing configuration.');
+            }
+            throw new AuraHandledException(msg);
+        } catch (Exception e) {
+            throw new AuraHandledException(e.getMessage());
+        }
+    }
+
+    @AuraEnabled
+    public static void deleteScoringModelSetting(Id recordId) {
+        try {
+            if (recordId == null) {
+                throw new AuraHandledException('Model setting is required.');
+            }
+            delete [
+                SELECT Id
+                FROM Scoring_Model_Setting__c
+                WHERE Id = :recordId
+                LIMIT 1
+            ];
+        } catch (AuraHandledException ahe) {
+            throw ahe;
+        } catch (Exception e) {
+            throw new AuraHandledException(e.getMessage());
+        }
+    }
+
+    private static List<FieldDefinition> queryDmoFields(String dmoApiName) {
+        String dmo = dmoApiName == null ? '' : dmoApiName.trim();
+        if (String.isBlank(dmo) || !dmo.endsWithIgnoreCase('__dlm')) {
+            throw new AuraHandledException('Select a Data360 DMO.');
+        }
+        try {
+            return [
+                SELECT QualifiedApiName, Label, DataType
+                FROM FieldDefinition
+                WHERE EntityDefinition.QualifiedApiName = :dmo
+                ORDER BY Label ASC NULLS LAST, QualifiedApiName ASC
+                LIMIT 2000
+            ];
+        } catch (Exception e) {
+            throw new AuraHandledException('Could not load columns for the selected Data360 DMO.');
+        }
+    }
+
+    private static String requireDmoColumn(
+        String raw,
+        Map<String, String> canonicalByLower,
+        Map<String, String> typeByLower,
+        String label,
+        Boolean numericOnly
+    ) {
+        if (String.isBlank(raw)) {
+            throw new AuraHandledException(label + ' is required.');
+        }
+        String key = raw.trim().toLowerCase();
+        if (!canonicalByLower.containsKey(key)) {
+            throw new AuraHandledException(label + ' must be a column on the selected Data360 DMO.');
+        }
+        if (numericOnly && !isNumericDataType(typeByLower.get(key))) {
+            throw new AuraHandledException(label + ' must be a number column that allows decimals.');
+        }
+        return canonicalByLower.get(key);
+    }
+
+    private static Boolean isNumericDataType(String dataType) {
+        if (String.isBlank(dataType)) {
+            return false;
+        }
+        String normalized = dataType.toLowerCase();
+        Matcher scaled = Pattern.compile('(number|currency|percent|decimal|double)\\((\\d+),\\s*(\\d+)\\)').matcher(normalized);
+        if (scaled.find()) {
+            return Integer.valueOf(scaled.group(3)) > 0;
+        }
+        Boolean numericFamily = normalized.contains('number')
+            || normalized.contains('currency')
+            || normalized.contains('percent')
+            || normalized.contains('double')
+            || normalized.contains('decimal');
+        if (normalized.contains('formula')) {
+            return numericFamily;
+        }
+        return numericFamily;
+    }
+
+    private static Boolean isSafeColumnApi(String api) {
+        return Pattern.matches('^[A-Za-z][A-Za-z0-9_]*$', api);
+    }
+
+    private static ScoreFormula buildScoreFormula(String column, String mode, Decimal factor, String label) {
+        if (mode != 'AsIs' && mode != 'Multiply' && mode != 'Divide') {
+            throw new AuraHandledException(label + ' formula is required.');
+        }
+        String token = '{' + column + '}';
+        if (mode == 'AsIs') {
+            return new ScoreFormula(mode, null, token);
+        }
+        if (factor == null || factor == 0) {
+            throw new AuraHandledException(label + ' factor must be a non-zero number.');
+        }
+        String operator = mode == 'Multiply' ? '*' : '/';
+        String factorText = factor.stripTrailingZeros().toPlainString();
+        String expression = token + ' ' + operator + ' ' + factorText;
+        if (expression.length() > 255) {
+            throw new AuraHandledException(label + ' formula is too long.');
+        }
+        return new ScoreFormula(mode, factor, expression);
+    }
+
+    private class ScoreFormula {
+        public String mode;
+        public Decimal factor;
+        public String expression;
+
+        public ScoreFormula(String mode, Decimal factor, String expression) {
+            this.mode = mode;
+            this.factor = factor;
+            this.expression = expression;
+        }
+    }
 }

@@ -11,6 +11,10 @@ import getProductFamilyCustomerTypes from '@salesforce/apex/MarketingDictionaryC
 import getFamilyOfNeedsCustomerTypes from '@salesforce/apex/MarketingDictionaryController.getFamilyOfNeedsCustomerTypes';
 import getProductOfferingCatalogue from '@salesforce/apex/MarketingDictionaryManagerController.getProductOfferingCatalogue';
 import getData360DmoOptions from '@salesforce/apex/MarketingDictionaryManagerController.getData360DmoOptions';
+import getData360DmoFields from '@salesforce/apex/MarketingDictionaryManagerController.getData360DmoFields';
+import getScoringModelSettings from '@salesforce/apex/MarketingDictionaryManagerController.getScoringModelSettings';
+import saveScoringModelSetting from '@salesforce/apex/MarketingDictionaryManagerController.saveScoringModelSetting';
+import deleteScoringModelSetting from '@salesforce/apex/MarketingDictionaryManagerController.deleteScoringModelSetting';
 
 const EMPTY_MODEL_GROUP = () => ({ Name: '', Dictionary_Sub_Type__c: 'Scoring Model Group' });
 const EMPTY_SCORING = () => ({
@@ -25,6 +29,20 @@ const EMPTY_SCORING = () => ({
     Family_of_Needs__c: '',
     Model_Expiration_Date__c: null,
     Is_Active__c: false
+});
+const EMPTY_MODEL_SETTING = () => ({
+    Scoring_Model__c: null,
+    Data360_DMO__c: '',
+    Source_Model_Id_Column__c: '',
+    Model_Source__c: '',
+    Base_Score_Column__c: '',
+    Base_Score_Formula_Mode__c: 'AsIs',
+    Base_Score_Factor__c: null,
+    Calibrated_Base_Score_Column__c: '',
+    Calibrated_Score_Formula_Mode__c: 'AsIs',
+    Calibrated_Score_Factor__c: null,
+    Model_From_Date__c: null,
+    Model_To_Date__c: null
 });
 const OFFERING_TYPES = [
     { label: 'Product Family', value: 'Product Family' },
@@ -44,6 +62,13 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
     @track scoringAsNewMaster = true;
     @track scoringNameLocked = false;
     @track data360DmoOptions = [];
+    @track modelSettings = [];
+    @track modelSettingsLoading = true;
+    @track isConfigureModalOpen = false;
+    @track isLoadingDmoFields = false;
+    @track editSetting = EMPTY_MODEL_SETTING();
+    @track dmoColumnOptions = [];
+    @track dmoNumericColumnOptions = [];
     @track expandedScoringMasters = {};
     @track productFamilyOptions = [];
     @track familyOfNeedsOptions = [];
@@ -71,6 +96,7 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
     _deleteType = null;
     _deleteIds = null;
     _wiredCampaignResult;
+    _wiredSettingsResult;
     _allRecords = [];
 
     get isDefinitions() { return this.activeSubTab === 'definitions'; }
@@ -93,6 +119,14 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
         this.isLoading = false;
         if (result.data) this._allRecords = result.data;
         else if (result.error) this._showToast('Error', 'Failed to load scoring records.', 'error');
+    }
+
+    @wire(getScoringModelSettings)
+    wiredModelSettings(result) {
+        this._wiredSettingsResult = result;
+        this.modelSettingsLoading = false;
+        if (result.data) this.modelSettings = result.data;
+        else if (result.error) this._showToast('Error', 'Failed to load model settings.', 'error');
     }
 
     get allTopics() { return this._allRecords.filter(r => r.Dictionary_Sub_Type__c === 'Topic'); }
@@ -141,7 +175,7 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
                     value: r.value
                 }));
                 // Keep a currently saved value selectable even if not in catalogue.
-                const current = this.editScoring?.Data360_DMO__c;
+                const current = this.editSetting?.Data360_DMO__c || this.editScoring?.Data360_DMO__c;
                 if (current && !opts.some(o => o.value === current)) {
                     opts.unshift({ label: current, value: current });
                 }
@@ -1094,15 +1128,19 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
         this.isDeleteModalOpen = false;
         this.isSaving = true;
         try {
-            if (this._deleteType === 'scoringBulk' && this._deleteIds?.length) {
+            if (this._deleteType === 'modelSetting') {
+                await deleteScoringModelSetting({ recordId: this._deleteId });
+                await refreshApex(this._wiredSettingsResult);
+            } else if (this._deleteType === 'scoringBulk' && this._deleteIds?.length) {
                 for (const recordId of this._deleteIds) await deleteDictionaryRecord({ recordId });
                 this.selectedScoringIds = [];
                 this._deleteIds = null;
+                await refreshApex(this._wiredCampaignResult);
             } else {
                 await deleteDictionaryRecord({ recordId: this._deleteId });
                 this.selectedScoringIds = this.selectedScoringIds.filter(id => id !== this._deleteId);
+                await refreshApex(this._wiredCampaignResult);
             }
-            await refreshApex(this._wiredCampaignResult);
             this._showToast('Success', 'Deleted.', 'success');
         } catch (e) {
             this._showToast('Error', e.body?.message || 'Delete failed.', 'error');
@@ -1119,6 +1157,254 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
             this._showToast('Error', e.body?.message || 'Save failed.', 'error');
         } finally { this.isSaving = false; }
     }
+    get modelSourceOptions() {
+        return [
+            { label: 'GCP', value: 'GCP' },
+            { label: 'Einstein', value: 'Einstein' },
+            { label: 'Other', value: 'Other' }
+        ];
+    }
+
+    get scoreFormulaModeOptions() {
+        return [
+            { label: 'Use source value', value: 'AsIs' },
+            { label: 'Multiply by', value: 'Multiply' },
+            { label: 'Divide by', value: 'Divide' }
+        ];
+    }
+
+    get modelDefinitionOptions() {
+        return this.allScorings
+            .slice()
+            .sort((a, b) => (a.Name || '').localeCompare(b.Name || ''))
+            .map(r => ({
+                label: r.Model_Id__c ? `${r.Name} (${r.Model_Id__c})` : r.Name,
+                value: r.Id
+            }));
+    }
+
+    get hasModelSettings() { return this.modelSettingRows.length > 0; }
+    get settingsCount() { return this.modelSettingRows.length; }
+    get showColumnMapping() { return !!this.editSetting?.Data360_DMO__c; }
+    get hasDmoColumns() { return this.dmoColumnOptions.length > 0; }
+    get hasNoNumericColumns() { return this.hasDmoColumns && this.dmoNumericColumnOptions.length === 0; }
+    get showBaseScoreFactor() { return this._formulaNeedsFactor(this.editSetting?.Base_Score_Formula_Mode__c); }
+    get showCalibratedScoreFactor() { return this._formulaNeedsFactor(this.editSetting?.Calibrated_Score_Formula_Mode__c); }
+    get baseScoreFormulaPreview() {
+        return this._scoreFormulaPreview(
+            this.editSetting?.Base_Score_Column__c,
+            this.editSetting?.Base_Score_Formula_Mode__c,
+            this.editSetting?.Base_Score_Factor__c
+        );
+    }
+    get calibratedScoreFormulaPreview() {
+        return this._scoreFormulaPreview(
+            this.editSetting?.Calibrated_Base_Score_Column__c,
+            this.editSetting?.Calibrated_Score_Formula_Mode__c,
+            this.editSetting?.Calibrated_Score_Factor__c
+        );
+    }
+    get configureModalTitle() {
+        return this.editSetting?.Id ? 'Edit Model Setting' : 'Configure Model';
+    }
+    get isConfigureSaveDisabled() { return this.isSaving || this.isLoadingDmoFields; }
+
+    get modelSettingRows() {
+        return (this.modelSettings || []).map(row => ({
+            ...row,
+            modelName: row.Scoring_Model__r?.Name || row.Name || '',
+            modelId: row.Scoring_Model__r?.Model_Id__c || '',
+            fromDisplay: this._formatSettingDate(row.Model_From_Date__c),
+            toDisplay: this._formatSettingDate(row.Model_To_Date__c)
+        }));
+    }
+
+    handleNewModelSetting() {
+        this.editSetting = EMPTY_MODEL_SETTING();
+        this.dmoColumnOptions = [];
+        this.dmoNumericColumnOptions = [];
+        this.isLoadingDmoFields = false;
+        this._loadData360DmoOptions();
+        this.isConfigureModalOpen = true;
+    }
+
+    handleEditModelSetting(e) {
+        const row = (this.modelSettings || []).find(r => r.Id === e.currentTarget.dataset.id);
+        if (!row) return;
+        this.editSetting = {
+            Id: row.Id,
+            Scoring_Model__c: row.Scoring_Model__c,
+            Data360_DMO__c: row.Data360_DMO__c || '',
+            Source_Model_Id_Column__c: row.Source_Model_Id_Column__c || '',
+            Model_Source__c: row.Model_Source__c || '',
+            Base_Score_Column__c: row.Base_Score_Column__c || '',
+            Base_Score_Formula_Mode__c: row.Base_Score_Formula_Mode__c || 'AsIs',
+            Base_Score_Factor__c: row.Base_Score_Factor__c,
+            Calibrated_Base_Score_Column__c: row.Calibrated_Base_Score_Column__c || '',
+            Calibrated_Score_Formula_Mode__c: row.Calibrated_Score_Formula_Mode__c || 'AsIs',
+            Calibrated_Score_Factor__c: row.Calibrated_Score_Factor__c,
+            Model_From_Date__c: row.Model_From_Date__c,
+            Model_To_Date__c: row.Model_To_Date__c
+        };
+        this._loadData360DmoOptions();
+        this._loadDmoFields(this.editSetting.Data360_DMO__c);
+        this.isConfigureModalOpen = true;
+    }
+
+    closeConfigureModal() { this.isConfigureModalOpen = false; }
+
+    handleDeleteModelSetting(e) {
+        this._openDeleteModal(e.currentTarget.dataset.id, e.currentTarget.dataset.name, 'modelSetting');
+    }
+
+    handleSettingFieldChange(e) {
+        const field = e.target.dataset.field;
+        const value = e.detail?.value ?? e.target.value;
+        const next = { ...this.editSetting, [field]: value || null };
+        if (field === 'Data360_DMO__c') {
+            next.Data360_DMO__c = value || '';
+            if (value !== this.editSetting.Data360_DMO__c) {
+                next.Source_Model_Id_Column__c = '';
+                next.Base_Score_Column__c = '';
+                next.Calibrated_Base_Score_Column__c = '';
+                this.dmoColumnOptions = [];
+                this.dmoNumericColumnOptions = [];
+                this.editSetting = next;
+                this._loadDmoFields(value);
+                return;
+            }
+        }
+        if (field === 'Base_Score_Formula_Mode__c' && value === 'AsIs') next.Base_Score_Factor__c = null;
+        if (field === 'Calibrated_Score_Formula_Mode__c' && value === 'AsIs') next.Calibrated_Score_Factor__c = null;
+        if (field === 'Source_Model_Id_Column__c' || field === 'Base_Score_Column__c' || field === 'Calibrated_Base_Score_Column__c' || field === 'Model_Source__c') {
+            next[field] = value || '';
+        }
+        this.editSetting = next;
+    }
+
+    handleSettingFactorChange(e) {
+        const field = e.target.dataset.field;
+        const raw = e.detail?.value;
+        if (raw === '' || raw == null) {
+            this.editSetting = { ...this.editSetting, [field]: null };
+            return;
+        }
+        const num = Number(raw);
+        this.editSetting = { ...this.editSetting, [field]: Number.isFinite(num) ? num : null };
+    }
+
+    async handleSaveModelSetting() {
+        const s = this.editSetting || {};
+        const missing = [];
+        if (!s.Data360_DMO__c) missing.push('Data360 DMO');
+        if (!s.Scoring_Model__c) missing.push('Model ID');
+        if (!s.Source_Model_Id_Column__c) missing.push('Source Model ID');
+        if (!s.Model_Source__c) missing.push('Model Source');
+        if (!s.Base_Score_Column__c) missing.push('Base Score column');
+        if (!s.Calibrated_Base_Score_Column__c) missing.push('Calibrated Base Score column');
+        if (!s.Model_From_Date__c) missing.push('Model From Date');
+        if (!s.Model_To_Date__c) missing.push('Model To Date');
+        if (this._formulaNeedsFactor(s.Base_Score_Formula_Mode__c) && !this._isNonZeroFactor(s.Base_Score_Factor__c)) {
+            missing.push('Base Score factor');
+        }
+        if (this._formulaNeedsFactor(s.Calibrated_Score_Formula_Mode__c) && !this._isNonZeroFactor(s.Calibrated_Score_Factor__c)) {
+            missing.push('Calibrated Base Score factor');
+        }
+        if (missing.length) {
+            this._showToast('Validation', `Complete required fields: ${missing.join(', ')}`, 'warning');
+            return;
+        }
+        if (s.Model_From_Date__c > s.Model_To_Date__c) {
+            this._showToast('Validation', 'Model From Date must be on or before Model To Date.', 'warning');
+            return;
+        }
+        this.isSaving = true;
+        try {
+            await saveScoringModelSetting({
+                record: {
+                    Id: s.Id || null,
+                    Scoring_Model__c: s.Scoring_Model__c,
+                    Data360_DMO__c: s.Data360_DMO__c,
+                    Source_Model_Id_Column__c: s.Source_Model_Id_Column__c,
+                    Model_Source__c: s.Model_Source__c,
+                    Base_Score_Column__c: s.Base_Score_Column__c,
+                    Base_Score_Formula_Mode__c: s.Base_Score_Formula_Mode__c || 'AsIs',
+                    Base_Score_Factor__c: this._formulaNeedsFactor(s.Base_Score_Formula_Mode__c) ? s.Base_Score_Factor__c : null,
+                    Calibrated_Base_Score_Column__c: s.Calibrated_Base_Score_Column__c,
+                    Calibrated_Score_Formula_Mode__c: s.Calibrated_Score_Formula_Mode__c || 'AsIs',
+                    Calibrated_Score_Factor__c: this._formulaNeedsFactor(s.Calibrated_Score_Formula_Mode__c) ? s.Calibrated_Score_Factor__c : null,
+                    Model_From_Date__c: s.Model_From_Date__c,
+                    Model_To_Date__c: s.Model_To_Date__c
+                }
+            });
+            this._showToast('Success', 'Model setting saved.', 'success');
+            this.isConfigureModalOpen = false;
+            await refreshApex(this._wiredSettingsResult);
+        } catch (err) {
+            this._showToast('Error', err.body?.message || 'Save failed.', 'error');
+        } finally {
+            this.isSaving = false;
+        }
+    }
+
+    _loadDmoFields(dmoApiName) {
+        this.dmoColumnOptions = [];
+        this.dmoNumericColumnOptions = [];
+        if (!dmoApiName) {
+            this.isLoadingDmoFields = false;
+            return;
+        }
+        this.isLoadingDmoFields = true;
+        getData360DmoFields({ dmoApiName })
+            .then(rows => {
+                if (this.editSetting?.Data360_DMO__c !== dmoApiName) return;
+                const all = [];
+                const numeric = [];
+                (rows || []).forEach(r => {
+                    const opt = { label: r.label, value: r.value };
+                    all.push(opt);
+                    if (r.numeric === 'true') numeric.push({ ...opt });
+                });
+                this.dmoColumnOptions = all;
+                this.dmoNumericColumnOptions = numeric;
+            })
+            .catch(err => {
+                if (this.editSetting?.Data360_DMO__c !== dmoApiName) return;
+                this.dmoColumnOptions = [];
+                this.dmoNumericColumnOptions = [];
+                this._showToast('Error', err.body?.message || 'Could not load DMO columns.', 'error');
+            })
+            .finally(() => {
+                if (this.editSetting?.Data360_DMO__c === dmoApiName) this.isLoadingDmoFields = false;
+            });
+    }
+
+    _formulaNeedsFactor(mode) {
+        return mode === 'Multiply' || mode === 'Divide';
+    }
+
+    _isNonZeroFactor(value) {
+        return value !== null && value !== '' && Number.isFinite(Number(value)) && Number(value) !== 0;
+    }
+
+    _scoreFormulaPreview(column, mode, factor) {
+        if (!column) return 'Select a source column';
+        const token = `{${column}}`;
+        if (mode === 'Multiply' || mode === 'Divide') {
+            const operator = mode === 'Multiply' ? '*' : '/';
+            const shown = this._isNonZeroFactor(factor) ? String(factor) : '…';
+            return `${token} ${operator} ${shown}`;
+        }
+        return token;
+    }
+
+    _formatSettingDate(value) {
+        if (!value) return '';
+        const parsed = new Date(`${value}T00:00:00`);
+        if (Number.isNaN(parsed.getTime())) return value;
+        return parsed.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    }
+
     _showToast(title, message, variant) {
         this.dispatchEvent(new ShowToastEvent({ title, message, variant }));
     }
