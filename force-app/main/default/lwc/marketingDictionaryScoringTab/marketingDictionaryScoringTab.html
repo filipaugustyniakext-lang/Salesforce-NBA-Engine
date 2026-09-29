@@ -589,11 +589,37 @@
                 <div class="slds-modal__content slds-p-around_medium">
                     <div class="slds-grid slds-gutters_small slds-wrap">
                         <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
-                            <lightning-combobox label="Data360 DMO" required
-                                placeholder="Select a Data360 DMO" options={data360DmoOptions}
-                                value={editSetting.Data360_DMO__c} data-field="Data360_DMO__c"
-                                onchange={handleSettingFieldChange}>
-                            </lightning-combobox>
+                            <lightning-input type="search" label="Data360 DMO" required
+                                placeholder="Search by name or API name" value={dmoSearch}
+                                onchange={handleDmoSearch}>
+                            </lightning-input>
+                            <template lwc:if={selectedDmoLabel}>
+                                <p class="slds-text-body_small slds-m-top_xx-small">Selected: <strong>{selectedDmoLabel}</strong></p>
+                            </template>
+                            <template lwc:if={isLoadingDmos}>
+                                <div class="slds-is-relative score-map-loading">
+                                    <lightning-spinner alternative-text="Loading DMOs" size="small"></lightning-spinner>
+                                </div>
+                            </template>
+                            <template lwc:elseif={dmoCatalogueError}>
+                                <p class="cd-warn-text slds-m-top_x-small">{dmoCatalogueError}</p>
+                            </template>
+                            <template lwc:elseif={hasNoDmos}>
+                                <p class="slds-text-body_small slds-m-top_x-small">
+                                    No Data360 DMOs are visible to this user. Assign View Setup and Configuration, and a Data Cloud permission set that can access the data space.
+                                </p>
+                            </template>
+                            <template lwc:else>
+                                <div class="dmo-search-results" role="listbox" aria-label="Data360 DMOs">
+                                    <template for:each={filteredDmoOptions} for:item="opt">
+                                        <button type="button" key={opt.value} class={opt.optionClass}
+                                            data-value={opt.value} onclick={handleSelectDmo}>
+                                            {opt.label}
+                                        </button>
+                                    </template>
+                                </div>
+                                <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">{dmoResultHint}</p>
+                            </template>
                         </div>
                         <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
                             <lightning-combobox label="Model ID" required

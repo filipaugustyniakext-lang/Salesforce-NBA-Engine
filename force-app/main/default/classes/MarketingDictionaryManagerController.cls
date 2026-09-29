@@ -472,25 +472,67 @@ public with sharing class MarketingDictionaryManagerController {
     public static List<Map<String, String>> getData360DmoOptions() {
         List<Map<String, String>> options = new List<Map<String, String>>();
         try {
-            for (EntityDefinition ent : [
-                SELECT QualifiedApiName, Label
-                FROM EntityDefinition
-                WHERE QualifiedApiName LIKE '%__dlm'
-                ORDER BY Label ASC NULLS LAST, QualifiedApiName ASC
-                LIMIT 500
-            ]) {
+            for (EntityDefinition ent : queryData360Dmos()) {
                 String api = ent.QualifiedApiName;
+                if (String.isBlank(api)) {
+                    continue;
+                }
                 String label = String.isNotBlank(ent.Label) ? ent.Label : api;
                 options.add(new Map<String, String>{
                     'label' => label + ' (' + api + ')',
                     'value' => api
                 });
             }
+        } catch (AuraHandledException ahe) {
+            throw ahe;
         } catch (Exception e) {
-            // EntityDefinition / Data360 catalogue may be unavailable in some orgs.
-            System.debug(LoggingLevel.WARN, 'getData360DmoOptions: ' + e.getMessage());
+            throw auraError(
+                'Data360 DMOs could not be loaded. The user needs View Setup and Configuration, plus access to the Data Cloud data space. ' +
+                e.getMessage()
+            );
         }
+        options.sort(new DmoOptionLabelSort());
         return options;
+    }
+
+    private static List<EntityDefinition> queryData360Dmos() {
+        try {
+            return [
+                SELECT QualifiedApiName, Label
+                FROM EntityDefinition
+                WHERE QualifiedApiName LIKE '%__dlm'
+                ORDER BY Label ASC NULLS LAST, QualifiedApiName ASC
+                LIMIT 2000
+            ];
+        } catch (Exception orderedQueryFailed) {
+            try {
+                return [
+                    SELECT QualifiedApiName, Label
+                    FROM EntityDefinition
+                    WHERE QualifiedApiName LIKE '%__dlm'
+                    LIMIT 2000
+                ];
+            } catch (Exception e) {
+                throw auraError(
+                    'Data360 DMOs could not be loaded. The user needs View Setup and Configuration, plus access to the Data Cloud data space. ' +
+                    e.getMessage()
+                );
+            }
+        }
+    }
+
+    private static AuraHandledException auraError(String message) {
+        AuraHandledException ex = new AuraHandledException(message);
+        ex.setMessage(message);
+        return ex;
+    }
+
+    private class DmoOptionLabelSort implements System.Comparator<Map<String, String>> {
+        public Integer compare(Map<String, String> a, Map<String, String> b) {
+            String left = a == null || a.get('label') == null ? '' : a.get('label');
+            String right = b == null || b.get('label') == null ? '' : b.get('label');
+            return left.toLowerCase().compareTo(right.toLowerCase());
+        }
     }
 
     /**

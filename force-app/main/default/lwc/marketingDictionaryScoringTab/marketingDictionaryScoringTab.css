@@ -407,3 +407,27 @@
 .score-map-loading {
     min-height: 4rem;
 }
+.dmo-search-results {
+    max-height: 220px;
+    overflow: auto;
+    border: 1px solid #d8dde6;
+    border-radius: 0.25rem;
+    margin-top: 0.25rem;
+    background: #fff;
+}
+.dmo-option {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: #fff;
+    border: 0;
+    border-bottom: 1px solid #f3f3f3;
+    padding: 0.4rem 0.6rem;
+    cursor: pointer;
+    font-size: 0.8125rem;
+    color: #080707;
+}
+.dmo-option:hover,
+.dmo-option_selected {
+    background: #eef4ff;
+}
