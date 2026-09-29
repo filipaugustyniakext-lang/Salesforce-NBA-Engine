@@ -14,7 +14,162 @@
         </nav>
         <div class="vtab-content" role="tabpanel">
             <template lwc:if={isDefinitions}>
-                <c-marketing-dictionary-campaign-tab scoring-only></c-marketing-dictionary-campaign-tab>
+            <div class="slds-p-around_small">
+                <!-- Model Groups -->
+                <div class="cd-section-header slds-m-bottom_x-small">
+                    <h3 class="slds-text-title_caps slds-text-color_weak">Model Groups</h3>
+                    <lightning-button label="Add Model Group" icon-name="utility:add" variant="neutral"
+                        onclick={handleNewModelGroup}>
+                    </lightning-button>
+                </div>
+                <template lwc:if={hasScoringModelGroups}>
+                    <div class="slds-m-bottom_medium cd-badge-row">
+                        <template for:each={scoringModelGroups} for:item="grp">
+                            <span key={grp.Id} class="slds-badge cd-group-badge slds-m-right_xx-small slds-m-bottom_xx-small">
+                                {grp.Name}
+                                <lightning-button-icon icon-name="utility:edit" variant="bare" size="x-small"
+                                    alternative-text="Edit" title="Edit" class="slds-m-left_xx-small"
+                                    data-id={grp.Id} onclick={handleEditModelGroup}>
+                                </lightning-button-icon>
+                                <lightning-button-icon icon-name="utility:close" variant="bare" size="x-small"
+                                    alternative-text="Delete" title="Delete"
+                                    data-id={grp.Id} data-name={grp.Name} onclick={handleDeleteModelGroup}>
+                                </lightning-button-icon>
+                            </span>
+                        </template>
+                    </div>
+                </template>
+                <template lwc:else>
+                    <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_medium">No model groups yet. Add a group before creating scoring models.</p>
+                </template>
+
+                <!-- Scoring Models list -->
+                <div class="cd-toolbar slds-m-bottom_small">
+                    <h2 class="slds-text-heading_small">
+                        Model Definitions
+                        <span class="slds-badge slds-badge_lightest slds-m-left_x-small">{scoringsCount}</span>
+                    </h2>
+                    <div class="slds-grid slds-gutters_x-small slds-grid_vertical-align-center">
+                        <template lwc:if={hasScoringSelection}>
+                            <div class="slds-col slds-no-flex">
+                                <span class="slds-text-body_small slds-m-right_x-small">
+                                    {scoringSelectedCount} selected
+                                </span>
+                                <lightning-button label="Delete selected" icon-name="utility:delete"
+                                    variant="destructive-text" onclick={handleBulkDeleteScorings}
+                                    class="slds-m-right_xx-small">
+                                </lightning-button>
+                                <lightning-button label="Clear" variant="neutral"
+                                    onclick={handleClearScoringSelection}>
+                                </lightning-button>
+                            </div>
+                        </template>
+                        <div class="slds-col slds-no-flex">
+                            <lightning-input type="search" label="Filter" variant="label-hidden"
+                                placeholder="Search models..." value={scoringSearch}
+                                onchange={handleScoringSearch} class="cd-search-input">
+                            </lightning-input>
+                        </div>
+                        <div class="slds-col slds-no-flex">
+                            <lightning-button label="Add Model Definition" icon-name="utility:add" variant="brand"
+                                onclick={handleNewScoring}>
+                            </lightning-button>
+                        </div>
+                    </div>
+                </div>
+
+                <template lwc:if={isLoading}>
+                    <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
+                </template>
+                <template lwc:elseif={hasScorings}>
+                    <div class="scoring-table-wrap">
+                    <table class="slds-table slds-table_bordered slds-table_fixed-layout scoring-models-table"
+                        aria-label="Model Definitions">
+                        <thead>
+                            <tr class="slds-line-height_reset">
+                                <th scope="col" class="scoring-col-check">
+                                    <span class="slds-assistive-text">Select</span>
+                                    <input type="checkbox"
+                                        class="scoring-select-all-cb"
+                                        title={scoringSelectAllTitle}
+                                        checked={isAllVisibleScoringsSelected}
+                                        onchange={handleScoringSelectAll} />
+                                </th>
+                                <template for:each={scoringSortHeaders} for:item="col">
+                                    <th key={col.field} scope="col" class={col.thClass}
+                                        aria-sort={col.ariaSort}
+                                        data-field={col.field}
+                                        onclick={handleScoringSort}>
+                                        <div class="slds-truncate scoring-th-label" title={col.label}>
+                                            <span>{col.label}</span>
+                                            <template lwc:if={col.showSortIcon}>
+                                                <lightning-icon icon-name={col.sortIcon} size="xx-small"
+                                                    class="slds-m-left_xx-small scoring-sort-icon">
+                                                </lightning-icon>
+                                            </template>
+                                        </div>
+                                    </th>
+                                </template>
+                                <th scope="col" class="scoring-col-actions">
+                                    <span class="slds-assistive-text">Actions</span>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template for:each={scoringTableRows} for:item="row">
+                                <tr key={row.rowKey} class={row.rowClass}>
+                                    <td class="scoring-col-check" onclick={handleStopPropagation}>
+                                        <input type="checkbox"
+                                            class="scoring-row-cb"
+                                            data-id={row.Id}
+                                            checked={row.isSelected}
+                                            onchange={handleScoringChildCheckbox} />
+                                    </td>
+                                    <td class="scoring-col-name">
+                                        <span class="slds-truncate slds-text-title_bold" title={row.Name}>{row.Name}</span>
+                                    </td>
+                                    <td class="scoring-col-modelid">
+                                        <code class="slds-truncate scoring-model-id" title={row.Model_Id__c}>{row.Model_Id__c}</code>
+                                    </td>
+                                    <td class="scoring-col-group">
+                                        <span class="slds-badge cd-group-badge-sm slds-truncate" title={row.groupName}>{row.groupName}</span>
+                                    </td>
+                                    <td class="scoring-col-topic">
+                                        <span class="slds-truncate" title={row.topicName}>{row.topicName}</span>
+                                    </td>
+                                    <td class="scoring-col-offering">
+                                        <div class="slds-truncate" title={row.offeringLabel}>{row.offeringLabel}</div>
+                                        <div class="slds-text-body_small slds-text-color_weak slds-truncate" title={row.offeringValuesShort}>{row.offeringValuesShort}</div>
+                                    </td>
+                                    <td class="scoring-col-expires">
+                                        <span class="slds-truncate" title={row.expirationDisplay}>{row.expirationDisplay}</span>
+                                    </td>
+                                    <td class="scoring-col-status">
+                                        <span class={row.statusBadgeClass} title={row.statusLabel}>{row.statusLabel}</span>
+                                    </td>
+                                    <td class="scoring-col-actions" onclick={handleStopPropagation}>
+                                        <div class="scoring-actions">
+                                            <lightning-button-icon icon-name="utility:edit" variant="border-filled"
+                                                size="x-small" alternative-text="Edit" title="Edit"
+                                                data-id={row.Id} onclick={handleEditScoring}>
+                                            </lightning-button-icon>
+                                            <lightning-button-icon icon-name="utility:delete" variant="border-filled"
+                                                size="x-small" alternative-text="Delete" title="Delete"
+                                                data-id={row.Id} data-name={row.Name} onclick={handleDeleteCampaignRecord}>
+                                            </lightning-button-icon>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                    </div>
+                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">{scoringCountLabel}</p>
+                </template>
+                <template lwc:else>
+                    <p class="slds-text-body_small slds-text-color_weak">No scoring models defined yet.</p>
+                </template>
+            </div>
             </template>
             <template lwc:if={isSettings}>
                 <div class="slds-p-around_medium">
@@ -24,4 +179,359 @@
             </template>
         </div>
     </div>
+    <!-- ══════════════════════════════════════════════════════════
+         SCORING MODEL GROUP MODAL
+    ══════════════════════════════════════════════════════════ -->
+    <template lwc:if={isModelGroupModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="smg-modal-title"
+            class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <div class="slds-modal__header">
+                    <h2 id="smg-modal-title" class="slds-modal__title">{modelGroupModalTitle}</h2>
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse"
+                        onclick={closeModelGroupModal} title="Close">
+                        <lightning-icon icon-name="utility:close" size="small" alternative-text="Close"></lightning-icon>
+                    </button>
+                </div>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <lightning-input label="Group Name" required value={editModelGroup.Name}
+                        data-field="Name" onchange={handleModelGroupFieldChange}>
+                    </lightning-input>
+                </div>
+                <div class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={closeModelGroupModal}></lightning-button>
+                    <lightning-button label="Save" variant="brand" class="slds-m-left_x-small"
+                        onclick={handleSaveModelGroup} disabled={isSaving}>
+                    </lightning-button>
+                </div>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+    <!-- ══════════════════════════════════════════════════════════
+         SCORING MODAL
+    ══════════════════════════════════════════════════════════ -->
+
+    <template lwc:if={isScoringModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="sc-modal-title"
+            class="slds-modal slds-fade-in-open slds-modal_large">
+            <div class="slds-modal__container scoring-modal-container">
+                <div class="slds-modal__header">
+                    <h2 id="sc-modal-title" class="slds-modal__title">{scoringModelModalTitle}</h2>
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse"
+                        onclick={closeScoringModal} title="Close">
+                        <lightning-icon icon-name="utility:close" size="small" alternative-text="Close"></lightning-icon>
+                    </button>
+                </div>
+                <div class="slds-modal__content slds-p-around_medium">
+
+                    <div class="scoring-status-bar slds-m-bottom_medium">
+                        <div class="scoring-status-bar__left">
+                            <span class="slds-text-title_caps slds-text-color_weak">Status</span>
+                            <span class={scoringStatusBadgeClass}>{scoringStatusLabel}</span>
+                            <template lwc:if={scoringActivationHint}>
+                                <span class="slds-text-body_small slds-text-color_weak scoring-status-hint">{scoringActivationHint}</span>
+                            </template>
+                        </div>
+                        <div class="scoring-status-bar__right">
+                            <lightning-input type="toggle"
+                                label="Active"
+                                checked={editScoring.Is_Active__c}
+                                message-toggle-active="Active"
+                                message-toggle-inactive="Inactive"
+                                onchange={handleScoringActiveToggle}>
+                            </lightning-input>
+                        </div>
+                    </div>
+
+                    <div class="slds-grid slds-wrap slds-gutters_small">
+                        <div class="slds-col slds-size_1-of-2">
+                            <lightning-input type="text" label="Model Name" required
+                                value={editScoring.Name}
+                                data-field="Name" onchange={handleScoringFieldChange}>
+                            </lightning-input>
+                        </div>
+                        <div class="slds-col slds-size_1-of-2">
+                            <lightning-input type="text" label="Model ID" required
+                                value={computedModelIdPreview}
+                                disabled
+                                field-level-help="Assigned automatically as the next available number.">
+                            </lightning-input>
+                        </div>
+
+                        <div class="slds-col slds-size_1-of-2 slds-m-top_small">
+                            <lightning-combobox label="Model Group" required
+                                value={editScoring.Scoring_Model_Group_Dict__c}
+                                options={scoringModelGroupOptions}
+                                placeholder="Select model group..."
+                                data-field="Scoring_Model_Group_Dict__c"
+                                onchange={handleScoringFieldChange}>
+                            </lightning-combobox>
+                        </div>
+                        <div class="slds-col slds-size_1-of-2 slds-m-top_small">
+                            <lightning-combobox label="Model Topic" required
+                                value={editScoring.Assigned_Topic_Dict__c}
+                                options={topicOptions}
+                                placeholder="Select topic..."
+                                data-field="Assigned_Topic_Dict__c"
+                                onchange={handleScoringFieldChange}>
+                            </lightning-combobox>
+                        </div>
+
+                        <div class="slds-col slds-size_1-of-1 slds-m-top_small">
+                            <lightning-textarea label="Model Description"
+                                value={editScoring.Topic_Description__c}
+                                data-field="Topic_Description__c"
+                                onchange={handleScoringFieldChange}
+                                max-length="500" rows="2">
+                            </lightning-textarea>
+                        </div>
+
+                        <div class="slds-col slds-size_1-of-2 slds-m-top_small">
+                            <lightning-input type="date" label="Model Expiration Date"
+                                value={editScoring.Model_Expiration_Date__c}
+                                data-field="Model_Expiration_Date__c"
+                                onchange={handleScoringFieldChange}>
+                            </lightning-input>
+                            <button type="button" class="slds-button slds-button_destructive slds-button_small slds-m-top_x-small"
+                                onclick={handleRequestExpire} disabled={expireNowDisabled}>
+                                Expire Now
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Offering Type (Campaign Wizard parity: filters, badges, Select All) -->
+                    <div class="scoring-section slds-m-top_medium">
+                        <fieldset class="slds-form-element" role="radiogroup">
+                            <legend class="slds-form-element__legend slds-form-element__label">
+                                Offering Type
+                                <abbr class="slds-required" title="required">*</abbr>
+                            </legend>
+                            <div class="slds-form-element__control">
+                                <div class="slds-radio_button-group">
+                                    <template for:each={offeringTypeOptions} for:item="offering">
+                                        <span key={offering.value} class="slds-button slds-radio_button">
+                                            <input type="radio"
+                                                   name="scoring-offering-type"
+                                                   id={offering.uniqueId}
+                                                   value={offering.value}
+                                                   checked={offering.isChecked}
+                                                   onchange={handleScoringOfferingTypeChange} />
+                                            <label class="slds-radio_button__label" for={offering.uniqueId}>
+                                                <span class="slds-radio_faux">{offering.label}</span>
+                                            </label>
+                                        </span>
+                                    </template>
+                                </div>
+                            </div>
+                        </fieldset>
+
+                        <template lwc:if={isScoringOfferingProductFamily}>
+                            <div class="slds-m-top_medium">
+                                <label class="slds-form-element__label">Select Target Product Families <abbr class="slds-required" title="required">*</abbr></label>
+                                <div class="slds-box slds-theme_default slds-m-top_xx-small scoring-offering-box">
+                                    <div class="pf-filter-bar slds-p-bottom_small">
+                                        <div class="slds-grid slds-wrap slds-grid_vertical-align-end slds-gutters_x-small">
+                                            <div class="slds-col slds-size_1-of-2">
+                                                <label class="pf-filter-label">Customer Type</label>
+                                                <div class="pf-filter-pills">
+                                                    <template for:each={customerTypeFilterOptions} for:item="ctf">
+                                                        <span key={ctf.value} class={ctf.className} data-value={ctf.value}
+                                                              onclick={handleCustomerTypeFilter}>{ctf.label}</span>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                            <div class="slds-col slds-size_1-of-2">
+                                                <label class="pf-filter-label">Record Type</label>
+                                                <div class="pf-filter-pills">
+                                                    <template for:each={recordTypeFilterBadgeOptions} for:item="rtf">
+                                                        <span key={rtf.value} class={rtf.className} data-value={rtf.value}
+                                                              onclick={handleRecordTypeFilterBadge}>{rtf.label}</span>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="slds-p-vertical_small select-all-row-divider">
+                                        <lightning-input type="checkbox" label="Select All"
+                                            checked={selectAllProductFamilies}
+                                            onchange={handleSelectAllProductFamilies}
+                                            class="custom-master-checkbox">
+                                        </lightning-input>
+                                    </div>
+
+                                    <template for:each={filteredGroupedProductFamilyOptions} for:item="group">
+                                        <div key={group.recordType} class="slds-m-top_medium">
+                                            <span class="pf-group-header">{group.recordType}</span>
+                                            <div class="slds-grid pf-group-body slds-wrap slds-m-top_x-small">
+                                                <template for:each={group.items} for:item="pf">
+                                                    <div key={pf.value} class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-p-vertical_x-small">
+                                                        <div class="slds-form-element">
+                                                            <div class="slds-form-element__control">
+                                                                <div class="slds-checkbox">
+                                                                    <input type="checkbox" id={pf.inputId}
+                                                                           checked={pf.checked}
+                                                                           data-value={pf.value}
+                                                                           onchange={handleScoringProductFamilyToggle}
+                                                                           class="scoring-native-checkbox" />
+                                                                    <label class="slds-checkbox__label" for={pf.inputId}>
+                                                                        <span class="slds-checkbox_faux"></span>
+                                                                        <span class="slds-form-element__label pf-checkbox-label-wrapper">
+                                                                            <span class="pf-label-text">{pf.label}</span>
+                                                                            <span class="pf-badge-group">
+                                                                                <template for:each={pf.fons} for:item="fon">
+                                                                                    <span key={fon} class="slds-badge pf-fon-badge">{fon}</span>
+                                                                                </template>
+                                                                                <template for:each={pf.customerTypes} for:item="ct">
+                                                                                    <span key={ct} class="slds-badge pf-customer-type-badge">{ct}</span>
+                                                                                </template>
+                                                                            </span>
+                                                                        </span>
+                                                                    </label>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+
+                        <template lwc:if={isScoringOfferingFamilyOfNeeds}>
+                            <div class="slds-m-top_medium">
+                                <label class="slds-form-element__label">Select Target Family of Needs <abbr class="slds-required" title="required">*</abbr></label>
+                                <div class="slds-box slds-theme_default slds-m-top_xx-small scoring-offering-box">
+                                    <template lwc:if={fonCustomerTypeFilterOptions.length}>
+                                        <div class="pf-filter-bar slds-p-bottom_small">
+                                            <label class="pf-filter-label">Customer Type</label>
+                                            <div class="pf-filter-pills">
+                                                <template for:each={fonCustomerTypeFilterOptions} for:item="ctf">
+                                                    <span key={ctf.value} class={ctf.className} data-value={ctf.value}
+                                                          onclick={handleFonCustomerTypeFilter}>{ctf.label}</span>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </template>
+
+                                    <div class="slds-p-vertical_small select-all-row-divider">
+                                        <lightning-input type="checkbox" label="Select All"
+                                            checked={selectAllFamilyOfNeeds}
+                                            onchange={handleSelectAllFamilyOfNeeds}
+                                            class="custom-master-checkbox">
+                                        </lightning-input>
+                                    </div>
+
+                                    <div class="slds-grid slds-wrap slds-m-top_small">
+                                        <template for:each={filteredFamilyOfNeedsOptions} for:item="fon">
+                                            <div key={fon.value} class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-p-vertical_x-small">
+                                                <div class="slds-form-element">
+                                                    <div class="slds-form-element__control">
+                                                        <div class="slds-checkbox">
+                                                            <input type="checkbox" id={fon.inputId}
+                                                                   checked={fon.checked}
+                                                                   data-value={fon.value}
+                                                                   onchange={handleScoringFonToggle}
+                                                                   class="scoring-native-checkbox" />
+                                                            <label class="slds-checkbox__label" for={fon.inputId}>
+                                                                <span class="slds-checkbox_faux"></span>
+                                                                <span class="slds-form-element__label pf-checkbox-label-wrapper">
+                                                                    <span class="pf-label-text">{fon.label}</span>
+                                                                    <span class="pf-badge-group">
+                                                                        <template for:each={fon.customerTypes} for:item="ct">
+                                                                            <span key={ct} class="slds-badge pf-customer-type-badge">{ct}</span>
+                                                                        </template>
+                                                                    </span>
+                                                                </span>
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    <template lwc:if={showScoringAuditFields}>
+                        <div class="scoring-system-info slds-m-top_medium">
+                            <dl class="slds-dl_horizontal">
+                                <dt class="slds-dl_horizontal__label">
+                                    <span class="slds-truncate" title="Created By">Created By</span>
+                                </dt>
+                                <dd class="slds-dl_horizontal__detail slds-tile__detail slds-text-body_small">
+                                    {scoringCreatedByLine}
+                                </dd>
+                                <dt class="slds-dl_horizontal__label">
+                                    <span class="slds-truncate" title="Last Modified By">Last Modified By</span>
+                                </dt>
+                                <dd class="slds-dl_horizontal__detail slds-tile__detail slds-text-body_small">
+                                    {scoringLastModifiedByLine}
+                                </dd>
+                            </dl>
+                        </div>
+                    </template>
+                </div>
+                <div class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={closeScoringModal}></lightning-button>
+                    <lightning-button label={scoringSaveButtonLabel} variant="brand" class="slds-m-left_x-small"
+                        onclick={handleSaveScoring} disabled={isSaving}>
+                    </lightning-button>
+                </div>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+    <template lwc:if={isExpireConfirmOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="expire-model-title"
+            class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <div class="slds-modal__header">
+                    <h2 id="expire-model-title" class="slds-modal__title">Expire this model?</h2>
+                </div>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <p>This sets <strong>{editScoring.Name}</strong> to Inactive.</p>
+                </div>
+                <div class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={handleCancelExpire}></lightning-button>
+                    <lightning-button label="Expire" variant="destructive" class="slds-m-left_x-small"
+                        onclick={handleConfirmExpire} disabled={isSaving}>
+                    </lightning-button>
+                </div>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+
+    <!-- ══════════════════════════════════════════════════════════
+         DELETE CONFIRMATION
+    ══════════════════════════════════════════════════════════ -->
+    <template lwc:if={isDeleteModalOpen}>
+        <section role="alertdialog" tabindex="-1" aria-modal="true" aria-labelledby="cd-del-title"
+            class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <div class="slds-modal__header slds-theme_warning slds-theme_alert-texture">
+                    <h2 id="cd-del-title" class="slds-modal__title">Confirm Delete</h2>
+                </div>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <p>Delete <strong>{deleteTargetName}</strong>? This cannot be undone.</p>
+                </div>
+                <div class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={closeDeleteModal}></lightning-button>
+                    <lightning-button label="Delete" variant="destructive" class="slds-m-left_x-small"
+                        onclick={handleConfirmDelete}>
+                    </lightning-button>
+                </div>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
 </template>
