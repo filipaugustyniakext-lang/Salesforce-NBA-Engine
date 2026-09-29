@@ -34,6 +34,16 @@ public with sharing class ChannelTemplateController {
         @AuraEnabled public Datetime validatedAt;
         @AuraEnabled public Datetime lastModifiedDate;
         @AuraEnabled public List<TemplateAsset> assets = new List<TemplateAsset>();
+        @AuraEnabled public List<CatalogComponent> components = new List<CatalogComponent>();
+    }
+
+    public class CatalogComponent {
+        @AuraEnabled public String type;
+        @AuraEnabled public String label;
+        @AuraEnabled public String description;
+        @AuraEnabled public String icon;
+        @AuraEnabled public String fileName;
+        @AuraEnabled public String componentGroup;
     }
 
     public class ValidationResponse {
@@ -53,7 +63,7 @@ public with sharing class ChannelTemplateController {
             SELECT Id, Name, Status__c, Version__c, Description__c,
                    Package_Id__c, SemVer__c, Package_Hash__c, Compiler_Version__c,
                    Validation_Status__c, Validation_Message__c, Validated_At__c,
-                   LastModifiedDate
+                   Manifest_JSON__c, LastModifiedDate
             FROM Channel_Template__c
             WHERE Channel__c = :channelId
             ORDER BY Status__c ASC, Version__c DESC NULLS LAST, Name ASC
@@ -76,6 +86,7 @@ public with sharing class ChannelTemplateController {
             definition.validationMessage = record.Validation_Message__c;
             definition.validatedAt = record.Validated_At__c;
             definition.lastModifiedDate = record.LastModifiedDate;
+            definition.components = readCatalog(record.Manifest_JSON__c);
             byId.put(record.Id, definition);
         }
 
@@ -147,7 +158,7 @@ public with sharing class ChannelTemplateController {
         if (record.Status__c == 'Active') {
             if (record.Id == null) {
                 throw new AuraHandledException(
-                    'Create the template as Draft, attach its manifest and source files, then validate it before activation.'
+                    'Create the template as Draft, attach its source files, define its components, then validate it before activation.'
                 );
             }
             ChannelTemplateManifestService.ValidationResult validation =
@@ -173,6 +184,75 @@ public with sharing class ChannelTemplateController {
 
         upsert record;
         return record.Id;
+    }
+
+    @AuraEnabled
+    public static void saveComponentCatalog(Id templateId, String componentsJson) {
+        if (templateId == null) throw new AuraHandledException('Template is required.');
+        Channel_Template__c template = [
+            SELECT Id, Status__c
+            FROM Channel_Template__c
+            WHERE Id = :templateId
+            LIMIT 1
+        ];
+        if (template.Status__c == 'Active') {
+            throw new AuraHandledException(
+                'Active template packages are immutable. Archive this version before changing it.'
+            );
+        }
+        List<Object> rawRows;
+        try {
+            rawRows = (List<Object>) JSON.deserializeUntyped(
+                String.isBlank(componentsJson) ? '[]' : componentsJson
+            );
+        } catch (Exception error) {
+            throw new AuraHandledException('Component catalog is not valid.');
+        }
+        List<Object> components = new List<Object>();
+        Set<String> types = new Set<String>();
+        for (Object rawRow : rawRows) {
+            if (!(rawRow instanceof Map<String, Object>)) continue;
+            Map<String, Object> row = (Map<String, Object>) rawRow;
+            String type = textValue(row.get('type'));
+            if (String.isBlank(type)) continue;
+            if (!SUPPORTED_COMPONENT_TYPES.contains(type)) {
+                throw new AuraHandledException('Unsupported component type: ' + type);
+            }
+            if (types.contains(type)) {
+                throw new AuraHandledException('Component type ' + type + ' is already used.');
+            }
+            types.add(type);
+            String fileName = textValue(row.get('fileName'));
+            if (String.isBlank(fileName)) {
+                throw new AuraHandledException(type + ' requires an HTML file.');
+            }
+            String label = textValue(row.get('label'));
+            if (String.isBlank(label)) label = type;
+            if (label.length() > 80) label = label.substring(0, 80);
+            String description = textValue(row.get('description'));
+            if (description.length() > 255) description = description.substring(0, 255);
+            String icon = textValue(row.get('icon'));
+            if (String.isBlank(icon)) icon = defaultComponentIcon(type);
+            if (!Pattern.matches('utility:[a-z0-9_]+', icon)) {
+                throw new AuraHandledException('Choose an SLDS utility icon for ' + type + '.');
+            }
+            components.add(new Map<String, Object>{
+                'type' => type,
+                'label' => label,
+                'description' => description,
+                'icon' => icon,
+                'fileName' => fileName,
+                'group' => type == 'Spacer' ? 'Layout' : 'Content'
+            });
+        }
+        template.Manifest_JSON__c = JSON.serialize(new Map<String, Object>{
+            'schemaVersion' => '2.0',
+            'components' => components
+        });
+        template.Validation_Status__c = 'Not Validated';
+        template.Validation_Message__c = null;
+        template.Package_Hash__c = null;
+        update template;
     }
 
     @AuraEnabled
@@ -505,7 +585,6 @@ public with sharing class ChannelTemplateController {
         TemplateRenderSource source = new TemplateRenderSource();
         source.templateId = template.Id;
         source.name = template.Name;
-        source.bodySlotKey = '49fwfqshzd9';
         HtmlLibrary library = readHtmlFiles(template.Id);
         Map<String, String> htmlByName = library.byName;
         String shellName = '';
@@ -521,17 +600,20 @@ public with sharing class ChannelTemplateController {
             if (String.isNotBlank(stringValue(injection.get('bodySlotKey')))) {
                 source.bodySlotKey = restorePlaceholder(stringValue(injection.get('bodySlotKey')));
             }
-            Object rawBlocks = manifest.containsKey('contentBlocks') ? manifest.get('contentBlocks') : manifest.get('blocks');
-            if (rawBlocks instanceof List<Object>) {
-                for (Object rawBlock : (List<Object>) rawBlocks) {
-                    if (!(rawBlock instanceof Map<String, Object>)) continue;
-                    Map<String, Object> block = (Map<String, Object>) rawBlock;
-                    RenderBlock renderBlock = new RenderBlock();
-                    renderBlock.type = restorePlaceholder(stringValue(block.get('type')));
-                    renderBlock.fileName = restorePlaceholder(stringValue(block.get('fileName')));
-                    renderBlock.html = htmlByName.get(baseName(renderBlock.fileName).toLowerCase());
-                    if (String.isNotBlank(renderBlock.type)) source.blocks.add(renderBlock);
+            for (CatalogComponent component : readCatalog(template.Manifest_JSON__c)) {
+                RenderBlock renderBlock = new RenderBlock();
+                renderBlock.type = component.type;
+                renderBlock.fileName = component.fileName;
+                renderBlock.label = component.label;
+                renderBlock.description = component.description;
+                renderBlock.icon = component.icon;
+                renderBlock.componentGroup = component.componentGroup;
+                renderBlock.html = htmlByName.get(baseName(renderBlock.fileName).toLowerCase());
+                if (String.isBlank(renderBlock.html)) {
+                    String withExtension = baseName(renderBlock.fileName).toLowerCase();
+                    if (!withExtension.endsWith('.html')) renderBlock.html = htmlByName.get(withExtension + '.html');
                 }
+                if (String.isNotBlank(renderBlock.type)) source.blocks.add(renderBlock);
             }
         }
         source.shellHtml = library.shellHtml;
@@ -546,6 +628,7 @@ public with sharing class ChannelTemplateController {
                 }
             }
         }
+        source.bodySlotKey = detectBodySlotKey(source.shellHtml, source.bodySlotKey);
         return source;
     }
 
@@ -567,6 +650,75 @@ public with sharing class ChannelTemplateController {
         @AuraEnabled public String type;
         @AuraEnabled public String fileName;
         @AuraEnabled public String html;
+        @AuraEnabled public String label;
+        @AuraEnabled public String description;
+        @AuraEnabled public String icon;
+        @AuraEnabled public String componentGroup;
+    }
+
+    private static final Set<String> SUPPORTED_COMPONENT_TYPES = new Set<String>{
+        'RichText', 'Image', 'TextImage', 'Banner', 'Prefooter', 'Spacer'
+    };
+
+    private static List<CatalogComponent> readCatalog(String jsonText) {
+        List<CatalogComponent> components = new List<CatalogComponent>();
+        if (String.isBlank(jsonText)) return components;
+        Map<String, Object> manifest;
+        try {
+            manifest = (Map<String, Object>) JSON.deserializeUntyped(protectManifest(jsonText));
+        } catch (Exception error) {
+            return components;
+        }
+        Object rawComponents = manifest.get('components');
+        if (!(rawComponents instanceof List<Object>)) {
+            rawComponents = manifest.containsKey('contentBlocks')
+                ? manifest.get('contentBlocks')
+                : manifest.get('blocks');
+        }
+        if (!(rawComponents instanceof List<Object>)) return components;
+        for (Object rawComponent : (List<Object>) rawComponents) {
+            if (!(rawComponent instanceof Map<String, Object>)) continue;
+            Map<String, Object> row = (Map<String, Object>) rawComponent;
+            CatalogComponent component = new CatalogComponent();
+            component.type = restorePlaceholder(textValue(row.get('type')));
+            if (String.isBlank(component.type)) component.type = restorePlaceholder(textValue(row.get('id')));
+            component.fileName = restorePlaceholder(textValue(row.get('fileName')));
+            component.label = textValue(row.get('label'));
+            if (String.isBlank(component.label)) component.label = textValue(row.get('displayName'));
+            if (String.isBlank(component.label)) component.label = component.type;
+            component.description = textValue(row.get('description'));
+            component.icon = textValue(row.get('icon'));
+            component.componentGroup = textValue(row.get('group'));
+            if (String.isBlank(component.componentGroup)) {
+                component.componentGroup = component.type == 'Spacer' ? 'Layout' : 'Content';
+            }
+            if (String.isNotBlank(component.type)) components.add(component);
+        }
+        return components;
+    }
+
+    private static String detectBodySlotKey(String shell, String declaredKey) {
+        if (String.isNotBlank(declaredKey)) return declaredKey;
+        String source = String.valueOf(shell);
+        Matcher keyBeforeLabel = Pattern.compile('data-key="([^"]+)"[^>]*data-label="BODY"').matcher(source);
+        if (keyBeforeLabel.find()) return keyBeforeLabel.group(1);
+        Matcher keyAfterLabel = Pattern.compile('data-label="BODY"[^>]*data-key="([^"]+)"').matcher(source);
+        if (keyAfterLabel.find()) return keyAfterLabel.group(1);
+        return '49fwfqshzd9';
+    }
+
+    private static String defaultComponentIcon(String type) {
+        if (type == 'RichText') return 'utility:display_rich_text';
+        if (type == 'Image') return 'utility:image';
+        if (type == 'TextImage') return 'utility:layout_card';
+        if (type == 'Banner') return 'utility:layout_banner';
+        if (type == 'Prefooter') return 'utility:note';
+        if (type == 'Spacer') return 'utility:spacer';
+        return 'utility:page';
+    }
+
+    private static String textValue(Object value) {
+        return value == null ? '' : String.valueOf(value).trim();
     }
 
     private class HtmlLibrary {

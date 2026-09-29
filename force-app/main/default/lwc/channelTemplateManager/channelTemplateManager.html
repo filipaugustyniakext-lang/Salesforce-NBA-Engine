@@ -171,43 +171,9 @@
 
                     <template lwc:if={hasSavedTemplate}>
                         <div class="template-upload-section">
-                            <h3 class="slds-text-heading_small">Package Manifest</h3>
-                            <p class="slds-text-body_small slds-text-color_weak">
-                                Upload one template.manifest.json file. It defines package identity, compiler, slots, blocks, and placeholders.
-                            </p>
-                            <template lwc:if={manifestAssets.length}>
-                                <ul class="template-assets">
-                                    <template for:each={manifestAssets} for:item="asset">
-                                        <li key={asset.documentId} class="template-asset">
-                                            <lightning-icon icon-name={asset.iconName} size="small"></lightning-icon>
-                                            <div class="template-asset__body">
-                                                <a href={asset.downloadUrl} target="_blank">{asset.name}</a>
-                                                <span class="slds-text-body_small slds-text-color_weak">{asset.assetTypeLabel} · {asset.sizeLabel}</span>
-                                            </div>
-                                            <lightning-button-icon icon-name="utility:close" variant="bare" alternative-text="Remove file"
-                                                data-id={asset.documentId} data-template-id={editingTemplate.id}
-                                                disabled={asset.deleteDisabled} onclick={handleDeleteAsset}>
-                                            </lightning-button-icon>
-                                        </li>
-                                    </template>
-                                </ul>
-                            </template>
-                            <div class="template-upload-card slds-m-top_small">
-                                <lightning-file-upload
-                                    label="Template Manifest JSON"
-                                    name="manifest"
-                                    record-id={editTemplate.Id}
-                                    accept={acceptedJson}
-                                    disabled={isEditingActive}
-                                    onuploadfinished={handleManifestUpload}>
-                                </lightning-file-upload>
-                            </div>
-                        </div>
-
-                        <div class="template-upload-section">
                             <h3 class="slds-text-heading_small">Template Shell Files</h3>
                             <p class="slds-text-body_small slds-text-color_weak">
-                                Attach HTML, CSS, or JS source when this channel uses a file-based shell. JavaScript is stored as source only and is not executed by Copy Center.
+                                Attach HTML, CSS, or JS source when this channel uses a file-based shell. Email HTML should contain <span class="template-token">{contentPlaceholder}</span> where message components are inserted. An existing BODY slot is also accepted. JavaScript is stored as source only and is not executed by Copy Center.
                             </p>
                             <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">
                                 Salesforce Setup must allow HTML uploads as attachments and document records.
@@ -292,9 +258,9 @@
                         </div>
 
                         <div class="template-upload-section">
-                            <h3 class="slds-text-heading_small">Content Blocks</h3>
+                            <h3 class="slds-text-heading_small">Components</h3>
                             <p class="slds-text-body_small slds-text-color_weak">
-                                Attach one or more HTML fragments supported by this template.
+                                Upload an HTML fragment for each component this template accepts, then name it for the message editor.
                             </p>
                             <template lwc:if={contentBlockAssets.length}>
                                 <ul class="template-assets">
@@ -339,6 +305,33 @@
                                     disabled={isEditingActive}
                                     onuploadfinished={handleContentBlockUpload}>
                                 </lightning-file-upload>
+                            </div>
+                            <div class="component-catalog slds-m-top_medium">
+                                <template lwc:if={hasCatalogRows}>
+                                    <template for:each={catalogRows} for:item="row">
+                                        <div key={row.fileName} class="component-catalog__row">
+                                            <p class="slds-text-title_caps">{row.fileName}</p>
+                                            <div class="slds-grid slds-wrap slds-gutters_small slds-m-top_x-small">
+                                                <div class="slds-col slds-size_1-of-2">
+                                                    <lightning-combobox label="Component" value={row.type} options={componentTypeOptions} data-file={row.fileName} data-field="type" disabled={isEditingActive} onchange={handleCatalogChange}></lightning-combobox>
+                                                </div>
+                                                <div class="slds-col slds-size_1-of-2">
+                                                    <lightning-combobox label="Icon" value={row.icon} options={componentIconOptions} data-file={row.fileName} data-field="icon" disabled={isEditingActive} onchange={handleCatalogChange}></lightning-combobox>
+                                                </div>
+                                                <div class="slds-col slds-size_1-of-1 slds-m-top_x-small">
+                                                    <lightning-input label="Display name" value={row.label} data-file={row.fileName} data-field="label" disabled={isEditingActive} onchange={handleCatalogChange}></lightning-input>
+                                                </div>
+                                                <div class="slds-col slds-size_1-of-1 slds-m-top_x-small">
+                                                    <lightning-textarea label="Description" value={row.description} data-file={row.fileName} data-field="description" disabled={isEditingActive} onchange={handleCatalogChange}></lightning-textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                    <lightning-button class="slds-m-top_small" label="Save Components" variant="brand" disabled={isEditingActive} onclick={handleSaveCatalog}></lightning-button>
+                                </template>
+                                <template lwc:else>
+                                    <p class="slds-text-body_small slds-text-color_weak">Upload content block HTML to define the components authors can drag into a message.</p>
+                                </template>
                             </div>
                         </div>
                     </template>

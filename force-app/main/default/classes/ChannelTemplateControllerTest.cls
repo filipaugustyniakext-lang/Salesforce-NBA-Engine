@@ -276,6 +276,58 @@ private class ChannelTemplateControllerTest {
     }
 
     @IsTest
+    static void componentCatalogValidatesWithoutManifestFile() {
+        Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
+        Id templateId = createDraftTemplate(channel.Id, 'Catalog Email', 4);
+        Id shellId = uploadFile(templateId, 'shell.html', '<div>{{CONTENT}}</div>');
+        Id blockId = uploadFile(
+            templateId,
+            'SFMC_CB_Email_RichText.html',
+            '<td>{{RICH_TEXT_ROWS}}</td>'
+        );
+        System.assertEquals(null, ChannelTemplateController.classifyUploadedFiles(
+            templateId, new List<Id>{ shellId }, 'SHELL_HTML'
+        ));
+        System.assertEquals(null, ChannelTemplateController.classifyUploadedFiles(
+            templateId, new List<Id>{ blockId }, 'CONTENT_BLOCK'
+        ));
+        ChannelTemplateController.saveComponentCatalog(
+            templateId,
+            JSON.serialize(new List<Object>{
+                new Map<String, Object>{
+                    'type' => 'RichText',
+                    'label' => 'Intro copy',
+                    'description' => 'Opening paragraph',
+                    'icon' => 'utility:display_rich_text',
+                    'fileName' => 'SFMC_CB_Email_RichText.html'
+                }
+            })
+        );
+
+        Test.startTest();
+        ChannelTemplateController.ValidationResponse response =
+            ChannelTemplateController.validateTemplate(templateId);
+        ChannelTemplateController.TemplateRenderSource source =
+            ChannelTemplateController.getTemplateRenderSource(templateId);
+        List<ChannelTemplateController.TemplateDefinition> definitions =
+            ChannelTemplateController.getChannelTemplates(channel.Id);
+        Test.stopTest();
+
+        System.assertEquals(true, response.valid, response.message);
+        System.assertEquals(1, source.blocks.size());
+        System.assertEquals('Intro copy', source.blocks[0].label);
+        System.assertEquals('utility:display_rich_text', source.blocks[0].icon);
+        System.assertEquals('Content', source.blocks[0].componentGroup);
+        System.assert(source.blocks[0].html.contains('{{RICH_TEXT_ROWS}}'));
+        ChannelTemplateController.TemplateDefinition definition = null;
+        for (ChannelTemplateController.TemplateDefinition item : definitions) {
+            if (item.id == templateId) definition = item;
+        }
+        System.assertEquals(1, definition.components.size());
+        System.assertEquals('Intro copy', definition.components[0].label);
+    }
+
+    @IsTest
     static void nonEmailTemplateCanActivateWithoutHtmlShell() {
         Id channelRecordTypeId = Schema.SObjectType.Marketing_Dictionary__c
             .getRecordTypeInfosByDeveloperName().get('Channel').getRecordTypeId();

@@ -56,8 +56,19 @@ public with sharing class ChannelTemplateManifestService {
         if (packageBytes > MAX_PACKAGE_BYTES) {
             errors.add('Template package source files exceed the 1.5 MB validation limit.');
         }
+        Channel_Template__c templateRecord = [
+            SELECT Name, Version__c, Manifest_JSON__c
+            FROM Channel_Template__c
+            WHERE Id = :templateId
+            LIMIT 1
+        ];
+        if (isComponentCatalog(templateRecord.Manifest_JSON__c)) {
+            return validateComponentCatalog(
+                templateRecord, channelType, shellHtmlAsset, assetsByName, errors, result, assets
+            );
+        }
         if (manifestAsset == null) {
-            errors.add('Attach template.manifest.json before validating or activating this template.');
+            errors.add('Add components to the template catalog before validating or activating this template.');
             return finish(result, errors, assets);
         }
         if (manifestAsset.body != null && manifestAsset.body.length() > 131072) {
@@ -185,6 +196,125 @@ public with sharing class ChannelTemplateManifestService {
             assets.add(asset);
         }
         return assets;
+    }
+
+    private static Boolean isComponentCatalog(String jsonText) {
+        if (String.isBlank(jsonText)) return false;
+        try {
+            Map<String, Object> manifest = (Map<String, Object>) JSON.deserializeUntyped(
+                protectPlaceholders(jsonText)
+            );
+            return firstString(manifest, new List<String>{ 'schemaVersion' }).startsWith('2.');
+        } catch (Exception error) {
+            return false;
+        }
+    }
+
+    private static ValidationResult validateComponentCatalog(
+        Channel_Template__c templateRecord,
+        String channelType,
+        SourceAsset shellHtmlAsset,
+        Map<String, SourceAsset> assetsByName,
+        List<String> errors,
+        ValidationResult result,
+        List<SourceAsset> assets
+    ) {
+        result.manifestJson = templateRecord.Manifest_JSON__c;
+        result.packageId = packageIdFor(templateRecord.Name);
+        Integer majorVersion = templateRecord.Version__c == null || templateRecord.Version__c < 1
+            ? 1
+            : templateRecord.Version__c.intValue();
+        result.semVer = majorVersion + '.0.0';
+        result.compilerVersion = defaultCompiler(channelType);
+        Map<String, Object> manifest = (Map<String, Object>) JSON.deserializeUntyped(
+            protectPlaceholders(templateRecord.Manifest_JSON__c)
+        );
+        String normalizedChannel = normalizeChannel(channelType);
+        if (normalizedChannel == 'email') {
+            if (shellHtmlAsset == null || String.isBlank(shellHtmlAsset.body)) {
+                errors.add('Email packages require one non-empty Shell HTML file.');
+            } else if (!shellHtmlAsset.body.contains('{{CONTENT}}') && !hasBodySlot(shellHtmlAsset.body)) {
+                errors.add('Email Shell HTML must contain {{CONTENT}} or a BODY slot for message components.');
+            }
+        }
+        validateCatalogComponents(manifest, assetsByName, errors);
+        return finish(result, errors, assets);
+    }
+
+    private static void validateCatalogComponents(
+        Map<String, Object> manifest,
+        Map<String, SourceAsset> assetsByName,
+        List<String> errors
+    ) {
+        Object rawComponents = manifest.get('components');
+        if (rawComponents == null) return;
+        if (!(rawComponents instanceof List<Object>)) {
+            errors.add('components must be a list.');
+            return;
+        }
+        Set<String> types = new Set<String>();
+        Set<String> files = new Set<String>();
+        for (Object rawComponent : (List<Object>) rawComponents) {
+            Map<String, Object> component = asMap(rawComponent);
+            String type = stringValue(component.get('type'));
+            String fileName = stringValue(component.get('fileName'));
+            String icon = stringValue(component.get('icon'));
+            if (String.isBlank(type) || !rendererFor(type).startsWith('email/')) {
+                errors.add('Each component needs a supported type.');
+                continue;
+            }
+            if (types.contains(type.toLowerCase())) {
+                errors.add('Component type "' + type + '" is declared more than once.');
+            }
+            types.add(type.toLowerCase());
+            if (String.isBlank(fileName)) {
+                errors.add('Component "' + type + '" requires an HTML file.');
+                continue;
+            }
+            if (files.contains(fileName.toLowerCase())) {
+                errors.add('HTML file "' + fileName + '" is assigned to more than one component.');
+            }
+            files.add(fileName.toLowerCase());
+            SourceAsset asset = findAsset(assetsByName, fileName);
+            if (asset == null || String.isBlank(asset.body)) {
+                errors.add('Component "' + type + '" references missing file "' + fileName + '".');
+            }
+            if (String.isNotBlank(icon) && !Pattern.matches('utility:[a-z0-9_]+', icon)) {
+                errors.add('Component "' + type + '" has an unsupported icon.');
+            }
+        }
+    }
+
+    private static Boolean hasBodySlot(String shell) {
+        return Pattern.compile('(?i)data-label="BODY"').matcher(shell).find()
+            || shell.contains('data-key="49fwfqshzd9"');
+    }
+
+    private static String packageIdFor(String name) {
+        String slug = String.valueOf(name).toLowerCase().replaceAll('[^a-z0-9]+', '.');
+        slug = slug.replaceAll('^\\.+', '').replaceAll('\\.+$', '');
+        return slug.length() < 2 ? 'template.package' : slug;
+    }
+
+    private static String defaultCompiler(String channelType) {
+        String channel = normalizeChannel(channelType);
+        if (channel == 'email') return 'email-preview@1';
+        if (channel == 'banner') return 'banner-lwc@1';
+        if (channel == 'push') return 'push-device@1';
+        if (channel == 'sms') return 'sms-preview@1';
+        return 'generic-preview@1';
+    }
+
+    private static String rendererFor(String type) {
+        Map<String, String> renderers = new Map<String, String>{
+            'RichText' => 'email/populateRichTextBlock@1',
+            'Image' => 'email/populateImageBlock@1',
+            'TextImage' => 'email/populateTextImageBlock@1',
+            'Banner' => 'email/populateBannerBlock@1',
+            'Prefooter' => 'email/populatePrefooterBlock@1',
+            'Spacer' => 'email/populateSpacerBlock@1'
+        };
+        return renderers.containsKey(type) ? renderers.get(type) : '';
     }
 
     private static void validateEmailManifest(

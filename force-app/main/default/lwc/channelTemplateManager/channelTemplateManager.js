@@ -5,8 +5,31 @@ import getChannelTemplates from '@salesforce/apex/ChannelTemplateController.getC
 import saveTemplate from '@salesforce/apex/ChannelTemplateController.saveTemplate';
 import validateTemplate from '@salesforce/apex/ChannelTemplateController.validateTemplate';
 import classifyUploadedFiles from '@salesforce/apex/ChannelTemplateController.classifyUploadedFiles';
+import saveComponentCatalog from '@salesforce/apex/ChannelTemplateController.saveComponentCatalog';
 import deleteTemplateAsset from '@salesforce/apex/ChannelTemplateController.deleteTemplateAsset';
 import deleteTemplate from '@salesforce/apex/ChannelTemplateController.deleteTemplate';
+
+const COMPONENT_TYPES = [
+    { value: 'RichText', label: 'Rich Text', icon: 'utility:display_rich_text', description: 'Formatted body copy with links and lists.', group: 'Content' },
+    { value: 'Image', label: 'Image', icon: 'utility:image', description: 'Visual block with image URL and alt text.', group: 'Content' },
+    { value: 'TextImage', label: 'Text-Image', icon: 'utility:layout_card', description: 'Two-column layout: rich text plus image.', group: 'Content' },
+    { value: 'Banner', label: 'Banner', icon: 'utility:layout_banner', description: 'Promotional banner with copy and an image.', group: 'Content' },
+    { value: 'Prefooter', label: 'Prefooter', icon: 'utility:note', description: 'Product and legal copy shown before the footer.', group: 'Content' },
+    { value: 'Spacer', label: 'Spacer', icon: 'utility:spacer', description: 'Vertical space between components.', group: 'Layout' }
+];
+
+const COMPONENT_ICONS = [
+    'utility:display_rich_text',
+    'utility:image',
+    'utility:layout_card',
+    'utility:layout_banner',
+    'utility:note',
+    'utility:spacer',
+    'utility:text',
+    'utility:page',
+    'utility:rows',
+    'utility:advertising'
+];
 
 const EMPTY_TEMPLATE = () => ({
     Id: null,
@@ -21,6 +44,7 @@ export default class ChannelTemplateManager extends LightningElement {
     @api channelName;
 
     @track editTemplate = EMPTY_TEMPLATE();
+    @track catalogRows = [];
     @track isModalOpen = false;
     @track isSaving = false;
     @track pendingDelete = null;
@@ -28,7 +52,7 @@ export default class ChannelTemplateManager extends LightningElement {
     acceptedHtml = ['.html'];
     acceptedCss = ['.css'];
     acceptedJs = ['.js'];
-    acceptedJson = ['.json'];
+    contentPlaceholder = '{{CONTENT}}';
 
     _wiredTemplates;
 
@@ -128,6 +152,18 @@ export default class ChannelTemplateManager extends LightningElement {
         return this._assetsOfType('UNCLASSIFIED');
     }
 
+    get componentTypeOptions() {
+        return COMPONENT_TYPES.map(type => ({ label: type.label, value: type.value }));
+    }
+
+    get componentIconOptions() {
+        return COMPONENT_ICONS.map(icon => ({ label: icon.replace('utility:', ''), value: icon }));
+    }
+
+    get hasCatalogRows() {
+        return this.catalogRows.length > 0;
+    }
+
     get isEditingActive() {
         return this.editTemplate.Status__c === 'Active';
     }
@@ -150,6 +186,7 @@ export default class ChannelTemplateManager extends LightningElement {
 
     handleNew() {
         this.editTemplate = EMPTY_TEMPLATE();
+        this.catalogRows = [];
         this.isModalOpen = true;
     }
 
@@ -164,7 +201,9 @@ export default class ChannelTemplateManager extends LightningElement {
             Version__c: source.version || 1,
             Description__c: source.description || ''
         };
+        this.catalogRows = [];
         this.isModalOpen = true;
+        this._syncCatalogRows();
     }
 
     handleFieldChange(event) {
@@ -203,10 +242,6 @@ export default class ChannelTemplateManager extends LightningElement {
         this._registerUploads(event, 'SHELL_HTML');
     }
 
-    handleManifestUpload(event) {
-        this._registerUploads(event, 'MANIFEST');
-    }
-
     handleShellCssUpload(event) {
         this._registerUploads(event, 'SHELL_CSS');
     }
@@ -230,6 +265,7 @@ export default class ChannelTemplateManager extends LightningElement {
             });
             if (classificationError) throw new Error(classificationError);
             await refreshApex(this._wiredTemplates);
+            if (assetType === 'CONTENT_BLOCK') this._syncCatalogRows();
             this._toast('Files attached', `${documentIds.length} template file(s) attached.`, 'success');
         } catch (error) {
             this._toast('Upload classification failed', error.body?.message || error.message, 'error');
@@ -243,9 +279,50 @@ export default class ChannelTemplateManager extends LightningElement {
                 documentId: event.currentTarget.dataset.id
             });
             await refreshApex(this._wiredTemplates);
+            this._syncCatalogRows();
             this._toast('File removed', 'Template file removed.', 'success');
         } catch (error) {
             this._toast('Error', error.body?.message || error.message, 'error');
+        }
+    }
+
+    handleCatalogChange(event) {
+        const fileName = event.currentTarget.dataset.file;
+        const field = event.currentTarget.dataset.field;
+        const value = event.detail?.value ?? event.target?.value ?? '';
+        this.catalogRows = this.catalogRows.map(row => {
+            if (row.fileName !== fileName) return row;
+            const next = { ...row, [field]: value };
+            if (field === 'type') {
+                const defaults = COMPONENT_TYPES.find(type => type.value === value);
+                if (!defaults) return next;
+                if (!row.label || COMPONENT_TYPES.some(type => type.label === row.label)) next.label = defaults.label;
+                if (!row.description || COMPONENT_TYPES.some(type => type.description === row.description)) next.description = defaults.description;
+                if (!row.icon || row.icon === 'utility:page' || COMPONENT_TYPES.some(type => type.icon === row.icon)) next.icon = defaults.icon;
+            }
+            return next;
+        });
+    }
+
+    async handleSaveCatalog() {
+        if (!this.editTemplate.Id) return;
+        const missing = this.catalogRows.filter(row => row.type && !(row.label || '').trim());
+        if (missing.length) {
+            this._toast('Validation', 'Each selected component needs a display name.', 'warning');
+            return;
+        }
+        this.isSaving = true;
+        try {
+            await saveComponentCatalog({
+                templateId: this.editTemplate.Id,
+                componentsJson: JSON.stringify(this.catalogRows.filter(row => row.type))
+            });
+            await refreshApex(this._wiredTemplates);
+            this._toast('Components saved', 'Validate the template before activation.', 'success');
+        } catch (error) {
+            this._toast('Error', error.body?.message || error.message, 'error');
+        } finally {
+            this.isSaving = false;
         }
     }
 
@@ -293,6 +370,28 @@ export default class ChannelTemplateManager extends LightningElement {
     closeModal() {
         this.isModalOpen = false;
         this.editTemplate = EMPTY_TEMPLATE();
+    }
+
+    _syncCatalogRows() {
+        const saved = this.editingTemplate?.components || [];
+        const previous = new Map(this.catalogRows.map(row => [row.fileName, row]));
+        this.catalogRows = this.contentBlockAssets.map(asset => {
+            if (previous.has(asset.name)) return previous.get(asset.name);
+            const match = saved.find(component => this._sameFile(component.fileName, asset.name));
+            const defaults = COMPONENT_TYPES.find(type => type.value === match?.type) || {};
+            return {
+                fileName: asset.name,
+                type: match?.type || '',
+                label: match?.label || defaults.label || '',
+                description: match?.description || defaults.description || '',
+                icon: match?.icon || defaults.icon || 'utility:page'
+            };
+        });
+    }
+
+    _sameFile(left, right) {
+        const normalize = value => String(value || '').toLowerCase().replace(/\.html$/, '');
+        return normalize(left) === normalize(right);
     }
 
     _assetsOfType(assetType) {

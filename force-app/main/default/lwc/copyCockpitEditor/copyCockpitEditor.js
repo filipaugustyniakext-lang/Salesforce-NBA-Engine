@@ -67,8 +67,11 @@ function groupBlocks(blocks) {
 }
 
 let _uid = 0;
-function makeInstance(blockId) {
-    const def = PALETTE_BLOCKS.find(b => b.id === blockId) || PALETTE_BLOCKS[0];
+function makeInstance(blockId, palette) {
+    const blocks = palette && palette.length ? palette : PALETTE_BLOCKS;
+    const def = blocks.find(block => block.id === blockId || block.blockType === blockId)
+        || PALETTE_BLOCKS.find(block => block.id === blockId || block.blockType === blockId)
+        || PALETTE_BLOCKS[0];
     return {
         ...def,
         instanceId: 'blk_' + Date.now() + '_' + (++_uid).toString(36),
@@ -328,9 +331,24 @@ export default class CopyCockpitEditor extends LightningElement {
         return 'slds-button slds-button_icon slds-button_icon-border' + (this._leftOpen ? ' slds-is-selected' : '');
     }
     get availablePaletteBlocks() {
-        const types = new Set((this._renderSource?.blocks || []).map(block => block.type).filter(Boolean));
-        if (!types.size) return PALETTE_BLOCKS;
-        return PALETTE_BLOCKS.filter(block => types.has(block.blockType));
+        const templateBlocks = this._renderSource?.blocks || [];
+        if (!this._renderSource) return PALETTE_BLOCKS;
+        return templateBlocks.filter(block => block.type).map(block => {
+            const known = PALETTE_BLOCKS.find(item => item.blockType === block.type) || {};
+            return {
+                id: block.type,
+                blockType: block.type,
+                group: block.componentGroup || known.group || 'Content',
+                label: block.label || known.label || block.type,
+                icon: block.icon || known.icon || 'utility:page',
+                description: block.description || known.description || '',
+                svgHref: known.svgHref || ''
+            };
+        });
+    }
+
+    get paletteEmpty() {
+        return !!this._renderSource && this.availablePaletteBlocks.length === 0;
     }
 
     get blockGroups() { return groupBlocks(this.availablePaletteBlocks); }
@@ -662,7 +680,7 @@ export default class CopyCockpitEditor extends LightningElement {
 
     handleAddBlockFromPopover(e) {
         const id   = e.currentTarget.dataset.id;
-        const inst = makeInstance(id);
+        const inst = makeInstance(id, this.availablePaletteBlocks);
         this._canvasBlocks   = [...this._canvasBlocks, inst];
         this._activeBlockId  = inst.instanceId;
         this._addPopoverOpen = false;
@@ -682,7 +700,7 @@ export default class CopyCockpitEditor extends LightningElement {
         e.preventDefault();
         this._emptyZoneDragOver = false;
         if (this._dragPaletteId) {
-            const inst = makeInstance(this._dragPaletteId);
+            const inst = makeInstance(this._dragPaletteId, this.availablePaletteBlocks);
             this._canvasBlocks  = [inst];
             this._activeBlockId = inst.instanceId;
         }
@@ -721,7 +739,7 @@ export default class CopyCockpitEditor extends LightningElement {
         e.currentTarget.classList.remove('slds-drop-zone_drag__slot_active');
         const targetIndex = Number(e.currentTarget.dataset.index);
         if (this._dragPaletteId) {
-            const inst   = makeInstance(this._dragPaletteId);
+            const inst   = makeInstance(this._dragPaletteId, this.availablePaletteBlocks);
             const blocks = [...this._canvasBlocks];
             blocks.splice(targetIndex, 0, inst);
             this._canvasBlocks  = blocks;
@@ -762,7 +780,7 @@ export default class CopyCockpitEditor extends LightningElement {
         e.preventDefault();
         this._canvasDragOver = false;
         if (this._dragPaletteId) {
-            const inst = makeInstance(this._dragPaletteId);
+            const inst = makeInstance(this._dragPaletteId, this.availablePaletteBlocks);
             this._canvasBlocks  = [...this._canvasBlocks, inst];
             this._activeBlockId = inst.instanceId;
         }
@@ -782,7 +800,7 @@ export default class CopyCockpitEditor extends LightningElement {
         e.stopPropagation();
         const insertAfter = Number(e.currentTarget.dataset.index); // blockOrder = 1-based position
         if (this._dragPaletteId) {
-            const inst   = makeInstance(this._dragPaletteId);
+            const inst   = makeInstance(this._dragPaletteId, this.availablePaletteBlocks);
             const blocks = [...this._canvasBlocks];
             blocks.splice(insertAfter, 0, inst);
             this._canvasBlocks  = blocks;
