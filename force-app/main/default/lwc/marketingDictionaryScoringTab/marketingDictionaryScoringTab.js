@@ -243,6 +243,10 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
         const unassigned = this.productFamilyOptions.filter(opt => !assigned.has(opt.value));
         if (unassigned.length) {
             groups.push({ recordType: 'Other', items: unassigned });
+        }
+        this.groupedProductFamilyOptions = groups;
+    }
+
     get scoringModelGroups() {
         return this._allRecords.filter(r => r.Dictionary_Sub_Type__c === 'Scoring Model Group');
     }
@@ -1078,6 +1082,8 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
             this._showToast('Error', err.body?.message || 'Save failed.', 'error');
         } finally {
             this.isSaving = false;
+        }
+    }
 
     handleDeleteCampaignRecord(e) { this._openDeleteModal(e.currentTarget.dataset.id, e.currentTarget.dataset.name, 'campaignRecord'); }
     closeDeleteModal() { this.isDeleteModalOpen = false; this._deleteIds = null; }
