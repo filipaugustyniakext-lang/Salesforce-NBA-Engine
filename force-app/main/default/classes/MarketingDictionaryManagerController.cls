@@ -468,7 +468,7 @@ public with sharing class MarketingDictionaryManagerController {
      * Data360 DMO options for Scoring Model editor.
      * Prefers Data Lake / DMO-style entities (QualifiedApiName ending in __dlm).
      */
-    @AuraEnabled(cacheable=true)
+    @AuraEnabled
     public static List<Map<String, String>> getData360DmoOptions() {
         List<Map<String, String>> options = new List<Map<String, String>>();
         try {
