@@ -303,6 +303,44 @@ public with sharing class ChannelTemplateManifestService {
             if (String.isNotBlank(icon) && !Pattern.matches('utility:[a-z0-9_]+', icon)) {
                 errors.add('Component "' + type + '" has an unsupported icon.');
             }
+            if (asset != null && component.containsKey('bindings')) {
+                validateComponentBindings(type, component, asset.body, errors);
+            }
+        }
+    }
+
+    private static void validateComponentBindings(
+        String blockType,
+        Map<String, Object> component,
+        String source,
+        List<String> errors
+    ) {
+        Set<String> allowed = new Set<String>{
+            'copy', 'imageUrl', 'altText', 'legal',
+            'viewDesktop', 'viewMobile', 'padding', 'background', 'columnLayout', 'heightDesktop', 'heightMobile'
+        };
+        Set<String> bound = new Set<String>();
+        Object rawBindings = component.get('bindings');
+        if (rawBindings != null && !(rawBindings instanceof List<Object>)) {
+            errors.add('Component "' + blockType + '" bindings must be a list.');
+            return;
+        }
+        for (Object rawBinding : rawBindings == null ? new List<Object>() : (List<Object>) rawBindings) {
+            Map<String, Object> binding = asMap(rawBinding);
+            String placeholder = stringValue(binding.get('placeholder')).replace('{', '').replace('}', '').trim();
+            String setting = stringValue(binding.get('source'));
+            if (String.isBlank(placeholder)) continue;
+            if (!allowed.contains(setting)) {
+                errors.add('Component "' + blockType + '" binds {{' + placeholder + '}} to an unknown setting.');
+            }
+            if (!bound.add(placeholder)) {
+                errors.add('Component "' + blockType + '" binds {{' + placeholder + '}} more than once.');
+            }
+        }
+        for (String name : placeholderNames(source)) {
+            if (!bound.contains(name)) {
+                errors.add('Bind {{' + name + '}} on ' + blockType + ' to a Content Settings or Block Settings value.');
+            }
         }
     }
 

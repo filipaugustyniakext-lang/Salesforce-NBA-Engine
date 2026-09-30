@@ -1,9 +1,12 @@
 export function renderTemplatePreview(source, blocks, device) {
     const shell = String(source?.shellHtml || '');
     if (!shell) return '';
-    const templates = new Map((source.blocks || []).map(block => [block.type, block.html || '']));
-    const visible = (blocks || []).filter(block => isVisibleOnDevice(block, device));
-    const rendered = visible.map(block => renderBlock(block, templates.get(block.blockType) || '')).join('');
+    const definitions = new Map((source.blocks || []).map(block => [block.type, block]));
+    const visible = (blocks || []).filter(block => isVisibleOnDevice(block, device, definitions.get(block.blockType)));
+    const rendered = visible.map(block => {
+        const definition = definitions.get(block.blockType);
+        return renderBlock(block, definition?.html || '', definition);
+    }).join('');
     return stripExecutableMarkup(applyPreviewActions(shell, rendered, visible, source?.bodySlotKey));
 }
 
@@ -24,7 +27,10 @@ export function scopePreviewDocument(html, options = {}) {
     const body = previewTokens(bodyMatch ? bodyMatch[1] : withoutStyles).replace(/<custom\b[^>]*\/?>/gi, '');
     // Page CSS such as `table { width: 100% }` stretches shrink-wrapped email tables,
     // so an image with width:100% ignores the pixel width on its cell.
-    const guard = `${PREVIEW_SCOPE} table:not([width]):not([style*="width"]){width:max-content !important;max-width:100% !important;margin:0 auto;}`;
+    const guard = `${PREVIEW_SCOPE} table:not([width]):not([style*="width"]){width:max-content !important;max-width:100% !important;margin:0 auto;}`
+        + (device === 'desktop'
+            ? `${PREVIEW_SCOPE} .desktopHide{display:none !important;}`
+            : `${PREVIEW_SCOPE} .mobileHide{display:none !important;}`);
     return `<div class="cc-preview"><style>${styles.join('\n')}\n${guard}</style>${body}</div>`;
 }
 
@@ -117,14 +123,53 @@ function matchingBrace(source, openIndex) {
     return source.length - 1;
 }
 
-function isVisibleOnDevice(block, device) {
+function isVisibleOnDevice(block, device, definition) {
+    const source = device === 'mobile' ? 'viewMobile' : device === 'desktop' ? 'viewDesktop' : '';
+    if (!source) return true;
+    const bindings = Array.isArray(definition?.bindings) ? definition.bindings : null;
+    if (bindings && bindings.some(item => item?.source === source)) return true;
+    const settings = Array.isArray(definition?.blockSettings) ? definition.blockSettings : null;
+    if (settings && !settings.includes(source)) return true;
     if (device === 'mobile') return block.visMobile !== 'hide';
     if (device === 'desktop') return block.visDesktop !== 'hide';
     return true;
 }
 
-function renderBlock(block, template) {
+function renderBlock(block, template, definition) {
     if (!template) return '';
+    const bindings = Array.isArray(definition?.bindings) ? definition.bindings : null;
+    const values = bindings ? boundValues(block, bindings) : legacyValues(block);
+    return template.replace(/\{\{\s*([A-Za-z0-9_.:-]+)\s*\}\}/g, (match, name) => (
+        Object.prototype.hasOwnProperty.call(values, name) ? values[name] : ''
+    ));
+}
+
+function boundValues(block, bindings) {
+    const values = {};
+    bindings.forEach(binding => {
+        const name = String(binding?.placeholder || '').replace(/[{}]/g, '').trim();
+        if (name) values[name] = bindingOutput(binding.source, block);
+    });
+    return values;
+}
+
+function bindingOutput(source, block) {
+    const padding = `${number(block.padTop, 0)}px ${number(block.padRight, 0)}px ${number(block.padBottom, 0)}px ${number(block.padLeft, 0)}px`;
+    if (source === 'copy') return richText(block.copyText || '');
+    if (source === 'imageUrl') return safeUrl(block.imageUrl);
+    if (source === 'altText') return escapeHtml(block.altText || '');
+    if (source === 'legal') return richText(block.legalText || '');
+    if (source === 'viewDesktop') return block.visDesktop === 'hide' ? 'desktopHide' : '';
+    if (source === 'viewMobile') return block.visMobile === 'hide' ? 'mobileHide' : '';
+    if (source === 'padding') return padding;
+    if (source === 'background') return escapeHtml(block.bgValue || '');
+    if (source === 'columnLayout') return block.imageLayout === 'image-left' ? 'rtl' : 'ltr';
+    if (source === 'heightDesktop') return pixelValue(block.heightDesktop);
+    if (source === 'heightMobile') return pixelValue(block.heightMobile);
+    return '';
+}
+
+function legacyValues(block) {
     const padding = `${number(block.padTop, 20)}px ${number(block.padRight, 40)}px ${number(block.padBottom, 20)}px ${number(block.padLeft, 40)}px`;
     const text = richText(block.copyText || block.label || '');
     const legal = richText(block.legalText || '');
@@ -138,7 +183,7 @@ function renderBlock(block, template) {
     const columns = block.imageLayout === 'image-left'
         ? imageColumn + textColumn
         : textColumn + imageColumn;
-    const values = {
+    return {
         CELL_PADDING_STYLE: `padding:${padding};`,
         CELL_ALIGN: block.imageLayout === 'image-left' ? 'left' : 'center',
         RICH_TEXT_ROWS: `<tr><td style="font-family:Arial,sans-serif;font-size:16px;line-height:22px;color:#262626;">${text}</td></tr>`,
@@ -157,9 +202,12 @@ function renderBlock(block, template) {
         INNER_CELL_PADDING: `padding:${padding};`,
         MSO_FIRST_COLUMN_OPEN: ''
     };
-    return template.replace(/\{\{([A-Za-z0-9_.:-]+)\}\}/g, (match, name) => (
-        Object.prototype.hasOwnProperty.call(values, name) ? values[name] : ''
-    ));
+}
+
+function pixelValue(value) {
+    if (value === '' || value == null) return '';
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? `${parsed}px` : '';
 }
 
 const PREVIEW_ACTION = /<div\b[^>]*\bdata-preview-action\s*=\s*(['"])(preload|expectBlocks|expectContent)\1[^>]*>/gi;

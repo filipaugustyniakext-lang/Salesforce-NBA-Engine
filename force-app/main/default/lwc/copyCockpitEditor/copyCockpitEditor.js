@@ -57,6 +57,24 @@ const PALETTE_BLOCKS = [
     { id: 'spacer',     group: 'Layout',  blockType: 'Spacer',     label: 'Spacer',             icon: 'utility:spacer',           svgHref: '#spacer',            description: 'Vertical space between blocks. Set desktop and optional mobile heights separately.' },
 ];
 
+function settingOn(block, id) {
+    const settings = Array.isArray(block.blockSettings) ? block.blockSettings : null;
+    if (settings) return settings.includes(id);
+    if (id === 'columnLayout') return block.blockType === 'TextImage';
+    if (id === 'heightDesktop' || id === 'heightMobile') return false;
+    return true;
+}
+
+function contentOn(block, source) {
+    const bindings = Array.isArray(block.bindings) ? block.bindings : null;
+    if (bindings) return bindings.some(item => item?.source === source);
+    if (source === 'copy') return ['RichText', 'TextImage', 'Banner', 'Prefooter', 'Content'].includes(block.blockType);
+    if (source === 'imageUrl' || source === 'altText') return ['Image', 'TextImage', 'Banner', 'Content'].includes(block.blockType);
+    if (source === 'legal') return block.blockType === 'Prefooter';
+    if (source === 'spacerHeight') return block.blockType === 'Spacer';
+    return false;
+}
+
 function groupBlocks(blocks) {
     const map = new Map();
     for (const b of blocks) {
@@ -85,6 +103,8 @@ function makeInstance(blockId, palette) {
         padLinked: false,
         bgValue:     '',
         imageLayout: 'text-left',
+        heightDesktop: '',
+        heightMobile: '',
         copyText: '',
         imageUrl: '',
         altText: '',
@@ -347,7 +367,9 @@ export default class CopyCockpitEditor extends LightningElement {
                 label: block.label || known.label || block.type,
                 icon: block.icon || known.icon || 'utility:page',
                 description: block.description || known.description || '',
-                svgHref: known.svgHref || ''
+                svgHref: known.svgHref || '',
+                bindings: Array.isArray(block.bindings) ? block.bindings : null,
+                blockSettings: Array.isArray(block.blockSettings) ? block.blockSettings : null
             };
         });
     }
@@ -384,8 +406,29 @@ export default class CopyCockpitEditor extends LightningElement {
 
     get canvasBlocks() {
         const len = this._canvasBlocks.length;
-        return this._canvasBlocks.map((b, i) => ({
-            ...b,
+        const definitions = this._renderSource?.blocks || [];
+        return this._canvasBlocks.map((b, i) => {
+            const definition = definitions.find(item => item.type === b.blockType) || {};
+            const blockSettings = Array.isArray(definition.blockSettings)
+                ? definition.blockSettings
+                : (Array.isArray(b.blockSettings) ? b.blockSettings : null);
+            const bindings = Array.isArray(definition.bindings)
+                ? definition.bindings
+                : (Array.isArray(b.bindings) ? b.bindings : null);
+            const configured = { ...b, blockSettings, bindings };
+            const showViewDesktop = settingOn(configured, 'viewDesktop');
+            const showViewMobile = settingOn(configured, 'viewMobile');
+            const showPadding = settingOn(configured, 'padding');
+            const showBackground = settingOn(configured, 'background');
+            const showColumnLayout = settingOn(configured, 'columnLayout');
+            const showHeightDesktop = settingOn(configured, 'heightDesktop');
+            const showHeightMobile = settingOn(configured, 'heightMobile');
+            const showCopy = contentOn(configured, 'copy');
+            const showImage = contentOn(configured, 'imageUrl') || contentOn(configured, 'altText');
+            const showLegal = contentOn(configured, 'legal');
+            const showSpacer = contentOn(configured, 'spacerHeight');
+            return {
+            ...configured,
             blockOrder: i + 1,
             slotBeforeIndex: i,
             isFirst: i === 0,
@@ -427,10 +470,22 @@ export default class CopyCockpitEditor extends LightningElement {
             altText: b.altText || '',
             legalText: b.legalText || '',
             spacerHeight: b.spacerHeight || '20',
-            showCopy: b.blockType === 'RichText' || b.blockType === 'TextImage' || b.blockType === 'Banner' || b.blockType === 'Prefooter' || b.blockType === 'Content',
-            showImage: b.blockType === 'Image' || b.blockType === 'TextImage' || b.blockType === 'Banner' || b.blockType === 'Content',
-            showLegal: b.blockType === 'Prefooter',
-            showSpacer: b.blockType === 'Spacer',
+            heightDesktop: b.heightDesktop || '',
+            heightMobile: b.heightMobile || '',
+            showViewDesktop,
+            showViewMobile,
+            showPadding,
+            showBackground,
+            showColumnLayout,
+            showHeightDesktop,
+            showHeightMobile,
+            showLayoutCard: showViewDesktop || showViewMobile || showPadding || showBackground || showHeightDesktop || showHeightMobile,
+            noBlockSettings: !showViewDesktop && !showViewMobile && !showPadding && !showBackground && !showColumnLayout && !showHeightDesktop && !showHeightMobile,
+            showCopy,
+            showImage,
+            showLegal,
+            showSpacer,
+            noContentFields: !showCopy && !showImage && !showLegal && !showSpacer,
             missingBlockTemplate: !!this._renderSource?.shellHtml && !this._templateBlockTypes.has(b.blockType),
             copyFieldId: 'block-copy-' + b.instanceId,
             imageFieldId: 'block-image-' + b.instanceId,
@@ -442,7 +497,10 @@ export default class CopyCockpitEditor extends LightningElement {
             imageLayoutImageLeft:     b.imageLayout === 'image-left',
             colLayoutTextLeftClass:   'column-layout-card' + (b.imageLayout !== 'image-left' ? ' column-layout-card_selected' : ''),
             colLayoutImageLeftClass:  'column-layout-card' + (b.imageLayout === 'image-left' ? ' column-layout-card_selected' : ''),
-        }));
+            heightDesktopId: 'block-height-desktop-' + b.instanceId,
+            heightMobileId: 'block-height-mobile-' + b.instanceId,
+        };
+        });
     }
 
     get addPopoverOpen() { return this._addPopoverOpen; }
@@ -965,6 +1023,17 @@ export default class CopyCockpitEditor extends LightningElement {
         this._canvasBlocks = this._canvasBlocks.map(b =>
             b.instanceId !== instanceId ? b
                 : { ...b, [device === 'desktop' ? 'visDesktop' : 'visMobile']: value }
+        );
+        this._isDirty = true;
+    }
+    handleBlockHeightChange(e) {
+        e.stopPropagation();
+        const instanceId = e.currentTarget.dataset.instanceId;
+        const field = e.currentTarget.dataset.field;
+        if (field !== 'heightDesktop' && field !== 'heightMobile') return;
+        const value = e.target.value;
+        this._canvasBlocks = this._canvasBlocks.map(b =>
+            b.instanceId === instanceId ? { ...b, [field]: value } : b
         );
         this._isDirty = true;
     }

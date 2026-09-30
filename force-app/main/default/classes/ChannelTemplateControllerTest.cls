@@ -299,7 +299,14 @@ private class ChannelTemplateControllerTest {
                     'label' => 'Intro copy',
                     'description' => 'Opening paragraph',
                     'icon' => 'utility:display_rich_text',
-                    'fileName' => 'SFMC_CB_Email_RichText.html'
+                    'fileName' => 'SFMC_CB_Email_RichText.html',
+                    'blockSettings' => new List<String>{ 'padding', 'viewDesktop' },
+                    'bindings' => new List<Object>{
+                        new Map<String, Object>{
+                            'placeholder' => 'RICH_TEXT_ROWS',
+                            'source' => 'copy'
+                        }
+                    }
                 }
             })
         );
@@ -325,6 +332,76 @@ private class ChannelTemplateControllerTest {
         }
         System.assertEquals(1, definition.components.size());
         System.assertEquals('Intro copy', definition.components[0].label);
+        System.assertEquals('copy', definition.components[0].bindings[0].source);
+        System.assertEquals('RICH_TEXT_ROWS', definition.components[0].bindings[0].placeholder);
+        System.assertEquals('copy', source.blocks[0].bindings[0].source);
+    }
+
+    @IsTest
+    static void contentBlockPlaceholdersMustBeBound() {
+        Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
+        Id templateId = createDraftTemplate(channel.Id, 'Bound Blocks', 6);
+        Id blockId = uploadFile(
+            templateId,
+            'text-image.html',
+            '<td class="{{ desktopClass }}" style="direction:{{columnDirection}};padding:{{CELL_PADDING_STYLE}};">{{copy}}</td>'
+        );
+        System.assertEquals(null, ChannelTemplateController.classifyUploadedFiles(
+            templateId, new List<Id>{ blockId }, 'CONTENT_BLOCK'
+        ));
+
+        List<ChannelTemplateController.FilePlaceholders> scans =
+            ChannelTemplateController.getContentBlockPlaceholders(templateId);
+        System.assertEquals(1, scans.size());
+        System.assertEquals(4, scans[0].placeholders.size());
+        System.assert(scans[0].placeholders.contains('CELL_PADDING_STYLE'));
+        System.assert(scans[0].placeholders.contains('columnDirection'));
+        System.assert(scans[0].placeholders.contains('desktopClass'));
+        System.assert(scans[0].placeholders.contains('copy'));
+
+        Boolean rejected = false;
+        try {
+            ChannelTemplateController.saveComponentCatalog(
+                templateId,
+                JSON.serialize(new List<Object>{
+                    new Map<String, Object>{
+                        'type' => 'TextImage',
+                        'label' => 'Text Image',
+                        'icon' => 'utility:layout_card',
+                        'fileName' => 'text-image.html',
+                        'bindings' => new List<Object>()
+                    }
+                })
+            );
+        } catch (AuraHandledException error) {
+            rejected = true;
+        }
+        System.assertEquals(true, rejected);
+
+        ChannelTemplateController.saveComponentCatalog(
+            templateId,
+            JSON.serialize(new List<Object>{
+                new Map<String, Object>{
+                    'type' => 'TextImage',
+                    'label' => 'Text Image',
+                    'icon' => 'utility:layout_card',
+                    'fileName' => 'text-image.html',
+                    'blockSettings' => new List<String>{ 'columnLayout' },
+                    'bindings' => new List<Object>{
+                        new Map<String, Object>{ 'placeholder' => 'desktopClass', 'source' => 'viewDesktop' },
+                        new Map<String, Object>{ 'placeholder' => 'columnDirection', 'source' => 'columnLayout' },
+                        new Map<String, Object>{ 'placeholder' => 'CELL_PADDING_STYLE', 'source' => 'padding' },
+                        new Map<String, Object>{ 'placeholder' => 'copy', 'source' => 'copy' }
+                    }
+                }
+            })
+        );
+        ChannelTemplateController.TemplateRenderSource source =
+            ChannelTemplateController.getTemplateRenderSource(templateId);
+        System.assertEquals(4, source.blocks[0].bindings.size());
+        System.assert(source.blocks[0].blockSettings.contains('viewDesktop'));
+        System.assert(source.blocks[0].blockSettings.contains('padding'));
+        System.assert(source.blocks[0].blockSettings.contains('columnLayout'));
     }
 
     @IsTest

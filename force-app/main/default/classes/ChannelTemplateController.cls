@@ -44,6 +44,19 @@ public with sharing class ChannelTemplateController {
         @AuraEnabled public String icon;
         @AuraEnabled public String fileName;
         @AuraEnabled public String componentGroup;
+        @AuraEnabled public List<String> placeholders;
+        @AuraEnabled public List<String> blockSettings;
+        @AuraEnabled public List<PlaceholderBinding> bindings;
+    }
+
+    public class PlaceholderBinding {
+        @AuraEnabled public String placeholder;
+        @AuraEnabled public String source;
+    }
+
+    public class FilePlaceholders {
+        @AuraEnabled public String fileName;
+        @AuraEnabled public List<String> placeholders = new List<String>();
     }
 
     public class ValidationResponse {
@@ -210,6 +223,7 @@ public with sharing class ChannelTemplateController {
         }
         List<Object> components = new List<Object>();
         Set<String> types = new Set<String>();
+        Map<String, String> blockHtmlByName = contentBlockBodies(templateId);
         for (Object rawRow : rawRows) {
             if (!(rawRow instanceof Map<String, Object>)) continue;
             Map<String, Object> row = (Map<String, Object>) rawRow;
@@ -236,13 +250,38 @@ public with sharing class ChannelTemplateController {
             if (!Pattern.matches('utility:[a-z0-9_]+', icon)) {
                 throw new AuraHandledException('Choose an SLDS utility icon for ' + type + '.');
             }
+            List<PlaceholderBinding> bindings = readBindings(row.get('bindings'));
+            List<String> blockSettings = readStringList(row.get('blockSettings'));
+            String blockHtml = lookupBlockHtml(blockHtmlByName, fileName);
+            List<String> placeholders = blockHtml == null
+                ? readStringList(row.get('placeholders'))
+                : extractPlaceholders(blockHtml);
+            assertPlaceholderBindings(type, placeholders, bindings);
+            Set<String> enabledSettings = new Set<String>(blockSettings);
+            for (PlaceholderBinding binding : bindings) {
+                if (BLOCK_SETTING_SOURCES.contains(binding.source)) enabledSettings.add(binding.source);
+            }
+            blockSettings = new List<String>();
+            for (String setting : BLOCK_SETTING_ORDER) {
+                if (enabledSettings.contains(setting)) blockSettings.add(setting);
+            }
+            List<Object> bindingRows = new List<Object>();
+            for (PlaceholderBinding binding : bindings) {
+                bindingRows.add(new Map<String, Object>{
+                    'placeholder' => binding.placeholder,
+                    'source' => binding.source
+                });
+            }
             components.add(new Map<String, Object>{
                 'type' => type,
                 'label' => label,
                 'description' => description,
                 'icon' => icon,
                 'fileName' => fileName,
-                'group' => type == 'Spacer' ? 'Layout' : 'Content'
+                'group' => type == 'Spacer' ? 'Layout' : 'Content',
+                'placeholders' => placeholders,
+                'blockSettings' => blockSettings,
+                'bindings' => bindingRows
             });
         }
         template.Manifest_JSON__c = JSON.serialize(new Map<String, Object>{
@@ -253,6 +292,33 @@ public with sharing class ChannelTemplateController {
         template.Validation_Message__c = null;
         template.Package_Hash__c = null;
         update template;
+    }
+
+    @AuraEnabled
+    public static List<FilePlaceholders> getContentBlockPlaceholders(Id templateId) {
+        List<FilePlaceholders> scans = new List<FilePlaceholders>();
+        if (templateId == null) return scans;
+        List<ContentDocumentLink> links = [
+            SELECT ContentDocument.Title, ContentDocument.LatestPublishedVersionId
+            FROM ContentDocumentLink
+            WHERE LinkedEntityId = :templateId
+              AND ContentDocument.Title LIKE '[CONTENT\\_BLOCK]%' ESCAPE '\\'
+        ];
+        Set<Id> versionIds = new Set<Id>();
+        for (ContentDocumentLink link : links) versionIds.add(link.ContentDocument.LatestPublishedVersionId);
+        Map<Id, ContentVersion> versions = versionIds.isEmpty()
+            ? new Map<Id, ContentVersion>()
+            : new Map<Id, ContentVersion>([
+                SELECT Id, VersionData FROM ContentVersion WHERE Id IN :versionIds
+            ]);
+        for (ContentDocumentLink link : links) {
+            ContentVersion version = versions.get(link.ContentDocument.LatestPublishedVersionId);
+            FilePlaceholders scan = new FilePlaceholders();
+            scan.fileName = stripKnownPrefix(link.ContentDocument.Title);
+            scan.placeholders = extractPlaceholders(version == null ? '' : version.VersionData.toString());
+            scans.add(scan);
+        }
+        return scans;
     }
 
     @AuraEnabled
@@ -608,6 +674,9 @@ public with sharing class ChannelTemplateController {
                 renderBlock.description = component.description;
                 renderBlock.icon = component.icon;
                 renderBlock.componentGroup = component.componentGroup;
+                renderBlock.placeholders = component.placeholders;
+                renderBlock.blockSettings = component.blockSettings;
+                renderBlock.bindings = component.bindings;
                 renderBlock.html = htmlByName.get(baseName(renderBlock.fileName).toLowerCase());
                 if (String.isBlank(renderBlock.html)) {
                     String withExtension = baseName(renderBlock.fileName).toLowerCase();
@@ -657,11 +726,120 @@ public with sharing class ChannelTemplateController {
         @AuraEnabled public String description;
         @AuraEnabled public String icon;
         @AuraEnabled public String componentGroup;
+        @AuraEnabled public List<String> placeholders;
+        @AuraEnabled public List<String> blockSettings;
+        @AuraEnabled public List<PlaceholderBinding> bindings;
     }
 
     private static final Set<String> SUPPORTED_COMPONENT_TYPES = new Set<String>{
         'RichText', 'Image', 'TextImage', 'Banner', 'Prefooter', 'Spacer'
     };
+    private static final List<String> BLOCK_SETTING_ORDER = new List<String>{
+        'viewDesktop', 'viewMobile', 'padding', 'background', 'columnLayout', 'heightDesktop', 'heightMobile'
+    };
+    private static final Set<String> BLOCK_SETTING_SOURCES = new Set<String>(BLOCK_SETTING_ORDER);
+    private static final Set<String> BINDING_SOURCES = new Set<String>{
+        'copy', 'imageUrl', 'altText', 'legal',
+        'viewDesktop', 'viewMobile', 'padding', 'background', 'columnLayout', 'heightDesktop', 'heightMobile'
+    };
+
+    private static List<String> readStringList(Object raw) {
+        List<String> values = new List<String>();
+        if (!(raw instanceof List<Object>)) return values;
+        for (Object item : (List<Object>) raw) {
+            String value = textValue(item);
+            if (String.isNotBlank(value) && !values.contains(value)) values.add(value);
+        }
+        return values;
+    }
+
+    private static List<PlaceholderBinding> readBindings(Object raw) {
+        List<PlaceholderBinding> bindings = new List<PlaceholderBinding>();
+        if (!(raw instanceof List<Object>)) return bindings;
+        for (Object item : (List<Object>) raw) {
+            if (!(item instanceof Map<String, Object>)) continue;
+            Map<String, Object> row = (Map<String, Object>) item;
+            PlaceholderBinding binding = new PlaceholderBinding();
+            binding.placeholder = textValue(row.get('placeholder')).replace('{', '').replace('}', '').trim();
+            binding.source = textValue(row.get('source'));
+            if (String.isNotBlank(binding.placeholder)) bindings.add(binding);
+        }
+        return bindings;
+    }
+
+    private static void assertPlaceholderBindings(
+        String type,
+        List<String> placeholders,
+        List<PlaceholderBinding> bindings
+    ) {
+        Set<String> found = new Set<String>(placeholders);
+        Set<String> bound = new Set<String>();
+        for (PlaceholderBinding binding : bindings) {
+            if (String.isBlank(binding.source) || !BINDING_SOURCES.contains(binding.source)) {
+                throw new AuraHandledException('Choose a Content Settings or Block Settings value for {{' + binding.placeholder + '}}.');
+            }
+            if (!bound.add(binding.placeholder)) {
+                throw new AuraHandledException('{{' + binding.placeholder + '}} is bound more than once.');
+            }
+            if (!found.contains(binding.placeholder)) {
+                throw new AuraHandledException('{{' + binding.placeholder + '}} is not in the HTML for ' + type + '.');
+            }
+        }
+        for (String name : placeholders) {
+            if (!bound.contains(name)) {
+                throw new AuraHandledException('Bind {{' + name + '}} on ' + type + ' to a Content Settings or Block Settings value.');
+            }
+        }
+    }
+
+    private static List<String> extractPlaceholders(String html) {
+        List<String> names = new List<String>();
+        Matcher matcher = Pattern.compile('\\{\\{\\s*([A-Za-z0-9_.:\\-]+)\\s*\\}\\}')
+            .matcher(String.valueOf(html));
+        while (matcher.find()) {
+            if (!names.contains(matcher.group(1))) names.add(matcher.group(1));
+        }
+        return names;
+    }
+
+    private static Map<String, String> contentBlockBodies(Id templateId) {
+        Map<String, String> bodies = new Map<String, String>();
+        List<ContentDocumentLink> links = [
+            SELECT ContentDocument.Title, ContentDocument.LatestPublishedVersionId
+            FROM ContentDocumentLink
+            WHERE LinkedEntityId = :templateId
+              AND ContentDocument.Title LIKE '[CONTENT\\_BLOCK]%' ESCAPE '\\'
+        ];
+        Set<Id> versionIds = new Set<Id>();
+        for (ContentDocumentLink link : links) versionIds.add(link.ContentDocument.LatestPublishedVersionId);
+        Map<Id, ContentVersion> versions = versionIds.isEmpty()
+            ? new Map<Id, ContentVersion>()
+            : new Map<Id, ContentVersion>([
+                SELECT Id, VersionData FROM ContentVersion WHERE Id IN :versionIds
+            ]);
+        for (ContentDocumentLink link : links) {
+            ContentVersion version = versions.get(link.ContentDocument.LatestPublishedVersionId);
+            if (version == null || version.VersionData == null) continue;
+            String html = version.VersionData.toString();
+            String name = stripKnownPrefix(link.ContentDocument.Title).toLowerCase();
+            bodies.put(name, html);
+            if (!name.endsWith('.html')) bodies.put(name + '.html', html);
+            Integer dot = name.lastIndexOf('.');
+            if (dot > 0) bodies.put(name.substring(0, dot), html);
+        }
+        return bodies;
+    }
+
+    private static String lookupBlockHtml(Map<String, String> bodies, String fileName) {
+        String normalized = baseName(fileName).toLowerCase();
+        if (String.isBlank(normalized) || bodies == null) return null;
+        if (bodies.containsKey(normalized)) return bodies.get(normalized);
+        if (!normalized.endsWith('.html') && bodies.containsKey(normalized + '.html')) {
+            return bodies.get(normalized + '.html');
+        }
+        Integer dot = normalized.lastIndexOf('.');
+        return dot > 0 ? bodies.get(normalized.substring(0, dot)) : null;
+    }
 
     private static List<CatalogComponent> readCatalog(String jsonText) {
         List<CatalogComponent> components = new List<CatalogComponent>();
@@ -695,6 +873,9 @@ public with sharing class ChannelTemplateController {
             if (String.isBlank(component.componentGroup)) {
                 component.componentGroup = component.type == 'Spacer' ? 'Layout' : 'Content';
             }
+            if (row.containsKey('placeholders')) component.placeholders = readStringList(row.get('placeholders'));
+            if (row.containsKey('blockSettings')) component.blockSettings = readStringList(row.get('blockSettings'));
+            if (row.containsKey('bindings')) component.bindings = readBindings(row.get('bindings'));
             if (String.isNotBlank(component.type)) components.add(component);
         }
         return components;

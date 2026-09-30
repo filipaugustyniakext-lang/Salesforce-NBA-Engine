@@ -262,6 +262,9 @@
                             <p class="slds-text-body_small slds-text-color_weak">
                                 Upload HTML only for sections marked expectBlocks. Preload and expectContent sections live in the shell, so they do not need separate files. A banner or other single layout uses expectContent and does not need component files.
                             </p>
+                            <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">
+                                Each content block HTML can contain &#123;&#123;placeholders&#125;&#125;. Bind every placeholder to a Content Settings or Block Settings value, and choose which Block Settings authors see.
+                            </p>
                             <template lwc:if={contentBlockAssets.length}>
                                 <ul class="template-assets">
                                     <template for:each={contentBlockAssets} for:item="asset">
@@ -308,7 +311,7 @@
                             </div>
                             <div class="component-catalog slds-m-top_medium">
                                 <template lwc:if={hasCatalogRows}>
-                                    <template for:each={catalogRows} for:item="row">
+                                    <template for:each={catalogView} for:item="row">
                                         <div key={row.fileName} class="component-catalog__row">
                                             <p class="slds-text-title_caps">{row.fileName}</p>
                                             <div class="slds-grid slds-wrap slds-gutters_small slds-m-top_x-small">
@@ -325,9 +328,56 @@
                                                     <lightning-textarea label="Description" value={row.description} data-file={row.fileName} data-field="description" disabled={isEditingActive} onchange={handleCatalogChange}></lightning-textarea>
                                                 </div>
                                             </div>
+                                            <div class="component-bindings slds-m-top_small">
+                                                <h4 class="slds-text-heading_small">Placeholder bindings</h4>
+                                                <template lwc:if={row.legacy}>
+                                                    <p class="slds-text-body_small slds-text-color_weak">Saving these bindings replaces the built-in renderer for this component.</p>
+                                                </template>
+                                                <template lwc:if={row.placeholdersLoading}>
+                                                    <p class="slds-text-body_small slds-text-color_weak">Reading placeholders from the HTML file.</p>
+                                                </template>
+                                                <template lwc:if={row.noPlaceholders}>
+                                                    <p class="slds-text-body_small slds-text-color_weak">This file has no &#123;&#123;placeholders&#125;&#125;. It renders as uploaded.</p>
+                                                </template>
+                                                <template for:each={row.bindingRows} for:item="binding">
+                                                    <div key={binding.key} class="placeholder-bind">
+                                                        <p class="placeholder-bind__token" title={binding.token}>{binding.token}</p>
+                                                        <lightning-combobox
+                                                            label="Bind to"
+                                                            variant="label-hidden"
+                                                            placeholder="Select a setting"
+                                                            value={binding.source}
+                                                            options={binding.sourceOptions}
+                                                            data-file={binding.fileName}
+                                                            data-placeholder={binding.name}
+                                                            disabled={isEditingActive}
+                                                            required
+                                                            onchange={handleBindingChange}>
+                                                        </lightning-combobox>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                            <div class="component-settings slds-m-top_small">
+                                                <h4 class="slds-text-heading_small">Block Settings</h4>
+                                                <p class="slds-text-body_small slds-text-color_weak">Choose which controls authors see on the Block Settings tab. Binding a placeholder turns its setting on.</p>
+                                                <template for:each={row.settingChoices} for:item="choice">
+                                                    <div key={choice.key} class="block-setting-choice">
+                                                        <lightning-input
+                                                            type="checkbox"
+                                                            label={choice.label}
+                                                            checked={choice.checked}
+                                                            data-file={choice.fileName}
+                                                            data-setting={choice.id}
+                                                            disabled={isEditingActive}
+                                                            onchange={handleSettingChange}>
+                                                        </lightning-input>
+                                                        <p class="slds-text-body_small slds-text-color_weak">{choice.hint}</p>
+                                                    </div>
+                                                </template>
+                                            </div>
                                         </div>
                                     </template>
-                                    <lightning-button class="slds-m-top_small" label="Save Components" variant="brand" disabled={isEditingActive} onclick={handleSaveCatalog}></lightning-button>
+                                    <lightning-button class="slds-m-top_small" label="Save Components" variant="brand" disabled={catalogSaveDisabled} onclick={handleSaveCatalog}></lightning-button>
                                 </template>
                                 <template lwc:else>
                                     <p class="slds-text-body_small slds-text-color_weak">Upload content block HTML to define the components authors can drag into a message.</p>

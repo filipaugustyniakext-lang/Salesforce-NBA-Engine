@@ -693,6 +693,9 @@
                                                                 style={blk.contentPanelStyle}
                                                             >
                                                                 <div class="block-content-fields">
+                                                                    <template lwc:if={blk.noContentFields}>
+                                                                        <p class="slds-text-body_small slds-text-color_weak">This component has no content fields. Its placeholders are filled from Block Settings.</p>
+                                                                    </template>
                                                                     <template lwc:if={blk.showCopy}>
                                                                         <div class="slds-form-element">
                                                                             <label class="slds-form-element__label" for={blk.copyFieldId}>Copy</label>
@@ -748,12 +751,17 @@
                                                                 style={blk.settingsPanelStyle}
                                                             >
                                                                 <div class="settings-panel-stack">
+                                                                    <template lwc:if={blk.noBlockSettings}>
+                                                                        <p class="slds-text-body_small slds-text-color_weak">This component does not use block settings.</p>
+                                                                    </template>
 
                                                                     <!-- Card 1: Layout & Visibility -->
+                                                                    <template lwc:if={blk.showLayoutCard}>
                                                                     <div class="settings-card">
                                                                         <h2 class="settings-card__title">Layout &amp; Visibility</h2>
 
                                                                         <!-- Visibility button groups -->
+                                                                        <template lwc:if={blk.showViewDesktop}>
                                                                         <div class="block-vis-grid">
                                                                             <span class="block-vis-grid__label">View on desktop</span>
                                                                             <div class="slds-button-group" role="group" aria-label="View on desktop">
@@ -765,6 +773,8 @@
                                                                                     onclick={handleBlockVisClick}>Hide</button>
                                                                             </div>
                                                                         </div>
+                                                                        </template>
+                                                                        <template lwc:if={blk.showViewMobile}>
                                                                         <div class="block-vis-grid">
                                                                             <span class="block-vis-grid__label">View on mobile</span>
                                                                             <div class="slds-button-group" role="group" aria-label="View on mobile">
@@ -776,8 +786,10 @@
                                                                                     onclick={handleBlockVisClick}>Hide</button>
                                                                             </div>
                                                                         </div>
+                                                                        </template>
 
                                                                         <!-- Padding box -->
+                                                                        <template lwc:if={blk.showPadding}>
                                                                         <div class="block-pad-header">
                                                                             <h3 class="block-pad-header__title">Padding</h3>
                                                                             <div class="block-pad-header__actions">
@@ -814,8 +826,10 @@
                                                                                 </div>
                                                                             </div>
                                                                         </div>
+                                                                        </template>
 
                                                                         <!-- Block background -->
+                                                                        <template lwc:if={blk.showBackground}>
                                                                         <div class="slds-form-element slds-m-top_small">
                                                                             <label class="slds-form-element__label" for={blk.bgValueId}>Block Background</label>
                                                                             <div class="slds-form-element__control">
@@ -826,12 +840,32 @@
                                                                                     oninput={handleBlockBgChange} />
                                                                             </div>
                                                                         </div>
-                                                                    </div>
+                                                                        </template>
 
-                                                                    <!-- Card 2: Column Layout (TextImage only) -->
-                                                                    <template lwc:if={blk.isTextImage}>
+                                                                        <template lwc:if={blk.showHeightDesktop}>
+                                                                            <div class="slds-form-element slds-m-top_small">
+                                                                                <label class="slds-form-element__label" for={blk.heightDesktopId}>Block height on desktop</label>
+                                                                                <div class="slds-form-element__control">
+                                                                                    <input id={blk.heightDesktopId} class="slds-input" type="number" min="0" value={blk.heightDesktop} data-instance-id={blk.instanceId} data-field="heightDesktop" onchange={handleBlockHeightChange} />
+                                                                                </div>
+                                                                            </div>
+                                                                        </template>
+                                                                        <template lwc:if={blk.showHeightMobile}>
+                                                                            <div class="slds-form-element slds-m-top_small">
+                                                                                <label class="slds-form-element__label" for={blk.heightMobileId}>Block height on mobile</label>
+                                                                                <div class="slds-form-element__control">
+                                                                                    <input id={blk.heightMobileId} class="slds-input" type="number" min="0" value={blk.heightMobile} data-instance-id={blk.instanceId} data-field="heightMobile" onchange={handleBlockHeightChange} />
+                                                                                </div>
+                                                                            </div>
+                                                                        </template>
+                                                                    </div>
+                                                                    </template>
+
+                                                                    <!-- Card 2: Column Layout -->
+                                                                    <template lwc:if={blk.showColumnLayout}>
                                                                         <div class="settings-card">
                                                                             <h2 class="settings-card__title">Column Layout</h2>
+                                                                            <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_x-small">Left to right writes ltr. Right to left writes rtl.</p>
                                                                             <div class="column-layout-picker">
 
                                                                                 <!-- Option: Text left, Image right -->
