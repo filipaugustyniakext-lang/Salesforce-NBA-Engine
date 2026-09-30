@@ -466,59 +466,177 @@ public with sharing class MarketingDictionaryManagerController {
 
     /**
      * Data360 DMO options for Scoring Model editor.
-     * Prefers Data Lake / DMO-style entities (QualifiedApiName ending in __dlm).
+     * DMOs are Data Cloud objects and are not returned by EntityDefinition, so the catalogue comes from ConnectApi.CdpQuery.
      */
     @AuraEnabled
     public static List<Map<String, String>> getData360DmoOptions() {
-        List<Map<String, String>> options = new List<Map<String, String>>();
+        Map<String, Map<String, String>> byApi = new Map<String, Map<String, String>>();
+        String connectError;
         try {
-            for (EntityDefinition ent : queryData360Dmos()) {
-                String api = ent.QualifiedApiName;
-                if (String.isBlank(api)) {
-                    continue;
-                }
-                String label = String.isNotBlank(ent.Label) ? ent.Label : api;
-                options.add(new Map<String, String>{
-                    'label' => label + ' (' + api + ')',
-                    'value' => api
-                });
-            }
-        } catch (AuraHandledException ahe) {
-            throw ahe;
+            collectDataCloudDmos(byApi);
         } catch (Exception e) {
-            throw auraError(
-                'Data360 DMOs could not be loaded. The user needs View Setup and Configuration, plus access to the Data Cloud data space. ' +
-                e.getMessage()
-            );
+            connectError = e.getMessage();
         }
+        collectEntityDefinitionDmos(byApi);
+        if (byApi.isEmpty() && String.isNotBlank(connectError)) {
+            throw auraError('Data360 DMOs could not be loaded from Data Cloud. ' + connectError);
+        }
+        List<Map<String, String>> options = byApi.values();
         options.sort(new DmoOptionLabelSort());
         return options;
     }
 
-    private static List<EntityDefinition> queryData360Dmos() {
+    private static final List<String> DMO_CATEGORIES = new List<String>{
+        'Profile', 'Engagement', 'Related', 'Directory_Table', 'Content',
+        'Activation_Audience', 'CG_Audience', 'Segment_Membership', 'Vector_Embedding'
+    };
+
+    private static void collectDataCloudDmos(Map<String, Map<String, String>> byApi) {
+        List<String> spaces = dataSpaceApiNames();
+        if (spaces.isEmpty()) {
+            spaces.add(null);
+        }
+        List<String> errors = new List<String>();
+        for (String spaceName : spaces) {
+            Integer before = byApi.size();
+            Boolean complete = false;
+            try {
+                ConnectApi.CdpQueryMetadataEntitiesOutput page = spaceName == null
+                    ? ConnectApi.CdpQuery.getMetadataEntities(null, 'DataModelObject')
+                    : ConnectApi.CdpQuery.getMetadataEntities(null, 'DataModelObject', spaceName);
+                Object raw = JSON.deserializeUntyped(JSON.serialize(page));
+                addSerializedDmos(byApi, raw);
+                complete = metadataPageComplete(raw) && byApi.size() > before;
+            } catch (Exception e) {
+                errors.add(e.getMessage());
+            }
+            if (complete) {
+                continue;
+            }
+            for (String category : DMO_CATEGORIES) {
+                try {
+                    ConnectApi.CdpQueryMetadataEntitiesOutput page = spaceName == null
+                        ? ConnectApi.CdpQuery.getMetadataEntities(category, 'DataModelObject')
+                        : ConnectApi.CdpQuery.getMetadataEntities(category, 'DataModelObject', spaceName);
+                    addSerializedDmos(byApi, JSON.deserializeUntyped(JSON.serialize(page)));
+                } catch (Exception e) {
+                    errors.add(e.getMessage());
+                }
+            }
+        }
+        if (byApi.isEmpty() && !errors.isEmpty()) {
+            throw auraError(errors[0]);
+        }
+    }
+
+    private static Boolean metadataPageComplete(Object raw) {
+        if (!(raw instanceof Map<String, Object>)) {
+            return false;
+        }
+        Object done = ((Map<String, Object>) raw).get('done');
+        return done == null || done == true;
+    }
+
+    private static void addSerializedDmos(Map<String, Map<String, String>> byApi, Object raw) {
+        if (!(raw instanceof Map<String, Object>)) {
+            return;
+        }
+        Object rows = ((Map<String, Object>) raw).get('metadata');
+        if (!(rows instanceof List<Object>)) {
+            return;
+        }
+        for (Object row : (List<Object>) rows) {
+            if (!(row instanceof Map<String, Object>)) {
+                continue;
+            }
+            Map<String, Object> entity = (Map<String, Object>) row;
+            String api = firstString(entity, new List<String>{ 'name', 'apiName' });
+            String typeName = firstString(entity, new List<String>{ 'type' });
+            if (String.isBlank(api)) {
+                continue;
+            }
+            if (String.isNotBlank(typeName) && typeName != 'DataModelObject') {
+                continue;
+            }
+            String label = firstString(entity, new List<String>{ 'displayName', 'label' });
+            if (String.isBlank(label)) {
+                label = api;
+            }
+            byApi.put(api.toLowerCase(), new Map<String, String>{
+                'label' => label + ' (' + api + ')',
+                'value' => api
+            });
+        }
+    }
+
+    private static List<String> dataSpaceApiNames() {
+        List<String> names = new List<String>();
+        Set<String> seen = new Set<String>();
         try {
-            return [
+            ConnectApi.DataSpaceCollectionRepresentation collection =
+                ConnectApi.CdpDataSpace.getAllDataSpaces(200, 0, 'id');
+            Object raw = JSON.deserializeUntyped(JSON.serialize(collection));
+            Object rows = raw instanceof Map<String, Object>
+                ? ((Map<String, Object>) raw).get('dataSpaces')
+                : null;
+            if (rows instanceof List<Object>) {
+            for (Object row : (List<Object>) rows) {
+                if (!(row instanceof Map<String, Object>)) {
+                    continue;
+                }
+                String api = firstString(
+                    (Map<String, Object>) row,
+                    new List<String>{ 'name', 'apiName', 'dataSpaceName', 'developerName', 'label' }
+                );
+                if (String.isBlank(api) || !seen.add(api.toLowerCase())) {
+                    continue;
+                }
+                names.add(api);
+            }
+            }
+        } catch (Exception e) {
+            names.clear();
+            seen.clear();
+        }
+        if (!seen.contains('default')) {
+            names.add(0, null);
+        }
+        return names;
+    }
+
+    private static void collectEntityDefinitionDmos(Map<String, Map<String, String>> byApi) {
+        try {
+            for (EntityDefinition ent : [
                 SELECT QualifiedApiName, Label
                 FROM EntityDefinition
                 WHERE QualifiedApiName LIKE '%__dlm'
-                ORDER BY Label ASC NULLS LAST, QualifiedApiName ASC
                 LIMIT 2000
-            ];
-        } catch (Exception orderedQueryFailed) {
-            try {
-                return [
-                    SELECT QualifiedApiName, Label
-                    FROM EntityDefinition
-                    WHERE QualifiedApiName LIKE '%__dlm'
-                    LIMIT 2000
-                ];
-            } catch (Exception e) {
-                throw auraError(
-                    'Data360 DMOs could not be loaded. The user needs View Setup and Configuration, plus access to the Data Cloud data space. ' +
-                    e.getMessage()
-                );
+            ]) {
+                if (String.isBlank(ent.QualifiedApiName) || byApi.containsKey(ent.QualifiedApiName.toLowerCase())) {
+                    continue;
+                }
+                String label = String.isNotBlank(ent.Label) ? ent.Label : ent.QualifiedApiName;
+                byApi.put(ent.QualifiedApiName.toLowerCase(), new Map<String, String>{
+                    'label' => label + ' (' + ent.QualifiedApiName + ')',
+                    'value' => ent.QualifiedApiName
+                });
+            }
+        } catch (Exception e) {
+            // Core entity catalogue does not list Data Cloud DMOs.
+        }
+    }
+
+    private static String firstString(Map<String, Object> values, List<String> keys) {
+        if (values == null) {
+            return null;
+        }
+        for (String key : keys) {
+            Object value = values.get(key);
+            if (value instanceof String && String.isNotBlank((String) value)) {
+                return ((String) value).trim();
             }
         }
+        return null;
     }
 
     private static AuraHandledException auraError(String message) {
@@ -1462,18 +1580,15 @@ public with sharing class MarketingDictionaryManagerController {
     @AuraEnabled
     public static List<Map<String, String>> getData360DmoFields(String dmoApiName) {
         List<Map<String, String>> options = new List<Map<String, String>>();
-        for (FieldDefinition fd : queryDmoFields(dmoApiName)) {
-            String api = fd.QualifiedApiName;
-            if (String.isBlank(api) || !isSafeColumnApi(api)) {
-                continue;
-            }
-            String label = String.isNotBlank(fd.Label) ? fd.Label : api;
+        for (Map<String, String> field : queryDmoFieldRows(dmoApiName)) {
+            String api = field.get('value');
+            String label = field.get('label');
             String display = label == api ? api : label + ' (' + api + ')';
             options.add(new Map<String, String>{
                 'label' => display,
                 'value' => api,
-                'dataType' => fd.DataType == null ? '' : fd.DataType,
-                'numeric' => isNumericDataType(fd.DataType) ? 'true' : 'false'
+                'dataType' => field.get('dataType'),
+                'numeric' => field.get('numeric')
             });
         }
         return options;
@@ -1515,13 +1630,13 @@ public with sharing class MarketingDictionaryManagerController {
             String dmo = record.Data360_DMO__c == null ? '' : record.Data360_DMO__c.trim();
             Map<String, String> canonicalByLower = new Map<String, String>();
             Map<String, String> typeByLower = new Map<String, String>();
-            for (FieldDefinition fd : queryDmoFields(dmo)) {
-                if (String.isBlank(fd.QualifiedApiName) || !isSafeColumnApi(fd.QualifiedApiName)) {
+            for (Map<String, String> field : queryDmoFieldRows(dmo)) {
+                String api = field.get('value');
+                if (String.isBlank(api)) {
                     continue;
                 }
-                String key = fd.QualifiedApiName.toLowerCase();
-                canonicalByLower.put(key, fd.QualifiedApiName);
-                typeByLower.put(key, fd.DataType);
+                canonicalByLower.put(api.toLowerCase(), api);
+                typeByLower.put(api.toLowerCase(), field.get('dataType'));
             }
             if (canonicalByLower.isEmpty()) {
                 throw new AuraHandledException('The selected Data360 DMO has no columns to map.');
@@ -1627,22 +1742,103 @@ public with sharing class MarketingDictionaryManagerController {
         }
     }
 
-    private static List<FieldDefinition> queryDmoFields(String dmoApiName) {
+    private static List<Map<String, String>> queryDmoFieldRows(String dmoApiName) {
         String dmo = dmoApiName == null ? '' : dmoApiName.trim();
         if (String.isBlank(dmo) || !dmo.endsWithIgnoreCase('__dlm')) {
             throw new AuraHandledException('Select a Data360 DMO.');
         }
+        String lastError;
+        for (String spaceName : dataSpaceApiNames()) {
+            try {
+                List<Map<String, String>> rows = metadataFieldRows(dmo, spaceName);
+                if (!rows.isEmpty()) {
+                    return rows;
+                }
+            } catch (Exception e) {
+                lastError = e.getMessage();
+            }
+        }
+        List<Map<String, String>> fromEntity = entityDefinitionFieldRows(dmo);
+        if (!fromEntity.isEmpty()) {
+            return fromEntity;
+        }
+        if (String.isNotBlank(lastError)) {
+            throw auraError('Could not load columns for the selected Data360 DMO. ' + lastError);
+        }
+        return new List<Map<String, String>>();
+    }
+
+    private static List<Map<String, String>> metadataFieldRows(String dmoApiName, String spaceName) {
+        ConnectApi.CdpQueryMetadataOutput output = spaceName == null
+            ? ConnectApi.CdpQuery.getAllMetadata('DataModelObject', null, dmoApiName)
+            : ConnectApi.CdpQuery.getAllMetadata('DataModelObject', null, dmoApiName, spaceName);
+        Object raw = JSON.deserializeUntyped(JSON.serialize(output));
+        List<Map<String, String>> rows = new List<Map<String, String>>();
+        if (!(raw instanceof Map<String, Object>)) {
+            return rows;
+        }
+        Object entities = ((Map<String, Object>) raw).get('metadata');
+        if (!(entities instanceof List<Object>)) {
+            return rows;
+        }
+        for (Object entityRow : (List<Object>) entities) {
+            if (!(entityRow instanceof Map<String, Object>)) {
+                continue;
+            }
+            Map<String, Object> entity = (Map<String, Object>) entityRow;
+            String entityName = firstString(entity, new List<String>{ 'name', 'apiName' });
+            if (String.isNotBlank(entityName) && !entityName.equalsIgnoreCase(dmoApiName)) {
+                continue;
+            }
+            Object fields = entity.get('fields');
+            if (!(fields instanceof List<Object>)) {
+                continue;
+            }
+            for (Object fieldRow : (List<Object>) fields) {
+                if (!(fieldRow instanceof Map<String, Object>)) {
+                    continue;
+                }
+                Map<String, Object> field = (Map<String, Object>) fieldRow;
+                String api = firstString(field, new List<String>{ 'name', 'apiName' });
+                if (String.isBlank(api) || !isSafeColumnApi(api)) {
+                    continue;
+                }
+                String label = firstString(field, new List<String>{ 'displayName', 'label' });
+                String dataType = firstString(field, new List<String>{ 'type', 'businessType', 'dataType' });
+                rows.add(new Map<String, String>{
+                    'label' => String.isBlank(label) ? api : label,
+                    'value' => api,
+                    'dataType' => dataType == null ? '' : dataType,
+                    'numeric' => isNumericDataType(dataType) ? 'true' : 'false'
+                });
+            }
+        }
+        return rows;
+    }
+
+    private static List<Map<String, String>> entityDefinitionFieldRows(String dmoApiName) {
+        List<Map<String, String>> rows = new List<Map<String, String>>();
         try {
-            return [
+            for (FieldDefinition fd : [
                 SELECT QualifiedApiName, Label, DataType
                 FROM FieldDefinition
-                WHERE EntityDefinition.QualifiedApiName = :dmo
-                ORDER BY Label ASC NULLS LAST, QualifiedApiName ASC
+                WHERE EntityDefinition.QualifiedApiName = :dmoApiName
                 LIMIT 2000
-            ];
+            ]) {
+                if (String.isBlank(fd.QualifiedApiName) || !isSafeColumnApi(fd.QualifiedApiName)) {
+                    continue;
+                }
+                rows.add(new Map<String, String>{
+                    'label' => String.isNotBlank(fd.Label) ? fd.Label : fd.QualifiedApiName,
+                    'value' => fd.QualifiedApiName,
+                    'dataType' => fd.DataType == null ? '' : fd.DataType,
+                    'numeric' => isNumericDataType(fd.DataType) ? 'true' : 'false'
+                });
+            }
         } catch (Exception e) {
-            throw new AuraHandledException('Could not load columns for the selected Data360 DMO.');
+            return rows;
         }
+        return rows;
     }
 
     private static String requireDmoColumn(
