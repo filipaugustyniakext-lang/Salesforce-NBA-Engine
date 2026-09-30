@@ -732,8 +732,8 @@ public with sharing class ChannelTemplateController {
         if (source == null || source.blocks == null || !source.blocks.isEmpty()) return;
         if (source.previewActions == null || !source.previewActions.contains('expectContent')) return;
         if (source.previewActions.contains('expectBlocks')) return;
-        String inner = previewRegionInner(source.shellHtml, 'expectContent');
-        if (String.isBlank(inner)) return;
+        String regionHtml = previewRegionInner(source.shellHtml, 'expectContent');
+        if (String.isBlank(regionHtml)) return;
         RenderBlock block = new RenderBlock();
         block.type = 'Content';
         block.label = previewRegionLabel(source.shellHtml, 'expectContent');
@@ -741,7 +741,7 @@ public with sharing class ChannelTemplateController {
         block.description = 'Content from the shell layout.';
         block.icon = 'utility:edit';
         block.componentGroup = 'Content';
-        block.html = inner;
+        block.html = regionHtml;
         source.blocks.add(block);
     }
 
