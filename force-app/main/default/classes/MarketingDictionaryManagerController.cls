@@ -651,6 +651,14 @@ public with sharing class MarketingDictionaryManagerController {
         return ex;
     }
 
+    private class ColumnApiSort implements System.Comparator<Map<String, String>> {
+        public Integer compare(Map<String, String> a, Map<String, String> b) {
+            String left = a == null || a.get('value') == null ? '' : a.get('value');
+            String right = b == null || b.get('value') == null ? '' : b.get('value');
+            return left.toLowerCase().compareTo(right.toLowerCase());
+        }
+    }
+
     private class DmoOptionLabelSort implements System.Comparator<Map<String, String>> {
         public Integer compare(Map<String, String> a, Map<String, String> b) {
             String left = a == null || a.get('label') == null ? '' : a.get('label');
@@ -1581,10 +1589,10 @@ public with sharing class MarketingDictionaryManagerController {
     }
 
     /**
-     * Columns on one Data360 DMO, loaded by API name the same way as
-     * GET /api/v1/metadata?entityName={apiName}. Every field is returned.
-     * Score columns in Data Cloud are often STRING, so callers must not
-     * require a numeric type.
+     * Columns on one Data360 DMO, loaded by API name.
+     * getAllMetadata returns a ConnectApi object that JSON.serialize cannot read
+     * in this org, so columns come from query metadata for SELECT * FROM {dmo}.
+     * Every column is returned. Score columns are often text.
      */
     @AuraEnabled
     public static List<Map<String, String>> getData360DmoFields(String dmoApiName) {
@@ -1770,7 +1778,7 @@ public with sharing class MarketingDictionaryManagerController {
         }
         for (String spaceName : spaces) {
             try {
-                List<Map<String, String>> rows = metadataFieldRows(dmo, spaceName);
+                List<Map<String, String>> rows = columnsFromDmoQuery(dmo, spaceName);
                 if (!rows.isEmpty()) {
                     return rows;
                 }
@@ -1783,59 +1791,42 @@ public with sharing class MarketingDictionaryManagerController {
             return fromEntity;
         }
         String detail = String.isNotBlank(lastError) ? ' ' + lastError : '';
-        throw auraError(
-            'No columns were returned for ' + dmo + '.' + detail
-            + ' Use the DMO API name from Data Cloud metadata, for example Sample_ScoringModels__dlm.'
-        );
+        throw auraError('No columns were returned for ' + dmo + '.' + detail);
     }
 
-    private static List<Map<String, String>> metadataFieldRows(String dmoApiName, String spaceName) {
-        // Same request as GET /api/v1/metadata?entityName={apiName}: no entity type filter.
-        ConnectApi.CdpQueryMetadataOutput output =
-            queryDataCloudMetadata(null, null, dmoApiName, spaceName);
-        Object raw = connectApiAsUntyped(output);
+    /**
+     * Column names and types from Data Cloud query metadata.
+     * CdpQueryMetadataItem exposes type as a String, so this does not depend on
+     * JSON.serialize of the getAllMetadata response.
+     */
+    private static List<Map<String, String>> columnsFromDmoQuery(String dmoApiName, String spaceName) {
+        if (!Pattern.matches('^[A-Za-z][A-Za-z0-9_]*$', dmoApiName)) {
+            throw auraError('The Data360 DMO API name contains characters that cannot be queried.');
+        }
+        ConnectApi.CdpQueryInput input = new ConnectApi.CdpQueryInput();
+        input.sql = 'SELECT * FROM ' + dmoApiName + ' LIMIT 1';
+        ConnectApi.CdpQueryOutputV2 output = spaceName == null
+            ? ConnectApi.CdpQuery.queryAnsiSqlV2(input)
+            : ConnectApi.CdpQuery.queryAnsiSqlV2(input, spaceName);
         List<Map<String, String>> rows = new List<Map<String, String>>();
-        if (!(raw instanceof Map<String, Object>)) {
+        if (output == null || output.metadata == null) {
             return rows;
         }
-        Object entities = ((Map<String, Object>) raw).get('metadata');
-        if (!(entities instanceof List<Object>)) {
-            return rows;
+        for (String columnName : output.metadata.keySet()) {
+            if (String.isBlank(columnName) || !isSafeColumnApi(columnName)) {
+                continue;
+            }
+            ConnectApi.CdpQueryMetadataItem item = output.metadata.get(columnName);
+            String dataType = item == null || String.isBlank(item.type) ? '' : item.type;
+            rows.add(new Map<String, String>{
+                'label' => columnName,
+                'value' => columnName,
+                'dataType' => dataType,
+                'numeric' => isNumericDataType(dataType) ? 'true' : 'false',
+                'entityDisplay' => dmoApiName
+            });
         }
-        for (Object entityRow : (List<Object>) entities) {
-            if (!(entityRow instanceof Map<String, Object>)) {
-                continue;
-            }
-            Map<String, Object> entity = (Map<String, Object>) entityRow;
-            String entityName = firstString(entity, new List<String>{ 'name', 'apiName' });
-            if (String.isNotBlank(entityName) && !entityName.equalsIgnoreCase(dmoApiName)) {
-                continue;
-            }
-            Object fields = entity.get('fields');
-            if (!(fields instanceof List<Object>)) {
-                continue;
-            }
-            String entityDisplay = firstString(entity, new List<String>{ 'displayName', 'label', 'name' });
-            for (Object fieldRow : (List<Object>) fields) {
-                if (!(fieldRow instanceof Map<String, Object>)) {
-                    continue;
-                }
-                Map<String, Object> field = (Map<String, Object>) fieldRow;
-                String api = firstString(field, new List<String>{ 'name', 'apiName' });
-                if (String.isBlank(api) || !isSafeColumnApi(api)) {
-                    continue;
-                }
-                String label = firstString(field, new List<String>{ 'displayName', 'label' });
-                String dataType = firstString(field, new List<String>{ 'type', 'businessType', 'dataType' });
-                rows.add(new Map<String, String>{
-                    'label' => String.isBlank(label) ? api : label,
-                    'value' => api,
-                    'dataType' => dataType == null ? '' : dataType,
-                    'numeric' => isNumericDataType(dataType) ? 'true' : 'false',
-                    'entityDisplay' => entityDisplay == null ? '' : entityDisplay
-                });
-            }
-        }
+        rows.sort(new ColumnApiSort());
         return rows;
     }
 
