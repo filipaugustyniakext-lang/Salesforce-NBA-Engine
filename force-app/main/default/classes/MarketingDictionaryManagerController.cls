@@ -499,9 +499,9 @@ public with sharing class MarketingDictionaryManagerController {
         for (String spaceName : spaces) {
             for (String category : DMO_CATEGORIES) {
                 try {
-                    addSerializedDmos(byApi, JSON.deserializeUntyped(JSON.serialize(
+                    addSerializedDmos(byApi, connectApiAsUntyped(
                         queryDataCloudMetadata('DataModelObject', category, null, spaceName)
-                    )));
+                    ));
                     if (category == null && !byApi.isEmpty()) {
                         break;
                     }
@@ -564,7 +564,7 @@ public with sharing class MarketingDictionaryManagerController {
         try {
             ConnectApi.DataSpaceCollectionRepresentation collection =
                 ConnectApi.CdpDataSpace.getAllDataSpaces(200, 0, 'id');
-            Object raw = JSON.deserializeUntyped(JSON.serialize(collection));
+            Object raw = connectApiAsUntyped(collection);
             Object rows = raw instanceof Map<String, Object>
                 ? ((Map<String, Object>) raw).get('dataSpaces')
                 : null;
@@ -613,6 +613,23 @@ public with sharing class MarketingDictionaryManagerController {
         } catch (Exception e) {
             // Core entity catalogue does not list Data Cloud DMOs.
         }
+    }
+
+    private static Object connectApiAsUntyped(Object value) {
+        if (value == null) {
+            return null;
+        }
+        // JSON.serialize on a ConnectApi instance returns null. A one-item list serializes.
+        String payload = JSON.serialize(new List<Object>{ value });
+        if (String.isBlank(payload)) {
+            throw auraError('Data Cloud returned metadata that Apex could not read.');
+        }
+        Object parsed = JSON.deserializeUntyped(payload);
+        if (parsed instanceof List<Object>) {
+            List<Object> rows = (List<Object>) parsed;
+            return rows.isEmpty() ? null : rows[0];
+        }
+        return parsed;
     }
 
     private static String firstString(Map<String, Object> values, List<String> keys) {
@@ -1760,7 +1777,7 @@ public with sharing class MarketingDictionaryManagerController {
     private static List<Map<String, String>> metadataFieldRows(String dmoApiName, String spaceName) {
         ConnectApi.CdpQueryMetadataOutput output =
             queryDataCloudMetadata('DataModelObject', null, dmoApiName, spaceName);
-        Object raw = JSON.deserializeUntyped(JSON.serialize(output));
+        Object raw = connectApiAsUntyped(output);
         List<Map<String, String>> rows = new List<Map<String, String>>();
         if (!(raw instanceof Map<String, Object>)) {
             return rows;
