@@ -44,6 +44,7 @@ public with sharing class ChannelTemplateController {
         @AuraEnabled public String icon;
         @AuraEnabled public String fileName;
         @AuraEnabled public String componentGroup;
+        @AuraEnabled public String status;
         @AuraEnabled public List<String> placeholders;
         @AuraEnabled public List<String> blockSettings;
         @AuraEnabled public List<PlaceholderBinding> bindings;
@@ -227,28 +228,41 @@ public with sharing class ChannelTemplateController {
         for (Object rawRow : rawRows) {
             if (!(rawRow instanceof Map<String, Object>)) continue;
             Map<String, Object> row = (Map<String, Object>) rawRow;
-            String type = textValue(row.get('type'));
-            if (String.isBlank(type)) continue;
-            if (!SUPPORTED_COMPONENT_TYPES.contains(type)) {
-                throw new AuraHandledException('Unsupported component type: ' + type);
-            }
-            if (types.contains(type)) {
-                throw new AuraHandledException('Component type ' + type + ' is already used.');
-            }
-            types.add(type);
             String fileName = textValue(row.get('fileName'));
             if (String.isBlank(fileName)) {
-                throw new AuraHandledException(type + ' requires an HTML file.');
+                throw new AuraHandledException('Each content block requires an HTML file.');
             }
+            String status = textValue(row.get('status'));
+            if (String.isBlank(status)) status = 'Active';
+            if (status != 'Draft' && status != 'Ready' && status != 'Active') status = 'Draft';
+            Boolean publishable = status == 'Ready' || status == 'Active';
+            String type = textValue(row.get('type'));
+            if (publishable && (String.isBlank(type) || !SUPPORTED_COMPONENT_TYPES.contains(type))) {
+                throw new AuraHandledException('Choose a supported component for ' + fileName + '.');
+            }
+            if (String.isNotBlank(type) && !SUPPORTED_COMPONENT_TYPES.contains(type)) {
+                throw new AuraHandledException('Unsupported component type: ' + type);
+            }
+            if (publishable && types.contains(type)) {
+                throw new AuraHandledException('Component type ' + type + ' is already used.');
+            }
+            if (publishable) types.add(type);
             String label = textValue(row.get('label'));
-            if (String.isBlank(label)) label = type;
+            if (publishable && String.isBlank(label)) {
+                throw new AuraHandledException('Content Block Name is required for ' + fileName + '.');
+            }
             if (label.length() > 80) label = label.substring(0, 80);
             String description = textValue(row.get('description'));
+            if (publishable && String.isBlank(description)) {
+                throw new AuraHandledException('Description is required for ' + fileName + '.');
+            }
             if (description.length() > 255) description = description.substring(0, 255);
             String icon = textValue(row.get('icon'));
-            if (String.isBlank(icon)) icon = defaultComponentIcon(type);
-            if (!Pattern.matches('utility:[a-z0-9_]+', icon)) {
-                throw new AuraHandledException('Choose an SLDS utility icon for ' + type + '.');
+            if (publishable && String.isBlank(icon)) {
+                throw new AuraHandledException('Choose a block icon for ' + fileName + '.');
+            }
+            if (String.isNotBlank(icon) && !Pattern.matches('utility:[a-z0-9_]+', icon)) {
+                throw new AuraHandledException('Choose an SLDS utility icon for ' + fileName + '.');
             }
             List<PlaceholderBinding> bindings = readBindings(row.get('bindings'));
             List<String> blockSettings = readStringList(row.get('blockSettings'));
@@ -256,7 +270,7 @@ public with sharing class ChannelTemplateController {
             List<String> placeholders = blockHtml == null
                 ? readStringList(row.get('placeholders'))
                 : extractPlaceholders(blockHtml);
-            assertPlaceholderBindings(type, placeholders, bindings);
+            if (publishable) assertPlaceholderBindings(type, placeholders, bindings);
             Set<String> enabledSettings = new Set<String>(blockSettings);
             for (PlaceholderBinding binding : bindings) {
                 if (BLOCK_SETTING_SOURCES.contains(binding.source)) enabledSettings.add(binding.source);
@@ -279,6 +293,7 @@ public with sharing class ChannelTemplateController {
                 'icon' => icon,
                 'fileName' => fileName,
                 'group' => type == 'Spacer' ? 'Layout' : 'Content',
+                'status' => status,
                 'placeholders' => placeholders,
                 'blockSettings' => blockSettings,
                 'bindings' => bindingRows
@@ -680,12 +695,15 @@ public with sharing class ChannelTemplateController {
                 renderBlock.placeholders = component.placeholders;
                 renderBlock.blockSettings = component.blockSettings;
                 renderBlock.bindings = component.bindings;
+                renderBlock.status = component.status;
                 renderBlock.html = htmlByName.get(baseName(renderBlock.fileName).toLowerCase());
                 if (String.isBlank(renderBlock.html)) {
                     String withExtension = baseName(renderBlock.fileName).toLowerCase();
                     if (!withExtension.endsWith('.html')) renderBlock.html = htmlByName.get(withExtension + '.html');
                 }
-                if (String.isNotBlank(renderBlock.type)) source.blocks.add(renderBlock);
+                if (String.isNotBlank(renderBlock.type) && component.status != 'Draft' && component.status != 'Ready') {
+                    source.blocks.add(renderBlock);
+                }
             }
         }
         source.shellHtml = library.shellHtml;
@@ -729,6 +747,7 @@ public with sharing class ChannelTemplateController {
         @AuraEnabled public String description;
         @AuraEnabled public String icon;
         @AuraEnabled public String componentGroup;
+        @AuraEnabled public String status;
         @AuraEnabled public List<String> placeholders;
         @AuraEnabled public List<String> blockSettings;
         @AuraEnabled public List<PlaceholderBinding> bindings;
@@ -886,7 +905,8 @@ public with sharing class ChannelTemplateController {
             if (row.containsKey('placeholders')) component.placeholders = readStringList(row.get('placeholders'));
             if (row.containsKey('blockSettings')) component.blockSettings = readStringList(row.get('blockSettings'));
             if (row.containsKey('bindings')) component.bindings = readBindings(row.get('bindings'));
-            if (String.isNotBlank(component.type)) components.add(component);
+            if (row.containsKey('status')) component.status = textValue(row.get('status'));
+            if (String.isNotBlank(component.type) || String.isNotBlank(component.fileName)) components.add(component);
         }
         return components;
     }

@@ -384,6 +384,7 @@ private class ChannelTemplateControllerTest {
                 new Map<String, Object>{
                     'type' => 'TextImage',
                     'label' => 'Text Image',
+                    'description' => 'Two columns',
                     'icon' => 'utility:layout_card',
                     'fileName' => 'text-image.html',
                     'blockSettings' => new List<String>{ 'columnLayout' },
@@ -402,6 +403,38 @@ private class ChannelTemplateControllerTest {
         System.assert(source.blocks[0].blockSettings.contains('viewDesktop'));
         System.assert(source.blocks[0].blockSettings.contains('padding'));
         System.assert(source.blocks[0].blockSettings.contains('columnLayout'));
+    }
+
+    @IsTest
+    static void draftContentBlockIsHiddenFromCopyCenter() {
+        Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
+        Id templateId = createDraftTemplate(channel.Id, 'Draft Block', 7);
+        Id blockId = uploadFile(templateId, 'draft-block.html', '<td>{{CELL_PADDING_STYLE}}</td>');
+        System.assertEquals(null, ChannelTemplateController.classifyUploadedFiles(
+            templateId, new List<Id>{ blockId }, 'CONTENT_BLOCK'
+        ));
+        ChannelTemplateController.saveComponentCatalog(
+            templateId,
+            JSON.serialize(new List<Object>{
+                new Map<String, Object>{
+                    'fileName' => 'draft-block.html',
+                    'status' => 'Draft',
+                    'label' => '',
+                    'bindings' => new List<Object>()
+                }
+            })
+        );
+        ChannelTemplateController.TemplateRenderSource source =
+            ChannelTemplateController.getTemplateRenderSource(templateId);
+        List<ChannelTemplateController.TemplateDefinition> definitions =
+            ChannelTemplateController.getChannelTemplates(channel.Id);
+        ChannelTemplateController.TemplateDefinition definition = null;
+        for (ChannelTemplateController.TemplateDefinition item : definitions) {
+            if (item.id == templateId) definition = item;
+        }
+        System.assertEquals(0, source.blocks.size());
+        System.assertEquals(1, definition.components.size());
+        System.assertEquals('Draft', definition.components[0].status);
     }
 
     @IsTest

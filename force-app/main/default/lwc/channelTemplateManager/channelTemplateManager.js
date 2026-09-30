@@ -57,6 +57,7 @@ const BLOCK_SETTINGS = [
 ];
 
 const BLOCK_SETTING_IDS = new Set(BLOCK_SETTINGS.map(setting => setting.id));
+const CONTENT_SOURCE_IDS = new Set(['copy', 'imageUrl', 'altText', 'legal']);
 
 function defaultBlockSettings(type) {
     const settings = ['viewDesktop', 'viewMobile', 'padding', 'background'];
@@ -87,6 +88,7 @@ export default class ChannelTemplateManager extends LightningElement {
 
     @track editTemplate = EMPTY_TEMPLATE();
     @track catalogRows = [];
+    @track expandedFile = '';
     @track placeholdersLoading = false;
     @track isModalOpen = false;
     @track isSaving = false;
@@ -211,22 +213,48 @@ export default class ChannelTemplateManager extends LightningElement {
         return this.catalogRows.map(row => {
             const settings = Array.isArray(row.blockSettings) ? row.blockSettings : defaultBlockSettings(row.type);
             const placeholders = row.placeholders;
-            return {
-                ...row,
-                placeholdersLoading: placeholders == null,
-                hasPlaceholders: Array.isArray(placeholders) && placeholders.length > 0,
-                noPlaceholders: Array.isArray(placeholders) && placeholders.length === 0,
-                unboundCount: Array.isArray(placeholders)
-                    ? placeholders.filter(name => !(row.bindings || {})[name]).length
-                    : 0,
-                bindingRows: (placeholders || []).map(name => ({
-                    key: `${row.fileName}:${name}`,
+            const status = row.status || 'Draft';
+            const contentActive = (row.activeTab || 'content') === 'content';
+            const contentBindingRows = [];
+            const blockBindingRows = [];
+            (placeholders || []).forEach(name => {
+                const source = (row.bindings || {})[name] || '';
+                const entry = {
                     fileName: row.fileName,
                     name,
                     token: `{{${name}}}`,
-                    source: (row.bindings || {})[name] || '',
+                    source,
                     sourceOptions: BINDING_SOURCES
-                })),
+                };
+                if (!source || CONTENT_SOURCE_IDS.has(source)) {
+                    contentBindingRows.push({ ...entry, key: `${row.fileName}:${name}:content` });
+                }
+                if (!source || !CONTENT_SOURCE_IDS.has(source)) {
+                    blockBindingRows.push({ ...entry, key: `${row.fileName}:${name}:block` });
+                }
+            });
+            return {
+                ...row,
+                status,
+                statusLabel: status,
+                statusIcon: status === 'Active' ? 'utility:success' : status === 'Ready' ? 'utility:check' : 'utility:warning',
+                statusIconVariant: status === 'Draft' ? 'warning' : 'success',
+                expanded: this.expandedFile === row.fileName,
+                cardClass: 'slds-card component-card' + (this.expandedFile === row.fileName ? ' component-card_expanded' : ''),
+                placeholdersLoading: placeholders == null,
+                hasPlaceholders: Array.isArray(placeholders) && placeholders.length > 0,
+                noPlaceholders: Array.isArray(placeholders) && placeholders.length === 0,
+                contentBindingRows,
+                blockBindingRows,
+                hasContentBindings: contentBindingRows.length > 0,
+                hasBlockBindings: blockBindingRows.length > 0,
+                contentTabClass: 'slds-tabs_default__item' + (contentActive ? ' slds-is-active' : ''),
+                settingsTabClass: 'slds-tabs_default__item' + (contentActive ? '' : ' slds-is-active'),
+                contentTabSelected: contentActive,
+                settingsTabSelected: !contentActive,
+                contentPanelStyle: contentActive ? '' : 'display:none',
+                settingsPanelStyle: contentActive ? 'display:none' : '',
+                activateDisabled: status !== 'Ready' || this.isEditingActive || this.isSaving,
                 settingChoices: BLOCK_SETTINGS.map(setting => ({
                     ...setting,
                     key: `${row.fileName}:${setting.id}`,
@@ -264,6 +292,7 @@ export default class ChannelTemplateManager extends LightningElement {
     handleNew() {
         this.editTemplate = EMPTY_TEMPLATE();
         this.catalogRows = [];
+        this.expandedFile = '';
         this.isModalOpen = true;
     }
 
@@ -279,6 +308,7 @@ export default class ChannelTemplateManager extends LightningElement {
             Description__c: source.description || ''
         };
         this.catalogRows = [];
+        this.expandedFile = '';
         this.isModalOpen = true;
         this._syncCatalogRows();
     }
@@ -350,6 +380,7 @@ export default class ChannelTemplateManager extends LightningElement {
     }
 
     async handleDeleteAsset(event) {
+        event.stopPropagation();
         try {
             await deleteTemplateAsset({
                 templateId: event.currentTarget.dataset.templateId,
@@ -369,7 +400,7 @@ export default class ChannelTemplateManager extends LightningElement {
         const value = event.detail?.value ?? event.target?.value ?? '';
         this.catalogRows = this.catalogRows.map(row => {
             if (row.fileName !== fileName) return row;
-            const next = { ...row, [field]: value };
+            const next = this._touchCard({ ...row, [field]: value });
             if (field === 'type') {
                 const defaults = COMPONENT_TYPES.find(type => type.value === value);
                 if (!defaults) return next;
@@ -390,8 +421,22 @@ export default class ChannelTemplateManager extends LightningElement {
             const bindings = { ...(row.bindings || {}), [placeholder]: source };
             let blockSettings = Array.isArray(row.blockSettings) ? [...row.blockSettings] : defaultBlockSettings(row.type);
             if (BLOCK_SETTING_IDS.has(source) && !blockSettings.includes(source)) blockSettings = [...blockSettings, source];
-            return { ...row, bindings, blockSettings, legacy: false };
+            return this._touchCard({ ...row, bindings, blockSettings, legacy: false });
         });
+    }
+
+    handleToggleCard(event) {
+        const fileName = event.currentTarget.dataset.file;
+        this.expandedFile = this.expandedFile === fileName ? '' : fileName;
+    }
+
+    handleCardTab(event) {
+        event.stopPropagation();
+        const fileName = event.currentTarget.dataset.file;
+        const tab = event.currentTarget.dataset.tab;
+        this.catalogRows = this.catalogRows.map(row => (
+            row.fileName === fileName ? { ...row, activeTab: tab } : row
+        ));
     }
 
     handleSettingChange(event) {
@@ -403,54 +448,118 @@ export default class ChannelTemplateManager extends LightningElement {
             const current = new Set(Array.isArray(row.blockSettings) ? row.blockSettings : defaultBlockSettings(row.type));
             if (checked) current.add(setting);
             else current.delete(setting);
-            return { ...row, blockSettings: BLOCK_SETTINGS.map(item => item.id).filter(id => current.has(id)), legacy: false };
+            return this._touchCard({
+                ...row,
+                blockSettings: BLOCK_SETTINGS.map(item => item.id).filter(id => current.has(id)),
+                legacy: false
+            });
         });
     }
 
-    async handleSaveCatalog() {
-        if (!this.editTemplate.Id) return;
-        const missing = this.catalogRows.filter(row => row.type && !(row.label || '').trim());
-        if (missing.length) {
-            this._toast('Validation', 'Each selected component needs a display name.', 'warning');
+    async handleSaveCard(event) {
+        event.stopPropagation();
+        const fileName = event.currentTarget.dataset.file;
+        const row = this.catalogRows.find(item => item.fileName === fileName);
+        if (!row) return;
+        const errors = this._cardErrors(row);
+        if (errors.length) {
+            this.catalogRows = this.catalogRows.map(item => (
+                item.fileName === fileName
+                    ? { ...item, status: 'Draft', validationMessage: errors.join(' ') }
+                    : item
+            ));
+            try {
+                await this._persistCatalog();
+            } catch (error) {
+                this._toast('Error', error.body?.message || error.message, 'error');
+            }
             return;
         }
-        if (this.placeholdersLoading || this.catalogRows.some(row => row.type && row.placeholders == null)) {
-            this._toast('Validation', 'Wait until the HTML placeholders finish loading.', 'warning');
-            return;
+        const nextStatus = row.status === 'Active' ? 'Active' : 'Ready';
+        this.catalogRows = this.catalogRows.map(item => (
+            item.fileName === fileName
+                ? { ...item, status: nextStatus, validationMessage: '' }
+                : item
+        ));
+        try {
+            await this._persistCatalog();
+            this._toast(
+                nextStatus === 'Active' ? 'Block saved' : 'Block ready',
+                nextStatus === 'Active'
+                    ? `${row.label} stays available in Copy Center.`
+                    : `${row.label} is ready to activate.`,
+                'success'
+            );
+        } catch (error) {
+            this.catalogRows = this.catalogRows.map(item => (
+                item.fileName === fileName ? { ...item, status: 'Draft', validationMessage: error.body?.message || error.message } : item
+            ));
+            this._toast('Error', error.body?.message || error.message, 'error');
         }
-        const unbound = this.catalogRows.filter(row => row.type && (row.placeholders || []).some(name => !(row.bindings || {})[name]));
-        if (unbound.length) {
-            const names = unbound.map(row => `${row.fileName}: ${(row.placeholders || []).filter(name => !(row.bindings || {})[name]).join(', ')}`);
-            this._toast('Validation', `Bind every placeholder. ${names.join(' · ')}`, 'warning');
-            return;
+    }
+
+    async handleActivateCard(event) {
+        event.stopPropagation();
+        const fileName = event.currentTarget.dataset.file;
+        const row = this.catalogRows.find(item => item.fileName === fileName);
+        if (!row || row.status !== 'Ready') return;
+        const previous = this.catalogRows.map(item => ({ ...item, bindings: { ...(item.bindings || {}) } }));
+        this.catalogRows = this.catalogRows.map(item => (
+            item.fileName === fileName ? { ...item, status: 'Active', validationMessage: '' } : item
+        ));
+        try {
+            await this._persistCatalog();
+            this._toast('Block activated', `${row.label || fileName} is available in Copy Center.`, 'success');
+        } catch (error) {
+            this.catalogRows = previous;
+            this._toast('Error', error.body?.message || error.message, 'error');
         }
-        const payload = this.catalogRows.filter(row => row.type).map(row => ({
-            type: row.type,
+    }
+
+    _touchCard(row) {
+        if (row.status !== 'Ready' && row.status !== 'Active') return row;
+        return { ...row, status: 'Draft', validationMessage: '' };
+    }
+
+    _cardErrors(row) {
+        const errors = [];
+        if (!row.type) errors.push('Choose a component.');
+        if (!(row.label || '').trim()) errors.push('Content Block Name is required.');
+        if (!(row.description || '').trim()) errors.push('Description is required.');
+        if (!row.icon) errors.push('Choose a block icon.');
+        if (row.placeholders == null) errors.push('Placeholders are still loading.');
+        (row.placeholders || []).filter(name => !(row.bindings || {})[name]).forEach(name => {
+            errors.push(`Bind {{${name}}}.`);
+        });
+        return errors;
+    }
+
+    _catalogPayload() {
+        return this.catalogRows.map(row => ({
+            type: row.type || '',
             fileName: row.fileName,
-            label: row.label,
-            description: row.description,
-            icon: row.icon,
+            label: row.label || '',
+            description: row.description || '',
+            icon: row.icon || '',
+            status: row.status || 'Draft',
             placeholders: row.placeholders || [],
             blockSettings: Array.isArray(row.blockSettings) ? row.blockSettings : defaultBlockSettings(row.type),
-            bindings: (row.placeholders || [])
-                .filter(name => (row.bindings || {})[name])
-                .map(name => ({ placeholder: name, source: row.bindings[name] }))
+            bindings: Object.entries(row.bindings || {})
+                .filter(([, source]) => source)
+                .map(([placeholder, source]) => ({ placeholder, source }))
         }));
+    }
+
+    async _persistCatalog() {
+        if (!this.editTemplate.Id) return;
         this.isSaving = true;
         try {
             await saveComponentCatalog({
                 templateId: this.editTemplate.Id,
-                componentsJson: JSON.stringify(payload)
+                componentsJson: JSON.stringify(this._catalogPayload())
             });
             await refreshApex(this._wiredTemplates);
-            this.catalogRows = this.catalogRows.map(row => ({
-                ...row,
-                legacy: false,
-                blockSettings: Array.isArray(row.blockSettings) ? row.blockSettings : defaultBlockSettings(row.type)
-            }));
-            this._toast('Components saved', 'Validate the template before activation.', 'success');
-        } catch (error) {
-            this._toast('Error', error.body?.message || error.message, 'error');
+            this.catalogRows = this.catalogRows.map(row => ({ ...row, persisted: true }));
         } finally {
             this.isSaving = false;
         }
@@ -499,6 +608,7 @@ export default class ChannelTemplateManager extends LightningElement {
 
     closeModal() {
         this.isModalOpen = false;
+        this.expandedFile = '';
         this.editTemplate = EMPTY_TEMPLATE();
     }
 
@@ -510,11 +620,16 @@ export default class ChannelTemplateManager extends LightningElement {
             const match = saved.find(component => this._sameFile(component.fileName, asset.name));
             const defaults = COMPONENT_TYPES.find(type => type.value === match?.type) || {};
             return {
+                documentId: asset.documentId,
                 fileName: asset.name,
                 type: match?.type || '',
                 label: match?.label || defaults.label || '',
                 description: match?.description || defaults.description || '',
-                icon: match?.icon || defaults.icon || 'utility:page',
+                icon: match?.icon || '',
+                status: match?.status || (match ? 'Active' : 'Draft'),
+                activeTab: 'content',
+                validationMessage: '',
+                persisted: !!match,
                 placeholders: null,
                 bindings: bindingMap(match?.bindings),
                 blockSettings: Array.isArray(match?.blockSettings) ? [...match.blockSettings] : null,
@@ -539,6 +654,9 @@ export default class ChannelTemplateManager extends LightningElement {
                 });
                 return { ...row, placeholders: found, bindings };
             });
+            if (this.catalogRows.some(row => !row.persisted) && !this.isEditingActive) {
+                await this._persistCatalog();
+            }
         } catch (error) {
             this._toast('Placeholders', error.body?.message || error.message, 'error');
         } finally {

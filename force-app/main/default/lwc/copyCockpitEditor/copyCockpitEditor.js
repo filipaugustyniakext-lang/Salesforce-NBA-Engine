@@ -358,7 +358,7 @@ export default class CopyCockpitEditor extends LightningElement {
         if (this.isSingleContentLayout) return [];
         const templateBlocks = this._renderSource?.blocks || [];
         if (!this._renderSource) return PALETTE_BLOCKS;
-        return templateBlocks.filter(block => block.type).map(block => {
+        return templateBlocks.filter(block => block.type && block.status !== 'Draft' && block.status !== 'Ready').map(block => {
             const known = PALETTE_BLOCKS.find(item => item.blockType === block.type) || {};
             return {
                 id: block.type,

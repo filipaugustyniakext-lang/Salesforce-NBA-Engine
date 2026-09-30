@@ -277,6 +277,8 @@ public with sharing class ChannelTemplateManifestService {
         Set<String> files = new Set<String>();
         for (Object rawComponent : (List<Object>) rawComponents) {
             Map<String, Object> component = asMap(rawComponent);
+            String blockStatus = stringValue(component.get('status'));
+            if (blockStatus == 'Draft' || blockStatus == 'Ready') continue;
             String type = stringValue(component.get('type'));
             String fileName = stringValue(component.get('fileName'));
             String icon = stringValue(component.get('icon'));
