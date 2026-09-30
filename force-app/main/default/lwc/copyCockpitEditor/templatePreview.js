@@ -24,7 +24,7 @@ export function scopePreviewDocument(html, options = {}) {
     const body = previewTokens(bodyMatch ? bodyMatch[1] : withoutStyles).replace(/<custom\b[^>]*\/?>/gi, '');
     // Page CSS such as `table { width: 100% }` stretches shrink-wrapped email tables,
     // so an image with width:100% ignores the pixel width on its cell.
-    const guard = `${PREVIEW_SCOPE} table:not([width]):not([style*="width"]){width:max-content !important;max-width:100% !important;}`;
+    const guard = `${PREVIEW_SCOPE} table:not([width]):not([style*="width"]){width:max-content !important;max-width:100% !important;margin:0 auto;}`;
     return `<div class="cc-preview"><style>${styles.join('\n')}\n${guard}</style>${body}</div>`;
 }
 

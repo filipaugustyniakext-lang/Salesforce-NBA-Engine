@@ -1083,6 +1083,7 @@
 .cc-preview table:not([width]):not([style*="width"]) {
     width: max-content !important;
     max-width: 100% !important;
+    margin: 0 auto;
 }
 
 .editor-preview_mobile .editor-preview__shell {
