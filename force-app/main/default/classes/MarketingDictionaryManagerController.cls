@@ -1581,7 +1581,10 @@ public with sharing class MarketingDictionaryManagerController {
     }
 
     /**
-     * Columns on a Data360 DMO. numeric is "true" for number, currency, percent, and numeric formulas.
+     * Columns on one Data360 DMO, loaded by API name the same way as
+     * GET /api/v1/metadata?entityName={apiName}. Every field is returned.
+     * Score columns in Data Cloud are often STRING, so callers must not
+     * require a numeric type.
      */
     @AuraEnabled
     public static List<Map<String, String>> getData360DmoFields(String dmoApiName) {
@@ -1589,12 +1592,15 @@ public with sharing class MarketingDictionaryManagerController {
         for (Map<String, String> field : queryDmoFieldRows(dmoApiName)) {
             String api = field.get('value');
             String label = field.get('label');
-            String display = label == api ? api : label + ' (' + api + ')';
+            String dataType = field.get('dataType');
+            String baseLabel = label == api ? api : label + ' (' + api + ')';
+            String typeSuffix = String.isBlank(dataType) ? '' : ' · ' + dataType;
             options.add(new Map<String, String>{
-                'label' => display,
+                'label' => baseLabel + typeSuffix,
                 'value' => api,
-                'dataType' => field.get('dataType'),
-                'numeric' => field.get('numeric')
+                'dataType' => dataType,
+                'numeric' => field.get('numeric'),
+                'entityDisplay' => field.get('entityDisplay')
             });
         }
         return options;
@@ -1656,10 +1662,10 @@ public with sharing class MarketingDictionaryManagerController {
                 throw new AuraHandledException('Model Source must be GCP, Einstein, or Other.');
             }
             String baseColumn = requireDmoColumn(
-                record.Base_Score_Column__c, canonicalByLower, typeByLower, 'Base Score', true
+                record.Base_Score_Column__c, canonicalByLower, typeByLower, 'Base Score', false
             );
             String calibratedColumn = requireDmoColumn(
-                record.Calibrated_Base_Score_Column__c, canonicalByLower, typeByLower, 'Calibrated Base Score', true
+                record.Calibrated_Base_Score_Column__c, canonicalByLower, typeByLower, 'Calibrated Base Score', false
             );
             ScoreFormula baseFormula = buildScoreFormula(
                 baseColumn, record.Base_Score_Formula_Mode__c, record.Base_Score_Factor__c, 'Base Score'
@@ -1751,10 +1757,18 @@ public with sharing class MarketingDictionaryManagerController {
     private static List<Map<String, String>> queryDmoFieldRows(String dmoApiName) {
         String dmo = dmoApiName == null ? '' : dmoApiName.trim();
         if (String.isBlank(dmo) || !dmo.endsWithIgnoreCase('__dlm')) {
-            throw new AuraHandledException('Select a Data360 DMO.');
+            throw auraError(
+                'Enter a Data360 DMO API name that ends with __dlm, for example Sample_ScoringModels__dlm.'
+            );
         }
         String lastError;
+        List<String> spaces = new List<String>{ null };
         for (String spaceName : dataSpaceApiNames()) {
+            if (spaceName != null) {
+                spaces.add(spaceName);
+            }
+        }
+        for (String spaceName : spaces) {
             try {
                 List<Map<String, String>> rows = metadataFieldRows(dmo, spaceName);
                 if (!rows.isEmpty()) {
@@ -1768,15 +1782,17 @@ public with sharing class MarketingDictionaryManagerController {
         if (!fromEntity.isEmpty()) {
             return fromEntity;
         }
-        if (String.isNotBlank(lastError)) {
-            throw auraError('Could not load columns for the selected Data360 DMO. ' + lastError);
-        }
-        return new List<Map<String, String>>();
+        String detail = String.isNotBlank(lastError) ? ' ' + lastError : '';
+        throw auraError(
+            'No columns were returned for ' + dmo + '.' + detail
+            + ' Use the DMO API name from Data Cloud metadata, for example Sample_ScoringModels__dlm.'
+        );
     }
 
     private static List<Map<String, String>> metadataFieldRows(String dmoApiName, String spaceName) {
+        // Same request as GET /api/v1/metadata?entityName={apiName}: no entity type filter.
         ConnectApi.CdpQueryMetadataOutput output =
-            queryDataCloudMetadata('DataModelObject', null, dmoApiName, spaceName);
+            queryDataCloudMetadata(null, null, dmoApiName, spaceName);
         Object raw = connectApiAsUntyped(output);
         List<Map<String, String>> rows = new List<Map<String, String>>();
         if (!(raw instanceof Map<String, Object>)) {
@@ -1799,6 +1815,7 @@ public with sharing class MarketingDictionaryManagerController {
             if (!(fields instanceof List<Object>)) {
                 continue;
             }
+            String entityDisplay = firstString(entity, new List<String>{ 'displayName', 'label', 'name' });
             for (Object fieldRow : (List<Object>) fields) {
                 if (!(fieldRow instanceof Map<String, Object>)) {
                     continue;
@@ -1814,7 +1831,8 @@ public with sharing class MarketingDictionaryManagerController {
                     'label' => String.isBlank(label) ? api : label,
                     'value' => api,
                     'dataType' => dataType == null ? '' : dataType,
-                    'numeric' => isNumericDataType(dataType) ? 'true' : 'false'
+                    'numeric' => isNumericDataType(dataType) ? 'true' : 'false',
+                    'entityDisplay' => entityDisplay == null ? '' : entityDisplay
                 });
             }
         }

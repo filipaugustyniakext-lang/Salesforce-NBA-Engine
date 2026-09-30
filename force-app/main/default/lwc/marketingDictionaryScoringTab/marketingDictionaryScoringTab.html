@@ -588,40 +588,36 @@
                 </div>
                 <div class="slds-modal__content slds-p-around_medium">
                     <div class="slds-grid slds-gutters_small slds-wrap">
-                        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
-                            <lightning-input type="search" label="Data360 DMO"
-                                placeholder="Search by name or API name" value={dmoSearch}
-                                onchange={handleDmoSearch}>
-                            </lightning-input>
-                            <template lwc:if={selectedDmoLabel}>
-                                <p class="slds-text-body_small slds-m-top_xx-small">Selected: <strong>{selectedDmoLabel}</strong></p>
-                            </template>
-                            <template lwc:if={isLoadingDmos}>
-                                <div class="slds-is-relative score-map-loading">
-                                    <lightning-spinner alternative-text="Loading DMOs" size="small"></lightning-spinner>
+                        <div class="slds-col slds-size_1-of-1">
+                            <div class="slds-grid slds-gutters_small slds-grid_vertical-align-end">
+                                <div class="slds-col slds-grow">
+                                    <lightning-input type="text" label="Data360 DMO API name" required
+                                        placeholder="Sample_ScoringModels__dlm"
+                                        value={editSetting.Data360_DMO__c}
+                                        data-field="Data360_DMO__c"
+                                        field-level-help="API name of the source DMO in Data Cloud. This is the entityName used by Data Cloud metadata, for example Sample_ScoringModels__dlm."
+                                        onchange={handleDmoApiChange}>
+                                    </lightning-input>
+                                </div>
+                                <div class="slds-col slds-grow-none dmo-load-action">
+                                    <lightning-button label="Load columns" onclick={handleLoadDmoColumns}
+                                        disabled={isLoadingDmoFields}>
+                                    </lightning-button>
+                                </div>
+                            </div>
+                            <template lwc:if={isLoadingDmoFields}>
+                                <div class="slds-is-relative slds-m-top_x-small score-map-loading">
+                                    <lightning-spinner alternative-text="Loading columns" size="small"></lightning-spinner>
                                 </div>
                             </template>
-                            <template lwc:elseif={dmoCatalogueError}>
-                                <p class="cd-warn-text slds-m-top_x-small">{dmoCatalogueError}</p>
+                            <template lwc:if={dmoColumnError}>
+                                <p class="cd-warn-text slds-m-top_x-small">{dmoColumnError}</p>
                             </template>
-                            <template lwc:elseif={hasNoDmos}>
-                                <p class="slds-text-body_small slds-m-top_x-small">
-                                    No Data360 DMOs were returned from Data Cloud. Confirm this user can access the data space that contains those DMOs.
-                                </p>
-                            </template>
-                            <template lwc:else>
-                                <div class="dmo-search-results" role="listbox" aria-label="Data360 DMOs">
-                                    <template for:each={filteredDmoOptions} for:item="opt">
-                                        <button type="button" key={opt.value} class={opt.optionClass}
-                                            data-value={opt.value} onclick={handleSelectDmo}>
-                                            {opt.label}
-                                        </button>
-                                    </template>
-                                </div>
-                                <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">{dmoResultHint}</p>
+                            <template lwc:if={dmoColumnStatus}>
+                                <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">{dmoColumnStatus}</p>
                             </template>
                         </div>
-                        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-m-top_small">
                             <lightning-combobox label="Model ID" required
                                 placeholder="Select a model definition" options={modelDefinitionOptions}
                                 value={editSetting.Scoring_Model__c} data-field="Scoring_Model__c"
@@ -631,12 +627,7 @@
                     </div>
 
                     <template lwc:if={showColumnMapping}>
-                        <template lwc:if={isLoadingDmoFields}>
-                            <div class="slds-is-relative slds-m-top_medium score-map-loading">
-                                <lightning-spinner alternative-text="Loading columns" size="small"></lightning-spinner>
-                            </div>
-                        </template>
-                        <template lwc:elseif={hasDmoColumns}>
+                        <template lwc:if={hasDmoColumns}>
                             <h3 class="slds-text-title_caps slds-text-color_weak slds-m-top_medium slds-m-bottom_x-small">Column mapping</h3>
                             <div class="slds-grid slds-gutters_small slds-wrap">
                                 <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
@@ -657,18 +648,15 @@
                             </div>
 
                             <p class="slds-text-body_small slds-text-color_weak slds-m-top_medium">
-                                Base Score and Calibrated Base Score are always formulas. Use the source column as it comes from the DMO, or multiply or divide it by a factor.
+                                Base Score and Calibrated Base Score are formulas. Map any column from the DMO, including text columns that store a score, then use that value as it is or multiply or divide it by a factor.
                             </p>
-                            <template lwc:if={hasNoNumericColumns}>
-                                <p class="cd-warn-text slds-m-top_x-small">This DMO has no numeric columns. Both scores need a number column that allows decimals.</p>
-                            </template>
 
                             <div class="slds-grid slds-gutters_small slds-wrap slds-m-top_small">
                                 <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
                                     <div class="score-map-card">
                                         <h4 class="slds-text-heading_small slds-m-bottom_x-small">Base Score</h4>
                                         <lightning-combobox label="Source column" required
-                                            placeholder="Numeric column" options={dmoNumericColumnOptions}
+                                            placeholder="Column from the DMO" options={dmoColumnOptions}
                                             value={editSetting.Base_Score_Column__c}
                                             data-field="Base_Score_Column__c"
                                             onchange={handleSettingFieldChange}>
@@ -696,7 +684,7 @@
                                     <div class="score-map-card">
                                         <h4 class="slds-text-heading_small slds-m-bottom_x-small">Calibrated Base Score</h4>
                                         <lightning-combobox label="Source column" required
-                                            placeholder="Numeric column" options={dmoNumericColumnOptions}
+                                            placeholder="Column from the DMO" options={dmoColumnOptions}
                                             value={editSetting.Calibrated_Base_Score_Column__c}
                                             data-field="Calibrated_Base_Score_Column__c"
                                             onchange={handleSettingFieldChange}>
@@ -738,9 +726,6 @@
                                     </lightning-input>
                                 </div>
                             </div>
-                        </template>
-                        <template lwc:else>
-                            <p class="slds-text-body_small slds-text-color_weak slds-m-top_medium">No columns were returned for this Data360 DMO.</p>
                         </template>
                     </template>
                 </div>

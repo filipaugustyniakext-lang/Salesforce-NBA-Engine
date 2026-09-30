@@ -10,7 +10,6 @@ import getProductFamilyByRecordType from '@salesforce/apex/MarketingDictionaryCo
 import getProductFamilyCustomerTypes from '@salesforce/apex/MarketingDictionaryController.getProductFamilyCustomerTypes';
 import getFamilyOfNeedsCustomerTypes from '@salesforce/apex/MarketingDictionaryController.getFamilyOfNeedsCustomerTypes';
 import getProductOfferingCatalogue from '@salesforce/apex/MarketingDictionaryManagerController.getProductOfferingCatalogue';
-import getData360DmoOptions from '@salesforce/apex/MarketingDictionaryManagerController.getData360DmoOptions';
 import getData360DmoFields from '@salesforce/apex/MarketingDictionaryManagerController.getData360DmoFields';
 import getScoringModelSettings from '@salesforce/apex/MarketingDictionaryManagerController.getScoringModelSettings';
 import saveScoringModelSetting from '@salesforce/apex/MarketingDictionaryManagerController.saveScoringModelSetting';
@@ -61,17 +60,15 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
     @track editModelGroup = EMPTY_MODEL_GROUP();
     @track scoringAsNewMaster = true;
     @track scoringNameLocked = false;
-    @track data360DmoOptions = [];
-    @track dmoSearch = '';
-    @track dmoCatalogueError = '';
-    @track isLoadingDmos = false;
     @track modelSettings = [];
     @track modelSettingsLoading = true;
     @track isConfigureModalOpen = false;
     @track isLoadingDmoFields = false;
+    @track dmoColumnError = '';
+    @track dmoColumnStatus = '';
+    @track loadedDmoApi = '';
     @track editSetting = EMPTY_MODEL_SETTING();
     @track dmoColumnOptions = [];
-    @track dmoNumericColumnOptions = [];
     @track expandedScoringMasters = {};
     @track productFamilyOptions = [];
     @track familyOfNeedsOptions = [];
@@ -168,28 +165,6 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
             this.fonToProductFamilies = inverseMap;
             this._rebuildOfferingOptionLists();
         });
-    }
-
-    _loadData360DmoOptions() {
-        this.isLoadingDmos = true;
-        this.dmoCatalogueError = '';
-        getData360DmoOptions()
-            .then(rows => {
-                const opts = (rows || []).map(r => ({
-                    label: r.label,
-                    value: r.value
-                }));
-                const current = this.editSetting?.Data360_DMO__c || this.editScoring?.Data360_DMO__c;
-                if (current && !opts.some(o => o.value === current)) {
-                    opts.unshift({ label: current, value: current });
-                }
-                this.data360DmoOptions = opts;
-            })
-            .catch(err => {
-                this.data360DmoOptions = [];
-                this.dmoCatalogueError = err.body?.message || 'Data360 DMOs could not be loaded.';
-            })
-            .finally(() => { this.isLoadingDmos = false; });
     }
 
     _idSafe(prefix, value) {
@@ -556,14 +531,6 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
         }));
     }
 
-    get scoringSourceSystemOptions() {
-        return SCORING_SOURCE_SYSTEMS;
-    }
-
-    get hasData360DmoCatalogue() {
-        return this.data360DmoOptions.length > 0;
-    }
-
     get isScoringOfferingProductFamily() {
         return this.editScoring.Offering_Type__c === 'Product Family';
     }
@@ -899,7 +866,6 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
         this.scoringNameLocked = false;
         this.editScoring = EMPTY_SCORING();
         this._loadOfferingOptions();
-        this._loadData360DmoOptions();
         this.isScoringModalOpen = true;
     }
 
@@ -928,7 +894,6 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
             Is_Active__c: false
         };
         this._loadOfferingOptions();
-        this._loadData360DmoOptions();
         this.isScoringModalOpen = true;
     }
 
@@ -954,7 +919,6 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
             LastModifiedBy
         };
         this._loadOfferingOptions();
-        this._loadData360DmoOptions();
         this.isScoringModalOpen = true;
     }
 
@@ -1193,9 +1157,11 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
 
     get hasModelSettings() { return this.modelSettingRows.length > 0; }
     get settingsCount() { return this.modelSettingRows.length; }
-    get showColumnMapping() { return !!this.editSetting?.Data360_DMO__c; }
+    get dmoApiName() { return (this.editSetting?.Data360_DMO__c || '').trim(); }
+    get showColumnMapping() {
+        return !!this.loadedDmoApi && this.loadedDmoApi === this.dmoApiName && this.hasDmoColumns;
+    }
     get hasDmoColumns() { return this.dmoColumnOptions.length > 0; }
-    get hasNoNumericColumns() { return this.hasDmoColumns && this.dmoNumericColumnOptions.length === 0; }
     get showBaseScoreFactor() { return this._formulaNeedsFactor(this.editSetting?.Base_Score_Formula_Mode__c); }
     get showCalibratedScoreFactor() { return this._formulaNeedsFactor(this.editSetting?.Calibrated_Score_Formula_Mode__c); }
     get baseScoreFormulaPreview() {
@@ -1215,43 +1181,9 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
     get configureModalTitle() {
         return this.editSetting?.Id ? 'Edit Model Setting' : 'Configure Model';
     }
-    get hasNoDmos() { return !this.isLoadingDmos && !this.dmoCatalogueError && this.data360DmoOptions.length === 0; }
-    get selectedDmoLabel() {
-        const current = this.editSetting?.Data360_DMO__c;
-        if (!current) return '';
-        const match = this.data360DmoOptions.find(o => o.value === current);
-        return match?.label || current;
+    get isConfigureSaveDisabled() {
+        return this.isSaving || this.isLoadingDmoFields || !this.showColumnMapping;
     }
-    get filteredDmoOptions() {
-        const query = (this.dmoSearch || '').trim().toLowerCase();
-        const selected = this.editSetting?.Data360_DMO__c;
-        const matched = (this.data360DmoOptions || []).filter(opt => {
-            if (!query) return true;
-            const label = (opt.label || '').toLowerCase();
-            const value = (opt.value || '').toLowerCase();
-            return label.includes(query) || value.includes(query);
-        });
-        return matched.slice(0, 50).map(opt => ({
-            ...opt,
-            optionClass: 'dmo-option' + (opt.value === selected ? ' dmo-option_selected' : '')
-        }));
-    }
-    get dmoResultHint() {
-        const query = (this.dmoSearch || '').trim().toLowerCase();
-        const total = this.data360DmoOptions.length;
-        const matched = query
-            ? this.data360DmoOptions.filter(opt => {
-                const label = (opt.label || '').toLowerCase();
-                const value = (opt.value || '').toLowerCase();
-                return label.includes(query) || value.includes(query);
-            }).length
-            : total;
-        if (!matched) return 'No DMOs match that search.';
-        if (matched > 50) return `Showing 50 of ${matched} matches. Keep typing to narrow the list.`;
-        if (!query && total > 50) return `Showing 50 of ${total} DMOs. Type to search by name or API name.`;
-        return `${matched} of ${total} DMOs`;
-    }
-    get isConfigureSaveDisabled() { return this.isSaving || this.isLoadingDmoFields; }
 
     get modelSettingRows() {
         return (this.modelSettings || []).map(row => ({
@@ -1266,10 +1198,10 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
     handleNewModelSetting() {
         this.editSetting = EMPTY_MODEL_SETTING();
         this.dmoColumnOptions = [];
-        this.dmoNumericColumnOptions = [];
+        this.dmoColumnError = '';
+        this.dmoColumnStatus = '';
+        this.loadedDmoApi = '';
         this.isLoadingDmoFields = false;
-        this.dmoSearch = '';
-        this._loadData360DmoOptions();
         this.isConfigureModalOpen = true;
     }
 
@@ -1291,29 +1223,55 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
             Model_From_Date__c: row.Model_From_Date__c,
             Model_To_Date__c: row.Model_To_Date__c
         };
-        this.dmoSearch = '';
-        this._loadData360DmoOptions();
+        this.dmoColumnError = '';
+        this.dmoColumnStatus = '';
+        this.loadedDmoApi = '';
         this._loadDmoFields(this.editSetting.Data360_DMO__c);
         this.isConfigureModalOpen = true;
     }
 
     closeConfigureModal() { this.isConfigureModalOpen = false; }
 
-    handleDmoSearch(e) {
-        this.dmoSearch = e.detail?.value ?? e.target.value ?? '';
-    }
-
-    handleSelectDmo(e) {
-        const value = e.currentTarget.dataset.value;
-        if (!value || value === this.editSetting?.Data360_DMO__c) return;
+    handleDmoApiChange(e) {
+        const value = (e.detail?.value ?? e.target.value ?? '').trim();
+        if (value === (this.editSetting?.Data360_DMO__c || '')) return;
         this.dmoColumnOptions = [];
-        this.dmoNumericColumnOptions = [];
+        this.dmoColumnError = '';
+        this.dmoColumnStatus = '';
+        this.loadedDmoApi = '';
         this.editSetting = {
             ...this.editSetting,
             Data360_DMO__c: value,
             Source_Model_Id_Column__c: '',
             Base_Score_Column__c: '',
             Calibrated_Base_Score_Column__c: ''
+        };
+    }
+
+    handleLoadDmoColumns() {
+        const input = this.template.querySelector('lightning-input[data-field="Data360_DMO__c"]');
+        const value = (input?.value ?? this.editSetting?.Data360_DMO__c ?? '').trim();
+        if (!value) {
+            this._showToast('Validation', 'Enter the Data360 DMO API name.', 'warning');
+            return;
+        }
+        if (!value.toLowerCase().endsWith('__dlm')) {
+            this._showToast(
+                'Validation',
+                'The Data360 DMO API name must end with __dlm, for example Sample_ScoringModels__dlm.',
+                'warning'
+            );
+            return;
+        }
+        const changed = value !== (this.editSetting?.Data360_DMO__c || '');
+        this.editSetting = {
+            ...this.editSetting,
+            Data360_DMO__c: value,
+            ...(changed ? {
+                Source_Model_Id_Column__c: '',
+                Base_Score_Column__c: '',
+                Calibrated_Base_Score_Column__c: ''
+            } : {})
         };
         this._loadDmoFields(value);
     }
@@ -1326,19 +1284,6 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
         const field = e.target.dataset.field;
         const value = e.detail?.value ?? e.target.value;
         const next = { ...this.editSetting, [field]: value || null };
-        if (field === 'Data360_DMO__c') {
-            next.Data360_DMO__c = value || '';
-            if (value !== this.editSetting.Data360_DMO__c) {
-                next.Source_Model_Id_Column__c = '';
-                next.Base_Score_Column__c = '';
-                next.Calibrated_Base_Score_Column__c = '';
-                this.dmoColumnOptions = [];
-                this.dmoNumericColumnOptions = [];
-                this.editSetting = next;
-                this._loadDmoFields(value);
-                return;
-            }
-        }
         if (field === 'Base_Score_Formula_Mode__c' && value === 'AsIs') next.Base_Score_Factor__c = null;
         if (field === 'Calibrated_Score_Formula_Mode__c' && value === 'AsIs') next.Calibrated_Score_Factor__c = null;
         if (field === 'Source_Model_Id_Column__c' || field === 'Base_Score_Column__c' || field === 'Calibrated_Base_Score_Column__c' || field === 'Model_Source__c') {
@@ -1361,7 +1306,10 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
     async handleSaveModelSetting() {
         const s = this.editSetting || {};
         const missing = [];
-        if (!s.Data360_DMO__c) missing.push('Data360 DMO');
+        if (!s.Data360_DMO__c) missing.push('Data360 DMO API name');
+        if (this.loadedDmoApi !== (s.Data360_DMO__c || '').trim() || !this.dmoColumnOptions.length) {
+            missing.push('loaded DMO columns');
+        }
         if (!s.Scoring_Model__c) missing.push('Model ID');
         if (!s.Source_Model_Id_Column__c) missing.push('Source Model ID');
         if (!s.Model_Source__c) missing.push('Model Source');
@@ -1413,34 +1361,40 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
     }
 
     _loadDmoFields(dmoApiName) {
+        const apiName = (dmoApiName || '').trim();
         this.dmoColumnOptions = [];
-        this.dmoNumericColumnOptions = [];
-        if (!dmoApiName) {
+        this.dmoColumnError = '';
+        this.dmoColumnStatus = '';
+        this.loadedDmoApi = '';
+        if (!apiName) {
             this.isLoadingDmoFields = false;
             return;
         }
         this.isLoadingDmoFields = true;
-        getData360DmoFields({ dmoApiName })
+        getData360DmoFields({ dmoApiName: apiName })
             .then(rows => {
-                if (this.editSetting?.Data360_DMO__c !== dmoApiName) return;
-                const all = [];
-                const numeric = [];
-                (rows || []).forEach(r => {
-                    const opt = { label: r.label, value: r.value };
-                    all.push(opt);
-                    if (r.numeric === 'true') numeric.push({ ...opt });
-                });
+                if ((this.editSetting?.Data360_DMO__c || '').trim() !== apiName) return;
+                const all = (rows || []).map(r => ({ label: r.label, value: r.value }));
                 this.dmoColumnOptions = all;
-                this.dmoNumericColumnOptions = numeric;
+                this.loadedDmoApi = apiName;
+                const entity = rows?.[0]?.entityDisplay;
+                const source = entity && entity !== apiName ? `${entity} (${apiName})` : apiName;
+                this.dmoColumnStatus = all.length
+                    ? `${all.length} columns from ${source}.`
+                    : '';
+                if (!all.length) {
+                    this.dmoColumnError = `No columns were returned for ${apiName}.`;
+                }
             })
             .catch(err => {
-                if (this.editSetting?.Data360_DMO__c !== dmoApiName) return;
+                if ((this.editSetting?.Data360_DMO__c || '').trim() !== apiName) return;
                 this.dmoColumnOptions = [];
-                this.dmoNumericColumnOptions = [];
-                this._showToast('Error', err.body?.message || 'Could not load DMO columns.', 'error');
+                this.loadedDmoApi = '';
+                this.dmoColumnStatus = '';
+                this.dmoColumnError = err.body?.message || 'Could not load DMO columns.';
             })
             .finally(() => {
-                if (this.editSetting?.Data360_DMO__c === dmoApiName) this.isLoadingDmoFields = false;
+                if ((this.editSetting?.Data360_DMO__c || '').trim() === apiName) this.isLoadingDmoFields = false;
             });
     }
 
