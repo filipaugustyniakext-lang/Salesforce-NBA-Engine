@@ -196,8 +196,6 @@
 }
 
 .scoring-model-id {
-    display: block;
-    max-width: 100%;
     font-size: 0.75rem;
     background: #f3f3f3;
     padding: 0.1rem 0.35rem;
