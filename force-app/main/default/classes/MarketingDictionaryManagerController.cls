@@ -487,8 +487,7 @@ public with sharing class MarketingDictionaryManagerController {
     }
 
     private static final List<String> DMO_CATEGORIES = new List<String>{
-        'Profile', 'Engagement', 'Related', 'Directory_Table', 'Content',
-        'Activation_Audience', 'CG_Audience', 'Segment_Membership', 'Vector_Embedding'
+        null, 'Profile', 'Engagement', 'Related'
     };
 
     private static void collectDataCloudDmos(Map<String, Map<String, String>> byApi) {
@@ -498,27 +497,14 @@ public with sharing class MarketingDictionaryManagerController {
         }
         List<String> errors = new List<String>();
         for (String spaceName : spaces) {
-            Integer before = byApi.size();
-            Boolean complete = false;
-            try {
-                ConnectApi.CdpQueryMetadataEntitiesOutput page = spaceName == null
-                    ? ConnectApi.CdpQuery.getMetadataEntities(null, 'DataModelObject')
-                    : ConnectApi.CdpQuery.getMetadataEntities(null, 'DataModelObject', spaceName);
-                Object raw = JSON.deserializeUntyped(JSON.serialize(page));
-                addSerializedDmos(byApi, raw);
-                complete = metadataPageComplete(raw) && byApi.size() > before;
-            } catch (Exception e) {
-                errors.add(e.getMessage());
-            }
-            if (complete) {
-                continue;
-            }
             for (String category : DMO_CATEGORIES) {
                 try {
-                    ConnectApi.CdpQueryMetadataEntitiesOutput page = spaceName == null
-                        ? ConnectApi.CdpQuery.getMetadataEntities(category, 'DataModelObject')
-                        : ConnectApi.CdpQuery.getMetadataEntities(category, 'DataModelObject', spaceName);
-                    addSerializedDmos(byApi, JSON.deserializeUntyped(JSON.serialize(page)));
+                    addSerializedDmos(byApi, JSON.deserializeUntyped(JSON.serialize(
+                        queryDataCloudMetadata('DataModelObject', category, null, spaceName)
+                    )));
+                    if (category == null && !byApi.isEmpty()) {
+                        break;
+                    }
                 } catch (Exception e) {
                     errors.add(e.getMessage());
                 }
@@ -529,12 +515,15 @@ public with sharing class MarketingDictionaryManagerController {
         }
     }
 
-    private static Boolean metadataPageComplete(Object raw) {
-        if (!(raw instanceof Map<String, Object>)) {
-            return false;
-        }
-        Object done = ((Map<String, Object>) raw).get('done');
-        return done == null || done == true;
+    private static ConnectApi.CdpQueryMetadataOutput queryDataCloudMetadata(
+        String entityType,
+        String entityCategory,
+        String entityName,
+        String spaceName
+    ) {
+        return spaceName == null
+            ? ConnectApi.CdpQuery.getAllMetadata(entityType, entityCategory, entityName)
+            : ConnectApi.CdpQuery.getAllMetadata(entityType, entityCategory, entityName, spaceName);
     }
 
     private static void addSerializedDmos(Map<String, Map<String, String>> byApi, Object raw) {
@@ -1769,9 +1758,8 @@ public with sharing class MarketingDictionaryManagerController {
     }
 
     private static List<Map<String, String>> metadataFieldRows(String dmoApiName, String spaceName) {
-        ConnectApi.CdpQueryMetadataOutput output = spaceName == null
-            ? ConnectApi.CdpQuery.getAllMetadata('DataModelObject', null, dmoApiName)
-            : ConnectApi.CdpQuery.getAllMetadata('DataModelObject', null, dmoApiName, spaceName);
+        ConnectApi.CdpQueryMetadataOutput output =
+            queryDataCloudMetadata('DataModelObject', null, dmoApiName, spaceName);
         Object raw = JSON.deserializeUntyped(JSON.serialize(output));
         List<Map<String, String>> rows = new List<Map<String, String>>();
         if (!(raw instanceof Map<String, Object>)) {
