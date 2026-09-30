@@ -5,7 +5,7 @@ import getMessageById from '@salesforce/apex/CopyCockpitController.getMessageByI
 import saveMessageEditor from '@salesforce/apex/CopyCockpitController.saveMessageEditor';
 import getVersionsByMessageId from '@salesforce/apex/CopyCockpitController.getVersionsByMessageId';
 import getTemplateRenderSource from '@salesforce/apex/ChannelTemplateController.getTemplateRenderSource';
-import { renderTemplatePreview, buildPreviewSrcdoc } from './templatePreview';
+import { renderTemplatePreview, scopePreviewDocument } from './templatePreview';
 
 const STATUS_OPTIONS = [
     { label: 'Active',           value: 'Active' },
@@ -992,13 +992,17 @@ export default class CopyCockpitEditor extends LightningElement {
     }
 
     _syncPreviewFrame() {
-        const frame = this.template.querySelector('[data-preview-frame]');
-        if (!frame) return;
+        const host = this.template.querySelector('[data-preview-host]');
+        if (!host) return;
         const html = this.previewDocument || '';
-        const stamp = `${this._previewTheme}|${html}`;
-        if (!html || frame._previewStamp === stamp) return;
-        frame._previewStamp = stamp;
-        frame.srcdoc = buildPreviewSrcdoc(html, { theme: this._previewTheme });
+        const stamp = `${this._previewDevice}|${this._previewTheme}|${html}`;
+        if (!html || host._previewStamp === stamp) return;
+        host.innerHTML = scopePreviewDocument(html, {
+            device: this._previewDevice,
+            theme: this._previewTheme,
+        });
+        pinPreviewWidths(host);
+        host._previewStamp = stamp;
     }
 
     _loadRenderSource() {
@@ -1014,6 +1018,15 @@ export default class CopyCockpitEditor extends LightningElement {
             })
             .finally(() => { this._renderSourceLoading = false; });
     }
+}
+
+function pinPreviewWidths(root) {
+    root.querySelectorAll('table[width], td[width], th[width]').forEach(el => {
+        if (el.style.width) return;
+        const raw = String(el.getAttribute('width') || '').trim();
+        if (/^\d+$/.test(raw)) el.style.width = `${raw}px`;
+        else if (/^\d+%$/.test(raw)) el.style.width = raw;
+    });
 }
 
 function parseCanvas(raw) {

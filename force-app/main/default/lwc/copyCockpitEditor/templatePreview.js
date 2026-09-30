@@ -7,83 +7,25 @@ export function renderTemplatePreview(source, blocks, device) {
     return stripExecutableMarkup(injectBody(shell, rendered, source.bodySlotKey));
 }
 
-const PREFERS_DARK_MEDIA = /@media\s*(?:only\s+)?\(\s*prefers-color-scheme\s*:\s*dark\s*\)\s*\{/gi;
+const PREVIEW_SCOPE = '.cc-preview';
 
-/**
- * Full HTML document for a sandboxed iframe. The shell's inline styles and
- * presentational attributes must survive unchanged. Rendering that markup in
- * the editor page lets Salesforce CSS, including table { width: 100% },
- * stretch cells whose images use width: 100% beside a pixel width attribute.
- */
-export function buildPreviewSrcdoc(html, options = {}) {
+export function scopePreviewDocument(html, options = {}) {
+    const device = options.device === 'desktop' ? 'desktop' : 'mobile';
     const theme = options.theme === 'dark' ? 'dark' : 'light';
-    let doc = previewTokens(stripExecutableMarkup(String(html || ''))).replace(/<custom\b[^>]*\/?>/gi, '');
-    if (!doc.trim()) return '';
-    doc = relocateMarkupBeforeHead(doc);
-    doc = theme === 'dark' ? flattenPrefersColorSchemeDarkRules(doc) : stripPrefersColorSchemeDarkRules(doc);
-    return injectPreviewHead(doc);
-}
-
-function relocateMarkupBeforeHead(html) {
-    const match = html.match(/(<html[^>]*>\s*)([\s\S]*?)(\s*<head\b)/i);
-    if (!match || !match[2].trim()) return html;
-    const stray = match[2].trim();
-    const doc = html.replace(match[0], `${match[1]}${match[3]}`);
-    if (/<body(\b[^>]*)>/i.test(doc)) {
-        return doc.replace(/<body(\b[^>]*)>/i, `<body$1>\n${stray}\n`);
-    }
-    return doc.replace(/<\/head>/i, `</head>\n<body>\n${stray}\n`);
-}
-
-function injectPreviewHead(html) {
-    const csp = /Content-Security-Policy/i.test(html)
-        ? ''
-        : '<meta http-equiv="Content-Security-Policy" content="script-src \'none\'; object-src \'none\';">';
-    if (!csp) return html;
-    if (/<head(\b[^>]*)>/i.test(html)) {
-        return html.replace(/<head(\b[^>]*)>/i, `<head$1>\n${csp}`);
-    }
-    if (/<html(\b[^>]*)>/i.test(html)) {
-        return html.replace(/<html(\b[^>]*)>/i, `<html$1>\n<head>\n${csp}\n</head>`);
-    }
-    return `<!DOCTYPE html><html><head>${csp}</head><body>${html}</body></html>`;
-}
-
-function stripPrefersColorSchemeDarkRules(html) {
-    return rewritePrefersColorSchemeDarkRules(html, () => '');
-}
-
-function flattenPrefersColorSchemeDarkRules(html) {
-    return rewritePrefersColorSchemeDarkRules(html, (inner) => `\n${inner.trim()}\n`);
-}
-
-function rewritePrefersColorSchemeDarkRules(html, replaceBlock) {
-    let result = String(html || '');
-    PREFERS_DARK_MEDIA.lastIndex = 0;
-    let match = PREFERS_DARK_MEDIA.exec(result);
-    while (match) {
-        const block = balancedBlock(result, match.index + match[0].length - 1);
-        const replacement = replaceBlock(block.inner);
-        result = result.slice(0, match.index) + replacement + result.slice(block.end);
-        PREFERS_DARK_MEDIA.lastIndex = match.index + replacement.length;
-        match = PREFERS_DARK_MEDIA.exec(result);
-    }
-    PREFERS_DARK_MEDIA.lastIndex = 0;
-    return result;
-}
-
-function balancedBlock(source, openIndex) {
-    let depth = 0;
-    for (let index = openIndex; index < source.length; index += 1) {
-        if (source[index] === '{') depth += 1;
-        else if (source[index] === '}') {
-            depth -= 1;
-            if (depth === 0) {
-                return { end: index + 1, inner: source.slice(openIndex + 1, index) };
-            }
-        }
-    }
-    return { end: source.length, inner: source.slice(openIndex + 1) };
+    const source = String(html || '').replace(/<!--\[if[\s\S]*?<!\[endif\]-->/gi, '');
+    const styles = [];
+    const withoutStyles = source.replace(/<style\b([^>]*)>([\s\S]*?)<\/style>/gi, (match, attrs, css) => {
+        const media = /media\s*=\s*(['"])(.*?)\1/i.exec(attrs || '');
+        const sheet = media ? `@media ${media[2]} {${css}}` : css;
+        styles.push(rewriteCss(sheet, device, theme));
+        return '';
+    });
+    const bodyMatch = withoutStyles.match(/<body\b[^>]*>([\s\S]*)<\/body>/i);
+    const body = previewTokens(bodyMatch ? bodyMatch[1] : withoutStyles).replace(/<custom\b[^>]*\/?>/gi, '');
+    // Page CSS such as `table { width: 100% }` stretches shrink-wrapped email tables,
+    // so an image with width:100% ignores the pixel width on its cell.
+    const guard = `${PREVIEW_SCOPE} table:not([width]):not([style*="width"]){width:max-content !important;max-width:100% !important;}`;
+    return `<div class="cc-preview"><style>${styles.join('\n')}\n${guard}</style>${body}</div>`;
 }
 
 function previewTokens(html) {
@@ -91,6 +33,88 @@ function previewTokens(html) {
     return String(html)
         .replace(/%%xtyear%%/gi, year)
         .replace(/%%view_email_url%%/gi, '#');
+}
+
+function rewriteCss(css, device, theme) {
+    const source = String(css || '').replace(/\/\*[\s\S]*?\*\//g, '');
+    let result = '';
+    let index = 0;
+    while (index < source.length) {
+        while (index < source.length && /\s/.test(source[index])) index += 1;
+        if (index >= source.length) break;
+        if (source.startsWith('@media', index)) {
+            const open = source.indexOf('{', index);
+            const close = matchingBrace(source, open);
+            const condition = source.slice(index, open).trim();
+            const body = source.slice(open + 1, close);
+            result += rewriteMedia(condition, body, device, theme);
+            index = close + 1;
+            continue;
+        }
+        if (source[index] === '@') {
+            const open = source.indexOf('{', index);
+            const close = matchingBrace(source, open);
+            result += source.slice(index, close + 1);
+            index = close + 1;
+            continue;
+        }
+        const open = source.indexOf('{', index);
+        if (open < 0) break;
+        const close = matchingBrace(source, open);
+        const selector = source.slice(index, open).trim();
+        if (selector) result += `${scopeSelectorList(selector)} ${source.slice(open, close + 1)}`;
+        index = close + 1;
+    }
+    return result;
+}
+
+function rewriteMedia(condition, body, device, theme) {
+    const text = condition.toLowerCase();
+    if (text.includes('prefers-color-scheme')) {
+        if (text.includes('dark') && theme !== 'dark') return '';
+        if (text.includes('light') && theme !== 'light') return '';
+        if (text.includes('dark') || text.includes('light')) return rewriteCss(body, device, theme);
+    }
+    const maxWidth = /max-width\s*:\s*(\d+)/.exec(text);
+    const minWidth = /min-width\s*:\s*(\d+)/.exec(text);
+    if (maxWidth && !minWidth) {
+        return device === 'mobile' ? rewriteCss(body, device, theme) : '';
+    }
+    if (minWidth && !maxWidth) {
+        return device === 'desktop' ? rewriteCss(body, device, theme) : '';
+    }
+    return `${condition}{${rewriteCss(body, device, theme)}}`;
+}
+
+function scopeSelectorList(selector) {
+    return selector.split(',').map(part => {
+        let rule = part.trim().replace(/\bhtml\b/gi, PREVIEW_SCOPE).replace(/\bbody\b/gi, PREVIEW_SCOPE).replace(/:root\b/gi, PREVIEW_SCOPE);
+        if (!rule) return '';
+        if (
+            rule === PREVIEW_SCOPE
+            || rule.startsWith(PREVIEW_SCOPE + ' ')
+            || rule.startsWith(PREVIEW_SCOPE + '>')
+            || rule.startsWith(PREVIEW_SCOPE + '.')
+            || rule.startsWith(PREVIEW_SCOPE + ':')
+            || rule.startsWith(PREVIEW_SCOPE + '[')
+            || rule.startsWith(PREVIEW_SCOPE + '#')
+        ) {
+            return rule;
+        }
+        return `${PREVIEW_SCOPE} ${rule}`;
+    }).filter(Boolean).join(', ');
+}
+
+function matchingBrace(source, openIndex) {
+    let depth = 0;
+    for (let index = openIndex; index < source.length; index += 1) {
+        if (source[index] === '{') depth += 1;
+        else if (source[index] === '}') {
+            depth -= 1;
+            if (depth === 0) return index;
+        }
+    }
+    return source.length - 1;
 }
 
 function isVisibleOnDevice(block, device) {
