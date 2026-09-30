@@ -28,9 +28,17 @@
                     </div>
                 </lightning-tab>
 
+                <lightning-tab value="scoring" label="Scoring" icon-name="standard:people_score">
+                    <div class="slds-p-around_medium">
+                        <c-marketing-dictionary-scoring-tab></c-marketing-dictionary-scoring-tab>
+                    </div>
+                </lightning-tab>
+
                 <lightning-tab value="channel" label="Channels" icon-name="standard:channel_programs">
                     <div class="slds-p-around_medium">
-                        <c-marketing-dictionary-channel-tab></c-marketing-dictionary-channel-tab>
+                        <c-marketing-dictionary-channel-tab
+                            onchannelactivechange={handleChannelActiveChange}>
+                        </c-marketing-dictionary-channel-tab>
                     </div>
                 </lightning-tab>
 

@@ -7,10 +7,18 @@ import getMessagesByChannelType from '@salesforce/apex/CopyCockpitController.get
 import getVersionCountsByMessageIds from '@salesforce/apex/CopyCockpitController.getVersionCountsByMessageIds';
 import createMessage from '@salesforce/apex/CopyCockpitController.createMessage';
 import cloneMessage from '@salesforce/apex/CopyCockpitController.cloneMessage';
-import renameMessageGroup from '@salesforce/apex/CopyCockpitController.renameMessageGroup';
+import updateMessageMaster from '@salesforce/apex/CopyCockpitController.updateMessageMaster';
 import getProductFamilies from '@salesforce/apex/CopyCockpitController.getProductFamilies';
 import getActiveOffersByFamily from '@salesforce/apex/CopyCockpitController.getActiveOffersByFamily';
 import saveMasterRowSettings from '@salesforce/apex/CopyCockpitController.saveMasterRowSettings';
+import {
+    channelPrefixForType,
+    composeStem,
+    groupKeyFromName,
+    nameBelongsToStem,
+    nextAvailableVariant,
+    parseFullName
+} from 'c/copyMessageNaming';
 
 // ── constants ──────────────────────────────────────────────────────────────
 
@@ -115,33 +123,42 @@ function buildScheduleBadge(record) {
 function buildGroups(records, expandedSet, editingGroupName, selectedIds, versionCounts) {
     const map = new Map();
     for (const r of records) {
-        const name = r.Name || '(unnamed)';
-        if (!map.has(name)) map.set(name, []);
-        map.get(name).push(r);
+        const key = groupKeyFromName(r.Name);
+        if (!map.has(key)) map.set(key, []);
+        map.get(key).push(r);
     }
 
-    return Array.from(map.entries()).map(([messageName, variants]) => {
+    return Array.from(map.entries()).map(([stem, variants]) => {
+        // Stable order by variant number
+        variants = [...variants].sort((a, b) => {
+            const va = Number(a.Version__c) || parseFullName(a.Name).variant || 0;
+            const vb = Number(b.Version__c) || parseFullName(b.Name).variant || 0;
+            return va - vb;
+        });
+
+        const parsed = parseFullName(variants[0]?.Name || stem);
         const totalVariants  = variants.length;
         const publishedCount = variants.filter(v => (v.Status__c || '').toLowerCase() === 'published').length;
         const hasPublished   = publishedCount > 0;
         const hasReady       = variants.some(v => (v.Status__c || '').toLowerCase() === 'ready');
         const hasDraft       = variants.some(v => (v.Status__c || '').toLowerCase() === 'draft');
         const hasArchived    = variants.some(v => (v.Status__c || '').toLowerCase() === 'archived');
-        const isExpanded     = expandedSet.has(messageName);
-        const isEditing      = editingGroupName === messageName;
+        const isExpanded     = expandedSet.has(stem);
+        const isEditing      = editingGroupName === stem;
 
         const enrichedVariants = variants.map(v => {
             const sched = buildScheduleBadge(v);
             const isSelected = selectedIds.has(v.Id);
-            // MCE_Last_Modified_By__c preferred; fall back to SF LastModifiedById display name (not available via SOQL alias, so use the field if present)
             const modBy = v.MCE_Last_Modified_By__c || null;
+            const vParsed = parseFullName(v.Name);
+            const variantNum = v.Version__c != null ? v.Version__c : vParsed.variant;
             return {
                 ...v,
                 statusClass:        statusBadgeClass(v.Status__c),
                 validFromFmt:       fmtDate(v.Valid_From__c),
                 validToFmt:         fmtDate(v.Valid_To__c),
                 campaignName:       v.Campaign__r?.Name || null,
-                versionLabel:       v.Message_Variant__c || (v.Version__c != null ? `Variant ${v.Version__c}` : '—'),
+                versionLabel:       v.Message_Variant__c || (variantNum != null ? `Variant ${variantNum}` : '—'),
                 weightDisplay:      fmtWeight(v.Display_Probability__c, v.Display_Probability_Manual__c),
                 scheduleBadge:      sched?.label || null,
                 scheduleBadgeClass: sched?.cssClass || null,
@@ -157,11 +174,16 @@ function buildGroups(records, expandedSet, editingGroupName, selectedIds, versio
         });
 
         const allSelected = enrichedVariants.length > 0 && enrichedVariants.every(v => selectedIds.has(v.Id));
-        // shared language — take from first variant (all variants under a master share the same language)
-        const language = variants[0]?.Language__c || null;
+        const language = parsed.language || variants[0]?.Language__c || null;
+        const displayName = stem;
 
         return {
-            messageName,
+            messageName:          stem,
+            displayName,
+            channelPrefix:        parsed.prefix || '',
+            countryCode:          parsed.countryCode || '',
+            locale:               parsed.locale || '',
+            messageNamePart:      parsed.messageName || '',
             totalVariants,
             publishedCount,
             variantPlural:        totalVariants !== 1 ? 's' : '',
@@ -177,7 +199,7 @@ function buildGroups(records, expandedSet, editingGroupName, selectedIds, versio
             masterRowClass:       `cockpit-master-row${isExpanded ? ' cockpit-master-row_expanded' : ''}`,
             language,
             allSelected,
-            masterCheckboxLabel:  `Select all variants of ${messageName}`,
+            masterCheckboxLabel:  `Select all variants of ${displayName}`,
             variants:             enrichedVariants,
         };
     });
@@ -198,6 +220,9 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     @track _versionCounts = {};
 
     @track isAddModalOpen = false;
+    @track _addChannelName = '';
+    @track _addChannelType = '';
+    @track _addBannerTypes = [];
 
     @track isDeleteModalOpen = false;
     @track deleteTargetId = null;
@@ -213,7 +238,11 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     @track cloneProposedVersion = null;
 
     @track _editingGroupName = null;
-    @track _editingGroupValue = '';
+    @track _editingCountryCode = '';
+    @track _editingMessageNamePart = '';
+    @track _editingLanguage = 'PL';
+    @track _editingChannelPrefix = '';
+    @track _renameError = '';
 
     @track _masterEditModal = null;
 
@@ -273,10 +302,9 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         return { ...found, safeIcon: resolveIcon(found) };
     }
 
-    get activeBannerTypes() {
-        if (!this.activeChannel) return [];
-        return this.activeChannel.Channel_Banner_Types__r || [];
-    }
+    get addChannelName() { return this._addChannelName; }
+    get addChannelType() { return this._addChannelType; }
+    get addBannerTypes() { return this._addBannerTypes; }
 
     // ── messages & groups ──────────────────────────────────────────────────
 
@@ -305,7 +333,29 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         );
     }
 
-    get editingGroupValue() { return this._editingGroupValue; }
+    get editingCountryCode() { return this._editingCountryCode; }
+    get editingMessageNamePart() { return this._editingMessageNamePart; }
+    get editingLanguage() { return this._editingLanguage; }
+    get editingChannelPrefix() { return this._editingChannelPrefix; }
+    get renameError() { return this._renameError; }
+    get isRenameOpen() { return !!this._editingGroupName; }
+    get renamePreview() {
+        if (!this._editingGroupName) return '';
+        const stem = composeStem(
+            this._editingChannelPrefix,
+            this._editingCountryCode,
+            this._editingLanguage,
+            this._editingMessageNamePart
+        );
+        return stem ? `${stem}_<Variant>` : '—';
+    }
+    get renameLanguageOptions() {
+        return [
+            { label: 'PL', value: 'PL' },
+            { label: 'EN', value: 'EN' },
+            { label: 'ES', value: 'ES' },
+        ];
+    }
 
     get filteredGroups() {
         let groups = this.allGroups;
@@ -324,8 +374,14 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         if (this._searchTerm) {
             const term = this._searchTerm.toLowerCase();
             groups = groups.filter(g =>
-                g.messageName.toLowerCase().includes(term) ||
-                g.variants.some(v => (v.Subject__c || '').toLowerCase().includes(term))
+                (g.messageName || '').toLowerCase().includes(term) ||
+                (g.messageNamePart || '').toLowerCase().includes(term) ||
+                (g.countryCode || '').toLowerCase().includes(term) ||
+                (g.locale || '').toLowerCase().includes(term) ||
+                g.variants.some(v =>
+                    (v.Subject__c || '').toLowerCase().includes(term) ||
+                    (v.Name || '').toLowerCase().includes(term)
+                )
             );
         }
 
@@ -346,7 +402,9 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     }
 
     get cloneProposedName() {
-        return this.cloneSourceName;
+        const stem = groupKeyFromName(this.cloneSourceName);
+        const v = this.cloneProposedVersion;
+        return stem && v != null ? `${stem}_${v}` : (this.cloneSourceName || '');
     }
 
     get expandAllLabel() { return this._allExpanded ? 'Collapse all' : 'Expand all'; }
@@ -448,10 +506,10 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
 
     handleGroupSelect(e) {
         e.stopPropagation();
-        const name = e.target.dataset.name;
+        const stem = e.target.dataset.name;
         const checked = e.target.checked;
         const groupIds = this._messages
-            .filter(m => (m.Name || '(unnamed)') === name)
+            .filter(m => nameBelongsToStem(m.Name, stem) || groupKeyFromName(m.Name) === stem)
             .map(m => m.Id);
         const next = new Set(this._selectedIds);
         if (checked) {
@@ -513,11 +571,20 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     // ── handlers: add copy ────────────────────────────────────────────────
 
     handleAddCopy() {
+        const channel = this.activeChannel;
+        if (!channel) {
+            this._showToast('Error', 'Select a channel before creating a message.', 'error');
+            return;
+        }
+        this._addChannelName = channel.Name || '';
+        this._addChannelType = channel.Channel_Type__c || '';
+        this._addBannerTypes = [...(channel.Channel_Banner_Types__r || [])];
         this.isAddModalOpen = true;
     }
 
     handleAddModalClose() {
         this.isAddModalOpen = false;
+        this._clearAddChannelContext();
     }
 
     handleAddModalSave(e) {
@@ -525,6 +592,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         createMessage({ messageJson: JSON.stringify(data) })
             .then(newId => {
                 this.isAddModalOpen = false;
+                this._clearAddChannelContext();
                 this._showToast('Created', `"${data.messageName}" Variant ${data.version} saved as draft.`, 'success');
                 this._loadMessages(this.activeChannel?.Channel_Type__c);
                 if (data.action === 'edit') {
@@ -536,6 +604,12 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
                 if (modal) modal.resetSaving();
                 this._showToast('Error', err?.body?.message || 'Create failed.', 'error');
             });
+    }
+
+    _clearAddChannelContext() {
+        this._addChannelName = '';
+        this._addChannelType = '';
+        this._addBannerTypes = [];
     }
 
     // ── handlers: edit / clone / delete ───────────────────────────────────
@@ -603,14 +677,16 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
 
     handleMasterEdit(e) {
         e.stopPropagation();
-        const messageName = e.currentTarget.dataset.name;
-        const groupRecords = this._messages.filter(m => (m.Name || '(unnamed)') === messageName);
+        const stem = e.currentTarget.dataset.name;
+        const groupRecords = this._messages.filter(
+            m => nameBelongsToStem(m.Name, stem) || groupKeyFromName(m.Name) === stem
+        );
         const first = groupRecords[0] || {};
         const currentOfferId   = first.Offer__c || null;
         const currentOfferName = first.Offer__r?.Name || null;
 
         this._masterEditModal = {
-            messageName,
+            messageName: stem,
             productFamilyId: null,
             offerId: currentOfferId,
             currentOfferName,
@@ -736,83 +812,134 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             });
     }
 
-    // ── handlers: group rename ────────────────────────────────────────────
+    // ── handlers: group rename (master MessageName / Country / Language) ──
+
+    handleNameCellClick(e) {
+        // Keep expand/collapse on the row chrome; name cell opens rename via dblclick only.
+        e.stopPropagation();
+    }
 
     handleGroupNameDblClick(e) {
         e.stopPropagation();
-        const name = e.currentTarget.dataset.name;
-        this._editingGroupName  = name;
-        this._editingGroupValue = name;
+        const stem = e.currentTarget.dataset.name;
+        const group = this.allGroups.find(g => g.messageName === stem);
+        const parsed = group
+            ? {
+                prefix: group.channelPrefix,
+                countryCode: group.countryCode,
+                language: group.language,
+                messageName: group.messageNamePart,
+            }
+            : parseFullName(stem);
+        this._editingGroupName = stem;
+        this._editingChannelPrefix = parsed.prefix || channelPrefixForType(this.activeChannel?.Channel_Type__c);
+        this._editingCountryCode = parsed.countryCode || '';
+        this._editingMessageNamePart = parsed.messageName || '';
+        this._editingLanguage = parsed.language || group?.language || 'PL';
+        this._renameError = '';
     }
 
-    handleNameInputClick(e) {
-        e.stopPropagation();
+    handleRenameCountryChange(e) {
+        this._editingCountryCode = e.target.value;
+        this._renameError = '';
     }
 
-    handleGroupNameInput(e) {
-        this._editingGroupValue = e.target.value;
+    handleRenameMessageNameChange(e) {
+        this._editingMessageNamePart = e.target.value;
+        this._renameError = '';
     }
 
-    handleGroupNameKeydown(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            this._commitRename();
-        } else if (e.key === 'Escape') {
-            this._cancelRename();
-        }
+    handleRenameLanguageChange(e) {
+        this._editingLanguage = e.detail.value;
+        this._renameError = '';
     }
 
-    handleGroupNameBlur() {
+    handleRenameCancel() {
+        this._cancelRename();
+    }
+
+    handleRenameSave() {
         this._commitRename();
     }
 
     _commitRename() {
-        const oldName = this._editingGroupName;
-        const newName = (this._editingGroupValue || '').trim();
-        this._cancelRename();
-        if (!newName || newName === oldName) return;
-        renameMessageGroup({
-            oldName,
-            newName,
+        const oldStem = this._editingGroupName;
+        if (!oldStem) return;
+
+        const cc = (this._editingCountryCode || '').trim().toUpperCase();
+        const mn = (this._editingMessageNamePart || '').trim();
+        const language = this._editingLanguage || null;
+        const prefix = this._editingChannelPrefix;
+
+        if (!cc || !mn || !language) {
+            this._renameError = 'Country Code, Language, and Message Name are required.';
+            return;
+        }
+
+        const newStem = composeStem(prefix, cc, language, mn);
+        if (newStem === oldStem) {
+            this._cancelRename();
+            return;
+        }
+
+        // Client-side uniqueness for a different stem (locale + message name)
+        const collision = this.allGroups.some(g => g.messageName === newStem);
+        if (collision) {
+            this._renameError = `A message with locale "${cc}-${language}" and Message Name "${mn}" already exists.`;
+            return;
+        }
+
+        updateMessageMaster({
+            oldStem,
+            countryCode: cc,
+            messageNamePart: mn,
+            language,
             channelType: this.activeChannel?.Channel_Type__c,
         })
             .then(() => {
-                this._messages = this._messages.map(m =>
-                    (m.Name || '(unnamed)') === oldName ? { ...m, Name: newName } : m
-                );
-                this._showToast('Renamed', `"${oldName}" renamed to "${newName}".`, 'success');
+                this._cancelRename();
+                this._showToast('Updated', 'Message name settings saved for all variants.', 'success');
+                this._loadMessages(this.activeChannel?.Channel_Type__c);
             })
             .catch(err => {
-                this._showToast('Error', err?.body?.message || 'Rename failed.', 'error');
+                this._renameError = err?.body?.message || 'Update failed.';
             });
     }
 
     _cancelRename() {
-        this._editingGroupName  = null;
-        this._editingGroupValue = '';
+        this._editingGroupName = null;
+        this._editingCountryCode = '';
+        this._editingMessageNamePart = '';
+        this._editingLanguage = 'PL';
+        this._editingChannelPrefix = '';
+        this._renameError = '';
     }
 
     // ── private ────────────────────────────────────────────────────────────
 
-    _nextVersionForName(name) {
-        const taken = new Set(
-            this._messages
-                .filter(m => (m.Name || '(unnamed)') === name && m.Version__c != null)
-                .map(m => Number(m.Version__c))
+    _messagesForStem(stem) {
+        return this._messages.filter(
+            m => nameBelongsToStem(m.Name, stem) || groupKeyFromName(m.Name) === stem
         );
-        let v = 1;
-        while (taken.has(v)) v++;
-        return v;
+    }
+
+    _nextVersionForName(fullOrStemName) {
+        const stem = groupKeyFromName(fullOrStemName);
+        const taken = this._messagesForStem(stem).map(m => {
+            const parsed = parseFullName(m.Name);
+            return Number(m.Version__c != null ? m.Version__c : parsed.variant);
+        }).filter(n => !Number.isNaN(n) && n > 0);
+        return nextAvailableVariant(taken);
     }
 
     _doClone(openEditor) {
         const sourceId   = this.cloneSourceId;
         const newVersion = this.cloneProposedVersion;
-        const name       = this.cloneSourceName;
+        const name       = this.cloneProposedName;
         this.isCloning = true;
         cloneMessage({ sourceId, newVersion })
             .then(newId => {
-                this._showToast('Copy created', `"${name}" Variant ${newVersion} saved as draft.`, 'success');
+                this._showToast('Copy created', `"${name}" saved as draft.`, 'success');
                 this._loadMessages(this.activeChannel?.Channel_Type__c);
                 if (openEditor) this._openEditor(newId);
             })

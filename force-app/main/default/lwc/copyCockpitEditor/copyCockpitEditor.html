@@ -146,7 +146,7 @@
 
                         <!-- Save / Schedule / Revert / Activate button group -->
                         <div class="slds-button-group toolbar-crud-group" role="group" aria-label="Save Actions">
-                            <button class="slds-button slds-button_neutral toolbar-action-btn" type="button" onclick={handleToolbarSave} title={saveButtonLabel}>
+                            <button class="slds-button slds-button_neutral toolbar-action-btn" type="button" onclick={handleToolbarSave} title={saveButtonLabel} disabled={isSaving}>
                                 <lightning-icon icon-name="utility:save" size="x-small" class="slds-button__icon slds-button__icon_left"></lightning-icon>
                                 {saveButtonLabel}
                             </button>
@@ -435,6 +435,9 @@
                         </div>
                     </div>
                     <div class="slds-panel__body">
+                        <template lwc:if={paletteEmpty}>
+                            <p class="slds-p-around_small slds-text-body_small slds-text-color_weak">This template has no components defined.</p>
+                        </template>
                         <template for:each={blockGroups} for:item="grp">
                             <div key={grp.group} class="slds-panel__section editor-block-section">
                                 <h3 class="slds-text-title_caps editor-block-section__label">{grp.group}</h3>
@@ -689,9 +692,51 @@
                                                                 aria-labelledby={blk.contentTabId}
                                                                 style={blk.contentPanelStyle}
                                                             >
-                                                                <p class="slds-text-body_small slds-text-color_weak slds-p-around_small">
-                                                                    Content editor for <strong>{blk.label}</strong> — coming soon.
-                                                                </p>
+                                                                <div class="block-content-fields">
+                                                                    <template lwc:if={blk.showCopy}>
+                                                                        <div class="slds-form-element">
+                                                                            <label class="slds-form-element__label" for={blk.copyFieldId}>Copy</label>
+                                                                            <div class="slds-form-element__control">
+                                                                                <textarea id={blk.copyFieldId} class="slds-textarea" rows="4" data-content-field data-instance-id={blk.instanceId} data-field="copyText" oninput={handleBlockContentChange}></textarea>
+                                                                            </div>
+                                                                        </div>
+                                                                    </template>
+                                                                    <template lwc:if={blk.showImage}>
+                                                                        <div class="slds-form-element slds-m-top_small">
+                                                                            <label class="slds-form-element__label" for={blk.imageFieldId}>Image URL</label>
+                                                                            <div class="slds-form-element__control">
+                                                                                <input id={blk.imageFieldId} class="slds-input" type="url" placeholder="https://" data-content-field data-instance-id={blk.instanceId} data-field="imageUrl" oninput={handleBlockContentChange} />
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="slds-form-element slds-m-top_x-small">
+                                                                            <label class="slds-form-element__label" for={blk.altFieldId}>Alt text</label>
+                                                                            <div class="slds-form-element__control">
+                                                                                <input id={blk.altFieldId} class="slds-input" type="text" data-content-field data-instance-id={blk.instanceId} data-field="altText" oninput={handleBlockContentChange} />
+                                                                            </div>
+                                                                        </div>
+                                                                    </template>
+                                                                    <template lwc:if={blk.showLegal}>
+                                                                        <div class="slds-form-element slds-m-top_small">
+                                                                            <label class="slds-form-element__label" for={blk.legalFieldId}>Legal copy</label>
+                                                                            <div class="slds-form-element__control">
+                                                                                <textarea id={blk.legalFieldId} class="slds-textarea" rows="3" data-content-field data-instance-id={blk.instanceId} data-field="legalText" oninput={handleBlockContentChange}></textarea>
+                                                                            </div>
+                                                                        </div>
+                                                                    </template>
+                                                                    <template lwc:if={blk.showSpacer}>
+                                                                        <div class="slds-form-element">
+                                                                            <label class="slds-form-element__label" for={blk.spacerFieldId}>Spacer height (px)</label>
+                                                                            <div class="slds-form-element__control">
+                                                                                <input id={blk.spacerFieldId} class="slds-input" type="number" min="0" data-content-field data-instance-id={blk.instanceId} data-field="spacerHeight" oninput={handleBlockContentChange} />
+                                                                            </div>
+                                                                        </div>
+                                                                    </template>
+                                                                    <template lwc:if={blk.missingBlockTemplate}>
+                                                                        <p class="slds-text-color_error slds-text-body_small slds-m-top_small">
+                                                                            This source template has no HTML file for {blk.blockType}.
+                                                                        </p>
+                                                                    </template>
+                                                                </div>
                                                             </div>
 
                                                             <!-- Settings panel -->
@@ -924,14 +969,22 @@
                                     </div>
                                 </template>
 
-                                <div class="editor-preview__content">
-                                    <template lwc:if={previewIsEmpty}>
+                                <div class={previewContentClass}>
+                                    <template lwc:if={renderSourceLoading}>
                                         <div class="editor-preview__empty">
-                                            <lightning-icon icon-name="utility:preview" size="medium" class="slds-m-bottom_small editor-preview__empty-icon"></lightning-icon>
-                                            <p class="slds-text-body_small slds-text-color_weak">Add components to the canvas to see a preview.</p>
+                                            <lightning-spinner alternative-text="Loading template" size="small"></lightning-spinner>
                                         </div>
                                     </template>
-                                    <template lwc:else>
+                                    <template lwc:elseif={hasShellPreview}>
+                                        <div class="editor-preview__shell" lwc:dom="manual" data-preview-host></div>
+                                    </template>
+                                    <template lwc:elseif={previewIsEmpty}>
+                                        <div class="editor-preview__empty">
+                                            <lightning-icon icon-name="utility:preview" size="medium" class="slds-m-bottom_small editor-preview__empty-icon"></lightning-icon>
+                                            <p class="slds-text-body_small slds-text-color_weak">{previewStatusMessage}</p>
+                                        </div>
+                                    </template>
+                                    <template lwc:elseif={showIconPreview}>
                                         <template for:each={previewBlocks} for:item="pb">
                                             <div key={pb.instanceId} class={pb.previewBlockClass}>
                                                 <lightning-icon icon-name={pb.icon} size="x-small" class="slds-m-right_x-small editor-preview-block__icon"></lightning-icon>

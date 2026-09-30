@@ -1,7 +1,11 @@
 import { LightningElement, api, track, wire } from 'lwc';
 import { CurrentPageReference } from 'lightning/navigation';
+import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import getMessageById from '@salesforce/apex/CopyCockpitController.getMessageById';
+import saveMessageEditor from '@salesforce/apex/CopyCockpitController.saveMessageEditor';
 import getVersionsByMessageId from '@salesforce/apex/CopyCockpitController.getVersionsByMessageId';
+import getTemplateRenderSource from '@salesforce/apex/ChannelTemplateController.getTemplateRenderSource';
+import { renderTemplatePreview, scopePreviewDocument } from './templatePreview';
 
 const STATUS_OPTIONS = [
     { label: 'Active',           value: 'Active' },
@@ -63,8 +67,11 @@ function groupBlocks(blocks) {
 }
 
 let _uid = 0;
-function makeInstance(blockId) {
-    const def = PALETTE_BLOCKS.find(b => b.id === blockId) || PALETTE_BLOCKS[0];
+function makeInstance(blockId, palette) {
+    const blocks = palette && palette.length ? palette : PALETTE_BLOCKS;
+    const def = blocks.find(block => block.id === blockId || block.blockType === blockId)
+        || PALETTE_BLOCKS.find(block => block.id === blockId || block.blockType === blockId)
+        || PALETTE_BLOCKS[0];
     return {
         ...def,
         instanceId: 'blk_' + Date.now() + '_' + (++_uid).toString(36),
@@ -78,6 +85,11 @@ function makeInstance(blockId) {
         padLinked: false,
         bgValue:     '',
         imageLayout: 'text-left',
+        copyText: '',
+        imageUrl: '',
+        altText: '',
+        legalText: '',
+        spacerHeight: '20',
     };
 }
 
@@ -107,6 +119,11 @@ export default class CopyCockpitEditor extends LightningElement {
     @track _previewTheme  = 'light';
 
     @track _canvasBlocks   = [];
+    @track _renderSource = null;
+    @track _renderSourceLoading = false;
+    @track _renderSourceError = '';
+    @track _isSaving = false;
+    @track _previewTick = 0;
     @track _activeBlockId  = null;
     @track _addPopoverOpen  = false;
     @track _addSearchQuery  = '';
@@ -135,6 +152,18 @@ export default class CopyCockpitEditor extends LightningElement {
     @track _emptyZoneDragOver = false;
 
     // ── lifecycle ─────────────────────────────────────────────────────────────
+
+    renderedCallback() {
+        const active = this.template.activeElement;
+        this.template.querySelectorAll('[data-content-field]').forEach(field => {
+            if (field === active) return;
+            const block = this._canvasBlocks.find(item => item.instanceId === field.dataset.instanceId);
+            if (!block) return;
+            const next = block[field.dataset.field] ?? '';
+            if (field.value !== String(next)) field.value = next;
+        });
+        this._syncPreviewFrame();
+    }
 
     connectedCallback() {
         this._loadRecord();
@@ -198,9 +227,9 @@ export default class CopyCockpitEditor extends LightningElement {
     }
 
     get sourceTemplateName() {
-        return this._record?.CC_Source_Template__r?.Name
-            || this._record?.Source_Template__c
-            || '—';
+        return this._renderSource?.name
+            || this._record?.Source_Template__r?.Name
+            || 'No template';
     }
 
     get lastModifiedDisplay() {
@@ -214,7 +243,8 @@ export default class CopyCockpitEditor extends LightningElement {
         return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
     }
 
-    get saveButtonLabel()     { return this._isDirty ? 'Save Changes'     : 'Save'; }
+    get isSaving()            { return this._isSaving; }
+    get saveButtonLabel()     { return this._isSaving ? 'Saving…' : (this._isDirty ? 'Save Changes' : 'Save'); }
     get activateButtonLabel() { return this._isDirty ? 'Activate Changes' : 'Activate'; }
 
     get activateButtonClass() {
@@ -300,7 +330,28 @@ export default class CopyCockpitEditor extends LightningElement {
     get leftToolbarToggleClass() {
         return 'slds-button slds-button_icon slds-button_icon-border' + (this._leftOpen ? ' slds-is-selected' : '');
     }
-    get blockGroups() { return groupBlocks(PALETTE_BLOCKS); }
+    get availablePaletteBlocks() {
+        const templateBlocks = this._renderSource?.blocks || [];
+        if (!this._renderSource) return PALETTE_BLOCKS;
+        return templateBlocks.filter(block => block.type).map(block => {
+            const known = PALETTE_BLOCKS.find(item => item.blockType === block.type) || {};
+            return {
+                id: block.type,
+                blockType: block.type,
+                group: block.componentGroup || known.group || 'Content',
+                label: block.label || known.label || block.type,
+                icon: block.icon || known.icon || 'utility:page',
+                description: block.description || known.description || '',
+                svgHref: known.svgHref || ''
+            };
+        });
+    }
+
+    get paletteEmpty() {
+        return !!this._renderSource && this.availablePaletteBlocks.length === 0;
+    }
+
+    get blockGroups() { return groupBlocks(this.availablePaletteBlocks); }
 
     // ── canvas ────────────────────────────────────────────────────────────────
 
@@ -360,6 +411,21 @@ export default class CopyCockpitEditor extends LightningElement {
             padLinkedIconVariant:  b.padLinked ? 'inverse' : '',
             bgValueId:   'block-bg-value-' + b.instanceId,
             bgValue:     b.bgValue || '',
+            copyText: b.copyText || '',
+            imageUrl: b.imageUrl || '',
+            altText: b.altText || '',
+            legalText: b.legalText || '',
+            spacerHeight: b.spacerHeight || '20',
+            showCopy: b.blockType === 'RichText' || b.blockType === 'TextImage' || b.blockType === 'Banner' || b.blockType === 'Prefooter',
+            showImage: b.blockType === 'Image' || b.blockType === 'TextImage' || b.blockType === 'Banner',
+            showLegal: b.blockType === 'Prefooter',
+            showSpacer: b.blockType === 'Spacer',
+            missingBlockTemplate: !!this._renderSource?.shellHtml && !this._templateBlockTypes.has(b.blockType),
+            copyFieldId: 'block-copy-' + b.instanceId,
+            imageFieldId: 'block-image-' + b.instanceId,
+            altFieldId: 'block-alt-' + b.instanceId,
+            legalFieldId: 'block-legal-' + b.instanceId,
+            spacerFieldId: 'block-spacer-' + b.instanceId,
             isTextImage: b.blockType === 'TextImage',
             imageLayoutTextLeft:      b.imageLayout !== 'image-left',
             imageLayoutImageLeft:     b.imageLayout === 'image-left',
@@ -373,9 +439,10 @@ export default class CopyCockpitEditor extends LightningElement {
 
     get filteredPopoverBlocks() {
         const q = (this._addSearchQuery || '').toLowerCase();
+        const blocks = this.availablePaletteBlocks;
         return q
-            ? PALETTE_BLOCKS.filter(b => b.label.toLowerCase().includes(q))
-            : PALETTE_BLOCKS.map(b => ({ ...b }));
+            ? blocks.filter(b => b.label.toLowerCase().includes(q))
+            : blocks.map(b => ({ ...b }));
     }
 
     get addSearchEmpty() {
@@ -422,7 +489,33 @@ export default class CopyCockpitEditor extends LightningElement {
         const t = this._previewTheme  === 'dark'   ? 'editor-preview_dark'   : 'editor-preview_light';
         return 'editor-preview__frame ' + d + ' ' + t;
     }
-    get previewIsEmpty() { return this._canvasBlocks.length === 0; }
+    get _templateBlockTypes() {
+        return new Set((this._renderSource?.blocks || []).filter(block => block.html).map(block => block.type));
+    }
+
+    get renderSourceLoading() { return this._renderSourceLoading; }
+    get hasShellPreview() { return !!this._renderSource?.shellHtml && !this._renderSourceLoading; }
+    get previewDocument() {
+        const revision = this._previewTick;
+        if (!this._renderSource?.shellHtml || revision < 0) return '';
+        return renderTemplatePreview(this._renderSource, this._canvasBlocks, this._previewDevice);
+    }
+    get previewContentClass() {
+        return 'editor-preview__content' + (this.hasShellPreview ? ' editor-preview__content_document' : '');
+    }
+    get previewIsEmpty() {
+        return !this.hasShellPreview && !this._renderSourceLoading && this._canvasBlocks.length === 0;
+    }
+    get showIconPreview() {
+        return !this.hasShellPreview && !this._renderSourceLoading && this._canvasBlocks.length > 0;
+    }
+    get previewStatusMessage() {
+        if (this._renderSourceError) return this._renderSourceError;
+        if (!this._record?.Source_Template__c) {
+            return 'This message has no source template. Create a message and choose a validated template to preview the full layout.';
+        }
+        return 'The source template has no HTML shell to preview.';
+    }
     get previewBlocks() {
         return this._canvasBlocks.map(b => ({
             ...b,
@@ -447,10 +540,34 @@ export default class CopyCockpitEditor extends LightningElement {
     }
 
     handleToolbarSave() {
-        this.dispatchEvent(new CustomEvent('save', {
-            detail: { record: this._record, blocks: this._canvasBlocks },
-        }));
-        this._isDirty = false;
+        if (!this.recordId || this._isSaving) return;
+        this._isSaving = true;
+        const canvasJson = JSON.stringify(this._canvasBlocks);
+        saveMessageEditor({
+            recordId: this.recordId,
+            status: this._record?.Status__c,
+            canvasJson,
+        })
+            .then(() => {
+                this._record = { ...(this._record || {}), Canvas_Blocks_JSON__c: canvasJson };
+                this._isDirty = false;
+                this.dispatchEvent(new ShowToastEvent({
+                    title: 'Saved',
+                    message: 'Message copy saved.',
+                    variant: 'success',
+                }));
+                this.dispatchEvent(new CustomEvent('save', {
+                    detail: { record: this._record, blocks: this._canvasBlocks },
+                }));
+            })
+            .catch(err => {
+                this.dispatchEvent(new ShowToastEvent({
+                    title: 'Save failed',
+                    message: err?.body?.message || 'Could not save the message.',
+                    variant: 'error',
+                }));
+            })
+            .finally(() => { this._isSaving = false; });
     }
 
     handleToolbarSchedule() {
@@ -563,7 +680,7 @@ export default class CopyCockpitEditor extends LightningElement {
 
     handleAddBlockFromPopover(e) {
         const id   = e.currentTarget.dataset.id;
-        const inst = makeInstance(id);
+        const inst = makeInstance(id, this.availablePaletteBlocks);
         this._canvasBlocks   = [...this._canvasBlocks, inst];
         this._activeBlockId  = inst.instanceId;
         this._addPopoverOpen = false;
@@ -583,7 +700,7 @@ export default class CopyCockpitEditor extends LightningElement {
         e.preventDefault();
         this._emptyZoneDragOver = false;
         if (this._dragPaletteId) {
-            const inst = makeInstance(this._dragPaletteId);
+            const inst = makeInstance(this._dragPaletteId, this.availablePaletteBlocks);
             this._canvasBlocks  = [inst];
             this._activeBlockId = inst.instanceId;
         }
@@ -622,7 +739,7 @@ export default class CopyCockpitEditor extends LightningElement {
         e.currentTarget.classList.remove('slds-drop-zone_drag__slot_active');
         const targetIndex = Number(e.currentTarget.dataset.index);
         if (this._dragPaletteId) {
-            const inst   = makeInstance(this._dragPaletteId);
+            const inst   = makeInstance(this._dragPaletteId, this.availablePaletteBlocks);
             const blocks = [...this._canvasBlocks];
             blocks.splice(targetIndex, 0, inst);
             this._canvasBlocks  = blocks;
@@ -663,7 +780,7 @@ export default class CopyCockpitEditor extends LightningElement {
         e.preventDefault();
         this._canvasDragOver = false;
         if (this._dragPaletteId) {
-            const inst = makeInstance(this._dragPaletteId);
+            const inst = makeInstance(this._dragPaletteId, this.availablePaletteBlocks);
             this._canvasBlocks  = [...this._canvasBlocks, inst];
             this._activeBlockId = inst.instanceId;
         }
@@ -683,7 +800,7 @@ export default class CopyCockpitEditor extends LightningElement {
         e.stopPropagation();
         const insertAfter = Number(e.currentTarget.dataset.index); // blockOrder = 1-based position
         if (this._dragPaletteId) {
-            const inst   = makeInstance(this._dragPaletteId);
+            const inst   = makeInstance(this._dragPaletteId, this.availablePaletteBlocks);
             const blocks = [...this._canvasBlocks];
             blocks.splice(insertAfter, 0, inst);
             this._canvasBlocks  = blocks;
@@ -755,6 +872,19 @@ export default class CopyCockpitEditor extends LightningElement {
     }
 
     // ── handlers: block tab ───────────────────────────────────────────────────
+
+    handleBlockContentChange(e) {
+        e.stopPropagation();
+        const instanceId = e.currentTarget.dataset.instanceId;
+        const field = e.currentTarget.dataset.field;
+        if (!instanceId || !field) return;
+        const value = e.target.value ?? '';
+        const block = this._canvasBlocks.find(item => item.instanceId === instanceId);
+        if (!block || block[field] === value) return;
+        block[field] = value;
+        this._previewTick += 1;
+        this._isDirty = true;
+    }
 
     handleBlockTabChange(e) {
         e.stopPropagation();
@@ -848,11 +978,63 @@ export default class CopyCockpitEditor extends LightningElement {
         }
         this._isLoading = true;
         getMessageById({ recordId: this.recordId })
-            .then(rec => { this._record = rec; this._isLoading = false; })
+            .then(rec => {
+                this._record = rec;
+                this._canvasBlocks = parseCanvas(rec?.Canvas_Blocks_JSON__c);
+                this._isLoading = false;
+                this._loadRenderSource();
+            })
             .catch(err => {
                 this._hasError = true;
                 this._errorMsg = err?.body?.message || 'Failed to load message.';
                 this._isLoading = false;
             });
+    }
+
+    _syncPreviewFrame() {
+        const host = this.template.querySelector('[data-preview-host]');
+        if (!host) return;
+        const html = this.previewDocument || '';
+        const stamp = `${this._previewDevice}|${this._previewTheme}|${html}`;
+        if (!html || host._previewStamp === stamp) return;
+        host.innerHTML = scopePreviewDocument(html, {
+            device: this._previewDevice,
+            theme: this._previewTheme,
+        });
+        pinPreviewWidths(host);
+        host._previewStamp = stamp;
+    }
+
+    _loadRenderSource() {
+        const templateId = this._record?.Source_Template__c;
+        this._renderSource = null;
+        this._renderSourceError = '';
+        if (!templateId) return;
+        this._renderSourceLoading = true;
+        getTemplateRenderSource({ templateId })
+            .then(source => { this._renderSource = source; })
+            .catch(err => {
+                this._renderSourceError = err?.body?.message || 'Could not load the source template.';
+            })
+            .finally(() => { this._renderSourceLoading = false; });
+    }
+}
+
+function pinPreviewWidths(root) {
+    root.querySelectorAll('table[width], td[width], th[width]').forEach(el => {
+        if (el.style.width) return;
+        const raw = String(el.getAttribute('width') || '').trim();
+        if (/^\d+$/.test(raw)) el.style.width = `${raw}px`;
+        else if (/^\d+%$/.test(raw)) el.style.width = raw;
+    });
+}
+
+function parseCanvas(raw) {
+    if (!raw) return [];
+    try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+        return [];
     }
 }

@@ -143,7 +143,7 @@
     <allowInChatterGroups>false</allowInChatterGroups>
     <compactLayoutAssignment>SYSTEM</compactLayoutAssignment>
     <deploymentStatus>Deployed</deploymentStatus>
-    <description>Weekly day/time restriction rules. Defines which days of the week and which hour ranges communications are blocked globally.</description>
+    <description>Weekly day/time restriction rules per Channel. Defines which days of the week and which hour ranges communications are blocked for that channel.</description>
     <enableActivities>false</enableActivities>
     <enableBulkApi>true</enableBulkApi>
     <enableFeeds>false</enableFeeds>

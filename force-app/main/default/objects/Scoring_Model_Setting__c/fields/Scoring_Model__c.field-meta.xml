@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Scoring_Model__c</fullName>
+    <deleteConstraint>Cascade</deleteConstraint>
+    <description>Scoring Model dictionary entry this configuration belongs to. One setting per model.</description>
+    <inlineHelpText>Select the model definition this configuration applies to.</inlineHelpText>
+    <label>Model Definition</label>
+    <referenceTo>Marketing_Dictionary__c</referenceTo>
+    <relationshipLabel>Scoring Model Settings</relationshipLabel>
+    <relationshipName>Scoring_Model_Settings</relationshipName>
+    <required>false</required>
+    <type>Lookup</type>
+</CustomField>

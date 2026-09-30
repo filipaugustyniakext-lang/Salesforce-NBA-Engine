@@ -112,12 +112,52 @@ public with sharing class MarketingDictionaryManagerController {
     public static void deleteDictionaryRecord(Id recordId) {
         try {
             Marketing_Dictionary__c rec = [
-                SELECT Id FROM Marketing_Dictionary__c WHERE Id = :recordId WITH SECURITY_ENFORCED LIMIT 1
+                SELECT Id, Name, Dictionary_Sub_Type__c, RecordType.DeveloperName
+                FROM Marketing_Dictionary__c
+                WHERE Id = :recordId
+                WITH SECURITY_ENFORCED
+                LIMIT 1
             ];
+            if (rec.Dictionary_Sub_Type__c == 'Family of Needs') {
+                List<String> dependencies = new List<String>();
+                for (FamilyOfNeeds_CustomerType__c link : [
+                    SELECT Name, Customer_Type__r.Name
+                    FROM FamilyOfNeeds_CustomerType__c
+                    WHERE Family_of_Needs__c = :recordId
+                    ORDER BY Customer_Type__r.Name ASC
+                ]) {
+                    dependencies.add(
+                        String.isNotBlank(link.Customer_Type__r.Name) ? link.Customer_Type__r.Name : link.Name
+                    );
+                }
+                if (!dependencies.isEmpty()) {
+                    throw dependencyDeleteException(rec.Name, 'Family of Needs Customer Types: ' + String.join(dependencies, ', '));
+                }
+            }
+            if (rec.RecordType.DeveloperName == 'Channel') {
+                ChannelTemplateController.deleteTemplatesForChannel(rec.Id);
+            }
             delete rec;
+        } catch (AuraHandledException e) {
+            throw e;
+        } catch (DmlException e) {
+            String detail = e.getNumDml() > 0 ? e.getDmlMessage(0) : e.getMessage();
+            if (detail != null && (detail.contains('DELETE_FAILED') || detail.containsIgnoreCase('associated with'))) {
+                throw dependencyDeleteException(null, 'related records');
+            }
+            throw new AuraHandledException(detail);
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());
         }
+    }
+
+    private static AuraHandledException dependencyDeleteException(String recordName, String dependency) {
+        String message = (String.isBlank(recordName) ? 'This value' : 'The value ' + recordName)
+            + ' has a dependency to ' + dependency
+            + '. Please remove dependencies first to delete this record.';
+        AuraHandledException ex = new AuraHandledException(message);
+        ex.setMessage(message);
+        return ex;
     }
 
     // ─── Person RT ───────────────────────────────────────────────────────────
@@ -143,8 +183,10 @@ public with sharing class MarketingDictionaryManagerController {
     @AuraEnabled(cacheable=true)
     public static List<Marketing_Dictionary__c> getChannelRecords() {
         return [
-            SELECT Id, Name, Channel_Type__c, Channel_Icon__c,
+            SELECT Id, Name, Channel_Type__c, Channel_Icon__c, Is_Active__c,
                 (SELECT Id, Audience_Type_Dict__c, Audience_Type_Dict__r.Name, Cooldown_Days__c FROM Channel_Cooldowns__r ORDER BY Audience_Type_Dict__r.Name ASC),
+                (SELECT Id, Day_Of_Week__c, Is_Fully_Blocked__c, Blocked_From_Hour__c, Blocked_To_Hour__c
+                 FROM Blackout_Day_Rules__r ORDER BY Day_Of_Week__c ASC),
                 (SELECT Id, Name, Description__c, Image_URL__c FROM Channel_Banner_Types__r ORDER BY Name ASC),
                 (SELECT Id, Name, App_Screen__c, Banner_Type__c, Banner_Type__r.Name, Position_Description__c
                  FROM Channel_Banner_Placements__r ORDER BY App_Screen__c ASC, Name ASC),
@@ -304,8 +346,57 @@ public with sharing class MarketingDictionaryManagerController {
         try {
             Id channelRecordTypeId = getRecordTypeId('Channel');
             record.RecordTypeId = channelRecordTypeId;
+            if (record.Id == null && record.Is_Active__c == null) {
+                record.Is_Active__c = true;
+            }
             upsert record;
             return record.Id;
+        } catch (Exception e) {
+            throw new AuraHandledException(e.getMessage());
+        }
+    }
+
+    /**
+     * Activates or deactivates a channel. Deactivated channels are added to every
+     * blackout date so existing campaigns cannot send through them.
+     */
+    @AuraEnabled
+    public static void toggleChannelActive(Id channelId, Boolean isActive) {
+        if (channelId == null || isActive == null) {
+            throw new AuraHandledException('Channel and active state are required.');
+        }
+        try {
+            Marketing_Dictionary__c channel = [
+                SELECT Id, Name
+                FROM Marketing_Dictionary__c
+                WHERE Id = :channelId
+                AND RecordType.DeveloperName = 'Channel'
+                LIMIT 1
+            ];
+            channel.Is_Active__c = isActive;
+            update channel;
+
+            if (!isActive) {
+                List<Blackout_Window__c> windows = [
+                    SELECT Id, Assigned_Channels__c
+                    FROM Blackout_Window__c
+                ];
+                for (Blackout_Window__c window : windows) {
+                    Set<String> assigned = new Set<String>();
+                    if (String.isNotBlank(window.Assigned_Channels__c)) {
+                        for (String channelName : window.Assigned_Channels__c.split(';')) {
+                            if (String.isNotBlank(channelName)) assigned.add(channelName.trim());
+                        }
+                    }
+                    assigned.add(channel.Name);
+                    List<String> sortedChannels = new List<String>(assigned);
+                    sortedChannels.sort();
+                    window.Assigned_Channels__c = String.join(sortedChannels, ';');
+                }
+                if (!windows.isEmpty()) update windows;
+            }
+        } catch (AuraHandledException e) {
+            throw e;
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());
         }
@@ -362,7 +453,10 @@ public with sharing class MarketingDictionaryManagerController {
                    Scoring_Model_Group_Dict__c, Scoring_Model_Group_Dict__r.Name,
                    Assigned_Topic_Dict__c, Assigned_Topic_Dict__r.Name,
                    Offering_Type__c, Product_Family__c, Family_of_Needs__c,
-                   CreatedDate, LastModifiedDate, CreatedById, CreatedBy.Name
+                   Scoring_Model_Source_System__c, Data360_DMO__c,
+                   CreatedDate, LastModifiedDate,
+                   CreatedById, CreatedBy.Name,
+                   LastModifiedById, LastModifiedBy.Name
             FROM Marketing_Dictionary__c
             WHERE RecordType.DeveloperName = 'Campaign'
             ORDER BY Dictionary_Sub_Type__c ASC, Name ASC, Version__c ASC NULLS LAST
@@ -371,11 +465,212 @@ public with sharing class MarketingDictionaryManagerController {
     }
 
     /**
-     * Upserts a Scoring Model dictionary row with versioning and uniqueness rules:
-     * - New master (asNewMaster=true): Version = 1; Name must not already exist
-     * - New version (asNewMaster=false, no Id): Version = max(existing) + 1; Name must exist
-     * - Edit (has Id): Name and Version are locked to existing values
-     * - Model_Id__c = Name + '_' + Version (unique)
+     * Data360 DMO options for Scoring Model editor.
+     * DMOs are Data Cloud objects and are not returned by EntityDefinition, so the catalogue comes from ConnectApi.CdpQuery.
+     */
+    @AuraEnabled
+    public static List<Map<String, String>> getData360DmoOptions() {
+        Map<String, Map<String, String>> byApi = new Map<String, Map<String, String>>();
+        String connectError;
+        try {
+            collectDataCloudDmos(byApi);
+        } catch (Exception e) {
+            connectError = e.getMessage();
+        }
+        collectEntityDefinitionDmos(byApi);
+        if (byApi.isEmpty() && String.isNotBlank(connectError)) {
+            throw auraError('Data360 DMOs could not be loaded from Data Cloud. ' + connectError);
+        }
+        List<Map<String, String>> options = byApi.values();
+        options.sort(new DmoOptionLabelSort());
+        return options;
+    }
+
+    private static final List<String> DMO_CATEGORIES = new List<String>{
+        null, 'Profile', 'Engagement', 'Related'
+    };
+
+    private static void collectDataCloudDmos(Map<String, Map<String, String>> byApi) {
+        List<String> spaces = dataSpaceApiNames();
+        if (spaces.isEmpty()) {
+            spaces.add(null);
+        }
+        List<String> errors = new List<String>();
+        for (String spaceName : spaces) {
+            for (String category : DMO_CATEGORIES) {
+                try {
+                    addSerializedDmos(byApi, connectApiAsUntyped(
+                        queryDataCloudMetadata('DataModelObject', category, null, spaceName)
+                    ));
+                    if (category == null && !byApi.isEmpty()) {
+                        break;
+                    }
+                } catch (Exception e) {
+                    errors.add(e.getMessage());
+                }
+            }
+        }
+        if (byApi.isEmpty() && !errors.isEmpty()) {
+            throw auraError(errors[0]);
+        }
+    }
+
+    private static ConnectApi.CdpQueryMetadataOutput queryDataCloudMetadata(
+        String entityType,
+        String entityCategory,
+        String entityName,
+        String spaceName
+    ) {
+        return spaceName == null
+            ? ConnectApi.CdpQuery.getAllMetadata(entityType, entityCategory, entityName)
+            : ConnectApi.CdpQuery.getAllMetadata(entityType, entityCategory, entityName, spaceName);
+    }
+
+    private static void addSerializedDmos(Map<String, Map<String, String>> byApi, Object raw) {
+        if (!(raw instanceof Map<String, Object>)) {
+            return;
+        }
+        Object rows = ((Map<String, Object>) raw).get('metadata');
+        if (!(rows instanceof List<Object>)) {
+            return;
+        }
+        for (Object row : (List<Object>) rows) {
+            if (!(row instanceof Map<String, Object>)) {
+                continue;
+            }
+            Map<String, Object> entity = (Map<String, Object>) row;
+            String api = firstString(entity, new List<String>{ 'name', 'apiName' });
+            String typeName = firstString(entity, new List<String>{ 'type' });
+            if (String.isBlank(api)) {
+                continue;
+            }
+            if (String.isNotBlank(typeName) && typeName != 'DataModelObject') {
+                continue;
+            }
+            String label = firstString(entity, new List<String>{ 'displayName', 'label' });
+            if (String.isBlank(label)) {
+                label = api;
+            }
+            byApi.put(api.toLowerCase(), new Map<String, String>{
+                'label' => label + ' (' + api + ')',
+                'value' => api
+            });
+        }
+    }
+
+    private static List<String> dataSpaceApiNames() {
+        List<String> names = new List<String>();
+        Set<String> seen = new Set<String>();
+        try {
+            ConnectApi.DataSpaceCollectionRepresentation collection =
+                ConnectApi.CdpDataSpace.getAllDataSpaces(200, 0, 'id');
+            Object raw = connectApiAsUntyped(collection);
+            Object rows = raw instanceof Map<String, Object>
+                ? ((Map<String, Object>) raw).get('dataSpaces')
+                : null;
+            if (rows instanceof List<Object>) {
+            for (Object row : (List<Object>) rows) {
+                if (!(row instanceof Map<String, Object>)) {
+                    continue;
+                }
+                String api = firstString(
+                    (Map<String, Object>) row,
+                    new List<String>{ 'name', 'apiName', 'dataSpaceName', 'developerName', 'label' }
+                );
+                if (String.isBlank(api) || !seen.add(api.toLowerCase())) {
+                    continue;
+                }
+                names.add(api);
+            }
+            }
+        } catch (Exception e) {
+            names.clear();
+            seen.clear();
+        }
+        if (!seen.contains('default')) {
+            names.add(0, null);
+        }
+        return names;
+    }
+
+    private static void collectEntityDefinitionDmos(Map<String, Map<String, String>> byApi) {
+        try {
+            for (EntityDefinition ent : [
+                SELECT QualifiedApiName, Label
+                FROM EntityDefinition
+                WHERE QualifiedApiName LIKE '%__dlm'
+                LIMIT 2000
+            ]) {
+                if (String.isBlank(ent.QualifiedApiName) || byApi.containsKey(ent.QualifiedApiName.toLowerCase())) {
+                    continue;
+                }
+                String label = String.isNotBlank(ent.Label) ? ent.Label : ent.QualifiedApiName;
+                byApi.put(ent.QualifiedApiName.toLowerCase(), new Map<String, String>{
+                    'label' => label + ' (' + ent.QualifiedApiName + ')',
+                    'value' => ent.QualifiedApiName
+                });
+            }
+        } catch (Exception e) {
+            // Core entity catalogue does not list Data Cloud DMOs.
+        }
+    }
+
+    private static Object connectApiAsUntyped(Object value) {
+        if (value == null) {
+            return null;
+        }
+        // JSON.serialize on a ConnectApi instance returns null. A one-item list serializes.
+        String payload = JSON.serialize(new List<Object>{ value });
+        if (String.isBlank(payload)) {
+            throw auraError('Data Cloud returned metadata that Apex could not read.');
+        }
+        Object parsed = JSON.deserializeUntyped(payload);
+        if (parsed instanceof List<Object>) {
+            List<Object> rows = (List<Object>) parsed;
+            return rows.isEmpty() ? null : rows[0];
+        }
+        return parsed;
+    }
+
+    private static String firstString(Map<String, Object> values, List<String> keys) {
+        if (values == null) {
+            return null;
+        }
+        for (String key : keys) {
+            Object value = values.get(key);
+            if (value instanceof String && String.isNotBlank((String) value)) {
+                return ((String) value).trim();
+            }
+        }
+        return null;
+    }
+
+    private static AuraHandledException auraError(String message) {
+        AuraHandledException ex = new AuraHandledException(message);
+        ex.setMessage(message);
+        return ex;
+    }
+
+    private class ColumnApiSort implements System.Comparator<Map<String, String>> {
+        public Integer compare(Map<String, String> a, Map<String, String> b) {
+            String left = a == null || a.get('value') == null ? '' : a.get('value');
+            String right = b == null || b.get('value') == null ? '' : b.get('value');
+            return left.toLowerCase().compareTo(right.toLowerCase());
+        }
+    }
+
+    private class DmoOptionLabelSort implements System.Comparator<Map<String, String>> {
+        public Integer compare(Map<String, String> a, Map<String, String> b) {
+            String left = a == null || a.get('label') == null ? '' : a.get('label');
+            String right = b == null || b.get('label') == null ? '' : b.get('label');
+            return left.toLowerCase().compareTo(right.toLowerCase());
+        }
+    }
+
+    /**
+     * Upserts one Scoring Model dictionary row.
+     * Model ID is the next unused positive integer and does not change after create.
+     * asNewMaster is retained for older clients and is not used.
      */
     @AuraEnabled
     public static Id saveScoringModel(Marketing_Dictionary__c record, Boolean asNewMaster) {
@@ -390,97 +685,24 @@ public with sharing class MarketingDictionaryManagerController {
             record.Name = modelName;
             record.Dictionary_Sub_Type__c = 'Scoring Model';
             record.RecordTypeId = getRecordTypeId('Campaign');
-
-            if (record.Scoring_Model_Group_Dict__c == null) {
-                throw new AuraHandledException('Model Group is required.');
+            if (record.Is_Active__c == null) {
+                record.Is_Active__c = false;
             }
-            if (record.Assigned_Topic_Dict__c == null) {
-                throw new AuraHandledException('Assigned Topic is required.');
-            }
-
-            // Lookup filters unavailable (object at Salesforce max of 5) — validate subtypes in Apex.
-            Marketing_Dictionary__c groupRec = [
-                SELECT Id, Dictionary_Sub_Type__c
-                FROM Marketing_Dictionary__c
-                WHERE Id = :record.Scoring_Model_Group_Dict__c
-                LIMIT 1
-            ];
-            if (groupRec.Dictionary_Sub_Type__c != 'Scoring Model Group') {
-                throw new AuraHandledException('Model Group must be a Scoring Model Group dictionary entry.');
-            }
-            Marketing_Dictionary__c topicRec = [
-                SELECT Id, Dictionary_Sub_Type__c
-                FROM Marketing_Dictionary__c
-                WHERE Id = :record.Assigned_Topic_Dict__c
-                LIMIT 1
-            ];
-            if (topicRec.Dictionary_Sub_Type__c != 'Topic') {
-                throw new AuraHandledException('Assigned Topic must be a Topic dictionary entry.');
-            }
-
-            if (String.isBlank(record.Offering_Type__c)) {
-                throw new AuraHandledException('Offering Type is required.');
-            }
-            if (record.Offering_Type__c == 'Product Family') {
-                if (String.isBlank(record.Product_Family__c)) {
-                    throw new AuraHandledException('Select at least one Product Family.');
-                }
-                record.Product_Family__c = normalizeOfferingIds(
-                    record.Product_Family__c, 'Product Family'
-                );
-                record.Family_of_Needs__c = null;
-            } else if (record.Offering_Type__c == 'Family of Needs') {
-                if (String.isBlank(record.Family_of_Needs__c)) {
-                    throw new AuraHandledException('Select at least one Family of Needs.');
-                }
-                record.Family_of_Needs__c = normalizeOfferingIds(
-                    record.Family_of_Needs__c, 'Family of Needs'
-                );
-                record.Product_Family__c = null;
-            } else {
-                throw new AuraHandledException('Offering Type must be Product Family or Family of Needs.');
-            }
+            validateScoringModelForActivation(record);
+            assertUniqueScoringModelName(record.Id, modelName);
 
             if (record.Id != null) {
                 Marketing_Dictionary__c existing = [
-                    SELECT Id, Name, Version__c
+                    SELECT Id, Model_Id__c, Version__c
                     FROM Marketing_Dictionary__c
                     WHERE Id = :record.Id
                     LIMIT 1
                 ];
-                // Name and Version are immutable after create.
-                record.Name = existing.Name;
+                record.Model_Id__c = existing.Model_Id__c;
                 record.Version__c = existing.Version__c;
             } else {
-                List<AggregateResult> agg = [
-                    SELECT MAX(Version__c) maxVer
-                    FROM Marketing_Dictionary__c
-                    WHERE RecordType.DeveloperName = 'Campaign'
-                    AND Dictionary_Sub_Type__c = 'Scoring Model'
-                    AND Name = :modelName
-                ];
-                Decimal maxVer = (Decimal) agg[0].get('maxVer');
-                Boolean nameExists = maxVer != null;
-
-                if (asNewMaster == true) {
-                    if (nameExists) {
-                        throw new AuraHandledException(
-                            'A Scoring Model named "' + modelName + '" already exists. ' +
-                            'Use New Version on the existing model, or choose a unique name.'
-                        );
-                    }
-                    record.Version__c = 1;
-                } else if (nameExists) {
-                    record.Version__c = maxVer + 1;
-                } else {
-                    // First version of this name (implicit master create)
-                    record.Version__c = 1;
-                }
-            }
-
-            record.Model_Id__c = modelName + '_' + String.valueOf(record.Version__c.intValue());
-            if (record.Is_Active__c == null) {
-                record.Is_Active__c = true;
+                record.Model_Id__c = nextScoringModelId();
+                record.Version__c = null;
             }
 
             upsert record;
@@ -491,13 +713,160 @@ public with sharing class MarketingDictionaryManagerController {
             String msg = dml.getDmlMessage(0);
             if (msg != null && msg.toLowerCase().contains('duplicate')) {
                 throw new AuraHandledException(
-                    'A Scoring Model with this Name/Version (Model ID) already exists.'
+                    'A Scoring Model with this Model ID already exists.'
                 );
             }
             throw new AuraHandledException(msg);
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());
         }
+    }
+
+    /** Full required-field gate used when Is_Active__c = true. */
+    private static void validateScoringModelForActivation(Marketing_Dictionary__c record) {
+        if (record.Scoring_Model_Group_Dict__c == null) {
+            throw new AuraHandledException('Model Group is required.');
+        }
+        if (record.Assigned_Topic_Dict__c == null) {
+            throw new AuraHandledException('Model Topic is required.');
+        }
+
+        Marketing_Dictionary__c groupRec = [
+            SELECT Id, Dictionary_Sub_Type__c
+            FROM Marketing_Dictionary__c
+            WHERE Id = :record.Scoring_Model_Group_Dict__c
+            LIMIT 1
+        ];
+        if (groupRec.Dictionary_Sub_Type__c != 'Scoring Model Group') {
+            throw new AuraHandledException('Model Group must be a Scoring Model Group dictionary entry.');
+        }
+        Marketing_Dictionary__c topicRec = [
+            SELECT Id, Dictionary_Sub_Type__c
+            FROM Marketing_Dictionary__c
+            WHERE Id = :record.Assigned_Topic_Dict__c
+            LIMIT 1
+        ];
+        if (topicRec.Dictionary_Sub_Type__c != 'Topic') {
+            throw new AuraHandledException('Assigned Topic must be a Topic dictionary entry.');
+        }
+
+        if (String.isBlank(record.Offering_Type__c)) {
+            throw new AuraHandledException('Offering Type is required.');
+        }
+        if (record.Offering_Type__c == 'Product Family') {
+            if (String.isBlank(record.Product_Family__c)) {
+                throw new AuraHandledException('Select at least one Product Family.');
+            }
+            record.Product_Family__c = normalizeOfferingIds(
+                record.Product_Family__c, 'Product Family'
+            );
+            record.Family_of_Needs__c = null;
+        } else if (record.Offering_Type__c == 'Family of Needs') {
+            if (String.isBlank(record.Family_of_Needs__c)) {
+                throw new AuraHandledException('Select at least one Family of Needs.');
+            }
+            record.Family_of_Needs__c = normalizeOfferingIds(
+                record.Family_of_Needs__c, 'Family of Needs'
+            );
+            record.Product_Family__c = null;
+        } else {
+            throw new AuraHandledException('Offering Type must be Product Family or Family of Needs.');
+        }
+    }
+
+    /** Soft normalize for draft saves — only validate fields that were provided. */
+    private static void normalizeScoringModelDraftFields(Marketing_Dictionary__c record) {
+        if (String.isNotBlank(record.Data360_DMO__c)) {
+            record.Data360_DMO__c = record.Data360_DMO__c.trim();
+        }
+        if (String.isNotBlank(record.Scoring_Model_Source_System__c)
+            && record.Scoring_Model_Source_System__c != 'GCP'
+            && record.Scoring_Model_Source_System__c != 'Salesforce (Einstein)') {
+            throw new AuraHandledException(
+                'Scoring Model Source System must be GCP or Salesforce (Einstein).'
+            );
+        }
+        if (record.Scoring_Model_Group_Dict__c != null) {
+            Marketing_Dictionary__c groupRec = [
+                SELECT Id, Dictionary_Sub_Type__c
+                FROM Marketing_Dictionary__c
+                WHERE Id = :record.Scoring_Model_Group_Dict__c
+                LIMIT 1
+            ];
+            if (groupRec.Dictionary_Sub_Type__c != 'Scoring Model Group') {
+                throw new AuraHandledException('Model Group must be a Scoring Model Group dictionary entry.');
+            }
+        }
+        if (record.Assigned_Topic_Dict__c != null) {
+            Marketing_Dictionary__c topicRec = [
+                SELECT Id, Dictionary_Sub_Type__c
+                FROM Marketing_Dictionary__c
+                WHERE Id = :record.Assigned_Topic_Dict__c
+                LIMIT 1
+            ];
+            if (topicRec.Dictionary_Sub_Type__c != 'Topic') {
+                throw new AuraHandledException('Assigned Topic must be a Topic dictionary entry.');
+            }
+        }
+
+        if (String.isBlank(record.Offering_Type__c)) {
+            record.Product_Family__c = null;
+            record.Family_of_Needs__c = null;
+            return;
+        }
+        if (record.Offering_Type__c == 'Product Family') {
+            if (String.isNotBlank(record.Product_Family__c)) {
+                record.Product_Family__c = normalizeOfferingIds(
+                    record.Product_Family__c, 'Product Family'
+                );
+            } else {
+                record.Product_Family__c = null;
+            }
+            record.Family_of_Needs__c = null;
+        } else if (record.Offering_Type__c == 'Family of Needs') {
+            if (String.isNotBlank(record.Family_of_Needs__c)) {
+                record.Family_of_Needs__c = normalizeOfferingIds(
+                    record.Family_of_Needs__c, 'Family of Needs'
+                );
+            } else {
+                record.Family_of_Needs__c = null;
+            }
+            record.Product_Family__c = null;
+        } else {
+            throw new AuraHandledException('Offering Type must be Product Family or Family of Needs.');
+        }
+    }
+
+    private static void assertUniqueScoringModelName(Id recordId, String modelName) {
+        List<Marketing_Dictionary__c> existing = [
+            SELECT Id
+            FROM Marketing_Dictionary__c
+            WHERE Dictionary_Sub_Type__c = 'Scoring Model'
+            AND Name = :modelName
+        ];
+        for (Marketing_Dictionary__c row : existing) {
+            if (row.Id != recordId) {
+                throw new AuraHandledException(
+                    'A Scoring Model named "' + modelName + '" already exists.'
+                );
+            }
+        }
+    }
+
+    private static String nextScoringModelId() {
+        Integer maxId = 0;
+        for (Marketing_Dictionary__c row : [
+            SELECT Model_Id__c
+            FROM Marketing_Dictionary__c
+            WHERE Dictionary_Sub_Type__c = 'Scoring Model'
+            AND Model_Id__c != null
+        ]) {
+            if (row.Model_Id__c != null && row.Model_Id__c.isNumeric()) {
+                Integer value = Integer.valueOf(row.Model_Id__c);
+                if (value > maxId) maxId = value;
+            }
+        }
+        return String.valueOf(maxId + 1);
     }
 
     /**
@@ -733,27 +1102,40 @@ public with sharing class MarketingDictionaryManagerController {
     public static List<Blackout_Window__c> getBlackoutWindows() {
         return [
             SELECT Id, Name, Blackout_Date__c, Blackout_End_Date__c, Blackout_Type__c,
-                   Is_Recurring_Annually__c, Description__c
+                   Is_Recurring_Annually__c, Description__c, Assigned_Channels__c
             FROM Blackout_Window__c
             ORDER BY Blackout_Date__c ASC NULLS LAST, Name ASC
             LIMIT 500
         ];
     }
 
+    /**
+     * Weekly day rules for one Channel (or all rules when channelId is null — legacy).
+     * Sorted Monday → Sunday.
+     */
     @AuraEnabled(cacheable=true)
-    public static List<Blackout_Day_Rule__c> getBlackoutDayRules() {
-        // Fetch all then sort in Apex using a sort-key prefix so Mon < Tue etc.
+    public static List<Blackout_Day_Rule__c> getBlackoutDayRules(Id channelId) {
         Map<String, String> dayPrefix = new Map<String, String>{
             'Monday' => '1', 'Tuesday' => '2', 'Wednesday' => '3',
             'Thursday' => '4', 'Friday' => '5', 'Saturday' => '6', 'Sunday' => '7'
         };
-        List<Blackout_Day_Rule__c> rules = [
-            SELECT Id, Name, Day_Of_Week__c, Is_Fully_Blocked__c,
-                   Blocked_From_Hour__c, Blocked_To_Hour__c
-            FROM Blackout_Day_Rule__c
-            LIMIT 500
-        ];
-        // Build a sortable map keyed by prefix+Id, then extract values in order
+        List<Blackout_Day_Rule__c> rules;
+        if (channelId != null) {
+            rules = [
+                SELECT Id, Name, Channel__c, Day_Of_Week__c, Is_Fully_Blocked__c,
+                       Blocked_From_Hour__c, Blocked_To_Hour__c
+                FROM Blackout_Day_Rule__c
+                WHERE Channel__c = :channelId
+                LIMIT 50
+            ];
+        } else {
+            rules = [
+                SELECT Id, Name, Channel__c, Day_Of_Week__c, Is_Fully_Blocked__c,
+                       Blocked_From_Hour__c, Blocked_To_Hour__c
+                FROM Blackout_Day_Rule__c
+                LIMIT 500
+            ];
+        }
         Map<String, Blackout_Day_Rule__c> sorted = new Map<String, Blackout_Day_Rule__c>();
         for (Blackout_Day_Rule__c r : rules) {
             String prefix = dayPrefix.containsKey(r.Day_Of_Week__c) ? dayPrefix.get(r.Day_Of_Week__c) : '8';
@@ -769,8 +1151,33 @@ public with sharing class MarketingDictionaryManagerController {
     @AuraEnabled
     public static Id saveBlackoutWindow(Blackout_Window__c record) {
         try {
+            if (String.isBlank(record.Name) || record.Blackout_Date__c == null) {
+                throw new AuraHandledException('Name and Start Date are required.');
+            }
+            Set<String> assigned = new Set<String>();
+            if (String.isNotBlank(record.Assigned_Channels__c)) {
+                for (String channelName : record.Assigned_Channels__c.split(';')) {
+                    if (String.isNotBlank(channelName)) assigned.add(channelName.trim());
+                }
+            }
+            for (Marketing_Dictionary__c channel : [
+                SELECT Name
+                FROM Marketing_Dictionary__c
+                WHERE RecordType.DeveloperName = 'Channel'
+                AND Is_Active__c = false
+            ]) {
+                assigned.add(channel.Name);
+            }
+            List<String> sortedChannels = new List<String>(assigned);
+            sortedChannels.sort();
+            record.Assigned_Channels__c = String.join(sortedChannels, ';');
+            if (String.isBlank(record.Assigned_Channels__c)) {
+                throw new AuraHandledException('Select at least one channel for this blackout date.');
+            }
             upsert record;
             return record.Id;
+        } catch (AuraHandledException e) {
+            throw e;
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());
         }
@@ -788,8 +1195,39 @@ public with sharing class MarketingDictionaryManagerController {
     @AuraEnabled
     public static Id saveBlackoutDayRule(Blackout_Day_Rule__c record) {
         try {
+            if (record.Channel__c == null) {
+                throw new AuraHandledException('Channel is required for weekly restrictions.');
+            }
+            if (String.isBlank(record.Day_Of_Week__c)) {
+                throw new AuraHandledException('Day of Week is required.');
+            }
+            // One rule per channel + day
+            List<Blackout_Day_Rule__c> existing;
+            if (record.Id == null) {
+                existing = [
+                    SELECT Id FROM Blackout_Day_Rule__c
+                    WHERE Channel__c = :record.Channel__c
+                    AND Day_Of_Week__c = :record.Day_Of_Week__c
+                    LIMIT 1
+                ];
+            } else {
+                existing = [
+                    SELECT Id FROM Blackout_Day_Rule__c
+                    WHERE Channel__c = :record.Channel__c
+                    AND Day_Of_Week__c = :record.Day_Of_Week__c
+                    AND Id != :record.Id
+                    LIMIT 1
+                ];
+            }
+            if (!existing.isEmpty()) {
+                throw new AuraHandledException(
+                    'A weekly restriction for ' + record.Day_Of_Week__c + ' already exists on this channel.'
+                );
+            }
             upsert record;
             return record.Id;
+        } catch (AuraHandledException e) {
+            throw e;
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());
         }
@@ -1148,5 +1586,348 @@ public with sharing class MarketingDictionaryManagerController {
             .getRecordTypeInfosByDeveloperName()
             .get(developerName)
             ?.getRecordTypeId();
+    }
+
+    /**
+     * Columns on one Data360 DMO, loaded by API name.
+     * getAllMetadata returns a ConnectApi object that JSON.serialize cannot read
+     * in this org, so columns come from query metadata for SELECT * FROM {dmo}.
+     * Every column is returned. Score columns are often text.
+     */
+    @AuraEnabled
+    public static List<Map<String, String>> getData360DmoFields(String dmoApiName) {
+        List<Map<String, String>> options = new List<Map<String, String>>();
+        for (Map<String, String> field : queryDmoFieldRows(dmoApiName)) {
+            String api = field.get('value');
+            String label = field.get('label');
+            String dataType = field.get('dataType');
+            String baseLabel = label == api ? api : label + ' (' + api + ')';
+            String typeSuffix = String.isBlank(dataType) ? '' : ' · ' + dataType;
+            options.add(new Map<String, String>{
+                'label' => baseLabel + typeSuffix,
+                'value' => api,
+                'dataType' => dataType,
+                'numeric' => field.get('numeric'),
+                'entityDisplay' => field.get('entityDisplay')
+            });
+        }
+        return options;
+    }
+
+    @AuraEnabled(cacheable=true)
+    public static List<Scoring_Model_Setting__c> getScoringModelSettings() {
+        return [
+            SELECT Id, Name,
+                   Scoring_Model__c, Scoring_Model__r.Name, Scoring_Model__r.Model_Id__c,
+                   Data360_DMO__c, Source_Model_Id_Column__c, Model_Source__c,
+                   Base_Score_Column__c, Base_Score_Formula_Mode__c, Base_Score_Factor__c, Base_Score_Formula__c,
+                   Calibrated_Base_Score_Column__c, Calibrated_Score_Formula_Mode__c,
+                   Calibrated_Score_Factor__c, Calibrated_Score_Formula__c,
+                   Model_From_Date__c, Model_To_Date__c
+            FROM Scoring_Model_Setting__c
+            ORDER BY Scoring_Model__r.Name ASC NULLS LAST, Name ASC
+            LIMIT 2000
+        ];
+    }
+
+    @AuraEnabled
+    public static Id saveScoringModelSetting(Scoring_Model_Setting__c record) {
+        try {
+            if (record == null || record.Scoring_Model__c == null) {
+                throw new AuraHandledException('Model ID is required.');
+            }
+            List<Marketing_Dictionary__c> models = [
+                SELECT Id, Name, Dictionary_Sub_Type__c
+                FROM Marketing_Dictionary__c
+                WHERE Id = :record.Scoring_Model__c
+                LIMIT 1
+            ];
+            if (models.isEmpty() || models[0].Dictionary_Sub_Type__c != 'Scoring Model') {
+                throw new AuraHandledException('Select a model from Model Definitions.');
+            }
+            Marketing_Dictionary__c model = models[0];
+
+            String dmo = record.Data360_DMO__c == null ? '' : record.Data360_DMO__c.trim();
+            Map<String, String> canonicalByLower = new Map<String, String>();
+            Map<String, String> typeByLower = new Map<String, String>();
+            for (Map<String, String> field : queryDmoFieldRows(dmo)) {
+                String api = field.get('value');
+                if (String.isBlank(api)) {
+                    continue;
+                }
+                canonicalByLower.put(api.toLowerCase(), api);
+                typeByLower.put(api.toLowerCase(), field.get('dataType'));
+            }
+            if (canonicalByLower.isEmpty()) {
+                throw new AuraHandledException('The selected Data360 DMO has no columns to map.');
+            }
+
+            String sourceColumn = requireDmoColumn(
+                record.Source_Model_Id_Column__c, canonicalByLower, typeByLower, 'Source Model ID', false
+            );
+            String modelSource = record.Model_Source__c;
+            if (modelSource != 'GCP' && modelSource != 'Einstein' && modelSource != 'Other') {
+                throw new AuraHandledException('Model Source must be GCP, Einstein, or Other.');
+            }
+            String baseColumn = requireDmoColumn(
+                record.Base_Score_Column__c, canonicalByLower, typeByLower, 'Base Score', false
+            );
+            String calibratedColumn = requireDmoColumn(
+                record.Calibrated_Base_Score_Column__c, canonicalByLower, typeByLower, 'Calibrated Base Score', false
+            );
+            ScoreFormula baseFormula = buildScoreFormula(
+                baseColumn, record.Base_Score_Formula_Mode__c, record.Base_Score_Factor__c, 'Base Score'
+            );
+            ScoreFormula calibratedFormula = buildScoreFormula(
+                calibratedColumn,
+                record.Calibrated_Score_Formula_Mode__c,
+                record.Calibrated_Score_Factor__c,
+                'Calibrated Base Score'
+            );
+            if (record.Model_From_Date__c == null) {
+                throw new AuraHandledException('Model From Date is required.');
+            }
+            if (record.Model_To_Date__c == null) {
+                throw new AuraHandledException('Model To Date is required.');
+            }
+            if (record.Model_From_Date__c > record.Model_To_Date__c) {
+                throw new AuraHandledException('Model From Date must be on or before Model To Date.');
+            }
+
+            List<Scoring_Model_Setting__c> dupes = [
+                SELECT Id
+                FROM Scoring_Model_Setting__c
+                WHERE Scoring_Model__c = :model.Id
+                AND Id != :record.Id
+                LIMIT 1
+            ];
+            if (!dupes.isEmpty()) {
+                throw new AuraHandledException('This model already has a setting. Edit the existing configuration.');
+            }
+
+            String settingName = model.Name == null ? 'Model Setting' : model.Name.trim();
+            if (settingName.length() > 80) {
+                settingName = settingName.substring(0, 80);
+            }
+            Scoring_Model_Setting__c row = new Scoring_Model_Setting__c(
+                Id = record.Id,
+                Name = settingName,
+                Scoring_Model__c = model.Id,
+                Model_Definition_Key__c = String.valueOf(model.Id),
+                Data360_DMO__c = dmo,
+                Source_Model_Id_Column__c = sourceColumn,
+                Model_Source__c = modelSource,
+                Base_Score_Column__c = baseColumn,
+                Base_Score_Formula_Mode__c = baseFormula.mode,
+                Base_Score_Factor__c = baseFormula.factor,
+                Base_Score_Formula__c = baseFormula.expression,
+                Calibrated_Base_Score_Column__c = calibratedColumn,
+                Calibrated_Score_Formula_Mode__c = calibratedFormula.mode,
+                Calibrated_Score_Factor__c = calibratedFormula.factor,
+                Calibrated_Score_Formula__c = calibratedFormula.expression,
+                Model_From_Date__c = record.Model_From_Date__c,
+                Model_To_Date__c = record.Model_To_Date__c
+            );
+            upsert row;
+            return row.Id;
+        } catch (AuraHandledException ahe) {
+            throw ahe;
+        } catch (DmlException dml) {
+            String msg = dml.getDmlMessage(0);
+            if (msg != null && msg.toLowerCase().contains('duplicate')) {
+                throw new AuraHandledException('This model already has a setting. Edit the existing configuration.');
+            }
+            throw new AuraHandledException(msg);
+        } catch (Exception e) {
+            throw new AuraHandledException(e.getMessage());
+        }
+    }
+
+    @AuraEnabled
+    public static void deleteScoringModelSetting(Id recordId) {
+        try {
+            if (recordId == null) {
+                throw new AuraHandledException('Model setting is required.');
+            }
+            delete [
+                SELECT Id
+                FROM Scoring_Model_Setting__c
+                WHERE Id = :recordId
+                LIMIT 1
+            ];
+        } catch (AuraHandledException ahe) {
+            throw ahe;
+        } catch (Exception e) {
+            throw new AuraHandledException(e.getMessage());
+        }
+    }
+
+    private static List<Map<String, String>> queryDmoFieldRows(String dmoApiName) {
+        String dmo = dmoApiName == null ? '' : dmoApiName.trim();
+        if (String.isBlank(dmo) || !dmo.endsWithIgnoreCase('__dlm')) {
+            throw auraError(
+                'Enter a Data360 DMO API name that ends with __dlm, for example Sample_ScoringModels__dlm.'
+            );
+        }
+        String lastError;
+        List<String> spaces = new List<String>{ null };
+        for (String spaceName : dataSpaceApiNames()) {
+            if (spaceName != null) {
+                spaces.add(spaceName);
+            }
+        }
+        for (String spaceName : spaces) {
+            try {
+                List<Map<String, String>> rows = columnsFromDmoQuery(dmo, spaceName);
+                if (!rows.isEmpty()) {
+                    return rows;
+                }
+            } catch (Exception e) {
+                lastError = e.getMessage();
+            }
+        }
+        List<Map<String, String>> fromEntity = entityDefinitionFieldRows(dmo);
+        if (!fromEntity.isEmpty()) {
+            return fromEntity;
+        }
+        String detail = String.isNotBlank(lastError) ? ' ' + lastError : '';
+        throw auraError('No columns were returned for ' + dmo + '.' + detail);
+    }
+
+    /**
+     * Column names and types from Data Cloud query metadata.
+     * CdpQueryMetadataItem exposes type as a String, so this does not depend on
+     * JSON.serialize of the getAllMetadata response.
+     */
+    private static List<Map<String, String>> columnsFromDmoQuery(String dmoApiName, String spaceName) {
+        if (!Pattern.matches('^[A-Za-z][A-Za-z0-9_]*$', dmoApiName)) {
+            throw auraError('The Data360 DMO API name contains characters that cannot be queried.');
+        }
+        ConnectApi.CdpQueryInput input = new ConnectApi.CdpQueryInput();
+        input.sql = 'SELECT * FROM ' + dmoApiName + ' LIMIT 1';
+        ConnectApi.CdpQueryOutputV2 output = spaceName == null
+            ? ConnectApi.CdpQuery.queryAnsiSqlV2(input)
+            : ConnectApi.CdpQuery.queryAnsiSqlV2(input, spaceName);
+        List<Map<String, String>> rows = new List<Map<String, String>>();
+        if (output == null || output.metadata == null) {
+            return rows;
+        }
+        for (String columnName : output.metadata.keySet()) {
+            if (String.isBlank(columnName) || !isSafeColumnApi(columnName)) {
+                continue;
+            }
+            ConnectApi.CdpQueryMetadataItem item = output.metadata.get(columnName);
+            String dataType = item == null || String.isBlank(item.type) ? '' : item.type;
+            rows.add(new Map<String, String>{
+                'label' => columnName,
+                'value' => columnName,
+                'dataType' => dataType,
+                'numeric' => isNumericDataType(dataType) ? 'true' : 'false',
+                'entityDisplay' => dmoApiName
+            });
+        }
+        rows.sort(new ColumnApiSort());
+        return rows;
+    }
+
+    private static List<Map<String, String>> entityDefinitionFieldRows(String dmoApiName) {
+        List<Map<String, String>> rows = new List<Map<String, String>>();
+        try {
+            for (FieldDefinition fd : [
+                SELECT QualifiedApiName, Label, DataType
+                FROM FieldDefinition
+                WHERE EntityDefinition.QualifiedApiName = :dmoApiName
+                LIMIT 2000
+            ]) {
+                if (String.isBlank(fd.QualifiedApiName) || !isSafeColumnApi(fd.QualifiedApiName)) {
+                    continue;
+                }
+                rows.add(new Map<String, String>{
+                    'label' => String.isNotBlank(fd.Label) ? fd.Label : fd.QualifiedApiName,
+                    'value' => fd.QualifiedApiName,
+                    'dataType' => fd.DataType == null ? '' : fd.DataType,
+                    'numeric' => isNumericDataType(fd.DataType) ? 'true' : 'false'
+                });
+            }
+        } catch (Exception e) {
+            return rows;
+        }
+        return rows;
+    }
+
+    private static String requireDmoColumn(
+        String raw,
+        Map<String, String> canonicalByLower,
+        Map<String, String> typeByLower,
+        String label,
+        Boolean numericOnly
+    ) {
+        if (String.isBlank(raw)) {
+            throw new AuraHandledException(label + ' is required.');
+        }
+        String key = raw.trim().toLowerCase();
+        if (!canonicalByLower.containsKey(key)) {
+            throw new AuraHandledException(label + ' must be a column on the selected Data360 DMO.');
+        }
+        if (numericOnly && !isNumericDataType(typeByLower.get(key))) {
+            throw new AuraHandledException(label + ' must be a number column that allows decimals.');
+        }
+        return canonicalByLower.get(key);
+    }
+
+    private static Boolean isNumericDataType(String dataType) {
+        if (String.isBlank(dataType)) {
+            return false;
+        }
+        String normalized = dataType.toLowerCase();
+        Matcher scaled = Pattern.compile('(number|currency|percent|decimal|double)\\((\\d+),\\s*(\\d+)\\)').matcher(normalized);
+        if (scaled.find()) {
+            return Integer.valueOf(scaled.group(3)) > 0;
+        }
+        Boolean numericFamily = normalized.contains('number')
+            || normalized.contains('currency')
+            || normalized.contains('percent')
+            || normalized.contains('double')
+            || normalized.contains('decimal');
+        if (normalized.contains('formula')) {
+            return numericFamily;
+        }
+        return numericFamily;
+    }
+
+    private static Boolean isSafeColumnApi(String api) {
+        return Pattern.matches('^[A-Za-z][A-Za-z0-9_]*$', api);
+    }
+
+    private static ScoreFormula buildScoreFormula(String column, String mode, Decimal factor, String label) {
+        if (mode != 'AsIs' && mode != 'Multiply' && mode != 'Divide') {
+            throw new AuraHandledException(label + ' formula is required.');
+        }
+        String token = '{' + column + '}';
+        if (mode == 'AsIs') {
+            return new ScoreFormula(mode, null, token);
+        }
+        if (factor == null || factor == 0) {
+            throw new AuraHandledException(label + ' factor must be a non-zero number.');
+        }
+        String operator = mode == 'Multiply' ? '*' : '/';
+        String factorText = factor.stripTrailingZeros().toPlainString();
+        String expression = token + ' ' + operator + ' ' + factorText;
+        if (expression.length() > 255) {
+            throw new AuraHandledException(label + ' formula is too long.');
+        }
+        return new ScoreFormula(mode, factor, expression);
+    }
+
+    private class ScoreFormula {
+        public String mode;
+        public Decimal factor;
+        public String expression;
+
+        public ScoreFormula(String mode, Decimal factor, String expression) {
+            this.mode = mode;
+            this.factor = factor;
+            this.expression = expression;
+        }
     }
 }

@@ -206,30 +206,20 @@
                                             </span>
 
                                             <div class="cockpit-master-content">
-                                                <div class="cockpit-col-name" onclick={handleGroupNameDblClick} data-name={grp.messageName}>
-                                                    <template lwc:if={grp.isEditing}>
-                                                        <input
-                                                            class="cockpit-msg-name-input"
-                                                            type="text"
-                                                            value={editingGroupValue}
-                                                            oninput={handleGroupNameInput}
-                                                            onkeydown={handleGroupNameKeydown}
-                                                            onblur={handleGroupNameBlur}
-                                                            onclick={handleNameInputClick}
-                                                        />
+                                                <div class="cockpit-col-name"
+                                                    onclick={handleNameCellClick}
+                                                    ondblclick={handleGroupNameDblClick}
+                                                    data-name={grp.messageName}>
+                                                    <span class="cockpit-msg-name" title="Double-click to edit Message Name, Country Code, and Language">{grp.displayName}</span>
+                                                    <template lwc:if={grp.language}>
+                                                        <span class="cockpit-copy-lang">{grp.language}</span>
                                                     </template>
-                                                    <template lwc:else>
-                                                        <span class="cockpit-msg-name" title="Double-click to rename">{grp.messageName}</span>
-                                                        <template lwc:if={grp.language}>
-                                                            <span class="cockpit-copy-lang">{grp.language}</span>
+                                                    <span class="cockpit-master-counts">
+                                                        <span class="cockpit-stat-chip">{grp.totalVariants}v</span>
+                                                        <template lwc:if={grp.publishedCount}>
+                                                            <span class="cockpit-stat-chip cockpit-stat-chip_live">{grp.publishedCount} live</span>
                                                         </template>
-                                                        <span class="cockpit-master-counts">
-                                                            <span class="cockpit-stat-chip">{grp.totalVariants}v</span>
-                                                            <template lwc:if={grp.publishedCount}>
-                                                                <span class="cockpit-stat-chip cockpit-stat-chip_live">{grp.publishedCount} live</span>
-                                                            </template>
-                                                        </span>
-                                                    </template>
+                                                    </span>
                                                 </div>
                                                 <!-- status summary badges on master row -->
                                                 <div class="cockpit-col-status">
@@ -425,9 +415,9 @@
     <!-- Add Copy modal -->
     <template lwc:if={isAddModalOpen}>
         <c-copy-cockpit-add-modal
-            channel-name={activeChannel.Name}
-            channel-type={activeChannel.Channel_Type__c}
-            banner-types={activeBannerTypes}
+            channel-name={addChannelName}
+            channel-type={addChannelType}
+            banner-types={addBannerTypes}
             onclose={handleAddModalClose}
             onsave={handleAddModalSave}
         ></c-copy-cockpit-add-modal>
@@ -485,13 +475,74 @@
                 <div class="slds-modal__content slds-p-around_medium">
                     <p>Create a new variant of <strong>{cloneSourceName}</strong>?</p>
                     <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">
-                        New variant will be saved as <strong>Variant {cloneProposedVersion}</strong> under "<strong>{cloneProposedName}</strong>", status Draft.
+                        New variant will be saved as <strong>{cloneProposedName}</strong> (Variant {cloneProposedVersion}), status Draft.
                     </p>
                 </div>
                 <footer class="slds-modal__footer">
                     <lightning-button label="Cancel" onclick={handleCloneCancel} class="slds-m-right_x-small" disabled={isCloning}></lightning-button>
                     <lightning-button label="Create Copy" onclick={handleCloneConfirm} class="slds-m-right_x-small" disabled={isCloning}></lightning-button>
                     <lightning-button label="Create Copy &amp; Open Editor" variant="brand" onclick={handleCloneConfirmAndEdit} disabled={isCloning}></lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+    <!-- Master naming edit modal (Locale = CountryCode-LanguageCode, Message Name) -->
+    <template lwc:if={isRenameOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="rename-modal-title" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header">
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse" title="Close" onclick={handleRenameCancel}>
+                        <lightning-icon icon-name="utility:close" size="small" variant="inverse"></lightning-icon>
+                    </button>
+                    <h2 id="rename-modal-title" class="slds-modal__title">Edit Message Name</h2>
+                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">
+                        Name pattern: ChannelPrefix_Locale_MessageName_VariantNumber (Locale = CountryCode-LanguageCode).
+                        Channel Prefix and Variant numbers stay fixed. Changes apply to every variant.
+                    </p>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <div class="cockpit-rename-row">
+                        <div class="cockpit-rename-prefix">
+                            <span class="slds-form-element__label">Channel Prefix</span>
+                            <div class="cockpit-rename-prefix-value">{editingChannelPrefix}</div>
+                        </div>
+                        <lightning-input
+                            label="Country Code"
+                            value={editingCountryCode}
+                            maxlength="10"
+                            required
+                            onchange={handleRenameCountryChange}
+                            class="cockpit-rename-country"
+                        ></lightning-input>
+                        <lightning-input
+                            label="Message Name"
+                            value={editingMessageNamePart}
+                            required
+                            onchange={handleRenameMessageNameChange}
+                            class="cockpit-rename-msg"
+                        ></lightning-input>
+                    </div>
+                    <lightning-combobox
+                        label="Language"
+                        value={editingLanguage}
+                        options={renameLanguageOptions}
+                        required
+                        onchange={handleRenameLanguageChange}
+                        class="slds-m-top_small"
+                    ></lightning-combobox>
+                    <div class="cockpit-rename-preview slds-m-top_small">
+                        <span class="slds-text-body_small slds-text-color_weak">Preview pattern:</span>
+                        <code>{renamePreview}</code>
+                    </div>
+                    <template lwc:if={renameError}>
+                        <div class="slds-text-color_error slds-m-top_x-small slds-text-body_small">{renameError}</div>
+                    </template>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={handleRenameCancel} class="slds-m-right_x-small"></lightning-button>
+                    <lightning-button label="Save" variant="brand" onclick={handleRenameSave}></lightning-button>
                 </footer>
             </div>
         </section>

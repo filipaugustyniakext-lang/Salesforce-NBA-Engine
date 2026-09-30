@@ -1,196 +1,122 @@
 <template>
-    <div class="vtab-layout">
+    <div class="slds-p-around_small">
 
-        <nav class="vtab-sidebar" role="tablist" aria-orientation="vertical">
-            <button role="tab" class={vtabClass.dates} data-tab="dates" onclick={handleSubTabClick}
-                aria-selected={vtabSelected.dates}>
-                <lightning-icon icon-name="utility:event" size="x-small" class="vtab-icon" alternative-text=""></lightning-icon>
+        <!-- Toolbar -->
+        <div class="bo-toolbar slds-m-bottom_small">
+            <h2 class="slds-text-heading_small">
                 Blackout Dates
-            </button>
-            <button role="tab" class={vtabClass.weekly} data-tab="weekly" onclick={handleSubTabClick}
-                aria-selected={vtabSelected.weekly}>
-                <lightning-icon icon-name="utility:date_time" size="x-small" class="vtab-icon" alternative-text=""></lightning-icon>
-                Weekly Restrictions
-            </button>
-        </nav>
+                <span class="slds-badge slds-badge_lightest slds-m-left_x-small">{blackoutCount}</span>
+            </h2>
+            <div class="bo-toolbar__actions">
+                <lightning-input type="search" label="Search" variant="label-hidden"
+                    placeholder="Search dates..." value={blackoutSearch}
+                    onchange={handleBlackoutSearch} class="bo-search-input">
+                </lightning-input>
+                <lightning-button label="Add Blackout Date" icon-name="utility:add" variant="brand"
+                    onclick={handleNewBlackout}>
+                </lightning-button>
+            </div>
+        </div>
 
-        <div class="vtab-content" role="tabpanel">
+        <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
+            Calendar days when marketing communications are put on hold. Assign only the channels that must pause —
+            softer channels (for example banners) can stay live.
+        </p>
 
-        <!-- ── Blackout Dates tab ─────────────────────────────────── -->
-        <template lwc:if={isTab.dates}>
-            <div class="slds-p-around_small">
+        <template lwc:if={isLoading}>
+            <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
+        </template>
 
-                <!-- Toolbar -->
-                <div class="bo-toolbar slds-m-bottom_small">
-                    <h2 class="slds-text-heading_small">
-                        Blackout Dates
-                        <span class="slds-badge slds-badge_lightest slds-m-left_x-small">{blackoutCount}</span>
-                    </h2>
-                    <div class="bo-toolbar__actions">
-                        <lightning-input type="search" label="Search" variant="label-hidden"
-                            placeholder="Search dates..." value={blackoutSearch}
-                            onchange={handleBlackoutSearch} class="bo-search-input">
-                        </lightning-input>
-                        <lightning-button label="Add Blackout Date" icon-name="utility:add" variant="brand"
-                            onclick={handleNewBlackout}>
-                        </lightning-button>
-                    </div>
+        <!-- Blackout dates table -->
+        <template lwc:elseif={hasBlackouts}>
+            <div class="bo-table-scroll">
+                <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_striped">
+                    <thead>
+                        <tr class="slds-line-height_reset">
+                            <th class="bo-col-date" onclick={handleSortBlackout} data-col="Blackout_Date__c">
+                                <span>Date</span>
+                                <lightning-icon icon-name={blackoutSortIcons.date} size="xx-small"
+                                    class="slds-m-left_xx-small" alternative-text="sort"></lightning-icon>
+                            </th>
+                            <th onclick={handleSortBlackout} data-col="Name">
+                                <span>Name</span>
+                                <lightning-icon icon-name={blackoutSortIcons.name} size="xx-small"
+                                    class="slds-m-left_xx-small" alternative-text="sort"></lightning-icon>
+                            </th>
+                            <th onclick={handleSortBlackout} data-col="Blackout_Type__c">
+                                <span>Type</span>
+                                <lightning-icon icon-name={blackoutSortIcons.type} size="xx-small"
+                                    class="slds-m-left_xx-small" alternative-text="sort"></lightning-icon>
+                            </th>
+                            <th class="bo-col-channels">Channels</th>
+                            <th class="bo-col-flag">Recurring</th>
+                            <th>Description</th>
+                            <th class="action-col"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template for:each={filteredBlackouts} for:item="bw">
+                            <tr key={bw.Id}>
+                                <td>
+                                    <span class="slds-badge slds-badge_lightest">
+                                        <template lwc:if={bw.isRange}>
+                                            <lightning-icon icon-name="utility:date_time" size="xx-small"
+                                                alternative-text="range" class="slds-m-right_xx-small">
+                                            </lightning-icon>
+                                        </template>
+                                        {bw.formattedDate}
+                                    </span>
+                                    <template lwc:if={bw.Is_Recurring_Annually__c}>
+                                        <lightning-icon icon-name="utility:refresh" size="xx-small"
+                                            title="Recurring annually" class="slds-m-left_xx-small bo-icon-recurring"
+                                            alternative-text="Recurring annually">
+                                        </lightning-icon>
+                                    </template>
+                                </td>
+                                <td class="slds-truncate" title={bw.Name}>{bw.Name}</td>
+                                <td>
+                                    <span class="slds-badge bo-type-badge">{bw.Blackout_Type__c}</span>
+                                </td>
+                                <td class="slds-truncate" title={bw.channelsSummary}>{bw.channelsSummary}</td>
+                                <td class="slds-text-align_center">
+                                    <template lwc:if={bw.Is_Recurring_Annually__c}>
+                                        <lightning-icon icon-name="utility:check" size="xx-small"
+                                            alternative-text="Yes" class="bo-check-icon">
+                                        </lightning-icon>
+                                    </template>
+                                </td>
+                                <td class="slds-truncate bo-col-desc" title={bw.Description__c}>{bw.Description__c}</td>
+                                <td class="action-col">
+                                    <lightning-button-icon icon-name="utility:edit" variant="border-filled"
+                                        size="x-small" alternative-text="Edit" title="Edit"
+                                        data-id={bw.Id} onclick={handleEditBlackout}>
+                                    </lightning-button-icon>
+                                    <lightning-button-icon icon-name="utility:delete" variant="border-filled"
+                                        size="x-small" alternative-text="Delete" title="Delete"
+                                        class="slds-m-left_xx-small" data-id={bw.Id} data-name={bw.Name}
+                                        onclick={handleDeleteBlackout}>
+                                    </lightning-button-icon>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+            <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">{blackoutCountLabel}</p>
+        </template>
+
+        <template lwc:else>
+            <div class="slds-illustration slds-illustration_small slds-m-top_medium">
+                <div class="slds-illustration__svg"></div>
+                <div class="slds-illustration__content">
+                    <p class="slds-text-color_weak">No blackout dates defined. Add the first one.</p>
                 </div>
-
-                <template lwc:if={isLoading}>
-                    <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
-                </template>
-
-                <!-- Blackout dates table -->
-                <template lwc:elseif={hasBlackouts}>
-                    <div class="bo-table-scroll">
-                        <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_striped">
-                            <thead>
-                                <tr class="slds-line-height_reset">
-                                    <th class="bo-col-date" onclick={handleSortBlackout} data-col="Blackout_Date__c">
-                                        <span>Date</span>
-                                        <lightning-icon icon-name={blackoutSortIcons.date} size="xx-small"
-                                            class="slds-m-left_xx-small" alternative-text="sort"></lightning-icon>
-                                    </th>
-                                    <th onclick={handleSortBlackout} data-col="Name">
-                                        <span>Name</span>
-                                        <lightning-icon icon-name={blackoutSortIcons.name} size="xx-small"
-                                            class="slds-m-left_xx-small" alternative-text="sort"></lightning-icon>
-                                    </th>
-                                    <th onclick={handleSortBlackout} data-col="Blackout_Type__c">
-                                        <span>Type</span>
-                                        <lightning-icon icon-name={blackoutSortIcons.type} size="xx-small"
-                                            class="slds-m-left_xx-small" alternative-text="sort"></lightning-icon>
-                                    </th>
-                                    <th class="bo-col-flag">Recurring</th>
-                                    <th>Description</th>
-                                    <th class="action-col"></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <template for:each={filteredBlackouts} for:item="bw">
-                                    <tr key={bw.Id}>
-                                        <td>
-                                            <span class="slds-badge slds-badge_lightest">
-                                                <template lwc:if={bw.isRange}>
-                                                    <lightning-icon icon-name="utility:date_time" size="xx-small"
-                                                        alternative-text="range" class="slds-m-right_xx-small">
-                                                    </lightning-icon>
-                                                </template>
-                                                {bw.formattedDate}
-                                            </span>
-                                            <template lwc:if={bw.Is_Recurring_Annually__c}>
-                                                <lightning-icon icon-name="utility:refresh" size="xx-small"
-                                                    title="Recurring annually" class="slds-m-left_xx-small bo-icon-recurring"
-                                                    alternative-text="Recurring annually">
-                                                </lightning-icon>
-                                            </template>
-                                        </td>
-                                        <td class="slds-truncate">{bw.Name}</td>
-                                        <td>
-                                            <span class="slds-badge bo-type-badge">{bw.Blackout_Type__c}</span>
-                                        </td>
-                                        <td class="slds-text-align_center">
-                                            <template lwc:if={bw.Is_Recurring_Annually__c}>
-                                                <lightning-icon icon-name="utility:check" size="xx-small"
-                                                    alternative-text="Yes" class="bo-check-icon">
-                                                </lightning-icon>
-                                            </template>
-                                        </td>
-                                        <td class="slds-truncate bo-col-desc">{bw.Description__c}</td>
-                                        <td class="action-col">
-                                            <lightning-button-icon icon-name="utility:edit" variant="border-filled"
-                                                size="x-small" alternative-text="Edit" title="Edit"
-                                                data-id={bw.Id} onclick={handleEditBlackout}>
-                                            </lightning-button-icon>
-                                            <lightning-button-icon icon-name="utility:delete" variant="border-filled"
-                                                size="x-small" alternative-text="Delete" title="Delete"
-                                                class="slds-m-left_xx-small" data-id={bw.Id} data-name={bw.Name}
-                                                onclick={handleDeleteBlackout}>
-                                            </lightning-button-icon>
-                                        </td>
-                                    </tr>
-                                </template>
-                            </tbody>
-                        </table>
-                    </div>
-                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">{blackoutCountLabel}</p>
-                </template>
-
-                <template lwc:else>
-                    <div class="slds-illustration slds-illustration_small slds-m-top_medium">
-                        <div class="slds-illustration__svg"></div>
-                        <div class="slds-illustration__content">
-                            <p class="slds-text-color_weak">No blackout dates defined. Add the first one.</p>
-                        </div>
-                    </div>
-                </template>
-
             </div>
         </template>
 
-        <!-- ── Weekly Day Rules tab ───────────────────────────────── -->
-        <template lwc:if={isTab.weekly}>
-            <div class="slds-p-around_small">
+    </div>
 
-                <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
-                    Define which days of the week communications are globally allowed and any hour-range restrictions.
-                    Days without a rule are unrestricted.
-                </p>
-
-                <div class="bo-week-grid">
-                    <template for:each={weekDays} for:item="day">
-                        <div key={day.name} class={day.cardClass}>
-                            <div class="bo-day-header">
-                                <span class="slds-text-title_caps">{day.name}</span>
-                                <div class="bo-day-actions">
-                                    <template lwc:if={day.rule}>
-                                        <lightning-button-icon icon-name="utility:edit" variant="bare" size="x-small"
-                                            alternative-text="Edit rule" title="Edit rule"
-                                            data-day={day.name} onclick={handleEditDayRule}>
-                                        </lightning-button-icon>
-                                        <lightning-button-icon icon-name="utility:delete" variant="bare" size="x-small"
-                                            alternative-text="Remove rule" title="Remove rule"
-                                            class="slds-m-left_xx-small"
-                                            data-id={day.rule.Id} data-day={day.name}
-                                            onclick={handleDeleteDayRule}>
-                                        </lightning-button-icon>
-                                    </template>
-                                    <template lwc:else>
-                                        <lightning-button-icon icon-name="utility:add" variant="bare" size="x-small"
-                                            alternative-text="Add restriction" title="Add restriction"
-                                            data-day={day.name} onclick={handleNewDayRule}>
-                                        </lightning-button-icon>
-                                    </template>
-                                </div>
-                            </div>
-
-                            <div class="bo-day-body">
-                                <template lwc:if={day.rule}>
-                                    <template lwc:if={day.rule.Is_Fully_Blocked__c}>
-                                        <span class="slds-badge bo-badge-blocked">All Day Blocked</span>
-                                    </template>
-                                    <template lwc:else>
-                                        <span class="slds-badge bo-badge-partial">
-                                            {day.rule.Blocked_From_Hour__c}:00 – {day.rule.Blocked_To_Hour__c}:00
-                                        </span>
-                                    </template>
-                                </template>
-                                <template lwc:else>
-                                    <span class="slds-badge slds-badge_lightest bo-badge-open">Unrestricted</span>
-                                </template>
-                            </div>
-                        </div>
-                    </template>
-                </div>
-
-            </div>
-        </template>
-
-        </div><!-- /vtab-content -->
-    </div><!-- /vtab-layout -->
-
-    <!-- ── Blackout Date modal ────────────────────────────────────────── -->
+    <!-- Blackout Date modal -->
     <template lwc:if={isBlackoutModalOpen}>
         <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="bo-modal-title"
             class="slds-modal slds-fade-in-open">
@@ -225,6 +151,54 @@
                         <lightning-textarea label="Description (optional)" value={editBlackout.Description__c}
                             data-field="Description__c" onchange={handleBlackoutFieldChange} max-length="500">
                         </lightning-textarea>
+
+                        <div class="slds-form-element slds-m-top_small">
+                            <label class="slds-form-element__label">
+                                <abbr class="slds-required" title="required">*</abbr>
+                                Channels on blackout
+                            </label>
+                            <div class="slds-form-element__control">
+                                <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_x-small">
+                                    Select channels that must pause on this date ({selectedChannelCount} selected).
+                                </p>
+                                <template lwc:if={hasChannelCatalogue}>
+                                    <div class="slds-p-bottom_small select-all-row-divider">
+                                        <lightning-input type="checkbox" label="Select All"
+                                            checked={selectAllChannels}
+                                            onchange={handleSelectAllChannels}
+                                            class="custom-master-checkbox">
+                                        </lightning-input>
+                                    </div>
+                                    <div class="channel-groups-container slds-m-top_x-small">
+                                        <template for:each={channelGroups} for:item="group">
+                                            <div key={group.type} class="channel-type-row">
+                                                <span class="channel-type-label">{group.type}</span>
+                                                <div class="slds-button-group channel-button-group" role="group">
+                                                    <template for:each={group.items} for:item="chan">
+                                                        <button key={chan.value}
+                                                                type="button"
+                                                                class={chan.buttonClass}
+                                                                data-value={chan.value}
+                                                                title={chan.title}
+                                                                disabled={chan.disabled}
+                                                                onclick={handleChannelTileToggle}>
+                                                            <lightning-icon icon-name={chan.icon} size="xx-small"
+                                                                class={chan.iconClass}></lightning-icon>
+                                                            <span class="channel-btn-label">{chan.label}</span>
+                                                        </button>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+                                <template lwc:else>
+                                    <p class="slds-text-color_error slds-text-body_small">
+                                        No channels found in the dictionary. Add channels first.
+                                    </p>
+                                </template>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="slds-modal__footer">
@@ -238,60 +212,7 @@
         <div class="slds-backdrop slds-backdrop_open"></div>
     </template>
 
-    <!-- ── Day Rule modal ────────────────────────────────────────────── -->
-    <template lwc:if={isDayRuleModalOpen}>
-        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="dr-modal-title"
-            class="slds-modal slds-fade-in-open">
-            <div class="slds-modal__container">
-                <div class="slds-modal__header">
-                    <h2 id="dr-modal-title" class="slds-modal__title">{dayRuleModalTitle}</h2>
-                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse"
-                        onclick={closeDayRuleModal} title="Close">
-                        <lightning-icon icon-name="utility:close" size="small" alternative-text="Close"></lightning-icon>
-                    </button>
-                </div>
-                <div class="slds-modal__content slds-p-around_medium">
-                    <div class="slds-form slds-form_stacked">
-                        <div class="slds-form-element">
-                            <label class="slds-form-element__label">Day</label>
-                            <div class="slds-form-element__control">
-                                <span class="slds-text-body_regular slds-text-title_caps">{editDayRule.Day_Of_Week__c}</span>
-                            </div>
-                        </div>
-                        <lightning-input type="checkbox" label="Block entire day"
-                            checked={editDayRule.Is_Fully_Blocked__c}
-                            data-field="Is_Fully_Blocked__c" onchange={handleDayRuleCheckboxChange}>
-                        </lightning-input>
-                        <template lwc:if={showHourRange}>
-                            <div class="slds-grid slds-gutters_small">
-                                <div class="slds-col">
-                                    <lightning-input type="number" label="Blocked From (hour 0–23)" min="0" max="23"
-                                        step="1" value={editDayRule.Blocked_From_Hour__c}
-                                        data-field="Blocked_From_Hour__c" onchange={handleDayRuleFieldChange}>
-                                    </lightning-input>
-                                </div>
-                                <div class="slds-col">
-                                    <lightning-input type="number" label="Blocked Until (hour 0–23)" min="0" max="23"
-                                        step="1" value={editDayRule.Blocked_To_Hour__c}
-                                        data-field="Blocked_To_Hour__c" onchange={handleDayRuleFieldChange}>
-                                    </lightning-input>
-                                </div>
-                            </div>
-                        </template>
-                    </div>
-                </div>
-                <div class="slds-modal__footer">
-                    <lightning-button label="Cancel" onclick={closeDayRuleModal}></lightning-button>
-                    <lightning-button label="Save Rule" variant="brand" class="slds-m-left_x-small"
-                        onclick={handleSaveDayRule}>
-                    </lightning-button>
-                </div>
-            </div>
-        </section>
-        <div class="slds-backdrop slds-backdrop_open"></div>
-    </template>
-
-    <!-- ── Delete confirmation ────────────────────────────────────────── -->
+    <!-- Delete confirmation -->
     <template lwc:if={isDeleteModalOpen}>
         <section role="alertdialog" tabindex="-1" aria-modal="true" aria-labelledby="bo-del-title"
             aria-describedby="bo-del-desc" class="slds-modal slds-fade-in-open">

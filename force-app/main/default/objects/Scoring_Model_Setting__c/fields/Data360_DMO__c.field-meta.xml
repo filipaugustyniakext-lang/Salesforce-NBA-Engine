@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Data360_DMO__c</fullName>
+    <description>Qualified API name of the Data360 DMO (ends with __dlm) that supplies score columns.</description>
+    <externalId>false</externalId>
+    <label>Data360 DMO</label>
+    <length>255</length>
+    <required>true</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

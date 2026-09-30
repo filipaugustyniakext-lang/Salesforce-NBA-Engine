@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Channel__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description>Channel dictionary record this weekly restriction applies to. Required for new rules — each channel can define its own day/hour blocks.</description>
+    <inlineHelpText>Weekly restrictions are configured per channel (e.g. SMS may block weekends while Banner stays open).</inlineHelpText>
+    <label>Channel</label>
+    <referenceTo>Marketing_Dictionary__c</referenceTo>
+    <relationshipLabel>Blackout Day Rules</relationshipLabel>
+    <relationshipName>Blackout_Day_Rules</relationshipName>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

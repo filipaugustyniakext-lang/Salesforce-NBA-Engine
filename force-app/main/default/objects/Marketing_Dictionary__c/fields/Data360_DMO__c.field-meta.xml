@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Data360_DMO__c</fullName>
+    <description>For Scoring Model records: Data360 Data Model Object (DMO) API name where model scores are read from or written to.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Select the Data360 DMO associated with this scoring model.</inlineHelpText>
+    <label>Data360 DMO</label>
+    <length>255</length>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

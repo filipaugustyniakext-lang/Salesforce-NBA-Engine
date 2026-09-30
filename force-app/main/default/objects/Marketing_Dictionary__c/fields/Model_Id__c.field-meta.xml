@@ -2,9 +2,9 @@
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Model_Id__c</fullName>
     <caseSensitive>false</caseSensitive>
-    <description>Autopopulated business key for Scoring Model rows: Model Name + underscore + Version (e.g. CashLoan_1).</description>
+    <description>Autopopulated numeric id for a Scoring Model definition. New models receive the next available integer.</description>
     <externalId>true</externalId>
-    <inlineHelpText>Autopopulated as ModelName_Version. Unique across scoring models.</inlineHelpText>
+    <inlineHelpText>Assigned automatically as the next available number. It does not change after the model is created.</inlineHelpText>
     <label>Model ID</label>
     <length>255</length>
     <required>false</required>

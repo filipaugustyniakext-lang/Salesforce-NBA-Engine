@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Source_Model_Id_Column__c</fullName>
+    <description>API name of the DMO column that holds the source model id.</description>
+    <externalId>false</externalId>
+    <label>Source Model ID Column</label>
+    <length>255</length>
+    <required>true</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

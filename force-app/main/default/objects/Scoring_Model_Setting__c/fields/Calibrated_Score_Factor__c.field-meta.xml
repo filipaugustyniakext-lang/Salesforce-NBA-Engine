@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Calibrated_Score_Factor__c</fullName>
+    <description>Non-zero factor applied when the Calibrated Base Score formula multiplies or divides the source column. Empty when the source value is used as-is.</description>
+    <externalId>false</externalId>
+    <label>Calibrated Score Factor</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>6</scale>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

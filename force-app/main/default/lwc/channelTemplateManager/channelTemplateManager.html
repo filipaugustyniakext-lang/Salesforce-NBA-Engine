@@ -1,0 +1,390 @@
+<template>
+    <div class="template-manager">
+        <div class="template-toolbar">
+            <div>
+                <h3 class="slds-text-heading_small">Master Templates</h3>
+                <p class="slds-text-body_small slds-text-color_weak">
+                    Attach shell source files and supported HTML content blocks for {channelName}.
+                </p>
+            </div>
+            <lightning-button
+                label="New Template"
+                icon-name="utility:add"
+                variant="brand"
+                onclick={handleNew}>
+            </lightning-button>
+        </div>
+
+        <template lwc:if={isLoading}>
+            <lightning-spinner size="small" alternative-text="Loading templates"></lightning-spinner>
+        </template>
+
+        <template lwc:elseif={errorMessage}>
+            <div class="slds-notify slds-notify_alert slds-alert_error" role="alert">
+                {errorMessage}
+            </div>
+        </template>
+
+        <template lwc:elseif={hasTemplates}>
+            <div class="template-grid">
+                <template for:each={templates} for:item="item">
+                    <article key={item.id} class="template-card">
+                        <header class="template-card__header">
+                            <div>
+                                <div class="template-card__title-row">
+                                    <h4 class="slds-text-heading_small">{item.name}</h4>
+                                    <span class={item.statusClass}>{item.status}</span>
+                                    <span class={item.validationClass}>{item.validationLabel}</span>
+                                    <span class="slds-badge">{item.versionLabel}</span>
+                                </div>
+                                <template lwc:if={item.packageLabel}>
+                                    <p class="slds-text-body_small slds-m-top_xx-small">{item.packageLabel}</p>
+                                </template>
+                                <template lwc:if={item.hashLabel}>
+                                    <p class="slds-text-body_small slds-text-color_weak">{item.hashLabel}</p>
+                                </template>
+                                <template lwc:if={item.description}>
+                                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">
+                                        {item.description}
+                                    </p>
+                                </template>
+                            </div>
+                            <div class="slds-button-group">
+                                <lightning-button-icon
+                                    icon-name="utility:edit"
+                                    alternative-text="Edit template"
+                                    title="Edit template"
+                                    data-id={item.id}
+                                    onclick={handleEdit}>
+                                </lightning-button-icon>
+                                <lightning-button-icon
+                                    icon-name="utility:delete"
+                                    alternative-text="Delete template"
+                                    title="Delete template"
+                                    data-id={item.id}
+                                    disabled={item.deleteDisabled}
+                                    onclick={handleDeleteTemplate}>
+                                </lightning-button-icon>
+                            </div>
+                        </header>
+
+                        <template lwc:if={item.hasAssets}>
+                            <ul class="template-assets">
+                                <template for:each={item.assets} for:item="asset">
+                                    <li key={asset.documentId} class="template-asset">
+                                        <lightning-icon icon-name={asset.iconName} size="small"></lightning-icon>
+                                        <div class="template-asset__body">
+                                            <a href={asset.downloadUrl} target="_blank" title={asset.name}>{asset.name}</a>
+                                            <span class="slds-text-body_small slds-text-color_weak">
+                                                {asset.assetTypeLabel} · {asset.sizeLabel}
+                                            </span>
+                                        </div>
+                                        <lightning-button-icon
+                                            icon-name="utility:close"
+                                            variant="bare"
+                                            size="small"
+                                            alternative-text="Remove file"
+                                            title="Remove file"
+                                            data-id={asset.documentId}
+                                            data-template-id={item.id}
+                                            disabled={asset.deleteDisabled}
+                                            onclick={handleDeleteAsset}>
+                                        </lightning-button-icon>
+                                    </li>
+                                </template>
+                            </ul>
+                        </template>
+                        <template lwc:else>
+                            <div class="template-card__empty">
+                                No source files attached yet.
+                            </div>
+                        </template>
+                    </article>
+                </template>
+            </div>
+        </template>
+
+        <template lwc:else>
+            <div class="template-empty">
+                <lightning-icon icon-name="utility:layout" size="medium"></lightning-icon>
+                <p class="slds-text-heading_small slds-m-top_small">No templates configured</p>
+                <p class="slds-text-body_small slds-text-color_weak">
+                    Create the first {channelName} master template and attach its source files.
+                </p>
+            </div>
+        </template>
+    </div>
+
+    <template lwc:if={isModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="template-modal-title"
+            class="slds-modal slds-fade-in-open slds-modal_large">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header">
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse"
+                        title="Close" onclick={closeModal}>
+                        <lightning-icon icon-name="utility:close" size="small" alternative-text="Close"></lightning-icon>
+                    </button>
+                    <h2 id="template-modal-title" class="slds-modal__title">{modalTitle}</h2>
+                </header>
+
+                <div class="slds-modal__content slds-p-around_medium">
+                    <div class="slds-grid slds-gutters_small slds-wrap">
+                        <div class="slds-col slds-size_1-of-2">
+                            <lightning-input
+                                label="Template Name"
+                                required
+                                value={editTemplate.Name}
+                                data-field="Name"
+                                onchange={handleFieldChange}>
+                            </lightning-input>
+                        </div>
+                        <div class="slds-col slds-size_1-of-4">
+                            <lightning-input
+                                type="number"
+                                label="Version"
+                                min="1"
+                                step="1"
+                                value={editTemplate.Version__c}
+                                data-field="Version__c"
+                                onchange={handleFieldChange}>
+                            </lightning-input>
+                        </div>
+                        <div class="slds-col slds-size_1-of-4">
+                            <lightning-combobox
+                                label="Status"
+                                value={editTemplate.Status__c}
+                                options={statusOptions}
+                                data-field="Status__c"
+                                onchange={handleFieldChange}>
+                            </lightning-combobox>
+                        </div>
+                        <div class="slds-col slds-size_1-of-1 slds-m-top_small">
+                            <lightning-textarea
+                                label="Description"
+                                value={editTemplate.Description__c}
+                                max-length="1000"
+                                data-field="Description__c"
+                                onchange={handleFieldChange}>
+                            </lightning-textarea>
+                        </div>
+                    </div>
+
+                    <template lwc:if={hasSavedTemplate}>
+                        <div class="template-upload-section">
+                            <h3 class="slds-text-heading_small">Template Shell Files</h3>
+                            <p class="slds-text-body_small slds-text-color_weak">
+                                Attach HTML, CSS, or JS source when this channel uses a file-based shell. Email HTML should contain <span class="template-token">{contentPlaceholder}</span> where message components are inserted. An existing BODY slot is also accepted. JavaScript is stored as source only and is not executed by Copy Center.
+                            </p>
+                            <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">
+                                Salesforce Setup must allow HTML uploads as attachments and document records.
+                            </p>
+                            <div class="template-upload-grid slds-m-top_small">
+                                <div class="template-upload-card">
+                                    <template lwc:if={shellHtmlAssets.length}>
+                                        <ul class="template-assets">
+                                            <template for:each={shellHtmlAssets} for:item="asset">
+                                                <li key={asset.documentId} class="template-asset">
+                                                    <a href={asset.downloadUrl} target="_blank">{asset.name}</a>
+                                                    <span class="slds-text-body_small slds-text-color_weak">{asset.sizeLabel}</span>
+                                                    <lightning-button-icon icon-name="utility:close" variant="bare" alternative-text="Remove file"
+                                                        data-id={asset.documentId} data-template-id={editingTemplate.id}
+                                                        disabled={asset.deleteDisabled} onclick={handleDeleteAsset}>
+                                                    </lightning-button-icon>
+                                                </li>
+                                            </template>
+                                        </ul>
+                                    </template>
+                                    <lightning-file-upload
+                                        label="Shell HTML"
+                                        name="shellHtml"
+                                        record-id={editTemplate.Id}
+                                        accept={acceptedHtml}
+                                        disabled={isEditingActive}
+                                        onuploadfinished={handleShellHtmlUpload}>
+                                    </lightning-file-upload>
+                                    <span class="slds-text-body_small slds-text-color_weak">.html</span>
+                                </div>
+                                <div class="template-upload-card">
+                                    <template lwc:if={shellCssAssets.length}>
+                                        <ul class="template-assets">
+                                            <template for:each={shellCssAssets} for:item="asset">
+                                                <li key={asset.documentId} class="template-asset">
+                                                    <a href={asset.downloadUrl} target="_blank">{asset.name}</a>
+                                                    <span class="slds-text-body_small slds-text-color_weak">{asset.sizeLabel}</span>
+                                                    <lightning-button-icon icon-name="utility:close" variant="bare" alternative-text="Remove file"
+                                                        data-id={asset.documentId} data-template-id={editingTemplate.id}
+                                                        disabled={asset.deleteDisabled} onclick={handleDeleteAsset}>
+                                                    </lightning-button-icon>
+                                                </li>
+                                            </template>
+                                        </ul>
+                                    </template>
+                                    <lightning-file-upload
+                                        label="Shell CSS"
+                                        name="shellCss"
+                                        record-id={editTemplate.Id}
+                                        accept={acceptedCss}
+                                        disabled={isEditingActive}
+                                        onuploadfinished={handleShellCssUpload}>
+                                    </lightning-file-upload>
+                                    <span class="slds-text-body_small slds-text-color_weak">.css</span>
+                                </div>
+                                <div class="template-upload-card">
+                                    <template lwc:if={shellJsAssets.length}>
+                                        <ul class="template-assets">
+                                            <template for:each={shellJsAssets} for:item="asset">
+                                                <li key={asset.documentId} class="template-asset">
+                                                    <a href={asset.downloadUrl} target="_blank">{asset.name}</a>
+                                                    <span class="slds-text-body_small slds-text-color_weak">{asset.sizeLabel}</span>
+                                                    <lightning-button-icon icon-name="utility:close" variant="bare" alternative-text="Remove file"
+                                                        data-id={asset.documentId} data-template-id={editingTemplate.id}
+                                                        disabled={asset.deleteDisabled} onclick={handleDeleteAsset}>
+                                                    </lightning-button-icon>
+                                                </li>
+                                            </template>
+                                        </ul>
+                                    </template>
+                                    <lightning-file-upload
+                                        label="Shell JavaScript"
+                                        name="shellJs"
+                                        record-id={editTemplate.Id}
+                                        accept={acceptedJs}
+                                        disabled={isEditingActive}
+                                        onuploadfinished={handleShellJsUpload}>
+                                    </lightning-file-upload>
+                                    <span class="slds-text-body_small slds-text-color_weak">.js · stored only</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="template-upload-section">
+                            <h3 class="slds-text-heading_small">Components</h3>
+                            <p class="slds-text-body_small slds-text-color_weak">
+                                Upload an HTML fragment for each component this template accepts, then name it for the message editor.
+                            </p>
+                            <template lwc:if={contentBlockAssets.length}>
+                                <ul class="template-assets">
+                                    <template for:each={contentBlockAssets} for:item="asset">
+                                        <li key={asset.documentId} class="template-asset">
+                                            <lightning-icon icon-name={asset.iconName} size="small"></lightning-icon>
+                                            <div class="template-asset__body">
+                                                <a href={asset.downloadUrl} target="_blank">{asset.name}</a>
+                                                <span class="slds-text-body_small slds-text-color_weak">{asset.sizeLabel}</span>
+                                            </div>
+                                            <lightning-button-icon icon-name="utility:close" variant="bare" alternative-text="Remove file"
+                                                data-id={asset.documentId} data-template-id={editingTemplate.id}
+                                                disabled={asset.deleteDisabled} onclick={handleDeleteAsset}>
+                                            </lightning-button-icon>
+                                        </li>
+                                    </template>
+                                </ul>
+                            </template>
+                            <template lwc:if={unclassifiedAssets.length}>
+                                <p class="slds-text-body_small slds-text-color_weak slds-m-top_small">Unclassified files</p>
+                                <ul class="template-assets">
+                                    <template for:each={unclassifiedAssets} for:item="asset">
+                                        <li key={asset.documentId} class="template-asset">
+                                            <div class="template-asset__body">
+                                                <a href={asset.downloadUrl} target="_blank">{asset.name}</a>
+                                            </div>
+                                            <lightning-button-icon icon-name="utility:close" variant="bare" alternative-text="Remove file"
+                                                data-id={asset.documentId} data-template-id={editingTemplate.id}
+                                                disabled={asset.deleteDisabled} onclick={handleDeleteAsset}>
+                                            </lightning-button-icon>
+                                        </li>
+                                    </template>
+                                </ul>
+                            </template>
+                            <div class="template-upload-card slds-m-top_small">
+                                <lightning-file-upload
+                                    label="Content Block HTML Files"
+                                    name="contentBlocks"
+                                    record-id={editTemplate.Id}
+                                    accept={acceptedHtml}
+                                    multiple
+                                    disabled={isEditingActive}
+                                    onuploadfinished={handleContentBlockUpload}>
+                                </lightning-file-upload>
+                            </div>
+                            <div class="component-catalog slds-m-top_medium">
+                                <template lwc:if={hasCatalogRows}>
+                                    <template for:each={catalogRows} for:item="row">
+                                        <div key={row.fileName} class="component-catalog__row">
+                                            <p class="slds-text-title_caps">{row.fileName}</p>
+                                            <div class="slds-grid slds-wrap slds-gutters_small slds-m-top_x-small">
+                                                <div class="slds-col slds-size_1-of-2">
+                                                    <lightning-combobox label="Component" value={row.type} options={componentTypeOptions} data-file={row.fileName} data-field="type" disabled={isEditingActive} onchange={handleCatalogChange}></lightning-combobox>
+                                                </div>
+                                                <div class="slds-col slds-size_1-of-2">
+                                                    <lightning-combobox label="Icon" value={row.icon} options={componentIconOptions} data-file={row.fileName} data-field="icon" disabled={isEditingActive} onchange={handleCatalogChange}></lightning-combobox>
+                                                </div>
+                                                <div class="slds-col slds-size_1-of-1 slds-m-top_x-small">
+                                                    <lightning-input label="Display name" value={row.label} data-file={row.fileName} data-field="label" disabled={isEditingActive} onchange={handleCatalogChange}></lightning-input>
+                                                </div>
+                                                <div class="slds-col slds-size_1-of-1 slds-m-top_x-small">
+                                                    <lightning-textarea label="Description" value={row.description} data-file={row.fileName} data-field="description" disabled={isEditingActive} onchange={handleCatalogChange}></lightning-textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                    <lightning-button class="slds-m-top_small" label="Save Components" variant="brand" disabled={isEditingActive} onclick={handleSaveCatalog}></lightning-button>
+                                </template>
+                                <template lwc:else>
+                                    <p class="slds-text-body_small slds-text-color_weak">Upload content block HTML to define the components authors can drag into a message.</p>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+
+                    <template lwc:else>
+                        <div class="slds-box slds-theme_shade slds-m-top_medium">
+                            Save the template definition first. File upload controls will then become available.
+                        </div>
+                    </template>
+                </div>
+
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Done" onclick={closeModal}></lightning-button>
+                    <template lwc:if={hasSavedTemplate}>
+                        <lightning-button
+                            label="Validate Package"
+                            icon-name="utility:check"
+                            disabled={validateDisabled}
+                            onclick={handleValidate}
+                            class="slds-m-left_x-small">
+                        </lightning-button>
+                    </template>
+                    <lightning-button
+                        label={saveLabel}
+                        variant="brand"
+                        disabled={isSaving}
+                        onclick={handleSave}
+                        class="slds-m-left_x-small">
+                    </lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+    <template lwc:if={pendingDelete}>
+        <section role="alertdialog" tabindex="-1" aria-modal="true" aria-labelledby="delete-template-title"
+            class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header slds-theme_warning">
+                    <h2 id="delete-template-title" class="slds-modal__title">Delete template?</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    Delete <strong>{pendingDelete.name}</strong> and all attached source files?
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={closeDeleteModal}></lightning-button>
+                    <lightning-button label="Delete" variant="destructive" onclick={confirmDeleteTemplate}
+                        class="slds-m-left_x-small">
+                    </lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+</template>
