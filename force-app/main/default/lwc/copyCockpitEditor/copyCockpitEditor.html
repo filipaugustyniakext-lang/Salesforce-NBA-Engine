@@ -436,7 +436,7 @@
                     </div>
                     <div class="slds-panel__body">
                         <template lwc:if={paletteEmpty}>
-                            <p class="slds-p-around_small slds-text-body_small slds-text-color_weak">This template has no components defined.</p>
+                            <p class="slds-p-around_small slds-text-body_small slds-text-color_weak">{paletteEmptyMessage}</p>
                         </template>
                         <template for:each={blockGroups} for:item="grp">
                             <div key={grp.group} class="slds-panel__section editor-block-section">

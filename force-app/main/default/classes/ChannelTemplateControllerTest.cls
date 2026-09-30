@@ -476,6 +476,33 @@ private class ChannelTemplateControllerTest {
         System.assertEquals(0, [SELECT COUNT() FROM ContentDocumentLink WHERE LinkedEntityId = :templateId]);
     }
 
+    @IsTest
+    static void previewActionShellValidatesWithoutComponentFiles() {
+        Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
+        Id templateId = createDraftTemplate(channel.Id, 'Shell Actions', 5);
+        String shell = '<div data-key="header" data-label="HEADER" data-preview-action="preload"><p>Fixed header</p></div>'
+            + '<div data-key="body" data-label="BODY" data-preview-action="expectContent"><p>Offer copy</p><img data-preview-field="image" src="https://example.com/a.png" alt=""></div>';
+        Id shellId = uploadFile(templateId, 'banner-shell.html', shell);
+        System.assertEquals(null, ChannelTemplateController.classifyUploadedFiles(
+            templateId, new List<Id>{ shellId }, 'SHELL_HTML'
+        ));
+
+        Test.startTest();
+        ChannelTemplateController.ValidationResponse response =
+            ChannelTemplateController.validateTemplate(templateId);
+        ChannelTemplateController.TemplateRenderSource source =
+            ChannelTemplateController.getTemplateRenderSource(templateId);
+        Test.stopTest();
+
+        System.assertEquals(true, response.valid, response.message);
+        System.assert(source.previewActions.contains('preload'));
+        System.assert(source.previewActions.contains('expectContent'));
+        System.assertEquals(1, source.blocks.size());
+        System.assertEquals('Content', source.blocks[0].type);
+        System.assertEquals('BODY', source.blocks[0].label);
+        System.assert(source.blocks[0].html.contains('Offer copy'));
+    }
+
     private static Id createDraftTemplate(Id channelId, String name, Decimal version) {
         return ChannelTemplateController.saveTemplate(
             new Channel_Template__c(Name = name, Status__c = 'Draft', Version__c = version),

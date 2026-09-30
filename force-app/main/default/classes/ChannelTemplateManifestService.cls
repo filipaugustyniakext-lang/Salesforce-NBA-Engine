@@ -68,6 +68,23 @@ public with sharing class ChannelTemplateManifestService {
             );
         }
         if (manifestAsset == null) {
+            if (shellHtmlAsset != null && hasPreviewAction(shellHtmlAsset.body) && !shellExpectsBlocks(shellHtmlAsset.body)) {
+                result.manifestJson = JSON.serialize(new Map<String, Object>{
+                    'schemaVersion' => '2.0',
+                    'components' => new List<Object>()
+                });
+                result.packageId = packageIdFor(templateRecord.Name);
+                Integer majorVersion = templateRecord.Version__c == null || templateRecord.Version__c < 1
+                    ? 1
+                    : templateRecord.Version__c.intValue();
+                result.semVer = majorVersion + '.0.0';
+                result.compilerVersion = defaultCompiler(channelType);
+                return finish(result, errors, assets);
+            }
+            if (shellHtmlAsset != null && shellExpectsBlocks(shellHtmlAsset.body)) {
+                errors.add('This shell expects dropped blocks. Upload an HTML file for each component authors can add.');
+                return finish(result, errors, assets);
+            }
             errors.add('Add components to the template catalog before validating or activating this template.');
             return finish(result, errors, assets);
         }
@@ -233,9 +250,13 @@ public with sharing class ChannelTemplateManifestService {
         if (normalizedChannel == 'email') {
             if (shellHtmlAsset == null || String.isBlank(shellHtmlAsset.body)) {
                 errors.add('Email packages require one non-empty Shell HTML file.');
-            } else if (!shellHtmlAsset.body.contains('{{CONTENT}}') && !hasBodySlot(shellHtmlAsset.body)) {
-                errors.add('Email Shell HTML must contain {{CONTENT}} or a BODY slot for message components.');
+            } else if (!shellAcceptsMessageContent(shellHtmlAsset.body)) {
+                errors.add('Email Shell HTML must contain {{CONTENT}}, a BODY slot, or data-preview-action on each section.');
+            } else if (shellExpectsBlocks(shellHtmlAsset.body) && !catalogHasComponents(manifest)) {
+                errors.add('This shell expects dropped blocks. Upload an HTML file for each component authors can add.');
             }
+        } else if (shellHtmlAsset != null && shellExpectsBlocks(shellHtmlAsset.body) && !catalogHasComponents(manifest)) {
+            errors.add('This shell expects dropped blocks. Upload an HTML file for each component authors can add.');
         }
         validateCatalogComponents(manifest, assetsByName, errors);
         return finish(result, errors, assets);
@@ -287,7 +308,33 @@ public with sharing class ChannelTemplateManifestService {
 
     private static Boolean hasBodySlot(String shell) {
         return Pattern.compile('(?i)data-label="BODY"').matcher(shell).find()
-            || shell.contains('data-key="49fwfqshzd9"');
+            || shell.contains('data-key="49fwfqshzd9"')
+            || shellExpectsBlocks(shell);
+    }
+
+    private static Boolean shellAcceptsMessageContent(String shell) {
+        return shell != null && (
+            shell.contains('{{CONTENT}}')
+            || hasBodySlot(shell)
+            || hasPreviewAction(shell)
+        );
+    }
+
+    private static Boolean hasPreviewAction(String shell) {
+        return Pattern.compile('(?i)data-preview-action\\s*=\\s*"(preload|expectBlocks|expectContent)"')
+            .matcher(String.valueOf(shell))
+            .find();
+    }
+
+    private static Boolean shellExpectsBlocks(String shell) {
+        return Pattern.compile('(?i)data-preview-action\\s*=\\s*"expectBlocks"')
+            .matcher(String.valueOf(shell))
+            .find();
+    }
+
+    private static Boolean catalogHasComponents(Map<String, Object> manifest) {
+        Object rawComponents = manifest == null ? null : manifest.get('components');
+        return rawComponents instanceof List<Object> && !((List<Object>) rawComponents).isEmpty();
     }
 
     private static String packageIdFor(String name) {
@@ -341,8 +388,8 @@ public with sharing class ChannelTemplateManifestService {
         Boolean hasDeclaredSlot = String.isNotBlank(bodySlotKey)
             && shellHtmlAsset.body.contains('data-key="' + bodySlotKey + '"');
         Boolean hasFallback = shellHtmlAsset.body.contains(fallbackPlaceholder);
-        if (!hasDeclaredSlot && !hasFallback) {
-            errors.add('Email Shell HTML does not contain its declared BODY slot or fallback placeholder.');
+        if (!hasDeclaredSlot && !hasFallback && !hasPreviewAction(shellHtmlAsset.body)) {
+            errors.add('Email Shell HTML does not contain its declared BODY slot, fallback placeholder, or data-preview-action.');
         }
     }
 

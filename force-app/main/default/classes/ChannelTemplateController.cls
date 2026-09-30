@@ -629,6 +629,8 @@ public with sharing class ChannelTemplateController {
             }
         }
         source.bodySlotKey = detectBodySlotKey(source.shellHtml, source.bodySlotKey);
+        source.previewActions = previewActions(source.shellHtml);
+        addShellContentBlock(source);
         return source;
     }
 
@@ -643,6 +645,7 @@ public with sharing class ChannelTemplateController {
         @AuraEnabled public String name;
         @AuraEnabled public String shellHtml;
         @AuraEnabled public String bodySlotKey;
+        @AuraEnabled public List<String> previewActions = new List<String>();
         @AuraEnabled public List<RenderBlock> blocks = new List<RenderBlock>();
     }
 
@@ -698,6 +701,8 @@ public with sharing class ChannelTemplateController {
     }
 
     private static String detectBodySlotKey(String shell, String declaredKey) {
+        String expectBlocksKey = previewActionKey(shell, 'expectBlocks');
+        if (String.isNotBlank(expectBlocksKey)) return expectBlocksKey;
         if (String.isNotBlank(declaredKey)) return declaredKey;
         String source = String.valueOf(shell);
         Matcher keyBeforeLabel = Pattern.compile('data-key="([^"]+)"[^>]*data-label="BODY"').matcher(source);
@@ -705,6 +710,77 @@ public with sharing class ChannelTemplateController {
         Matcher keyAfterLabel = Pattern.compile('data-label="BODY"[^>]*data-key="([^"]+)"').matcher(source);
         if (keyAfterLabel.find()) return keyAfterLabel.group(1);
         return '49fwfqshzd9';
+    }
+
+    private static List<String> previewActions(String shell) {
+        List<String> actions = new List<String>();
+        Matcher matcher = Pattern.compile('(?i)data-preview-action\\s*=\\s*"(preload|expectBlocks|expectContent)"')
+            .matcher(String.valueOf(shell));
+        while (matcher.find()) actions.add(matcher.group(1));
+        return actions;
+    }
+
+    private static String previewActionKey(String shell, String action) {
+        Matcher matcher = Pattern.compile('(?is)<div\\b[^>]*\\bdata-preview-action\\s*=\\s*"' + action + '"[^>]*>')
+            .matcher(String.valueOf(shell));
+        if (!matcher.find()) return '';
+        Matcher key = Pattern.compile('(?i)data-key="([^"]+)"').matcher(matcher.group(0));
+        return key.find() ? key.group(1) : '';
+    }
+
+    private static void addShellContentBlock(TemplateRenderSource source) {
+        if (source == null || source.blocks == null || !source.blocks.isEmpty()) return;
+        if (source.previewActions == null || !source.previewActions.contains('expectContent')) return;
+        if (source.previewActions.contains('expectBlocks')) return;
+        String inner = previewRegionInner(source.shellHtml, 'expectContent');
+        if (String.isBlank(inner)) return;
+        RenderBlock block = new RenderBlock();
+        block.type = 'Content';
+        block.label = previewRegionLabel(source.shellHtml, 'expectContent');
+        if (String.isBlank(block.label)) block.label = 'Content';
+        block.description = 'Content from the shell layout.';
+        block.icon = 'utility:edit';
+        block.componentGroup = 'Content';
+        block.html = inner;
+        source.blocks.add(block);
+    }
+
+    private static String previewRegionLabel(String shell, String action) {
+        Matcher matcher = Pattern.compile('(?is)<div\\b[^>]*\\bdata-preview-action\\s*=\\s*"' + action + '"[^>]*>')
+            .matcher(String.valueOf(shell));
+        if (!matcher.find()) return '';
+        Matcher label = Pattern.compile('(?i)data-label="([^"]*)"').matcher(matcher.group(0));
+        return label.find() ? label.group(1) : '';
+    }
+
+    private static String previewRegionInner(String shell, String action) {
+        String source = String.valueOf(shell);
+        Matcher matcher = Pattern.compile('(?is)<div\\b[^>]*\\bdata-preview-action\\s*=\\s*"' + action + '"[^>]*>')
+            .matcher(source);
+        if (!matcher.find()) return '';
+        Integer openEnd = matcher.end();
+        Integer closeAt = matchingDivClose(source, openEnd);
+        if (closeAt < 0 || closeAt < openEnd) return '';
+        return source.substring(openEnd, closeAt);
+    }
+
+    private static Integer matchingDivClose(String html, Integer fromIndex) {
+        Integer depth = 1;
+        Integer index = fromIndex;
+        while (index < html.length() && depth > 0) {
+            Integer nextOpen = html.indexOf('<div', index);
+            Integer nextClose = html.indexOf('</div>', index);
+            if (nextClose < 0) return -1;
+            if (nextOpen >= 0 && nextOpen < nextClose) {
+                depth++;
+                index = nextOpen + 4;
+            } else {
+                depth--;
+                if (depth == 0) return nextClose;
+                index = nextClose + 6;
+            }
+        }
+        return -1;
     }
 
     private static String defaultComponentIcon(String type) {

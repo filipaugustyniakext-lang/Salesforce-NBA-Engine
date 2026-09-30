@@ -4,7 +4,7 @@ export function renderTemplatePreview(source, blocks, device) {
     const templates = new Map((source.blocks || []).map(block => [block.type, block.html || '']));
     const visible = (blocks || []).filter(block => isVisibleOnDevice(block, device));
     const rendered = visible.map(block => renderBlock(block, templates.get(block.blockType) || '')).join('');
-    return stripExecutableMarkup(injectBody(shell, rendered, source.bodySlotKey));
+    return stripExecutableMarkup(applyPreviewActions(shell, rendered, visible, source?.bodySlotKey));
 }
 
 const PREVIEW_SCOPE = '.cc-preview';
@@ -160,6 +160,113 @@ function renderBlock(block, template) {
     return template.replace(/\{\{([A-Za-z0-9_.:-]+)\}\}/g, (match, name) => (
         Object.prototype.hasOwnProperty.call(values, name) ? values[name] : ''
     ));
+}
+
+const PREVIEW_ACTION = /<div\b[^>]*\bdata-preview-action\s*=\s*(['"])(preload|expectBlocks|expectContent)\1[^>]*>/gi;
+
+function applyPreviewActions(shell, blockHtml, blocks, slotKey) {
+    const regions = findPreviewRegions(shell);
+    if (!regions.length) return injectBody(shell, blockHtml, slotKey);
+    const hasExpectBlocks = regions.some(region => region.action === 'expectBlocks');
+    const customized = (blocks || []).some(block => hasCustomContent(block));
+    let html = shell;
+    let blocksPlaced = false;
+    const ordered = regions.slice().sort((left, right) => right.openStart - left.openStart);
+    ordered.forEach(region => {
+        if (region.action === 'preload') return;
+        if (region.action === 'expectBlocks') {
+            const inner = blocksPlaced ? '' : blockHtml;
+            blocksPlaced = true;
+            html = replaceRegionInner(html, region, inner);
+            return;
+        }
+        if (region.action === 'expectContent' && !hasExpectBlocks && customized && region === regions.find(item => item.action === 'expectContent')) {
+            const template = html.slice(region.openEnd, region.closeStart);
+            const filled = (blocks || []).map(block => fillExpectContent(template, block)).join('');
+            html = replaceRegionInner(html, region, filled);
+        }
+    });
+    return html;
+}
+
+function findPreviewRegions(html) {
+    const regions = [];
+    PREVIEW_ACTION.lastIndex = 0;
+    let match = PREVIEW_ACTION.exec(html);
+    while (match) {
+        const openEnd = match.index + match[0].length;
+        const closeStart = matchingDivClose(html, openEnd);
+        if (closeStart >= 0) {
+            regions.push({
+                action: match[2],
+                openStart: match.index,
+                openEnd,
+                closeStart
+            });
+        }
+        match = PREVIEW_ACTION.exec(html);
+    }
+    PREVIEW_ACTION.lastIndex = 0;
+    return regions;
+}
+
+function matchingDivClose(html, from) {
+    let depth = 1;
+    const tags = /<\/?div\b[^>]*>/gi;
+    tags.lastIndex = from;
+    let match = tags.exec(html);
+    while (match) {
+        depth += match[0].startsWith('</') ? -1 : 1;
+        if (depth === 0) return match.index;
+        match = tags.exec(html);
+    }
+    return -1;
+}
+
+function replaceRegionInner(html, region, inner) {
+    return html.slice(0, region.openEnd) + inner + html.slice(region.closeStart);
+}
+
+function hasCustomContent(block) {
+    return ['copyText', 'imageUrl', 'altText', 'legalText'].some(field => String(block?.[field] || '').trim());
+}
+
+function fillExpectContent(template, block) {
+    let html = /\{\{[A-Za-z0-9_.:-]+\}\}/.test(template) ? renderBlock(block, template) : template;
+    const copy = richText(block.copyText || '');
+    const legal = richText(block.legalText || '');
+    const image = safeUrl(block.imageUrl);
+    const alt = escapeHtml(block.altText || '');
+    if (copy && /data-preview-field\s*=\s*(['"])copy\1/i.test(html)) {
+        html = replacePreviewField(html, 'copy', copy);
+    } else if (copy && !/\{\{RICH_TEXT_ROWS\}\}/.test(template)) {
+        html = html.replace(/(<p\b[^>]*>)([\s\S]*?)(<\/p>)/i, `$1${copy}$3`);
+    }
+    if (legal && /data-preview-field\s*=\s*(['"])legal\1/i.test(html)) {
+        html = replacePreviewField(html, 'legal', legal);
+    }
+    if (image && /data-preview-field\s*=\s*(['"])image\1/i.test(html)) {
+        html = html.replace(/<img\b[^>]*data-preview-field\s*=\s*(['"])image\1[^>]*>/i, (tag) => {
+            let next = /\ssrc\s*=/i.test(tag)
+                ? tag.replace(/\ssrc\s*=\s*(['"])[^'"]*\1/i, ` src="${image}"`)
+                : tag.replace(/<img\b/i, `<img src="${image}"`);
+            if (alt) {
+                next = /\salt\s*=/i.test(next)
+                    ? next.replace(/\salt\s*=\s*(['"])[^'"]*\1/i, ` alt="${alt}"`)
+                    : next.replace(/<img\b/i, `<img alt="${alt}"`);
+            }
+            return next;
+        });
+    }
+    return html;
+}
+
+function replacePreviewField(html, field, value) {
+    const pattern = new RegExp(
+        `(data-preview-field\\s*=\\s*(['"])${field}\\2[^>]*>)([\\s\\S]*?)(</)`,
+        'i'
+    );
+    return html.replace(pattern, `$1${value}$4`);
 }
 
 function injectBody(shell, content, slotKey) {

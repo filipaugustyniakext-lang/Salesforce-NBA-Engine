@@ -173,7 +173,7 @@
                         <div class="template-upload-section">
                             <h3 class="slds-text-heading_small">Template Shell Files</h3>
                             <p class="slds-text-body_small slds-text-color_weak">
-                                Attach HTML, CSS, or JS source when this channel uses a file-based shell. Email HTML should contain <span class="template-token">{contentPlaceholder}</span> where message components are inserted. An existing BODY slot is also accepted. JavaScript is stored as source only and is not executed by Copy Center.
+                                Upload one shell HTML file. Mark each section with data-preview-action="preload", "expectBlocks", or "expectContent". Preload sections render as designed and stay fixed. expectBlocks stays empty until an author drops components. expectContent renders immediately and stays editable. CSS and JavaScript are optional. JavaScript is stored as source only and is not executed by Copy Center.
                             </p>
                             <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">
                                 Salesforce Setup must allow HTML uploads as attachments and document records.
@@ -260,7 +260,7 @@
                         <div class="template-upload-section">
                             <h3 class="slds-text-heading_small">Components</h3>
                             <p class="slds-text-body_small slds-text-color_weak">
-                                Upload an HTML fragment for each component this template accepts, then name it for the message editor.
+                                Upload HTML only for sections marked expectBlocks. Preload and expectContent sections live in the shell, so they do not need separate files. A banner or other single layout uses expectContent and does not need component files.
                             </p>
                             <template lwc:if={contentBlockAssets.length}>
                                 <ul class="template-assets">

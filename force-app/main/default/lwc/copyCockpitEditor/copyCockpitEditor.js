@@ -330,7 +330,12 @@ export default class CopyCockpitEditor extends LightningElement {
     get leftToolbarToggleClass() {
         return 'slds-button slds-button_icon slds-button_icon-border' + (this._leftOpen ? ' slds-is-selected' : '');
     }
+    get isSingleContentLayout() {
+        const actions = this._renderSource?.previewActions || [];
+        return actions.includes('expectContent') && !actions.includes('expectBlocks');
+    }
     get availablePaletteBlocks() {
+        if (this.isSingleContentLayout) return [];
         const templateBlocks = this._renderSource?.blocks || [];
         if (!this._renderSource) return PALETTE_BLOCKS;
         return templateBlocks.filter(block => block.type).map(block => {
@@ -349,6 +354,12 @@ export default class CopyCockpitEditor extends LightningElement {
 
     get paletteEmpty() {
         return !!this._renderSource && this.availablePaletteBlocks.length === 0;
+    }
+    get paletteEmptyMessage() {
+        if (this.isSingleContentLayout) {
+            return 'This layout comes from the shell. Edit its content on the canvas. Sections marked preload stay as designed.';
+        }
+        return 'This template has no components defined.';
     }
 
     get blockGroups() { return groupBlocks(this.availablePaletteBlocks); }
@@ -416,8 +427,8 @@ export default class CopyCockpitEditor extends LightningElement {
             altText: b.altText || '',
             legalText: b.legalText || '',
             spacerHeight: b.spacerHeight || '20',
-            showCopy: b.blockType === 'RichText' || b.blockType === 'TextImage' || b.blockType === 'Banner' || b.blockType === 'Prefooter',
-            showImage: b.blockType === 'Image' || b.blockType === 'TextImage' || b.blockType === 'Banner',
+            showCopy: b.blockType === 'RichText' || b.blockType === 'TextImage' || b.blockType === 'Banner' || b.blockType === 'Prefooter' || b.blockType === 'Content',
+            showImage: b.blockType === 'Image' || b.blockType === 'TextImage' || b.blockType === 'Banner' || b.blockType === 'Content',
             showLegal: b.blockType === 'Prefooter',
             showSpacer: b.blockType === 'Spacer',
             missingBlockTemplate: !!this._renderSource?.shellHtml && !this._templateBlockTypes.has(b.blockType),
@@ -1005,6 +1016,22 @@ export default class CopyCockpitEditor extends LightningElement {
         host._previewStamp = stamp;
     }
 
+    _seedSingleContentBlock() {
+        if (!this.isSingleContentLayout || this._canvasBlocks.length) return;
+        const block = (this._renderSource?.blocks || [])[0];
+        if (!block?.type) return;
+        const instance = makeInstance(block.type, [{
+            id: block.type,
+            blockType: block.type,
+            group: block.componentGroup || 'Content',
+            label: block.label || 'Content',
+            icon: block.icon || 'utility:edit',
+            description: block.description || 'Edit the layout content from the shell.'
+        }]);
+        this._canvasBlocks = [instance];
+        this._activeBlockId = instance.instanceId;
+    }
+
     _loadRenderSource() {
         const templateId = this._record?.Source_Template__c;
         this._renderSource = null;
@@ -1012,7 +1039,10 @@ export default class CopyCockpitEditor extends LightningElement {
         if (!templateId) return;
         this._renderSourceLoading = true;
         getTemplateRenderSource({ templateId })
-            .then(source => { this._renderSource = source; })
+            .then(source => {
+                this._renderSource = source;
+                this._seedSingleContentBlock();
+            })
             .catch(err => {
                 this._renderSourceError = err?.body?.message || 'Could not load the source template.';
             })
