@@ -302,16 +302,19 @@ public with sharing class ChannelTemplateController {
             SELECT ContentDocument.Title, ContentDocument.LatestPublishedVersionId
             FROM ContentDocumentLink
             WHERE LinkedEntityId = :templateId
-              AND ContentDocument.Title LIKE '[CONTENT\\_BLOCK]%' ESCAPE '\\'
         ];
         Set<Id> versionIds = new Set<Id>();
-        for (ContentDocumentLink link : links) versionIds.add(link.ContentDocument.LatestPublishedVersionId);
+        for (ContentDocumentLink link : links) {
+            if (!isContentBlockTitle(link.ContentDocument.Title)) continue;
+            versionIds.add(link.ContentDocument.LatestPublishedVersionId);
+        }
         Map<Id, ContentVersion> versions = versionIds.isEmpty()
             ? new Map<Id, ContentVersion>()
             : new Map<Id, ContentVersion>([
                 SELECT Id, VersionData FROM ContentVersion WHERE Id IN :versionIds
             ]);
         for (ContentDocumentLink link : links) {
+            if (!isContentBlockTitle(link.ContentDocument.Title)) continue;
             ContentVersion version = versions.get(link.ContentDocument.LatestPublishedVersionId);
             FilePlaceholders scan = new FilePlaceholders();
             scan.fileName = stripKnownPrefix(link.ContentDocument.Title);
@@ -802,22 +805,29 @@ public with sharing class ChannelTemplateController {
         return names;
     }
 
+    private static Boolean isContentBlockTitle(String title) {
+        return title != null && title.startsWith(ASSET_PREFIXES.get('CONTENT_BLOCK'));
+    }
+
     private static Map<String, String> contentBlockBodies(Id templateId) {
         Map<String, String> bodies = new Map<String, String>();
         List<ContentDocumentLink> links = [
             SELECT ContentDocument.Title, ContentDocument.LatestPublishedVersionId
             FROM ContentDocumentLink
             WHERE LinkedEntityId = :templateId
-              AND ContentDocument.Title LIKE '[CONTENT\\_BLOCK]%' ESCAPE '\\'
         ];
         Set<Id> versionIds = new Set<Id>();
-        for (ContentDocumentLink link : links) versionIds.add(link.ContentDocument.LatestPublishedVersionId);
+        for (ContentDocumentLink link : links) {
+            if (!isContentBlockTitle(link.ContentDocument.Title)) continue;
+            versionIds.add(link.ContentDocument.LatestPublishedVersionId);
+        }
         Map<Id, ContentVersion> versions = versionIds.isEmpty()
             ? new Map<Id, ContentVersion>()
             : new Map<Id, ContentVersion>([
                 SELECT Id, VersionData FROM ContentVersion WHERE Id IN :versionIds
             ]);
         for (ContentDocumentLink link : links) {
+            if (!isContentBlockTitle(link.ContentDocument.Title)) continue;
             ContentVersion version = versions.get(link.ContentDocument.LatestPublishedVersionId);
             if (version == null || version.VersionData == null) continue;
             String html = version.VersionData.toString();
