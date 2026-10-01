@@ -300,7 +300,6 @@ private class ChannelTemplateControllerTest {
                     'description' => 'Opening paragraph',
                     'icon' => 'utility:display_rich_text',
                     'fileName' => 'SFMC_CB_Email_RichText.html',
-                    'blockSettings' => new List<String>{ 'padding', 'viewDesktop' },
                     'bindings' => new List<Object>{
                         new Map<String, Object>{
                             'placeholder' => 'RICH_TEXT_ROWS',

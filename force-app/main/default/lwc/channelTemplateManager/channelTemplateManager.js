@@ -19,32 +19,16 @@ const COMPONENT_TYPES = [
     { value: 'Spacer', label: 'Spacer', icon: 'utility:spacer', description: 'Vertical space between components.', group: 'Layout' }
 ];
 
-const COMPONENT_ICONS = [
-    'utility:display_rich_text',
-    'utility:image',
-    'utility:layout_card',
-    'utility:layout_banner',
-    'utility:note',
-    'utility:spacer',
-    'utility:text',
-    'utility:page',
-    'utility:rows',
-    'utility:advertising'
+const CONTENT_SOURCES = [
+    { value: '', label: 'Not bound' },
+    { value: 'copy', label: 'Copy' },
+    { value: 'imageUrl', label: 'Image URL' },
+    { value: 'altText', label: 'Alt text' },
+    { value: 'legal', label: 'Legal copy' }
 ];
 
-const BINDING_SOURCES = [
-    { value: 'copy', label: 'Content Settings · Copy' },
-    { value: 'imageUrl', label: 'Content Settings · Image URL' },
-    { value: 'altText', label: 'Content Settings · Alt text' },
-    { value: 'legal', label: 'Content Settings · Legal copy' },
-    { value: 'viewDesktop', label: 'Block Settings · View on desktop (desktopHide or empty)' },
-    { value: 'viewMobile', label: 'Block Settings · View on mobile (mobileHide or empty)' },
-    { value: 'padding', label: 'Block Settings · Padding (20px 40px 20px 40px)' },
-    { value: 'background', label: 'Block Settings · Background (entered value)' },
-    { value: 'columnLayout', label: 'Block Settings · Column layout (ltr or rtl)' },
-    { value: 'heightDesktop', label: 'Block Settings · Height on desktop (240px)' },
-    { value: 'heightMobile', label: 'Block Settings · Height on mobile (180px)' }
-];
+const ICON_PATTERN = /^(utility|doctype|standard|custom|action):[A-Za-z0-9_]+$/;
+const TYPE_PATTERN = /^[A-Za-z][A-Za-z0-9_]{0,79}$/;
 
 const BLOCK_SETTINGS = [
     { id: 'viewDesktop', label: 'View on desktop', hint: 'Hide writes desktopHide. Show writes nothing.' },
@@ -56,13 +40,14 @@ const BLOCK_SETTINGS = [
     { id: 'heightMobile', label: 'Block height on mobile', hint: 'Writes a pixel height, for example 180px.' }
 ];
 
-const BLOCK_SETTING_IDS = new Set(BLOCK_SETTINGS.map(setting => setting.id));
 const CONTENT_SOURCE_IDS = new Set(['copy', 'imageUrl', 'altText', 'legal']);
 
-function defaultBlockSettings(type) {
-    const settings = ['viewDesktop', 'viewMobile', 'padding', 'background'];
-    if (type === 'TextImage') settings.push('columnLayout');
-    return settings;
+function componentTypeToken(label, fileName) {
+    const source = (String(label || '').trim() || fileName || 'Block').replace(/\.html$/i, '');
+    let token = source.replace(/[^A-Za-z0-9_]+/g, '');
+    if (!/^[A-Za-z]/.test(token)) token = `Block${token}`;
+    if (!token) token = 'Block';
+    return token.substring(0, 80);
 }
 
 function bindingMap(bindings) {
@@ -197,42 +182,29 @@ export default class ChannelTemplateManager extends LightningElement {
         return this._assetsOfType('UNCLASSIFIED');
     }
 
-    get componentTypeOptions() {
-        return COMPONENT_TYPES.map(type => ({ label: type.label, value: type.value }));
-    }
-
-    get componentIconOptions() {
-        return COMPONENT_ICONS.map(icon => ({ label: icon.replace('utility:', ''), value: icon }));
-    }
-
     get hasCatalogRows() {
         return this.catalogRows.length > 0;
     }
 
     get catalogView() {
+        const editingLocked = this.isEditingActive;
         return this.catalogRows.map(row => {
-            const settings = Array.isArray(row.blockSettings) ? row.blockSettings : defaultBlockSettings(row.type);
+            const settings = Array.isArray(row.blockSettings) ? row.blockSettings : [];
             const placeholders = row.placeholders;
+            const bindings = row.bindings || {};
+            const names = placeholders || [];
             const status = row.status || 'Draft';
             const contentActive = (row.activeTab || 'content') === 'content';
-            const contentBindingRows = [];
-            const blockBindingRows = [];
-            (placeholders || []).forEach(name => {
-                const source = (row.bindings || {})[name] || '';
-                const entry = {
+            const contentBindingRows = names
+                .filter(name => !bindings[name] || CONTENT_SOURCE_IDS.has(bindings[name]))
+                .map(name => ({
+                    key: `${row.fileName}:${name}:content`,
                     fileName: row.fileName,
                     name,
                     token: `{{${name}}}`,
-                    source,
-                    sourceOptions: BINDING_SOURCES
-                };
-                if (!source || CONTENT_SOURCE_IDS.has(source)) {
-                    contentBindingRows.push({ ...entry, key: `${row.fileName}:${name}:content` });
-                }
-                if (!source || !CONTENT_SOURCE_IDS.has(source)) {
-                    blockBindingRows.push({ ...entry, key: `${row.fileName}:${name}:block` });
-                }
-            });
+                    source: bindings[name] || '',
+                    sourceOptions: CONTENT_SOURCES
+                }));
             return {
                 ...row,
                 status,
@@ -240,27 +212,43 @@ export default class ChannelTemplateManager extends LightningElement {
                 statusIcon: status === 'Active' ? 'utility:success' : status === 'Ready' ? 'utility:check' : 'utility:warning',
                 statusIconVariant: status === 'Draft' ? 'warning' : 'success',
                 expanded: this.expandedFile === row.fileName,
-                cardClass: 'slds-card component-card' + (this.expandedFile === row.fileName ? ' component-card_expanded' : ''),
+                cardClass: 'slds-card component-card',
                 placeholdersLoading: placeholders == null,
                 hasPlaceholders: Array.isArray(placeholders) && placeholders.length > 0,
                 noPlaceholders: Array.isArray(placeholders) && placeholders.length === 0,
                 contentBindingRows,
-                blockBindingRows,
                 hasContentBindings: contentBindingRows.length > 0,
-                hasBlockBindings: blockBindingRows.length > 0,
                 contentTabClass: 'slds-tabs_default__item' + (contentActive ? ' slds-is-active' : ''),
                 settingsTabClass: 'slds-tabs_default__item' + (contentActive ? '' : ' slds-is-active'),
                 contentTabSelected: contentActive,
                 settingsTabSelected: !contentActive,
                 contentPanelStyle: contentActive ? '' : 'display:none',
                 settingsPanelStyle: contentActive ? 'display:none' : '',
-                activateDisabled: status !== 'Ready' || this.isEditingActive || this.isSaving,
-                settingChoices: BLOCK_SETTINGS.map(setting => ({
-                    ...setting,
-                    key: `${row.fileName}:${setting.id}`,
-                    fileName: row.fileName,
-                    checked: settings.includes(setting.id)
-                }))
+                activateDisabled: status !== 'Ready' || editingLocked || this.isSaving,
+                settingChoices: BLOCK_SETTINGS.map(setting => {
+                    const checked = settings.includes(setting.id);
+                    const placeholderChoices = names
+                        .filter(name => !bindings[name] || bindings[name] === setting.id)
+                        .map(name => ({
+                            key: `${row.fileName}:${setting.id}:${name}`,
+                            fileName: row.fileName,
+                            setting: setting.id,
+                            name,
+                            token: `{{${name}}}`,
+                            checked: bindings[name] === setting.id,
+                            disabled: !checked || editingLocked
+                        }));
+                    return {
+                        ...setting,
+                        key: `${row.fileName}:${setting.id}`,
+                        fileName: row.fileName,
+                        checked,
+                        choiceClass: 'block-setting-choice' + (checked ? ' block-setting-choice_active' : ''),
+                        placeholderChoices,
+                        hasPlaceholderChoices: placeholderChoices.length > 0,
+                        bindingEmpty: Array.isArray(placeholders) && placeholders.length > 0 && placeholderChoices.length === 0
+                    };
+                })
             };
         });
     }
@@ -400,15 +388,8 @@ export default class ChannelTemplateManager extends LightningElement {
         const value = event.detail?.value ?? event.target?.value ?? '';
         this.catalogRows = this.catalogRows.map(row => {
             if (row.fileName !== fileName) return row;
-            const next = this._touchCard({ ...row, [field]: value });
-            if (field === 'type') {
-                const defaults = COMPONENT_TYPES.find(type => type.value === value);
-                if (!defaults) return next;
-                if (!row.label || COMPONENT_TYPES.some(type => type.label === row.label)) next.label = defaults.label;
-                if (!row.description || COMPONENT_TYPES.some(type => type.description === row.description)) next.description = defaults.description;
-                if (!row.icon || row.icon === 'utility:page' || COMPONENT_TYPES.some(type => type.icon === row.icon)) next.icon = defaults.icon;
-            }
-            return next;
+            const nextValue = field === 'icon' ? String(value).trim() : value;
+            return this._touchCard({ ...row, [field]: nextValue });
         });
     }
 
@@ -416,12 +397,14 @@ export default class ChannelTemplateManager extends LightningElement {
         const fileName = event.currentTarget.dataset.file;
         const placeholder = event.currentTarget.dataset.placeholder;
         const source = event.detail?.value ?? '';
+        if (source && !CONTENT_SOURCE_IDS.has(source)) return;
         this.catalogRows = this.catalogRows.map(row => {
             if (row.fileName !== fileName) return row;
-            const bindings = { ...(row.bindings || {}), [placeholder]: source };
-            let blockSettings = Array.isArray(row.blockSettings) ? [...row.blockSettings] : defaultBlockSettings(row.type);
-            if (BLOCK_SETTING_IDS.has(source) && !blockSettings.includes(source)) blockSettings = [...blockSettings, source];
-            return this._touchCard({ ...row, bindings, blockSettings, legacy: false });
+            const bindings = { ...(row.bindings || {}) };
+            const current = bindings[placeholder] || '';
+            if (current && !CONTENT_SOURCE_IDS.has(current)) return row;
+            bindings[placeholder] = source;
+            return this._touchCard({ ...row, bindings, legacy: false });
         });
     }
 
@@ -445,14 +428,42 @@ export default class ChannelTemplateManager extends LightningElement {
         const checked = event.detail?.checked ?? event.target.checked;
         this.catalogRows = this.catalogRows.map(row => {
             if (row.fileName !== fileName) return row;
-            const current = new Set(Array.isArray(row.blockSettings) ? row.blockSettings : defaultBlockSettings(row.type));
+            const current = new Set(Array.isArray(row.blockSettings) ? row.blockSettings : []);
+            const bindings = { ...(row.bindings || {}) };
             if (checked) current.add(setting);
-            else current.delete(setting);
+            else {
+                current.delete(setting);
+                Object.keys(bindings).forEach(name => {
+                    if (bindings[name] === setting) bindings[name] = '';
+                });
+            }
             return this._touchCard({
                 ...row,
+                bindings,
                 blockSettings: BLOCK_SETTINGS.map(item => item.id).filter(id => current.has(id)),
                 legacy: false
             });
+        });
+    }
+
+    handleSettingBindingChange(event) {
+        const fileName = event.currentTarget.dataset.file;
+        const setting = event.currentTarget.dataset.setting;
+        const placeholder = event.currentTarget.dataset.placeholder;
+        const checked = event.detail?.checked ?? event.target.checked;
+        this.catalogRows = this.catalogRows.map(row => {
+            if (row.fileName !== fileName) return row;
+            const bindings = { ...(row.bindings || {}) };
+            const current = bindings[placeholder] || '';
+            let blockSettings = Array.isArray(row.blockSettings) ? [...row.blockSettings] : [];
+            if (checked) {
+                if (current && current !== setting) return row;
+                bindings[placeholder] = setting;
+                if (!blockSettings.includes(setting)) blockSettings = [...blockSettings, setting];
+            } else if (current === setting) {
+                bindings[placeholder] = '';
+            }
+            return this._touchCard({ ...row, bindings, blockSettings, legacy: false });
         });
     }
 
@@ -476,9 +487,10 @@ export default class ChannelTemplateManager extends LightningElement {
             return;
         }
         const nextStatus = row.status === 'Active' ? 'Active' : 'Ready';
+        const type = this._componentTypeFor(row);
         this.catalogRows = this.catalogRows.map(item => (
             item.fileName === fileName
-                ? { ...item, status: nextStatus, validationMessage: '' }
+                ? { ...item, type, status: nextStatus, validationMessage: '', icon: (item.icon || '').trim() }
                 : item
         ));
         try {
@@ -521,16 +533,41 @@ export default class ChannelTemplateManager extends LightningElement {
         return { ...row, status: 'Draft', validationMessage: '' };
     }
 
+    _componentTypeFor(row) {
+        const existing = String(row.type || '').trim();
+        if (TYPE_PATTERN.test(existing)) return existing;
+        let token = componentTypeToken(row.label, row.fileName);
+        const used = new Set(
+            this.catalogRows
+                .filter(item => item.fileName !== row.fileName && TYPE_PATTERN.test(item.type || ''))
+                .map(item => item.type.toLowerCase())
+        );
+        if (!used.has(token.toLowerCase())) return token;
+        let suffix = 2;
+        while (used.has(`${token}${suffix}`.toLowerCase()) && suffix < 100) suffix += 1;
+        return `${token}${suffix}`.substring(0, 80);
+    }
+
     _cardErrors(row) {
         const errors = [];
-        if (!row.type) errors.push('Choose a component.');
         if (!(row.label || '').trim()) errors.push('Content Block Name is required.');
         if (!(row.description || '').trim()) errors.push('Description is required.');
-        if (!row.icon) errors.push('Choose a block icon.');
+        if (!ICON_PATTERN.test((row.icon || '').trim())) {
+            errors.push('Enter an SLDS icon name such as utility:display_rich_text.');
+        }
         if (row.placeholders == null) errors.push('Placeholders are still loading.');
-        (row.placeholders || []).filter(name => !(row.bindings || {})[name]).forEach(name => {
+        const bindings = row.bindings || {};
+        (row.placeholders || []).filter(name => !bindings[name]).forEach(name => {
             errors.push(`Bind {{${name}}}.`);
         });
+        const names = row.placeholders || [];
+        if (names.length) {
+            (Array.isArray(row.blockSettings) ? row.blockSettings : []).forEach(setting => {
+                if (names.some(name => bindings[name] === setting)) return;
+                const label = BLOCK_SETTINGS.find(item => item.id === setting)?.label || setting;
+                errors.push(`Bind a placeholder to ${label}.`);
+            });
+        }
         return errors;
     }
 
@@ -543,7 +580,7 @@ export default class ChannelTemplateManager extends LightningElement {
             icon: row.icon || '',
             status: row.status || 'Draft',
             placeholders: row.placeholders || [],
-            blockSettings: Array.isArray(row.blockSettings) ? row.blockSettings : defaultBlockSettings(row.type),
+            blockSettings: Array.isArray(row.blockSettings) ? row.blockSettings : [],
             bindings: Object.entries(row.bindings || {})
                 .filter(([, source]) => source)
                 .map(([placeholder, source]) => ({ placeholder, source }))

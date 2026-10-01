@@ -303,19 +303,24 @@
                                                     <template lwc:if={row.validationMessage}>
                                                         <div class="slds-text-color_error slds-m-bottom_small">{row.validationMessage}</div>
                                                     </template>
-                                                    <div class="slds-grid slds-wrap slds-gutters_small">
-                                                        <div class="slds-col slds-size_1-of-2">
-                                                            <lightning-combobox label="Component" value={row.type} options={componentTypeOptions} data-file={row.fileName} data-field="type" disabled={isEditingActive} onchange={handleCatalogChange}></lightning-combobox>
-                                                        </div>
-                                                        <div class="slds-col slds-size_1-of-2">
-                                                            <lightning-combobox label="Block icon" value={row.icon} options={componentIconOptions} data-file={row.fileName} data-field="icon" disabled={isEditingActive} onchange={handleCatalogChange}></lightning-combobox>
-                                                        </div>
-                                                        <div class="slds-col slds-size_1-of-1 slds-m-top_x-small">
-                                                            <lightning-input label="Content Block Name" value={row.label} data-file={row.fileName} data-field="label" disabled={isEditingActive} onchange={handleCatalogChange}></lightning-input>
-                                                        </div>
-                                                        <div class="slds-col slds-size_1-of-1 slds-m-top_x-small">
-                                                            <lightning-textarea label="Description" value={row.description} data-file={row.fileName} data-field="description" disabled={isEditingActive} onchange={handleCatalogChange}></lightning-textarea>
-                                                        </div>
+                                                    <lightning-input label="Content Block Name" value={row.label} data-file={row.fileName} data-field="label" field-level-help="This name is the draggable component title in Copy Center." disabled={isEditingActive} onchange={handleCatalogChange}></lightning-input>
+                                                    <div class="slds-m-top_x-small">
+                                                        <lightning-textarea label="Description" value={row.description} data-file={row.fileName} data-field="description" field-level-help="This description is shown on the draggable component in Copy Center." disabled={isEditingActive} onchange={handleCatalogChange}></lightning-textarea>
+                                                    </div>
+                                                    <div class="slds-m-top_x-small">
+                                                        <lightning-input
+                                                            type="text"
+                                                            label="Block icon"
+                                                            value={row.icon}
+                                                            placeholder="utility:display_rich_text"
+                                                            pattern="(utility|doctype|standard|custom|action):[A-Za-z0-9_]+"
+                                                            message-when-pattern-mismatch="Use utility:name, doctype:name, standard:name, custom:name, or action:name."
+                                                            field-level-help="Type an SLDS icon name, for example utility:display_rich_text, doctype:html, standard:account, custom:custom1, or action:new."
+                                                            data-file={row.fileName}
+                                                            data-field="icon"
+                                                            disabled={isEditingActive}
+                                                            onchange={handleCatalogChange}>
+                                                        </lightning-input>
                                                     </div>
                                                     <div class="slds-tabs_default slds-m-top_medium">
                                                         <ul class="slds-tabs_default__nav" role="tablist">
@@ -327,7 +332,7 @@
                                                             </li>
                                                         </ul>
                                                         <div class="slds-tabs_default__content" role="tabpanel" style={row.contentPanelStyle}>
-                                                            <p class="slds-text-body_small slds-text-color_weak">Content field setup will appear here. Bind placeholders that should be filled from Content Settings.</p>
+                                                            <p class="slds-text-body_small slds-text-color_weak">Bind each placeholder to one content field. A placeholder used here cannot also be used by a block setting.</p>
                                                             <template lwc:if={row.placeholdersLoading}>
                                                                 <p class="slds-text-body_small slds-m-top_small">Reading placeholders from the HTML file.</p>
                                                             </template>
@@ -342,21 +347,35 @@
                                                             </template>
                                                         </div>
                                                         <div class="slds-tabs_default__content" role="tabpanel" style={row.settingsPanelStyle}>
-                                                            <p class="slds-text-body_small slds-text-color_weak">Choose which controls authors see. Binding a placeholder turns its setting on.</p>
+                                                            <p class="slds-text-body_small slds-text-color_weak">Turn on the controls authors see. Each enabled control needs one or more placeholders from this HTML file.</p>
                                                             <template for:each={row.settingChoices} for:item="choice">
-                                                                <div key={choice.key} class="block-setting-choice">
-                                                                    <lightning-input type="checkbox" label={choice.label} checked={choice.checked} data-file={choice.fileName} data-setting={choice.id} disabled={isEditingActive} onchange={handleSettingChange}></lightning-input>
+                                                                <div key={choice.key} class={choice.choiceClass}>
+                                                                    <lightning-input type="toggle" label={choice.label} checked={choice.checked} message-toggle-active="On" message-toggle-inactive="Off" data-file={choice.fileName} data-setting={choice.id} disabled={isEditingActive} onchange={handleSettingChange}></lightning-input>
                                                                     <p class="slds-text-body_small slds-text-color_weak">{choice.hint}</p>
-                                                                </div>
-                                                            </template>
-                                                            <template lwc:if={row.hasBlockBindings}>
-                                                                <h4 class="slds-text-heading_small slds-m-top_medium">Placeholder bindings</h4>
-                                                                <template for:each={row.blockBindingRows} for:item="binding">
-                                                                    <div key={binding.key} class="placeholder-bind">
-                                                                        <p class="placeholder-bind__token">{binding.token}</p>
-                                                                        <lightning-combobox label="Bind to" variant="label-hidden" placeholder="Select a block setting" value={binding.source} options={binding.sourceOptions} data-file={binding.fileName} data-placeholder={binding.name} disabled={isEditingActive} onchange={handleBindingChange}></lightning-combobox>
+                                                                    <div class="block-setting-choice-binding">
+                                                                        <div class="block-setting-choice-binding__inner">
+                                                                            <template lwc:if={choice.hasPlaceholderChoices}>
+                                                                                <p class="slds-text-body_small">Bind placeholders</p>
+                                                                            </template>
+                                                                            <template lwc:if={choice.bindingEmpty}>
+                                                                                <p class="slds-text-body_small slds-text-color_weak">No free placeholders. Each &#123;&#123;placeholder&#125;&#125; can be bound once.</p>
+                                                                            </template>
+                                                                            <template for:each={choice.placeholderChoices} for:item="placeholder">
+                                                                                <lightning-input
+                                                                                    key={placeholder.key}
+                                                                                    type="checkbox"
+                                                                                    label={placeholder.token}
+                                                                                    checked={placeholder.checked}
+                                                                                    data-file={placeholder.fileName}
+                                                                                    data-setting={placeholder.setting}
+                                                                                    data-placeholder={placeholder.name}
+                                                                                    disabled={placeholder.disabled}
+                                                                                    onchange={handleSettingBindingChange}>
+                                                                                </lightning-input>
+                                                                            </template>
+                                                                        </div>
                                                                     </div>
-                                                                </template>
+                                                                </div>
                                                             </template>
                                                         </div>
                                                     </div>

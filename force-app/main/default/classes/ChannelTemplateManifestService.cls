@@ -282,8 +282,8 @@ public with sharing class ChannelTemplateManifestService {
             String type = stringValue(component.get('type'));
             String fileName = stringValue(component.get('fileName'));
             String icon = stringValue(component.get('icon'));
-            if (String.isBlank(type) || !rendererFor(type).startsWith('email/')) {
-                errors.add('Each component needs a supported type.');
+            if (String.isBlank(type) || !Pattern.matches('[A-Za-z][A-Za-z0-9_]{0,79}', type)) {
+                errors.add('Each component needs a type that starts with a letter.');
                 continue;
             }
             if (types.contains(type.toLowerCase())) {
@@ -302,7 +302,7 @@ public with sharing class ChannelTemplateManifestService {
             if (asset == null || String.isBlank(asset.body)) {
                 errors.add('Component "' + type + '" references missing file "' + fileName + '".');
             }
-            if (String.isNotBlank(icon) && !Pattern.matches('utility:[a-z0-9_]+', icon)) {
+            if (String.isNotBlank(icon) && !Pattern.matches('(utility|doctype|standard|custom|action):[A-Za-z0-9_]+', icon)) {
                 errors.add('Component "' + type + '" has an unsupported icon.');
             }
             if (asset != null && component.containsKey('bindings')) {

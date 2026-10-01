@@ -236,33 +236,35 @@ public with sharing class ChannelTemplateController {
             if (String.isBlank(status)) status = 'Active';
             if (status != 'Draft' && status != 'Ready' && status != 'Active') status = 'Draft';
             Boolean publishable = status == 'Ready' || status == 'Active';
-            String type = textValue(row.get('type'));
-            if (publishable && (String.isBlank(type) || !SUPPORTED_COMPONENT_TYPES.contains(type))) {
-                throw new AuraHandledException('Choose a supported component for ' + fileName + '.');
-            }
-            if (String.isNotBlank(type) && !SUPPORTED_COMPONENT_TYPES.contains(type)) {
-                throw new AuraHandledException('Unsupported component type: ' + type);
-            }
-            if (publishable && types.contains(type)) {
-                throw new AuraHandledException('Component type ' + type + ' is already used.');
-            }
-            if (publishable) types.add(type);
             String label = textValue(row.get('label'));
             if (publishable && String.isBlank(label)) {
                 throw new AuraHandledException('Content Block Name is required for ' + fileName + '.');
             }
             if (label.length() > 80) label = label.substring(0, 80);
+            String type = textValue(row.get('type'));
+            if (publishable && String.isBlank(type)) type = componentTypeToken(label, fileName);
+            if (String.isNotBlank(type) && !isComponentType(type)) {
+                throw new AuraHandledException(
+                    'Component type for ' + fileName + ' must start with a letter and use only letters, numbers, and underscores.'
+                );
+            }
+            if (publishable && !isComponentType(type)) {
+                throw new AuraHandledException('Content Block Name is required for ' + fileName + '.');
+            }
+            if (publishable && types.contains(type.toLowerCase())) {
+                throw new AuraHandledException('Component type ' + type + ' is already used.');
+            }
+            if (publishable) types.add(type.toLowerCase());
             String description = textValue(row.get('description'));
             if (publishable && String.isBlank(description)) {
                 throw new AuraHandledException('Description is required for ' + fileName + '.');
             }
             if (description.length() > 255) description = description.substring(0, 255);
             String icon = textValue(row.get('icon'));
-            if (publishable && String.isBlank(icon)) {
-                throw new AuraHandledException('Choose a block icon for ' + fileName + '.');
-            }
-            if (String.isNotBlank(icon) && !Pattern.matches('utility:[a-z0-9_]+', icon)) {
-                throw new AuraHandledException('Choose an SLDS utility icon for ' + fileName + '.');
+            if (publishable && !isComponentIcon(icon)) {
+                throw new AuraHandledException(
+                    'Enter an SLDS icon name (utility, doctype, standard, custom, or action) for ' + fileName + '.'
+                );
             }
             List<PlaceholderBinding> bindings = readBindings(row.get('bindings'));
             List<String> blockSettings = readStringList(row.get('blockSettings'));
@@ -271,6 +273,21 @@ public with sharing class ChannelTemplateController {
                 ? readStringList(row.get('placeholders'))
                 : extractPlaceholders(blockHtml);
             if (publishable) assertPlaceholderBindings(type, placeholders, bindings);
+            if (publishable && !placeholders.isEmpty()) {
+                for (String setting : blockSettings) {
+                    if (!BLOCK_SETTING_SOURCES.contains(setting)) continue;
+                    Boolean mapped = false;
+                    for (PlaceholderBinding binding : bindings) {
+                        if (binding.source == setting) {
+                            mapped = true;
+                            break;
+                        }
+                    }
+                    if (!mapped) {
+                        throw new AuraHandledException('Bind a placeholder to ' + setting + ' for ' + fileName + '.');
+                    }
+                }
+            }
             Set<String> enabledSettings = new Set<String>(blockSettings);
             for (PlaceholderBinding binding : bindings) {
                 if (BLOCK_SETTING_SOURCES.contains(binding.source)) enabledSettings.add(binding.source);
@@ -753,9 +770,6 @@ public with sharing class ChannelTemplateController {
         @AuraEnabled public List<PlaceholderBinding> bindings;
     }
 
-    private static final Set<String> SUPPORTED_COMPONENT_TYPES = new Set<String>{
-        'RichText', 'Image', 'TextImage', 'Banner', 'Prefooter', 'Spacer'
-    };
     private static final List<String> BLOCK_SETTING_ORDER = new List<String>{
         'viewDesktop', 'viewMobile', 'padding', 'background', 'columnLayout', 'heightDesktop', 'heightMobile'
     };
@@ -764,6 +778,26 @@ public with sharing class ChannelTemplateController {
         'copy', 'imageUrl', 'altText', 'legal',
         'viewDesktop', 'viewMobile', 'padding', 'background', 'columnLayout', 'heightDesktop', 'heightMobile'
     };
+
+    private static Boolean isComponentType(String type) {
+        return String.isNotBlank(type) && Pattern.matches('[A-Za-z][A-Za-z0-9_]{0,79}', type);
+    }
+
+    private static Boolean isComponentIcon(String icon) {
+        return String.isNotBlank(icon)
+            && Pattern.matches('(utility|doctype|standard|custom|action):[A-Za-z0-9_]+', icon);
+    }
+
+    private static String componentTypeToken(String label, String fileName) {
+        String source = String.isNotBlank(label) ? label : fileName;
+        if (String.isBlank(source)) source = 'Block';
+        source = source.replaceAll('(?i)\\.html$', '');
+        String token = source.replaceAll('[^A-Za-z0-9_]', '');
+        if (String.isBlank(token) || !Pattern.matches('[A-Za-z].*', token)) {
+            token = 'Block' + (token == null ? '' : token);
+        }
+        return token.length() > 80 ? token.substring(0, 80) : token;
+    }
 
     private static List<String> readStringList(Object raw) {
         List<String> values = new List<String>();
