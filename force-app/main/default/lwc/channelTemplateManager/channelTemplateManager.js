@@ -9,6 +9,7 @@ import saveComponentCatalog from '@salesforce/apex/ChannelTemplateController.sav
 import getContentBlockPlaceholders from '@salesforce/apex/ChannelTemplateController.getContentBlockPlaceholders';
 import deleteTemplateAsset from '@salesforce/apex/ChannelTemplateController.deleteTemplateAsset';
 import deleteTemplate from '@salesforce/apex/ChannelTemplateController.deleteTemplate';
+import { parseContentBindings, dictionarySections, emptyContentStructure } from 'c/contentBindingModel';
 
 const COMPONENT_TYPES = [
     { value: 'RichText', label: 'Rich Text', icon: 'utility:display_rich_text', description: 'Formatted body copy with links and lists.', group: 'Content' },
@@ -40,7 +41,13 @@ const BLOCK_SETTINGS = [
     { id: 'heightMobile', label: 'Block height on mobile', hint: 'Writes a pixel height, for example 180px.' }
 ];
 
-const CONTENT_SOURCE_IDS = new Set(['copy', 'imageUrl', 'altText', 'legal']);
+const CONTENT_SOURCE_IDS = new Set([
+    'copy', 'imageUrl', 'altText', 'legal',
+    'iconListHeader', 'iconListIcon', 'iconListItem',
+    'imageSrc', 'imageAlt', 'imageHref', 'imageTarget',
+    'imageWidthDesktop', 'imageWidthMobile', 'imagePaddingDesktop', 'imagePaddingMobile',
+    'contentValue'
+]);
 
 function componentTypeToken(label, fileName) {
     const source = (String(label || '').trim() || fileName || 'Block').replace(/\.html$/i, '');
@@ -48,6 +55,17 @@ function componentTypeToken(label, fileName) {
     if (!/^[A-Za-z]/.test(token)) token = `Block${token}`;
     if (!token) token = 'Block';
     return token.substring(0, 80);
+}
+
+function bindingEntry(row, name, bindings) {
+    return {
+        key: `${row.fileName}:${name}:content`,
+        fileName: row.fileName,
+        name,
+        token: `{{${name}}}`,
+        source: (bindings || {})[name] || '',
+        sourceOptions: CONTENT_SOURCES
+    };
 }
 
 function bindingMap(bindings) {
@@ -195,16 +213,20 @@ export default class ChannelTemplateManager extends LightningElement {
             const names = placeholders || [];
             const status = row.status || 'Draft';
             const contentActive = (row.activeTab || 'content') === 'content';
+            const structure = row.htmlBody ? parseContentBindings(row.htmlBody) : emptyContentStructure();
+            const dictionary = dictionarySections(structure);
+            const claimed = new Set(Object.keys(structure.sources || {}));
+            const sectionLoose = new Set(dictionary.sections.flatMap(section => section.looseNames || []));
             const contentBindingRows = names
-                .filter(name => !bindings[name] || CONTENT_SOURCE_IDS.has(bindings[name]))
-                .map(name => ({
-                    key: `${row.fileName}:${name}:content`,
-                    fileName: row.fileName,
-                    name,
-                    token: `{{${name}}}`,
-                    source: bindings[name] || '',
-                    sourceOptions: CONTENT_SOURCES
-                }));
+                .filter(name => !claimed.has(name) && !sectionLoose.has(name) && (!bindings[name] || CONTENT_SOURCE_IDS.has(bindings[name])))
+                .map(name => bindingEntry(row, name, bindings));
+            const contentSections = dictionary.sections.map(section => ({
+                ...section,
+                key: `${row.fileName}:${section.key}`,
+                looseBindings: (section.looseNames || [])
+                    .filter(name => !claimed.has(name))
+                    .map(name => bindingEntry(row, name, bindings))
+            }));
             return {
                 ...row,
                 status,
@@ -218,6 +240,8 @@ export default class ChannelTemplateManager extends LightningElement {
                 noPlaceholders: Array.isArray(placeholders) && placeholders.length === 0,
                 contentBindingRows,
                 hasContentBindings: contentBindingRows.length > 0,
+                hasColumnSections: dictionary.hasColumnSections,
+                contentSections,
                 contentTabClass: 'slds-tabs_default__item' + (contentActive ? ' slds-is-active' : ''),
                 settingsTabClass: 'slds-tabs_default__item' + (contentActive ? '' : ' slds-is-active'),
                 contentTabSelected: contentActive,
@@ -681,15 +705,21 @@ export default class ChannelTemplateManager extends LightningElement {
         this.placeholdersLoading = true;
         try {
             const scans = await getContentBlockPlaceholders({ templateId: this.editTemplate.Id });
-            const byFile = new Map((scans || []).map(scan => [this._fileKey(scan.fileName), scan.placeholders || []]));
+            const byFile = new Map((scans || []).map(scan => [this._fileKey(scan.fileName), scan]));
             this.catalogRows = this.catalogRows.map(row => {
-                const found = byFile.get(this._fileKey(row.fileName));
-                if (!found) return { ...row, placeholders: row.placeholders || [] };
+                const scan = byFile.get(this._fileKey(row.fileName));
+                if (!scan) return { ...row, placeholders: row.placeholders || [], htmlBody: row.htmlBody || '' };
+                const found = scan.placeholders || [];
+                const htmlBody = scan.htmlBody || '';
+                const structure = htmlBody ? parseContentBindings(htmlBody) : emptyContentStructure();
                 const bindings = { ...(row.bindings || {}) };
                 found.forEach(name => {
                     if (!(name in bindings)) bindings[name] = '';
                 });
-                return { ...row, placeholders: found, bindings };
+                Object.entries(structure.sources || {}).forEach(([name, source]) => {
+                    if (!bindings[name]) bindings[name] = source;
+                });
+                return { ...row, placeholders: found, bindings, htmlBody };
             });
             if (this.catalogRows.some(row => !row.persisted) && !this.isEditingActive) {
                 await this._persistCatalog();

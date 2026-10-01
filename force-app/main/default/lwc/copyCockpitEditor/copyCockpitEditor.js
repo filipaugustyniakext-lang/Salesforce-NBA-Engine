@@ -6,6 +6,7 @@ import saveMessageEditor from '@salesforce/apex/CopyCockpitController.saveMessag
 import getVersionsByMessageId from '@salesforce/apex/CopyCockpitController.getVersionsByMessageId';
 import getTemplateRenderSource from '@salesforce/apex/ChannelTemplateController.getTemplateRenderSource';
 import { renderTemplatePreview, scopePreviewDocument } from './templatePreview';
+import { parseContentBindings, editorSections } from 'c/contentBindingModel';
 
 const STATUS_OPTIONS = [
     { label: 'Active',           value: 'Active' },
@@ -75,6 +76,14 @@ function contentOn(block, source) {
     return false;
 }
 
+function structureFor(definition) {
+    if (definition._contentStructureHtml !== definition.html) {
+        definition._contentStructure = parseContentBindings(definition.html);
+        definition._contentStructureHtml = definition.html;
+    }
+    return definition._contentStructure;
+}
+
 function groupBlocks(blocks) {
     const map = new Map();
     for (const b of blocks) {
@@ -110,6 +119,7 @@ function makeInstance(blockId, palette) {
         altText: '',
         legalText: '',
         spacerHeight: '20',
+        contentValues: {},
     };
 }
 
@@ -427,6 +437,9 @@ export default class CopyCockpitEditor extends LightningElement {
             const showImage = contentOn(configured, 'imageUrl') || contentOn(configured, 'altText');
             const showLegal = contentOn(configured, 'legal');
             const showSpacer = contentOn(configured, 'spacerHeight');
+            const contentStructure = definition.html ? structureFor(definition) : null;
+            const contentSections = editorSections(contentStructure, b.contentValues, b.instanceId);
+            const hasStructuredContent = contentSections.some(section => section.parts.length);
             return {
             ...configured,
             blockOrder: i + 1,
@@ -485,7 +498,9 @@ export default class CopyCockpitEditor extends LightningElement {
             showImage,
             showLegal,
             showSpacer,
-            noContentFields: !showCopy && !showImage && !showLegal && !showSpacer,
+            contentSections,
+            hasStructuredContent,
+            noContentFields: !showCopy && !showImage && !showLegal && !showSpacer && !hasStructuredContent,
             missingBlockTemplate: !!this._renderSource?.shellHtml && !this._templateBlockTypes.has(b.blockType),
             copyFieldId: 'block-copy-' + b.instanceId,
             imageFieldId: 'block-image-' + b.instanceId,
@@ -941,6 +956,71 @@ export default class CopyCockpitEditor extends LightningElement {
     }
 
     // ── handlers: block tab ───────────────────────────────────────────────────
+
+    handleStructuredInput(event) {
+        event.stopPropagation();
+        const instanceId = event.currentTarget.dataset.instanceId;
+        const placeholder = event.currentTarget.dataset.placeholder;
+        const block = this._canvasBlocks.find(item => item.instanceId === instanceId);
+        if (!block || !placeholder) return;
+        if (!block.contentValues) block.contentValues = {};
+        block.contentValues[placeholder] = event.target.value ?? '';
+        this._previewTick += 1;
+        this._isDirty = true;
+    }
+
+    handleListItemInput(event) {
+        event.stopPropagation();
+        const instanceId = event.currentTarget.dataset.instanceId;
+        const placeholder = event.currentTarget.dataset.placeholder;
+        const rowId = event.currentTarget.dataset.rowId;
+        const block = this._canvasBlocks.find(item => item.instanceId === instanceId);
+        if (!block || !placeholder || !rowId) return;
+        if (!block.contentValues) block.contentValues = {};
+        const existing = Array.isArray(block.contentValues[placeholder]) ? block.contentValues[placeholder] : [];
+        const row = existing.find(item => item.id === rowId);
+        if (row) row.value = event.target.value ?? '';
+        else existing.push({ id: rowId, value: event.target.value ?? '' });
+        block.contentValues[placeholder] = existing;
+        this._previewTick += 1;
+        this._isDirty = true;
+    }
+
+    handleAddListItem(event) {
+        event.stopPropagation();
+        const instanceId = event.currentTarget.dataset.instanceId;
+        const placeholder = event.currentTarget.dataset.placeholder;
+        const seedId = event.currentTarget.dataset.seedId;
+        this._canvasBlocks = this._canvasBlocks.map(block => {
+            if (block.instanceId !== instanceId) return block;
+            const values = { ...(block.contentValues || {}) };
+            const existing = Array.isArray(values[placeholder]) ? values[placeholder].slice() : [];
+            const rows = existing.length ? existing : [{ id: seedId, value: '' }];
+            rows.push({ id: `line-${Date.now()}-${rows.length}`, value: '' });
+            values[placeholder] = rows;
+            return { ...block, contentValues: values };
+        });
+        this._previewTick += 1;
+        this._isDirty = true;
+    }
+
+    handleRemoveListItem(event) {
+        event.stopPropagation();
+        const instanceId = event.currentTarget.dataset.instanceId;
+        const placeholder = event.currentTarget.dataset.placeholder;
+        const rowId = event.currentTarget.dataset.rowId;
+        const seedId = event.currentTarget.dataset.seedId;
+        this._canvasBlocks = this._canvasBlocks.map(block => {
+            if (block.instanceId !== instanceId) return block;
+            const values = { ...(block.contentValues || {}) };
+            const existing = Array.isArray(values[placeholder]) ? values[placeholder] : [];
+            const rows = existing.filter(item => item.id !== rowId);
+            values[placeholder] = rows.length ? rows : [{ id: seedId, value: '' }];
+            return { ...block, contentValues: values };
+        });
+        this._previewTick += 1;
+        this._isDirty = true;
+    }
 
     handleBlockContentChange(e) {
         e.stopPropagation();

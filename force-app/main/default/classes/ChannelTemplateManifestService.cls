@@ -319,7 +319,11 @@ public with sharing class ChannelTemplateManifestService {
     ) {
         Set<String> allowed = new Set<String>{
             'copy', 'imageUrl', 'altText', 'legal',
-            'viewDesktop', 'viewMobile', 'padding', 'background', 'columnLayout', 'heightDesktop', 'heightMobile'
+            'viewDesktop', 'viewMobile', 'padding', 'background', 'columnLayout', 'heightDesktop', 'heightMobile',
+            'iconListHeader', 'iconListIcon', 'iconListItem',
+            'imageSrc', 'imageAlt', 'imageHref', 'imageTarget',
+            'imageWidthDesktop', 'imageWidthMobile', 'imagePaddingDesktop', 'imagePaddingMobile',
+            'contentValue'
         };
         Set<String> bound = new Set<String>();
         Object rawBindings = component.get('bindings');

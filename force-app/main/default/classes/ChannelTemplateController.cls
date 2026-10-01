@@ -57,6 +57,7 @@ public with sharing class ChannelTemplateController {
 
     public class FilePlaceholders {
         @AuraEnabled public String fileName;
+        @AuraEnabled public String htmlBody;
         @AuraEnabled public List<String> placeholders = new List<String>();
     }
 
@@ -350,7 +351,8 @@ public with sharing class ChannelTemplateController {
             ContentVersion version = versions.get(link.ContentDocument.LatestPublishedVersionId);
             FilePlaceholders scan = new FilePlaceholders();
             scan.fileName = stripKnownPrefix(link.ContentDocument.Title);
-            scan.placeholders = extractPlaceholders(version == null ? '' : version.VersionData.toString());
+            scan.htmlBody = version == null || version.VersionData == null ? '' : version.VersionData.toString();
+            scan.placeholders = extractPlaceholders(scan.htmlBody);
             scans.add(scan);
         }
         return scans;
@@ -776,7 +778,11 @@ public with sharing class ChannelTemplateController {
     private static final Set<String> BLOCK_SETTING_SOURCES = new Set<String>(BLOCK_SETTING_ORDER);
     private static final Set<String> BINDING_SOURCES = new Set<String>{
         'copy', 'imageUrl', 'altText', 'legal',
-        'viewDesktop', 'viewMobile', 'padding', 'background', 'columnLayout', 'heightDesktop', 'heightMobile'
+        'viewDesktop', 'viewMobile', 'padding', 'background', 'columnLayout', 'heightDesktop', 'heightMobile',
+        'iconListHeader', 'iconListIcon', 'iconListItem',
+        'imageSrc', 'imageAlt', 'imageHref', 'imageTarget',
+        'imageWidthDesktop', 'imageWidthMobile', 'imagePaddingDesktop', 'imagePaddingMobile',
+        'contentValue'
     };
 
     private static Boolean isComponentType(String type) {

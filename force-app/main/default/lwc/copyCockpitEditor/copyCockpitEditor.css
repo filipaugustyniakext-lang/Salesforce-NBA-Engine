@@ -1290,6 +1290,32 @@
     flex-shrink: 0;
 }
 
+.structured-section {
+    margin-top: 0.75rem;
+}
+
+.structured-section__title,
+.structured-part__title {
+    margin: 0;
+    font-size: 0.8125rem;
+    font-weight: 700;
+}
+
+.structured-part {
+    margin-top: 0.75rem;
+}
+
+.list-line {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.list-line .slds-form-element__control {
+    flex: 1;
+    min-width: 0;
+}
+
 /* Active block card header — bump reorder/action icons to brand blue */
 .block-card_active .block-card__reorder .slds-button_icon-border,
 .block-card_active .block-card__actions .slds-button_icon-border:not(.block-card__delete-btn) {

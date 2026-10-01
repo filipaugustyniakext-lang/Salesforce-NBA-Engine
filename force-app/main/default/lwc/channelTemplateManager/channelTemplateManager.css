@@ -10,6 +10,9 @@
 
 .component-card {
     min-width: 0;
+    padding: var(--slds-g-spacing-4);
+    border-radius: var(--slds-g-radius-border-2);
+    border: var(--slds-g-sizing-border-1) solid var(--slds-g-color-border-1);
 }
 
 .component-card__header {
@@ -20,6 +23,10 @@
     cursor: pointer;
     margin: 0;
     padding: 0.75rem;
+}
+
+.component-card .slds-tabs_default__item button {
+    background: transparent;
 }
 
 .component-card__summary {
@@ -62,8 +69,8 @@
 .block-setting-choice {
     margin-top: 0.5rem;
     padding: 0.75rem;
-    border: solid 2px transparent;
-    border-radius: 0.25rem;
+    border-radius: var(--slds-g-radius-border-2);
+    border: var(--slds-g-sizing-border-1) solid var(--slds-g-color-border-1);
 }
 
 .block-setting-choice_active {
@@ -222,6 +229,29 @@
     border-radius: 0.375rem;
     background: #f8f9fb;
     padding: 0.75rem;
+}
+
+.content-column {
+    margin-top: 0.75rem;
+    padding: 0.75rem;
+    border-radius: var(--slds-g-radius-border-2);
+    border: var(--slds-g-sizing-border-1) solid var(--slds-g-color-border-1);
+}
+
+.content-column__title,
+.content-part__title,
+.content-part__label {
+    margin: 0;
+    font-size: 0.8125rem;
+    font-weight: 700;
+}
+
+.content-part {
+    margin-top: 0.75rem;
+}
+
+.content-bindings {
+    margin-top: 0.75rem;
 }
 
 @media (max-width: 48rem) {

@@ -696,6 +696,55 @@
                                                                     <template lwc:if={blk.noContentFields}>
                                                                         <p class="slds-text-body_small slds-text-color_weak">This component has no content fields. Its placeholders are filled from Block Settings.</p>
                                                                     </template>
+                                                                    <template for:each={blk.contentSections} for:item="section">
+                                                                        <section key={section.key} class="structured-section">
+                                                                            <template lwc:if={section.showLabel}>
+                                                                                <h3 class="structured-section__title">{section.label}</h3>
+                                                                            </template>
+                                                                            <template for:each={section.parts} for:item="part">
+                                                                                <div key={part.key} class="structured-part">
+                                                                                    <h4 class="structured-part__title">{part.title}</h4>
+                                                                                    <template lwc:if={part.isIconList}>
+                                                                                        <template lwc:if={part.showHeader}>
+                                                                                            <div class="slds-form-element slds-m-top_x-small">
+                                                                                                <label class="slds-form-element__label">List header</label>
+                                                                                                <div class="slds-form-element__control">
+                                                                                                    <input class="slds-input" type="text" data-instance-id={blk.instanceId} data-placeholder={part.headerPlaceholder} oninput={handleStructuredInput} />
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        </template>
+                                                                                        <div class="slds-form-element slds-m-top_x-small">
+                                                                                            <label class="slds-form-element__label">List icon</label>
+                                                                                            <div class="slds-form-element__control">
+                                                                                                <input class="slds-input" type="text" placeholder={part.iconLiteral} data-instance-id={blk.instanceId} data-placeholder={part.iconKey} oninput={handleStructuredInput} />
+                                                                                            </div>
+                                                                                        </div>
+                                                                                        <template lwc:if={part.showItems}>
+                                                                                            <template for:each={part.rows} for:item="line">
+                                                                                                <div key={line.key} class="slds-form-element slds-m-top_x-small list-line">
+                                                                                                    <div class="slds-form-element__control">
+                                                                                                        <input class="slds-input" type="text" placeholder="List line" data-instance-id={blk.instanceId} data-placeholder={part.itemPlaceholder} data-row-id={line.id} oninput={handleListItemInput} />
+                                                                                                    </div>
+                                                                                                    <button type="button" class="slds-button slds-button_neutral" data-instance-id={blk.instanceId} data-placeholder={part.itemPlaceholder} data-row-id={line.id} data-seed-id={part.seedId} onclick={handleRemoveListItem}>Remove</button>
+                                                                                                </div>
+                                                                                            </template>
+                                                                                            <button type="button" class="slds-button slds-m-top_x-small" data-instance-id={blk.instanceId} data-placeholder={part.itemPlaceholder} data-seed-id={part.seedId} onclick={handleAddListItem}>Add line</button>
+                                                                                        </template>
+                                                                                    </template>
+                                                                                    <template lwc:if={part.isImage}>
+                                                                                        <template for:each={part.fields} for:item="field">
+                                                                                            <div key={field.key} class="slds-form-element slds-m-top_x-small">
+                                                                                                <label class="slds-form-element__label">{field.label}</label>
+                                                                                                <div class="slds-form-element__control">
+                                                                                                    <input class="slds-input" type="text" data-instance-id={blk.instanceId} data-placeholder={field.placeholder} oninput={handleStructuredInput} />
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        </template>
+                                                                                    </template>
+                                                                                </div>
+                                                                            </template>
+                                                                        </section>
+                                                                    </template>
                                                                     <template lwc:if={blk.showCopy}>
                                                                         <div class="slds-form-element">
                                                                             <label class="slds-form-element__label" for={blk.copyFieldId}>Copy</label>
