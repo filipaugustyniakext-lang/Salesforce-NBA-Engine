@@ -263,7 +263,7 @@
                                 Upload HTML only for sections marked expectBlocks. Preload and expectContent sections live in the shell, so they do not need separate files. A banner or other single layout uses expectContent and does not need component files.
                             </p>
                             <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">
-                                Each content block HTML can contain &#123;&#123;placeholders&#125;&#125;. content-binding attributes mark columns, icon lists, and images. Bind every placeholder to a Content Settings or Block Settings value, and choose which Block Settings authors see.
+                                Each content block HTML can contain &#123;&#123;placeholders&#125;&#125;. Mark the parent with binding-container and each column with binding-column. Block and column options appear only when the matching placeholder is in that markup.
                             </p>
                             <template lwc:if={hasCatalogRows}>
                                 <div class="component-import slds-m-top_small">
@@ -332,38 +332,59 @@
                                                             </li>
                                                         </ul>
                                                         <div class="slds-tabs_default__content" role="tabpanel" style={row.contentPanelStyle}>
-                                                            <p class="slds-text-body_small slds-text-color_weak">Bind each placeholder to one content field. A column section appears for each content-binding="column" container.</p>
+                                                            <p class="slds-text-body_small slds-text-color_weak">Bind each remaining placeholder to one content field. When the HTML has more than one binding-column, set column direction and each column here.</p>
                                                             <template lwc:if={row.placeholdersLoading}>
                                                                 <p class="slds-text-body_small slds-m-top_small">Reading placeholders from the HTML file.</p>
                                                             </template>
                                                             <template lwc:if={row.noPlaceholders}>
                                                                 <p class="slds-text-body_small slds-m-top_small">This file has no &#123;&#123;placeholders&#125;&#125;. It renders as uploaded.</p>
                                                             </template>
-                                                            <template for:each={row.contentSections} for:item="section">
-                                                                <section key={section.key} class={section.sectionClass}>
-                                                                    <template lwc:if={section.showLabel}>
-                                                                        <h4 class="content-column__title">{section.label}</h4>
-                                                                    </template>
-                                                                    <template for:each={section.parts} for:item="part">
-                                                                        <div key={part.key} class="content-part">
-                                                                            <h5 class="content-part__title">{part.title}</h5>
-                                                                            <p class="slds-text-body_small slds-text-color_weak">{part.summary}</p>
-                                                                            <template for:each={part.rows} for:item="field">
-                                                                                <div key={field.key} class="placeholder-bind">
-                                                                                    <p class="content-part__label">{field.label}</p>
-                                                                                    <p class="placeholder-bind__token">{field.token}</p>
-                                                                                    <p class="slds-text-body_small slds-text-color_weak">{field.detail}</p>
+                                                            <template lwc:if={row.columnDirectionAvailable}>
+                                                                <div class={row.columnDirectionClass}>
+                                                                    <lightning-input type="toggle" label="Column direction" checked={row.columnDirectionOn} message-toggle-active="On" message-toggle-inactive="Off" field-level-help="Authors choose left to right or right to left. The value ltr or rtl is written to the column-dir placeholder." data-file={row.fileName} data-flag="columnDirection" disabled={isEditingActive} onchange={handleLayoutToggle}></lightning-input>
+                                                                    <p class="slds-text-body_small slds-text-color_weak">Authors choose left to right (ltr) or right to left (rtl).</p>
+                                                                </div>
+                                                            </template>
+                                                            <template for:each={row.columnCards} for:item="column">
+                                                                <details key={column.key} class="column-fold" open>
+                                                                    <summary>{column.label}</summary>
+                                                                    <p class="slds-text-body_small slds-text-color_weak">Column content is configured in a later update. Padding and background for this column can be enabled here.</p>
+                                                                    <template for:each={column.choices} for:item="choice">
+                                                                        <div key={choice.key} class={choice.choiceClass}>
+                                                                            <lightning-input type="toggle" label={choice.label} checked={choice.checked} message-toggle-active="On" message-toggle-inactive="Off" data-file={choice.fileName} data-column={choice.columnIndex} data-flag={choice.id} disabled={isEditingActive} onchange={handleLayoutToggle}></lightning-input>
+                                                                            <p class="slds-text-body_small slds-text-color_weak">{choice.hint}</p>
+                                                                            <template lwc:if={choice.showEditor}>
+                                                                                <div class="block-setting-choice-binding">
+                                                                                    <div class="block-setting-choice-binding__inner">
+                                                                                        <template lwc:if={choice.isColor}>
+                                                                                            <template for:each={choice.colors} for:item="color">
+                                                                                                <div key={color.key} class="layout-list__row">
+                                                                                                    <span class="color-chip" style={color.swatch}></span>
+                                                                                                    <span>{color.value}</span>
+                                                                                                    <lightning-button-icon icon-name="utility:close" alternative-text="Remove color" data-file={color.fileName} data-column={color.columnIndex} data-color={color.value} disabled={isEditingActive} onclick={handleRemoveColor}></lightning-button-icon>
+                                                                                                </div>
+                                                                                            </template>
+                                                                                            <div class="layout-list__add">
+                                                                                                <input class="slds-input" type="text" placeholder="#2A7B9B" data-color-draft={choice.colorDraftKey} disabled={isEditingActive} />
+                                                                                                <lightning-button label="Add color" data-file={choice.fileName} data-column={choice.columnIndex} data-draft={choice.colorDraftKey} disabled={isEditingActive} onclick={handleAddColor}></lightning-button>
+                                                                                            </div>
+                                                                                        </template>
+                                                                                        <template lwc:if={choice.isGradient}>
+                                                                                            <template for:each={choice.gradients} for:item="gradient">
+                                                                                                <div key={gradient.key} class="layout-preset">
+                                                                                                    <lightning-input label="Preset name" value={gradient.label} data-file={gradient.fileName} data-column={gradient.columnIndex} data-index={gradient.index} data-field="label" disabled={isEditingActive} onchange={handleGradientField}></lightning-input>
+                                                                                                    <lightning-textarea label="CSS" value={gradient.css} data-file={gradient.fileName} data-column={gradient.columnIndex} data-index={gradient.index} data-field="css" disabled={isEditingActive} onchange={handleGradientField}></lightning-textarea>
+                                                                                                    <lightning-button label="Remove" data-file={gradient.fileName} data-column={gradient.columnIndex} data-index={gradient.index} disabled={isEditingActive} onclick={handleRemoveGradient}></lightning-button>
+                                                                                                </div>
+                                                                                            </template>
+                                                                                            <lightning-button label="Add gradient" class="slds-m-top_x-small" data-file={choice.fileName} data-column={choice.columnIndex} disabled={isEditingActive} onclick={handleAddGradient}></lightning-button>
+                                                                                        </template>
+                                                                                    </div>
                                                                                 </div>
                                                                             </template>
                                                                         </div>
                                                                     </template>
-                                                                    <template for:each={section.looseBindings} for:item="binding">
-                                                                        <div key={binding.key} class="placeholder-bind">
-                                                                            <p class="placeholder-bind__token">{binding.token}</p>
-                                                                            <lightning-combobox label="Bind to" variant="label-hidden" placeholder="Select a content setting" value={binding.source} options={binding.sourceOptions} data-file={binding.fileName} data-placeholder={binding.name} disabled={isEditingActive} onchange={handleBindingChange}></lightning-combobox>
-                                                                        </div>
-                                                                    </template>
-                                                                </section>
+                                                                </details>
                                                             </template>
                                                             <template for:each={row.contentBindingRows} for:item="binding">
                                                                 <div key={binding.key} class="placeholder-bind">
@@ -373,7 +394,51 @@
                                                             </template>
                                                         </div>
                                                         <div class="slds-tabs_default__content" role="tabpanel" style={row.settingsPanelStyle}>
-                                                            <p class="slds-text-body_small slds-text-color_weak">Turn on the controls authors see. Each enabled control needs one or more placeholders from this HTML file.</p>
+                                                            <p class="slds-text-body_small slds-text-color_weak">Turn on the controls authors see. A control is listed only when its placeholder is in the binding-container markup.</p>
+                                                            <template lwc:if={row.placeholdersLoading}>
+                                                                <p class="slds-text-body_small slds-m-top_small">Reading placeholders from the HTML file.</p>
+                                                            </template>
+                                                            <template lwc:if={row.blockPanel.modern}>
+                                                                <template lwc:if={row.blockPanel.empty}>
+                                                                    <p class="slds-text-body_small slds-m-top_small">This container has no hide, padding, or background placeholders.</p>
+                                                                </template>
+                                                                <template for:each={row.blockPanel.choices} for:item="choice">
+                                                                    <div key={choice.key} class={choice.choiceClass}>
+                                                                        <lightning-input type="toggle" label={choice.label} checked={choice.checked} message-toggle-active="On" message-toggle-inactive="Off" data-file={choice.fileName} data-column={choice.columnIndex} data-flag={choice.id} disabled={isEditingActive} onchange={handleLayoutToggle}></lightning-input>
+                                                                        <p class="slds-text-body_small slds-text-color_weak">{choice.hint}</p>
+                                                                        <template lwc:if={choice.showEditor}>
+                                                                            <div class="block-setting-choice-binding">
+                                                                                <div class="block-setting-choice-binding__inner">
+                                                                                    <template lwc:if={choice.isColor}>
+                                                                                        <template for:each={choice.colors} for:item="color">
+                                                                                            <div key={color.key} class="layout-list__row">
+                                                                                                <span class="color-chip" style={color.swatch}></span>
+                                                                                                <span>{color.value}</span>
+                                                                                                <lightning-button-icon icon-name="utility:close" alternative-text="Remove color" data-file={color.fileName} data-column={color.columnIndex} data-color={color.value} disabled={isEditingActive} onclick={handleRemoveColor}></lightning-button-icon>
+                                                                                            </div>
+                                                                                        </template>
+                                                                                        <div class="layout-list__add">
+                                                                                            <input class="slds-input" type="text" placeholder="#2A7B9B" data-color-draft={choice.colorDraftKey} disabled={isEditingActive} />
+                                                                                            <lightning-button label="Add color" data-file={choice.fileName} data-column={choice.columnIndex} data-draft={choice.colorDraftKey} disabled={isEditingActive} onclick={handleAddColor}></lightning-button>
+                                                                                        </div>
+                                                                                    </template>
+                                                                                    <template lwc:if={choice.isGradient}>
+                                                                                        <template for:each={choice.gradients} for:item="gradient">
+                                                                                            <div key={gradient.key} class="layout-preset">
+                                                                                                <lightning-input label="Preset name" value={gradient.label} data-file={gradient.fileName} data-column={gradient.columnIndex} data-index={gradient.index} data-field="label" disabled={isEditingActive} onchange={handleGradientField}></lightning-input>
+                                                                                                <lightning-textarea label="CSS" value={gradient.css} data-file={gradient.fileName} data-column={gradient.columnIndex} data-index={gradient.index} data-field="css" disabled={isEditingActive} onchange={handleGradientField}></lightning-textarea>
+                                                                                                <lightning-button label="Remove" data-file={gradient.fileName} data-column={gradient.columnIndex} data-index={gradient.index} disabled={isEditingActive} onclick={handleRemoveGradient}></lightning-button>
+                                                                                            </div>
+                                                                                        </template>
+                                                                                        <lightning-button label="Add gradient" class="slds-m-top_x-small" data-file={choice.fileName} data-column={choice.columnIndex} disabled={isEditingActive} onclick={handleAddGradient}></lightning-button>
+                                                                                    </template>
+                                                                                </div>
+                                                                            </div>
+                                                                        </template>
+                                                                    </div>
+                                                                </template>
+                                                            </template>
+                                                            <template lwc:if={row.showLegacySettings}>
                                                             <template for:each={row.settingChoices} for:item="choice">
                                                                 <div key={choice.key} class={choice.choiceClass}>
                                                                     <lightning-input type="toggle" label={choice.label} checked={choice.checked} message-toggle-active="On" message-toggle-inactive="Off" data-file={choice.fileName} data-setting={choice.id} disabled={isEditingActive} onchange={handleSettingChange}></lightning-input>
@@ -402,6 +467,7 @@
                                                                         </div>
                                                                     </div>
                                                                 </div>
+                                                            </template>
                                                             </template>
                                                         </div>
                                                     </div>

@@ -1,4 +1,4 @@
-import { expandContentBindings } from 'c/contentBindingModel';
+import { applyBlockTemplate } from 'c/contentBindingModel';
 
 export function renderTemplatePreview(source, blocks, device) {
     const shell = String(source?.shellHtml || '');
@@ -139,13 +139,10 @@ function isVisibleOnDevice(block, device, definition) {
 
 function renderBlock(block, template, definition) {
     if (!template) return '';
-    const expanded = expandContentBindings(template, block?.contentValues || {});
+    const prepared = applyBlockTemplate(template, block?.layoutState, definition?.layoutJson);
     const bindings = Array.isArray(definition?.bindings) ? definition.bindings : null;
     const values = bindings ? boundValues(block, bindings) : legacyValues(block);
-    Object.entries(block?.contentValues || {}).forEach(([name, value]) => {
-        if (typeof value === 'string') values[name] = escapeHtml(value);
-    });
-    return expanded.replace(/\{\{\s*([A-Za-z0-9_.:-]+)\s*\}\}/g, (match, name) => (
+    return prepared.replace(/\{\{\s*([A-Za-z0-9_.:-]+)\s*\}\}/g, (match, name) => (
         Object.prototype.hasOwnProperty.call(values, name) ? values[name] : ''
     ));
 }
@@ -282,10 +279,7 @@ function replaceRegionInner(html, region, inner) {
 }
 
 function hasCustomContent(block) {
-    const structured = Object.values(block?.contentValues || {}).some(value => (
-        Array.isArray(value) ? value.some(item => String(item?.value || item || '').trim()) : String(value || '').trim()
-    ));
-    return structured || ['copyText', 'imageUrl', 'altText', 'legalText'].some(field => String(block?.[field] || '').trim());
+    return ['copyText', 'imageUrl', 'altText', 'legalText'].some(field => String(block?.[field] || '').trim());
 }
 
 function fillExpectContent(template, block) {

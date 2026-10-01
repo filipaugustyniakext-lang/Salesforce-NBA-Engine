@@ -1290,30 +1290,38 @@
     flex-shrink: 0;
 }
 
-.structured-section {
+.layout-fold {
     margin-top: 0.75rem;
 }
 
-.structured-section__title,
-.structured-part__title {
-    margin: 0;
-    font-size: 0.8125rem;
+.layout-fold > summary {
+    cursor: pointer;
     font-weight: 700;
 }
 
-.structured-part {
-    margin-top: 0.75rem;
-}
-
-.list-line {
-    display: flex;
+.pad-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 0.5rem;
-    align-items: center;
 }
 
-.list-line .slds-form-element__control {
-    flex: 1;
-    min-width: 0;
+.bg-swatches,
+.gradient-choices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.bg-swatch {
+    width: 1.5rem;
+    height: 1.5rem;
+    border: 1px solid #dddbda;
+    border-radius: 0.25rem;
+    padding: 0;
+}
+
+.bg-swatch_active {
+    box-shadow: 0 0 0 2px #0176d3;
 }
 
 /* Active block card header — bump reorder/action icons to brand blue */

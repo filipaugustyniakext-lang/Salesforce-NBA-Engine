@@ -6,7 +6,7 @@ import saveMessageEditor from '@salesforce/apex/CopyCockpitController.saveMessag
 import getVersionsByMessageId from '@salesforce/apex/CopyCockpitController.getVersionsByMessageId';
 import getTemplateRenderSource from '@salesforce/apex/ChannelTemplateController.getTemplateRenderSource';
 import { renderTemplatePreview, scopePreviewDocument } from './templatePreview';
-import { parseContentBindings, editorSections } from 'c/contentBindingModel';
+import { parseBlockTemplate, alignLayout } from 'c/contentBindingModel';
 
 const STATUS_OPTIONS = [
     { label: 'Active',           value: 'Active' },
@@ -76,12 +76,91 @@ function contentOn(block, source) {
     return false;
 }
 
-function structureFor(definition) {
-    if (definition._contentStructureHtml !== definition.html) {
-        definition._contentStructure = parseContentBindings(definition.html);
-        definition._contentStructureHtml = definition.html;
+function emptyLayoutState() {
+    return {
+        hideDesktop: false,
+        hideMobile: false,
+        padDesktop: { top: '0', right: '0', bottom: '0', left: '0' },
+        padMobile: { top: '0', right: '0', bottom: '0', left: '0' },
+        padMobileInherit: true,
+        bgColor: '',
+        bgImage: '',
+        bgGradientId: '',
+        columnDirection: 'ltr',
+        columns: []
+    };
+}
+
+function padFields(instanceId, device, columnIndex) {
+    const column = columnIndex == null ? '' : String(columnIndex);
+    return ['top', 'right', 'bottom', 'left'].map(side => ({
+        key: `${instanceId}:${device}:${column}:${side}`,
+        side,
+        label: side.charAt(0).toUpperCase() + side.slice(1),
+        device: device.includes('mobile') ? 'mobile' : 'desktop',
+        columnIndex: column
+    }));
+}
+
+function colorOptions(instanceId, colors, selected, columnIndex) {
+    const column = columnIndex == null ? '' : String(columnIndex);
+    const current = String(selected || '').toLowerCase();
+    return (colors || []).map(value => ({
+        key: `${instanceId}:${column}:color:${value}`,
+        value,
+        columnIndex: column,
+        swatch: `background:${value}`,
+        className: 'bg-swatch' + (String(value).toLowerCase() === current ? ' bg-swatch_active' : '')
+    }));
+}
+
+function gradientOptions(instanceId, gradients, selected, columnIndex) {
+    const column = columnIndex == null ? '' : String(columnIndex);
+    return (gradients || []).filter(item => item.css).map(item => ({
+        key: `${instanceId}:${column}:gradient:${item.id}`,
+        id: item.id,
+        label: item.label || 'Gradient',
+        columnIndex: column,
+        className: 'slds-button vis-btn' + (item.id === selected ? ' vis-btn_active' : '')
+    }));
+}
+
+function paddingView(instanceId, present, enabled, runtime, columnIndex) {
+    const desktop = !!(present?.padDesktop && enabled);
+    const mobile = !!(present?.padMobile && enabled);
+    const inherit = runtime?.padMobileInherit !== false;
+    const scope = columnIndex == null ? 'block' : `column-${columnIndex}`;
+    return {
+        show: desktop || mobile,
+        showDesktop: desktop,
+        showInherit: desktop && mobile,
+        showMobileFields: mobile && (!desktop || !inherit),
+        desktopFields: desktop ? padFields(instanceId, `${scope}-desktop`, columnIndex) : [],
+        mobileFields: mobile && (!desktop || !inherit) ? padFields(instanceId, `${scope}-mobile`, columnIndex) : []
+    };
+}
+
+function columnRuntime(state, index) {
+    const column = (state?.columns || [])[index] || {};
+    return {
+        padMobileInherit: column.padMobileInherit !== false,
+        bgColor: column.bgColor || '',
+        bgImage: column.bgImage || '',
+        bgGradientId: column.bgGradientId || ''
+    };
+}
+
+function layoutFieldValue(block, dataset) {
+    const state = block.layoutState || {};
+    const column = dataset.column;
+    const source = column === undefined || column === '' ? state : (state.columns || [])[Number(column)] || {};
+    if (dataset.field === 'bgImage') return source.bgImage || '';
+    if (dataset.side) {
+        const pad = dataset.device === 'mobile' ? source.padMobile : source.padDesktop;
+        const value = pad ? pad[dataset.side] : '0';
+        return value ?? '0';
     }
-    return definition._contentStructure;
+    return '';
 }
 
 function groupBlocks(blocks) {
@@ -119,7 +198,7 @@ function makeInstance(blockId, palette) {
         altText: '',
         legalText: '',
         spacerHeight: '20',
-        contentValues: {},
+        layoutState: emptyLayoutState(),
     };
 }
 
@@ -185,11 +264,13 @@ export default class CopyCockpitEditor extends LightningElement {
 
     renderedCallback() {
         const active = this.template.activeElement;
-        this.template.querySelectorAll('[data-content-field]').forEach(field => {
+        this.template.querySelectorAll('[data-content-field], [data-layout-field]').forEach(field => {
             if (field === active) return;
             const block = this._canvasBlocks.find(item => item.instanceId === field.dataset.instanceId);
             if (!block) return;
-            const next = block[field.dataset.field] ?? '';
+            const next = field.hasAttribute('data-layout-field')
+                ? layoutFieldValue(block, field.dataset)
+                : (block[field.dataset.field] ?? '');
             if (field.value !== String(next)) field.value = next;
         });
         this._syncPreviewFrame();
@@ -437,9 +518,46 @@ export default class CopyCockpitEditor extends LightningElement {
             const showImage = contentOn(configured, 'imageUrl') || contentOn(configured, 'altText');
             const showLegal = contentOn(configured, 'legal');
             const showSpacer = contentOn(configured, 'spacerHeight');
-            const contentStructure = definition.html ? structureFor(definition) : null;
-            const contentSections = editorSections(contentStructure, b.contentValues, b.instanceId);
-            const hasStructuredContent = contentSections.some(section => section.parts.length);
+            const scan = definition.html ? parseBlockTemplate(definition.html) : parseBlockTemplate('');
+            const layout = alignLayout(definition.layoutJson, scan);
+            const modern = !!scan.usesLayout;
+            const state = b.layoutState || {};
+            const blockPad = paddingView(b.instanceId, scan.block, layout.padding, state);
+            const showHideDesktop = modern && !!scan.block.hideDesktop && !!layout.hideDesktop;
+            const showHideMobile = modern && !!scan.block.hideMobile && !!layout.hideMobile;
+            const showBlockColor = modern && !!scan.block.bgColor && !!layout.backgroundColor;
+            const showBlockImage = modern && !!scan.block.bgImage && !!layout.backgroundImage;
+            const showBlockGradient = modern && !!scan.block.bgGradient && !!layout.backgroundGradient;
+            const showModernColumns = modern && scan.columns.length > 1;
+            const showColumnDirection = showModernColumns && !!scan.columnDirection && !!layout.columnDirection;
+            const direction = state.columnDirection === 'rtl' ? 'rtl' : 'ltr';
+            const layoutColumns = showModernColumns ? scan.columns.map((column, index) => {
+                const runtime = columnRuntime(state, index);
+                const options = layout.columns[index] || {};
+                const pad = paddingView(b.instanceId, column, options.padding, runtime, index);
+                const showColor = !!(column.bgColor && options.backgroundColor);
+                const showImage = !!(column.bgImage && options.backgroundImage);
+                const showGradient = !!(column.bgGradient && options.backgroundGradient);
+                return {
+                    key: `${b.instanceId}:column:${index}`,
+                    index: String(index),
+                    label: column.label,
+                    showPadding: pad.show,
+                    showDesktopPad: pad.showDesktop,
+                    showPadInherit: pad.showInherit,
+                    padMobileInherit: runtime.padMobileInherit,
+                    showMobilePad: pad.showMobileFields,
+                    desktopFields: pad.desktopFields,
+                    mobileFields: pad.mobileFields,
+                    showColor,
+                    colors: showColor ? colorOptions(b.instanceId, options.backgroundColors, runtime.bgColor, index) : [],
+                    showImage,
+                    imageUploadName: `column-bg-${b.instanceId}-${index}`,
+                    showGradient,
+                    gradients: showGradient ? gradientOptions(b.instanceId, options.gradients, runtime.bgGradientId, index) : []
+                };
+            }) : [];
+            const showModernBlock = showHideDesktop || showHideMobile || blockPad.show || showBlockColor || showBlockImage || showBlockGradient;
             return {
             ...configured,
             blockOrder: i + 1,
@@ -485,22 +603,46 @@ export default class CopyCockpitEditor extends LightningElement {
             spacerHeight: b.spacerHeight || '20',
             heightDesktop: b.heightDesktop || '',
             heightMobile: b.heightMobile || '',
-            showViewDesktop,
-            showViewMobile,
-            showPadding,
-            showBackground,
-            showColumnLayout,
-            showHeightDesktop,
-            showHeightMobile,
-            showLayoutCard: showViewDesktop || showViewMobile || showPadding || showBackground || showHeightDesktop || showHeightMobile,
-            noBlockSettings: !showViewDesktop && !showViewMobile && !showPadding && !showBackground && !showColumnLayout && !showHeightDesktop && !showHeightMobile,
+            showViewDesktop: !modern && showViewDesktop,
+            showViewMobile: !modern && showViewMobile,
+            showPadding: !modern && showPadding,
+            showBackground: !modern && showBackground,
+            showColumnLayout: !modern && showColumnLayout,
+            showHeightDesktop: !modern && showHeightDesktop,
+            showHeightMobile: !modern && showHeightMobile,
+            showLayoutCard: !modern && (showViewDesktop || showViewMobile || showPadding || showBackground || showHeightDesktop || showHeightMobile),
+            noBlockSettings: modern
+                ? !showModernBlock
+                : !showViewDesktop && !showViewMobile && !showPadding && !showBackground && !showColumnLayout && !showHeightDesktop && !showHeightMobile,
+            showModernBlock,
+            showHideDesktop,
+            showHideMobile,
+            hideDesktopOn: !!state.hideDesktop,
+            hideMobileOn: !!state.hideMobile,
+            showBlockPadding: blockPad.show,
+            showBlockDesktopPad: blockPad.showDesktop,
+            showBlockPadInherit: blockPad.showInherit,
+            padMobileInherit: state.padMobileInherit !== false,
+            showBlockMobilePad: blockPad.showMobileFields,
+            desktopPadFields: blockPad.desktopFields,
+            mobilePadFields: blockPad.mobileFields,
+            showBlockColor,
+            colorOptions: showBlockColor ? colorOptions(b.instanceId, layout.backgroundColors, state.bgColor) : [],
+            showBlockImage,
+            blockImageUploadName: `block-bg-${b.instanceId}`,
+            canUploadImage: !!this.recordId,
+            showBlockGradient,
+            gradientOptions: showBlockGradient ? gradientOptions(b.instanceId, layout.gradients, state.bgGradientId) : [],
+            showModernColumns,
+            showColumnDirection,
+            directionLtrClass: 'slds-button vis-btn' + (direction === 'ltr' ? ' vis-btn_active' : ''),
+            directionRtlClass: 'slds-button vis-btn' + (direction === 'rtl' ? ' vis-btn_active' : ''),
+            layoutColumns,
             showCopy,
             showImage,
             showLegal,
             showSpacer,
-            contentSections,
-            hasStructuredContent,
-            noContentFields: !showCopy && !showImage && !showLegal && !showSpacer && !hasStructuredContent,
+            noContentFields: !showCopy && !showImage && !showLegal && !showSpacer && !showModernColumns,
             missingBlockTemplate: !!this._renderSource?.shellHtml && !this._templateBlockTypes.has(b.blockType),
             copyFieldId: 'block-copy-' + b.instanceId,
             imageFieldId: 'block-image-' + b.instanceId,
@@ -944,7 +1086,11 @@ export default class CopyCockpitEditor extends LightningElement {
         const blocks = [...this._canvasBlocks];
         const i = blocks.findIndex(b => b.instanceId === instanceId);
         if (i === -1) return;
-        const clone = { ...blocks[i], instanceId: 'blk_' + Date.now() + '_' + (++_uid).toString(36) };
+        const clone = {
+            ...blocks[i],
+            instanceId: 'blk_' + Date.now() + '_' + (++_uid).toString(36),
+            layoutState: JSON.parse(JSON.stringify(blocks[i].layoutState || emptyLayoutState()))
+        };
         blocks.splice(i + 1, 0, clone);
         this._canvasBlocks = blocks;
     }
@@ -957,67 +1103,108 @@ export default class CopyCockpitEditor extends LightningElement {
 
     // ── handlers: block tab ───────────────────────────────────────────────────
 
-    handleStructuredInput(event) {
-        event.stopPropagation();
-        const instanceId = event.currentTarget.dataset.instanceId;
-        const placeholder = event.currentTarget.dataset.placeholder;
-        const block = this._canvasBlocks.find(item => item.instanceId === instanceId);
-        if (!block || !placeholder) return;
-        if (!block.contentValues) block.contentValues = {};
-        block.contentValues[placeholder] = event.target.value ?? '';
-        this._previewTick += 1;
-        this._isDirty = true;
-    }
+    imageAccept = '.png,.jpg,.jpeg,.gif,.webp';
 
-    handleListItemInput(event) {
+    handleLayoutFlag(event) {
         event.stopPropagation();
-        const instanceId = event.currentTarget.dataset.instanceId;
-        const placeholder = event.currentTarget.dataset.placeholder;
-        const rowId = event.currentTarget.dataset.rowId;
-        const block = this._canvasBlocks.find(item => item.instanceId === instanceId);
-        if (!block || !placeholder || !rowId) return;
-        if (!block.contentValues) block.contentValues = {};
-        const existing = Array.isArray(block.contentValues[placeholder]) ? block.contentValues[placeholder] : [];
-        const row = existing.find(item => item.id === rowId);
-        if (row) row.value = event.target.value ?? '';
-        else existing.push({ id: rowId, value: event.target.value ?? '' });
-        block.contentValues[placeholder] = existing;
-        this._previewTick += 1;
-        this._isDirty = true;
-    }
-
-    handleAddListItem(event) {
-        event.stopPropagation();
-        const instanceId = event.currentTarget.dataset.instanceId;
-        const placeholder = event.currentTarget.dataset.placeholder;
-        const seedId = event.currentTarget.dataset.seedId;
-        this._canvasBlocks = this._canvasBlocks.map(block => {
-            if (block.instanceId !== instanceId) return block;
-            const values = { ...(block.contentValues || {}) };
-            const existing = Array.isArray(values[placeholder]) ? values[placeholder].slice() : [];
-            const rows = existing.length ? existing : [{ id: seedId, value: '' }];
-            rows.push({ id: `line-${Date.now()}-${rows.length}`, value: '' });
-            values[placeholder] = rows;
-            return { ...block, contentValues: values };
+        const flag = event.currentTarget.dataset.flag;
+        if (flag !== 'hideDesktop' && flag !== 'hideMobile') return;
+        this._patchLayout(event.currentTarget.dataset.instanceId, event.currentTarget.dataset.column, {
+            [flag]: event.target.checked
         });
-        this._previewTick += 1;
-        this._isDirty = true;
     }
 
-    handleRemoveListItem(event) {
+    handleLayoutInherit(event) {
         event.stopPropagation();
-        const instanceId = event.currentTarget.dataset.instanceId;
-        const placeholder = event.currentTarget.dataset.placeholder;
-        const rowId = event.currentTarget.dataset.rowId;
-        const seedId = event.currentTarget.dataset.seedId;
-        this._canvasBlocks = this._canvasBlocks.map(block => {
-            if (block.instanceId !== instanceId) return block;
-            const values = { ...(block.contentValues || {}) };
-            const existing = Array.isArray(values[placeholder]) ? values[placeholder] : [];
-            const rows = existing.filter(item => item.id !== rowId);
-            values[placeholder] = rows.length ? rows : [{ id: seedId, value: '' }];
-            return { ...block, contentValues: values };
+        this._patchLayout(event.currentTarget.dataset.instanceId, event.currentTarget.dataset.column, {
+            padMobileInherit: event.target.checked
         });
+    }
+
+    handleLayoutPad(event) {
+        event.stopPropagation();
+        const { instanceId, column, device, side } = event.currentTarget.dataset;
+        if (!instanceId || !side) return;
+        const key = device === 'mobile' ? 'padMobile' : 'padDesktop';
+        const block = this._canvasBlocks.find(item => item.instanceId === instanceId);
+        if (!block) return;
+        const state = block.layoutState || {};
+        const source = column === undefined || column === '' ? state : (state.columns || [])[Number(column)] || {};
+        this._patchLayout(instanceId, column, {
+            [key]: { ...(source[key] || {}), [side]: event.target.value }
+        }, false);
+    }
+
+    handleLayoutImage(event) {
+        event.stopPropagation();
+        this._patchLayout(event.currentTarget.dataset.instanceId, event.currentTarget.dataset.column, {
+            bgImage: event.target.value ?? ''
+        }, false);
+    }
+
+    handleLayoutImageUpload(event) {
+        event.stopPropagation();
+        const file = (event.detail?.files || [])[0];
+        if (!file?.documentId) return;
+        let instanceId = event.currentTarget.dataset.instanceId;
+        let column = event.currentTarget.dataset.column;
+        const name = event.currentTarget.name || '';
+        if (!instanceId && name.startsWith('column-bg-')) {
+            const rest = name.slice('column-bg-'.length);
+            const split = rest.lastIndexOf('-');
+            instanceId = rest.slice(0, split);
+            column = rest.slice(split + 1);
+        } else if (!instanceId && name.startsWith('block-bg-')) {
+            instanceId = name.slice('block-bg-'.length);
+        }
+        this._patchLayout(instanceId, column, {
+            bgImage: `/sfc/servlet.shepherd/document/download/${file.documentId}`
+        });
+    }
+
+    handleLayoutColor(event) {
+        event.stopPropagation();
+        this._patchLayout(event.currentTarget.dataset.instanceId, event.currentTarget.dataset.column, {
+            bgColor: event.currentTarget.dataset.color || ''
+        });
+    }
+
+    handleLayoutGradient(event) {
+        event.stopPropagation();
+        this._patchLayout(event.currentTarget.dataset.instanceId, event.currentTarget.dataset.column, {
+            bgGradientId: event.currentTarget.dataset.gradient || ''
+        });
+    }
+
+    handleColumnDirection(event) {
+        event.stopPropagation();
+        const direction = event.currentTarget.dataset.direction === 'rtl' ? 'rtl' : 'ltr';
+        this._patchLayout(event.currentTarget.dataset.instanceId, '', { columnDirection: direction });
+    }
+
+    _patchLayout(instanceId, columnIndex, patch, replace = true) {
+        const apply = (block) => {
+            const state = { ...(block.layoutState || emptyLayoutState()) };
+            if (columnIndex === undefined || columnIndex === '' || columnIndex == null) {
+                return { ...block, layoutState: { ...state, ...patch } };
+            }
+            const index = Number(columnIndex);
+            const columns = Array.isArray(state.columns) ? state.columns.map(column => ({ ...column })) : [];
+            while (columns.length <= index) columns.push({});
+            columns[index] = { ...(columns[index] || {}), ...patch };
+            return { ...block, layoutState: { ...state, columns } };
+        };
+        if (replace) {
+            this._canvasBlocks = this._canvasBlocks.map(block => (
+                block.instanceId === instanceId ? apply(block) : block
+            ));
+        } else {
+            const block = this._canvasBlocks.find(item => item.instanceId === instanceId);
+            if (block) {
+                const next = apply(block);
+                block.layoutState = next.layoutState;
+            }
+        }
         this._previewTick += 1;
         this._isDirty = true;
     }

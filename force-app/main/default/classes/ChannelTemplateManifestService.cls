@@ -320,10 +320,8 @@ public with sharing class ChannelTemplateManifestService {
         Set<String> allowed = new Set<String>{
             'copy', 'imageUrl', 'altText', 'legal',
             'viewDesktop', 'viewMobile', 'padding', 'background', 'columnLayout', 'heightDesktop', 'heightMobile',
-            'iconListHeader', 'iconListIcon', 'iconListItem',
-            'imageSrc', 'imageAlt', 'imageHref', 'imageTarget',
-            'imageWidthDesktop', 'imageWidthMobile', 'imagePaddingDesktop', 'imagePaddingMobile',
-            'contentValue'
+            'hideDesktop', 'hideMobile', 'padDesktop', 'padMobile', 'bgColor', 'bgImage', 'bgGradient', 'columnDir',
+            'colPadDesktop', 'colPadMobile', 'colBgColor', 'colBgImage', 'colBgGradient'
         };
         Set<String> bound = new Set<String>();
         Object rawBindings = component.get('bindings');
@@ -344,10 +342,17 @@ public with sharing class ChannelTemplateManifestService {
             }
         }
         for (String name : placeholderNames(source)) {
-            if (!bound.contains(name)) {
-                errors.add('Bind {{' + name + '}} on ' + blockType + ' to a Content Settings or Block Settings value.');
-            }
+            if (bound.contains(name) || isStructuralPlaceholder(name)) continue;
+            errors.add('Bind {{' + name + '}} on ' + blockType + ' to a Content Settings or Block Settings value.');
         }
+    }
+
+    private static Boolean isStructuralPlaceholder(String name) {
+        return new Set<String>{
+            'blo-hide-dsk', 'blo-hide-mob', 'blo-pad-dsk', 'blo-pad-mob',
+            'blo-bg-color', 'blo-bg-img', 'blo-bg-grd', 'column-dir',
+            'col-pad-dsk', 'col-pad-mob', 'col-bg-color', 'col-bg-image', 'col-bg-gradient'
+        }.contains(name);
     }
 
     private static Boolean hasBodySlot(String shell) {

@@ -9,7 +9,14 @@ import saveComponentCatalog from '@salesforce/apex/ChannelTemplateController.sav
 import getContentBlockPlaceholders from '@salesforce/apex/ChannelTemplateController.getContentBlockPlaceholders';
 import deleteTemplateAsset from '@salesforce/apex/ChannelTemplateController.deleteTemplateAsset';
 import deleteTemplate from '@salesforce/apex/ChannelTemplateController.deleteTemplate';
-import { parseContentBindings, dictionarySections, emptyContentStructure } from 'c/contentBindingModel';
+import {
+    parseBlockTemplate,
+    alignLayout,
+    layoutBindings,
+    layoutErrors,
+    emptyColumnLayout,
+    STRUCTURAL_PLACEHOLDERS
+} from 'c/contentBindingModel';
 
 const COMPONENT_TYPES = [
     { value: 'RichText', label: 'Rich Text', icon: 'utility:display_rich_text', description: 'Formatted body copy with links and lists.', group: 'Content' },
@@ -41,13 +48,8 @@ const BLOCK_SETTINGS = [
     { id: 'heightMobile', label: 'Block height on mobile', hint: 'Writes a pixel height, for example 180px.' }
 ];
 
-const CONTENT_SOURCE_IDS = new Set([
-    'copy', 'imageUrl', 'altText', 'legal',
-    'iconListHeader', 'iconListIcon', 'iconListItem',
-    'imageSrc', 'imageAlt', 'imageHref', 'imageTarget',
-    'imageWidthDesktop', 'imageWidthMobile', 'imagePaddingDesktop', 'imagePaddingMobile',
-    'contentValue'
-]);
+const CONTENT_SOURCE_IDS = new Set(['copy', 'imageUrl', 'altText', 'legal']);
+const STRUCTURAL_NAMES = new Set(STRUCTURAL_PLACEHOLDERS);
 
 function componentTypeToken(label, fileName) {
     const source = (String(label || '').trim() || fileName || 'Block').replace(/\.html$/i, '');
@@ -75,6 +77,165 @@ function bindingMap(bindings) {
         if (name) map[name] = binding.source || '';
     });
     return map;
+}
+
+function parseStoredLayout(value) {
+    if (!value) return null;
+    if (typeof value === 'object') return value;
+    try {
+        return JSON.parse(value);
+    } catch (error) {
+        return null;
+    }
+}
+
+function settingChoice(fileName, id, label, hint, checked, columnIndex) {
+    const scope = columnIndex == null ? 'block' : String(columnIndex);
+    return {
+        key: `${fileName}:${scope}:${id}`,
+        id,
+        fileName,
+        columnIndex: columnIndex == null ? '' : String(columnIndex),
+        label,
+        hint,
+        checked: !!checked,
+        choiceClass: 'block-setting-choice' + (checked ? ' block-setting-choice_active' : ''),
+        isColor: id === 'backgroundColor',
+        isGradient: id === 'backgroundGradient',
+        showEditor: false,
+        colors: [],
+        gradients: [],
+        colorDraftKey: `${fileName}:${scope}`
+    };
+}
+
+function colorRows(fileName, colors, columnIndex) {
+    const scope = columnIndex == null ? 'block' : String(columnIndex);
+    return (colors || []).map((value, index) => ({
+        key: `${fileName}:${scope}:color:${index}:${value}`,
+        fileName,
+        columnIndex: columnIndex == null ? '' : String(columnIndex),
+        value,
+        swatch: `background:${value}`
+    }));
+}
+
+function gradientRows(fileName, gradients, columnIndex) {
+    const scope = columnIndex == null ? 'block' : String(columnIndex);
+    return (gradients || []).map((item, index) => ({
+        key: `${fileName}:${scope}:gradient:${item.id || index}`,
+        fileName,
+        columnIndex: columnIndex == null ? '' : String(columnIndex),
+        index,
+        label: item.label || '',
+        css: item.css || ''
+    }));
+}
+
+function paddingHint(desktop, mobile, desktopToken, mobileToken) {
+    if (desktop && mobile) {
+        return `Desktop writes {{${desktopToken}}}. Mobile writes {{${mobileToken}}} and can reuse the desktop values.`;
+    }
+    if (desktop) return `Writes {{${desktopToken}}} as top, right, bottom, and left pixels.`;
+    return `Writes {{${mobileToken}}} as top, right, bottom, and left pixels.`;
+}
+
+function blockPanelView(row, scan, layout) {
+    const block = scan.block || {};
+    const choices = [];
+    if (block.hideDesktop) {
+        choices.push(settingChoice(row.fileName, 'hideDesktop', 'Hide on desktop', 'Authors can add the blo-hide-dsk class.', layout.hideDesktop));
+    }
+    if (block.hideMobile) {
+        choices.push(settingChoice(row.fileName, 'hideMobile', 'Hide on mobile', 'Authors can add the blo-hide-mob class.', layout.hideMobile));
+    }
+    if (block.padDesktop || block.padMobile) {
+        choices.push(settingChoice(
+            row.fileName,
+            'padding',
+            'Padding',
+            paddingHint(block.padDesktop, block.padMobile, 'blo-pad-dsk', 'blo-pad-mob'),
+            layout.padding
+        ));
+    }
+    if (block.bgColor) {
+        const choice = settingChoice(row.fileName, 'backgroundColor', 'Background color', 'Authors pick one hex color from this palette. It is written to {{blo-bg-color}}.', layout.backgroundColor);
+        choice.showEditor = !!layout.backgroundColor;
+        choice.colors = colorRows(row.fileName, layout.backgroundColors);
+        choices.push(choice);
+    }
+    if (block.bgImage) {
+        choices.push(settingChoice(row.fileName, 'backgroundImage', 'Background image', 'Authors paste an image URL or upload a file. It is written to {{blo-bg-img}}.', layout.backgroundImage));
+    }
+    if (block.bgGradient) {
+        const choice = settingChoice(row.fileName, 'backgroundGradient', 'Background gradient', 'Authors pick one preset. Its CSS is written to {{blo-bg-grd}}.', layout.backgroundGradient);
+        choice.showEditor = !!layout.backgroundGradient;
+        choice.gradients = gradientRows(row.fileName, layout.gradients);
+        choices.push(choice);
+    }
+    return {
+        modern: !!scan.usesLayout,
+        empty: !!scan.usesLayout && choices.length === 0,
+        choices
+    };
+}
+
+function columnCardView(row, column, options, index) {
+    const choices = [];
+    if (column.padDesktop || column.padMobile) {
+        choices.push(settingChoice(
+            row.fileName,
+            'padding',
+            'Padding',
+            paddingHint(column.padDesktop, column.padMobile, 'col-pad-dsk', 'col-pad-mob'),
+            options.padding,
+            index
+        ));
+    }
+    if (column.bgColor) {
+        const choice = settingChoice(row.fileName, 'backgroundColor', 'Background color', 'Authors pick one hex color. It is written to {{col-bg-color}} in this column.', options.backgroundColor, index);
+        choice.showEditor = !!options.backgroundColor;
+        choice.colors = colorRows(row.fileName, options.backgroundColors, index);
+        choices.push(choice);
+    }
+    if (column.bgImage) {
+        const choice = settingChoice(row.fileName, 'backgroundImage', 'Background image', 'Authors provide an image URL. It is written to {{col-bg-image}} in this column.', options.backgroundImage, index);
+        choices.push(choice);
+    }
+    if (column.bgGradient) {
+        const choice = settingChoice(row.fileName, 'backgroundGradient', 'Background gradient', 'Authors pick one preset. Its CSS is written to {{col-bg-gradient}} in this column.', options.backgroundGradient, index);
+        choice.showEditor = !!options.backgroundGradient;
+        choice.gradients = gradientRows(row.fileName, options.gradients, index);
+        choices.push(choice);
+    }
+    return {
+        key: `${row.fileName}:column:${index}`,
+        label: column.label || `Column ${index + 1}`,
+        choices
+    };
+}
+
+const KNOWN_BINDING_SOURCES = new Set([
+    'copy', 'imageUrl', 'altText', 'legal',
+    'viewDesktop', 'viewMobile', 'padding', 'background', 'columnLayout', 'heightDesktop', 'heightMobile',
+    'hideDesktop', 'hideMobile', 'padDesktop', 'padMobile', 'bgColor', 'bgImage', 'bgGradient', 'columnDir',
+    'colPadDesktop', 'colPadMobile', 'colBgColor', 'colBgImage', 'colBgGradient'
+]);
+
+function mergeLayoutBindings(row) {
+    const scan = row.templateScan || parseBlockTemplate(row.htmlBody || '');
+    const layout = alignLayout(row.layout, scan);
+    const bindings = { ...(row.bindings || {}) };
+    Object.keys(bindings).forEach(name => {
+        if (bindings[name] && !KNOWN_BINDING_SOURCES.has(bindings[name])) bindings[name] = '';
+    });
+    STRUCTURAL_PLACEHOLDERS.forEach(name => {
+        delete bindings[name];
+    });
+    layoutBindings(layout, scan).forEach(pair => {
+        bindings[pair.placeholder] = pair.source;
+    });
+    return { ...row, templateScan: scan, layout, bindings };
 }
 
 const EMPTY_TEMPLATE = () => ({
@@ -213,20 +374,16 @@ export default class ChannelTemplateManager extends LightningElement {
             const names = placeholders || [];
             const status = row.status || 'Draft';
             const contentActive = (row.activeTab || 'content') === 'content';
-            const structure = row.htmlBody ? parseContentBindings(row.htmlBody) : emptyContentStructure();
-            const dictionary = dictionarySections(structure);
-            const claimed = new Set(Object.keys(structure.sources || {}));
-            const sectionLoose = new Set(dictionary.sections.flatMap(section => section.looseNames || []));
+            const scanReady = !!row.templateScan;
+            const scan = row.templateScan || parseBlockTemplate('');
+            const layout = alignLayout(row.layout, scan);
             const contentBindingRows = names
-                .filter(name => !claimed.has(name) && !sectionLoose.has(name) && (!bindings[name] || CONTENT_SOURCE_IDS.has(bindings[name])))
+                .filter(name => !STRUCTURAL_NAMES.has(name) && (!bindings[name] || CONTENT_SOURCE_IDS.has(bindings[name])))
                 .map(name => bindingEntry(row, name, bindings));
-            const contentSections = dictionary.sections.map(section => ({
-                ...section,
-                key: `${row.fileName}:${section.key}`,
-                looseBindings: (section.looseNames || [])
-                    .filter(name => !claimed.has(name))
-                    .map(name => bindingEntry(row, name, bindings))
-            }));
+            const blockPanel = scanReady ? blockPanelView(row, scan, layout) : { modern: false, empty: false, choices: [] };
+            const columnCards = scanReady && scan.columns.length > 1
+                ? scan.columns.map((column, index) => columnCardView(row, column, layout.columns[index] || {}, index))
+                : [];
             return {
                 ...row,
                 status,
@@ -240,8 +397,13 @@ export default class ChannelTemplateManager extends LightningElement {
                 noPlaceholders: Array.isArray(placeholders) && placeholders.length === 0,
                 contentBindingRows,
                 hasContentBindings: contentBindingRows.length > 0,
-                hasColumnSections: dictionary.hasColumnSections,
-                contentSections,
+                showColumns: columnCards.length > 0,
+                columnDirectionAvailable: scan.columnDirection && columnCards.length > 0,
+                columnDirectionOn: !!layout.columnDirection,
+                columnDirectionClass: 'block-setting-choice' + (layout.columnDirection ? ' block-setting-choice_active' : ''),
+                columnCards,
+                blockPanel,
+                showLegacySettings: scanReady && !scan.usesLayout,
                 contentTabClass: 'slds-tabs_default__item' + (contentActive ? ' slds-is-active' : ''),
                 settingsTabClass: 'slds-tabs_default__item' + (contentActive ? '' : ' slds-is-active'),
                 contentTabSelected: contentActive,
@@ -249,7 +411,7 @@ export default class ChannelTemplateManager extends LightningElement {
                 contentPanelStyle: contentActive ? '' : 'display:none',
                 settingsPanelStyle: contentActive ? 'display:none' : '',
                 activateDisabled: status !== 'Ready' || editingLocked || this.isSaving,
-                settingChoices: BLOCK_SETTINGS.map(setting => {
+                settingChoices: scanReady && !scan.usesLayout ? BLOCK_SETTINGS.map(setting => {
                     const checked = settings.includes(setting.id);
                     const placeholderChoices = names
                         .filter(name => !bindings[name] || bindings[name] === setting.id)
@@ -272,7 +434,7 @@ export default class ChannelTemplateManager extends LightningElement {
                         hasPlaceholderChoices: placeholderChoices.length > 0,
                         bindingEmpty: Array.isArray(placeholders) && placeholders.length > 0 && placeholderChoices.length === 0
                     };
-                })
+                }) : []
             };
         });
     }
@@ -446,6 +608,100 @@ export default class ChannelTemplateManager extends LightningElement {
         ));
     }
 
+    handleLayoutToggle(event) {
+        event.stopPropagation();
+        const flag = event.currentTarget.dataset.flag;
+        const allowed = new Set(['hideDesktop', 'hideMobile', 'padding', 'backgroundColor', 'backgroundImage', 'backgroundGradient', 'columnDirection']);
+        if (!allowed.has(flag)) return;
+        const checked = event.detail?.checked ?? event.target.checked;
+        this._updateLayout(event.currentTarget.dataset.file, event.currentTarget.dataset.column, layout => {
+            const target = flag === 'columnDirection' ? layout : this._layoutTarget(layout, event.currentTarget.dataset.column);
+            target[flag] = !!checked;
+        });
+    }
+
+    handleAddColor(event) {
+        event.stopPropagation();
+        const draftKey = event.currentTarget.dataset.draft;
+        const input = [...this.template.querySelectorAll('[data-color-draft]')].find(node => node.dataset.colorDraft === draftKey);
+        const value = String(input?.value || '').trim();
+        if (!/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(value)) {
+            this._toast('Background color', 'Enter a hex color such as #2A7B9B.', 'warning');
+            return;
+        }
+        this._updateLayout(event.currentTarget.dataset.file, event.currentTarget.dataset.column, layout => {
+            const target = this._layoutTarget(layout, event.currentTarget.dataset.column);
+            const colors = target.backgroundColors || [];
+            if (!colors.some(color => color.toLowerCase() === value.toLowerCase())) {
+                target.backgroundColors = [...colors, value];
+            }
+        });
+        if (input) input.value = '';
+    }
+
+    handleRemoveColor(event) {
+        event.stopPropagation();
+        const value = String(event.currentTarget.dataset.color || '').toLowerCase();
+        this._updateLayout(event.currentTarget.dataset.file, event.currentTarget.dataset.column, layout => {
+            const target = this._layoutTarget(layout, event.currentTarget.dataset.column);
+            target.backgroundColors = (target.backgroundColors || []).filter(color => color.toLowerCase() !== value);
+        });
+    }
+
+    handleAddGradient(event) {
+        event.stopPropagation();
+        this._updateLayout(event.currentTarget.dataset.file, event.currentTarget.dataset.column, layout => {
+            const target = this._layoutTarget(layout, event.currentTarget.dataset.column);
+            const gradients = target.gradients || [];
+            target.gradients = [...gradients, {
+                id: `gradient-${Date.now()}`,
+                label: `Gradient ${gradients.length + 1}`,
+                css: ''
+            }];
+        });
+    }
+
+    handleRemoveGradient(event) {
+        event.stopPropagation();
+        const index = Number(event.currentTarget.dataset.index);
+        this._updateLayout(event.currentTarget.dataset.file, event.currentTarget.dataset.column, layout => {
+            const target = this._layoutTarget(layout, event.currentTarget.dataset.column);
+            target.gradients = (target.gradients || []).filter((item, itemIndex) => itemIndex !== index);
+        });
+    }
+
+    handleGradientField(event) {
+        event.stopPropagation();
+        const field = event.currentTarget.dataset.field;
+        if (field !== 'label' && field !== 'css') return;
+        const index = Number(event.currentTarget.dataset.index);
+        const value = event.target.value ?? '';
+        this._updateLayout(event.currentTarget.dataset.file, event.currentTarget.dataset.column, layout => {
+            const target = this._layoutTarget(layout, event.currentTarget.dataset.column);
+            const gradients = (target.gradients || []).slice();
+            if (!gradients[index]) return;
+            gradients[index] = { ...gradients[index], [field]: value };
+            target.gradients = gradients;
+        });
+    }
+
+    _updateLayout(fileName, columnIndex, recipe) {
+        this.catalogRows = this.catalogRows.map(row => {
+            if (row.fileName !== fileName) return row;
+            const scan = row.templateScan || parseBlockTemplate(row.htmlBody || '');
+            const layout = alignLayout(row.layout, scan);
+            recipe(layout);
+            return this._touchCard(mergeLayoutBindings({ ...row, templateScan: scan, layout }));
+        });
+    }
+
+    _layoutTarget(layout, columnIndex) {
+        if (columnIndex === '' || columnIndex == null) return layout;
+        const index = Number(columnIndex);
+        if (!layout.columns[index]) layout.columns[index] = emptyColumnLayout();
+        return layout.columns[index];
+    }
+
     handleSettingChange(event) {
         const fileName = event.currentTarget.dataset.file;
         const setting = event.currentTarget.dataset.setting;
@@ -580,12 +836,15 @@ export default class ChannelTemplateManager extends LightningElement {
             errors.push('Enter an SLDS icon name such as utility:display_rich_text.');
         }
         if (row.placeholders == null) errors.push('Placeholders are still loading.');
+        const scan = row.templateScan || parseBlockTemplate(row.htmlBody || '');
+        const layout = alignLayout(row.layout, scan);
+        if (scan.usesLayout) errors.push(...layoutErrors(layout, scan));
         const bindings = row.bindings || {};
-        (row.placeholders || []).filter(name => !bindings[name]).forEach(name => {
+        (row.placeholders || []).filter(name => !STRUCTURAL_NAMES.has(name) && !bindings[name]).forEach(name => {
             errors.push(`Bind {{${name}}}.`);
         });
         const names = row.placeholders || [];
-        if (names.length) {
+        if (!scan.usesLayout && names.length) {
             (Array.isArray(row.blockSettings) ? row.blockSettings : []).forEach(setting => {
                 if (names.some(name => bindings[name] === setting)) return;
                 const label = BLOCK_SETTINGS.find(item => item.id === setting)?.label || setting;
@@ -596,19 +855,24 @@ export default class ChannelTemplateManager extends LightningElement {
     }
 
     _catalogPayload() {
-        return this.catalogRows.map(row => ({
-            type: row.type || '',
-            fileName: row.fileName,
-            label: row.label || '',
-            description: row.description || '',
-            icon: row.icon || '',
-            status: row.status || 'Draft',
-            placeholders: row.placeholders || [],
-            blockSettings: Array.isArray(row.blockSettings) ? row.blockSettings : [],
-            bindings: Object.entries(row.bindings || {})
-                .filter(([, source]) => source)
-                .map(([placeholder, source]) => ({ placeholder, source }))
-        }));
+        return this.catalogRows.map(row => {
+            const merged = row.templateScan ? mergeLayoutBindings(row) : row;
+            const scan = merged.templateScan || parseBlockTemplate('');
+            return {
+                type: row.type || '',
+                fileName: row.fileName,
+                label: row.label || '',
+                description: row.description || '',
+                icon: row.icon || '',
+                status: row.status || 'Draft',
+                placeholders: row.placeholders || [],
+                blockSettings: scan.usesLayout ? [] : (Array.isArray(row.blockSettings) ? row.blockSettings : []),
+                layout: scan.usesLayout ? alignLayout(merged.layout, scan) : null,
+                bindings: Object.entries(merged.bindings || {})
+                    .filter(([, source]) => source)
+                    .map(([placeholder, source]) => ({ placeholder, source }))
+            };
+        });
     }
 
     async _persistCatalog() {
@@ -694,6 +958,9 @@ export default class ChannelTemplateManager extends LightningElement {
                 placeholders: null,
                 bindings: bindingMap(match?.bindings),
                 blockSettings: Array.isArray(match?.blockSettings) ? [...match.blockSettings] : null,
+                layout: parseStoredLayout(match?.layoutJson),
+                templateScan: null,
+                htmlBody: '',
                 legacy: !Array.isArray(match?.bindings)
             };
         });
@@ -708,18 +975,27 @@ export default class ChannelTemplateManager extends LightningElement {
             const byFile = new Map((scans || []).map(scan => [this._fileKey(scan.fileName), scan]));
             this.catalogRows = this.catalogRows.map(row => {
                 const scan = byFile.get(this._fileKey(row.fileName));
-                if (!scan) return { ...row, placeholders: row.placeholders || [], htmlBody: row.htmlBody || '' };
+                if (!scan) {
+                    return mergeLayoutBindings({
+                        ...row,
+                        placeholders: row.placeholders || [],
+                        htmlBody: row.htmlBody || '',
+                        templateScan: parseBlockTemplate(row.htmlBody || '')
+                    });
+                }
                 const found = scan.placeholders || [];
                 const htmlBody = scan.htmlBody || '';
-                const structure = htmlBody ? parseContentBindings(htmlBody) : emptyContentStructure();
                 const bindings = { ...(row.bindings || {}) };
                 found.forEach(name => {
                     if (!(name in bindings)) bindings[name] = '';
                 });
-                Object.entries(structure.sources || {}).forEach(([name, source]) => {
-                    if (!bindings[name]) bindings[name] = source;
+                return mergeLayoutBindings({
+                    ...row,
+                    placeholders: found,
+                    bindings,
+                    htmlBody,
+                    templateScan: parseBlockTemplate(htmlBody)
                 });
-                return { ...row, placeholders: found, bindings, htmlBody };
             });
             if (this.catalogRows.some(row => !row.persisted) && !this.isEditingActive) {
                 await this._persistCatalog();

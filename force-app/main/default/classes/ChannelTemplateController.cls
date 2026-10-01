@@ -48,6 +48,7 @@ public with sharing class ChannelTemplateController {
         @AuraEnabled public List<String> placeholders;
         @AuraEnabled public List<String> blockSettings;
         @AuraEnabled public List<PlaceholderBinding> bindings;
+        @AuraEnabled public String layoutJson;
     }
 
     public class PlaceholderBinding {
@@ -314,7 +315,8 @@ public with sharing class ChannelTemplateController {
                 'status' => status,
                 'placeholders' => placeholders,
                 'blockSettings' => blockSettings,
-                'bindings' => bindingRows
+                'bindings' => bindingRows,
+                'layout' => row.get('layout')
             });
         }
         template.Manifest_JSON__c = JSON.serialize(new Map<String, Object>{
@@ -714,6 +716,7 @@ public with sharing class ChannelTemplateController {
                 renderBlock.placeholders = component.placeholders;
                 renderBlock.blockSettings = component.blockSettings;
                 renderBlock.bindings = component.bindings;
+                renderBlock.layoutJson = component.layoutJson;
                 renderBlock.status = component.status;
                 renderBlock.html = htmlByName.get(baseName(renderBlock.fileName).toLowerCase());
                 if (String.isBlank(renderBlock.html)) {
@@ -770,6 +773,7 @@ public with sharing class ChannelTemplateController {
         @AuraEnabled public List<String> placeholders;
         @AuraEnabled public List<String> blockSettings;
         @AuraEnabled public List<PlaceholderBinding> bindings;
+        @AuraEnabled public String layoutJson;
     }
 
     private static final List<String> BLOCK_SETTING_ORDER = new List<String>{
@@ -779,10 +783,8 @@ public with sharing class ChannelTemplateController {
     private static final Set<String> BINDING_SOURCES = new Set<String>{
         'copy', 'imageUrl', 'altText', 'legal',
         'viewDesktop', 'viewMobile', 'padding', 'background', 'columnLayout', 'heightDesktop', 'heightMobile',
-        'iconListHeader', 'iconListIcon', 'iconListItem',
-        'imageSrc', 'imageAlt', 'imageHref', 'imageTarget',
-        'imageWidthDesktop', 'imageWidthMobile', 'imagePaddingDesktop', 'imagePaddingMobile',
-        'contentValue'
+        'hideDesktop', 'hideMobile', 'padDesktop', 'padMobile', 'bgColor', 'bgImage', 'bgGradient', 'columnDir',
+        'colPadDesktop', 'colPadMobile', 'colBgColor', 'colBgImage', 'colBgGradient'
     };
 
     private static Boolean isComponentType(String type) {
@@ -848,10 +850,17 @@ public with sharing class ChannelTemplateController {
             }
         }
         for (String name : placeholders) {
-            if (!bound.contains(name)) {
-                throw new AuraHandledException('Bind {{' + name + '}} on ' + type + ' to a Content Settings or Block Settings value.');
-            }
+            if (bound.contains(name) || isStructuralPlaceholder(name)) continue;
+            throw new AuraHandledException('Bind {{' + name + '}} on ' + type + ' to a Content Settings or Block Settings value.');
         }
+    }
+
+    private static Boolean isStructuralPlaceholder(String name) {
+        return new Set<String>{
+            'blo-hide-dsk', 'blo-hide-mob', 'blo-pad-dsk', 'blo-pad-mob',
+            'blo-bg-color', 'blo-bg-img', 'blo-bg-grd', 'column-dir',
+            'col-pad-dsk', 'col-pad-mob', 'col-bg-color', 'col-bg-image', 'col-bg-gradient'
+        }.contains(name);
     }
 
     private static List<String> extractPlaceholders(String html) {
@@ -945,6 +954,7 @@ public with sharing class ChannelTemplateController {
             if (row.containsKey('placeholders')) component.placeholders = readStringList(row.get('placeholders'));
             if (row.containsKey('blockSettings')) component.blockSettings = readStringList(row.get('blockSettings'));
             if (row.containsKey('bindings')) component.bindings = readBindings(row.get('bindings'));
+            if (row.get('layout') != null) component.layoutJson = JSON.serialize(row.get('layout'));
             if (row.containsKey('status')) component.status = textValue(row.get('status'));
             if (String.isNotBlank(component.type) || String.isNotBlank(component.fileName)) components.add(component);
         }
