@@ -60,10 +60,20 @@ private class ProductMassUpdateControllerTest {
 
     @isTest
     static void testUpdateProductTypeDict_Success() {
-        List<Product2> products = [SELECT Id FROM Product2 ORDER BY Name ASC];
-        List<Product2> selected = new List<Product2>{ products[0], products[1] };
-        ProductMassUpdateController c = buildController(selected);
+        Id familyId = dictId('Product Family');
         Id typeId = dictId('Product Type');
+        List<Product2> products = [SELECT Id FROM Product2 ORDER BY Name ASC];
+        for (Product2 product : products) {
+            product.Product_Family_Dict__c = familyId;
+        }
+        update products;
+
+        // List-view rows also carry Product Family. A bad in-memory family value must not be saved.
+        List<Product2> selected = new List<Product2>{
+            new Product2(Id = products[0].Id, Product_Family_Dict__c = typeId),
+            new Product2(Id = products[1].Id, Product_Family_Dict__c = typeId)
+        };
+        ProductMassUpdateController c = buildController(selected);
         c.dummyProduct.Product_Type_Dict__c = typeId;
 
         Test.startTest();
@@ -71,8 +81,9 @@ private class ProductMassUpdateControllerTest {
         Test.stopTest();
 
         System.assertNotEquals(null, pr, 'Should return a PageReference on success.');
-        for (Product2 p : [SELECT Product_Type_Dict__c FROM Product2 WHERE Id IN :selected]) {
+        for (Product2 p : [SELECT Product_Type_Dict__c, Product_Family_Dict__c FROM Product2 WHERE Id IN :selected]) {
             System.assertEquals(typeId, p.Product_Type_Dict__c, 'Product Type lookup should be updated.');
+            System.assertEquals(familyId, p.Product_Family_Dict__c, 'Product Family lookup should stay unchanged.');
         }
         System.assertEquals(
             0,
