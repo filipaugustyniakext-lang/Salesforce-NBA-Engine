@@ -137,7 +137,7 @@ public with sharing class MarketingDictionaryManagerController {
             // Product_Type_Dict__c is SetNull, so a plain delete would clear the lookup on
             // every related Product2. Block that while any product still uses the type.
             if (rec.Dictionary_Sub_Type__c == 'Product Type') {
-                String productDependency = ProductTypeUsage.describe(recordId);
+                String productDependency = new ProductTypeUsage().describe(recordId);
                 if (productDependency != null) {
                     throw dependencyDeleteException(rec.Name, productDependency);
                 }
@@ -173,7 +173,7 @@ public with sharing class MarketingDictionaryManagerController {
      * cannot be orphaned by deleting its Product Type.
      */
     private without sharing class ProductTypeUsage {
-        static String describe(Id recordId) {
+        String describe(Id recordId) {
             Integer productCount = [
                 SELECT COUNT()
                 FROM Product2
