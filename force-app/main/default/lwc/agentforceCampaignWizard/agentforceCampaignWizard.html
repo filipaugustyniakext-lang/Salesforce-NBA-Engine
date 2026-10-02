@@ -138,6 +138,8 @@
                                                 label="From"
                                                 value={campaignFrom}
                                                 onchange={handleCampaignFromChange}
+                                                required
+                                                message-when-value-missing="From is required."
                                                 class="custom-form-input">
                                             </lightning-input>
                                         </div>
@@ -148,6 +150,8 @@
                                                 data-id="campaign-to"
                                                 value={campaignTo}
                                                 min={campaignToMin}
+                                                required
+                                                message-when-value-missing="To is required."
                                                 message-when-range-underflow="To cannot be earlier than From."
                                                 onchange={handleCampaignToChange}
                                                 class="custom-form-input">

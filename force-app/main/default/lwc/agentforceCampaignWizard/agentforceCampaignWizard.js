@@ -1190,7 +1190,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     get isStep1Valid() {
         if (!this.parentActivationType) return false;
         if (!this.campaignName || this.campaignName.trim() === '') return false;
-        if (this.isDateRangeInvalid) return false;
+        if (!this.campaignFrom || !this.campaignTo || this.isDateRangeInvalid) return false;
         if (this.showCampaignGroup && !this.selectedCampaignGroupId) return false;
         if (!this.selectedPriorityTier) return false;
         if (!this.hasSelectedChannel) return false;
@@ -1220,9 +1220,11 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         return false;
     }
 
-    /** Draft save only needs a campaign name so a record can be persisted. */
+    /** Draft save needs a name and a valid From/To range. */
     get isDraftSaveInvalid() {
-        return !this.campaignName || this.campaignName.trim() === '' || this.isDateRangeInvalid;
+        return !this.campaignName || this.campaignName.trim() === ''
+            || !this.campaignFrom || !this.campaignTo
+            || this.isDateRangeInvalid;
     }
 
     /** Full activation gate across all configured wizard rules (Copy Center pending). */
