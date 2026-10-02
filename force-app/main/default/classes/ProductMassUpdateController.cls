@@ -44,6 +44,26 @@ public with sharing class ProductMassUpdateController {
         }
     }
 
+    public PageReference updateProductTypeDict() {
+        if (selectedRecords.isEmpty()) {
+            ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.WARNING, 'Please select at least one record.'));
+            return null;
+        }
+        Id dictId = dummyProduct.Product_Type_Dict__c;
+        if (dictId == null) {
+            ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.WARNING, 'Please select a Product Type.'));
+            return null;
+        }
+        for (Product2 p : selectedRecords) p.Product_Type_Dict__c = dictId;
+        try {
+            update selectedRecords;
+            return standardController.cancel();
+        } catch (Exception e) {
+            ApexPages.addMessages(e);
+            return null;
+        }
+    }
+
     public PageReference updateFamilyOfNeedsDict() {
         if (selectedRecords.isEmpty()) {
             ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.WARNING, 'Please select at least one record.'));

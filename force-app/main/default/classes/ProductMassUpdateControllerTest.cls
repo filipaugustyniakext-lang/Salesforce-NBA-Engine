@@ -19,6 +19,7 @@ private class ProductMassUpdateControllerTest {
         insert new List<Marketing_Dictionary__c>{
             makeDict('Test Product Family', 'Product Family'),
             makeDict('Test Family of Needs', 'Family of Needs'),
+            makeDict('Test Product Type', 'Product Type'),
             makeDict('Test Customer Type', 'Customer Type')
         };
 
@@ -55,6 +56,29 @@ private class ProductMassUpdateControllerTest {
         for (Product2 p : [SELECT Product_Family_Dict__c FROM Product2]) {
             System.assertEquals(fam, p.Product_Family_Dict__c, 'Product Family lookup should be updated.');
         }
+    }
+
+    @isTest
+    static void testUpdateProductTypeDict_Success() {
+        List<Product2> products = [SELECT Id FROM Product2 ORDER BY Name ASC];
+        List<Product2> selected = new List<Product2>{ products[0], products[1] };
+        ProductMassUpdateController c = buildController(selected);
+        Id typeId = dictId('Product Type');
+        c.dummyProduct.Product_Type_Dict__c = typeId;
+
+        Test.startTest();
+        PageReference pr = c.updateProductTypeDict();
+        Test.stopTest();
+
+        System.assertNotEquals(null, pr, 'Should return a PageReference on success.');
+        for (Product2 p : [SELECT Product_Type_Dict__c FROM Product2 WHERE Id IN :selected]) {
+            System.assertEquals(typeId, p.Product_Type_Dict__c, 'Product Type lookup should be updated.');
+        }
+        System.assertEquals(
+            0,
+            [SELECT COUNT() FROM Product2 WHERE Id NOT IN :selected AND Product_Type_Dict__c != null],
+            'Products outside the selection should keep their current product type.'
+        );
     }
 
     @isTest
@@ -107,11 +131,13 @@ private class ProductMassUpdateControllerTest {
         Test.startTest();
         PageReference prFamily = c.updateProductFamilyDict();
         PageReference prNeeds  = c.updateFamilyOfNeedsDict();
+        PageReference prType   = c.updateProductTypeDict();
         PageReference prCt     = c.updateCustomerTypeDict();
         Test.stopTest();
 
         System.assertEquals(null, prFamily, 'Should return null when no records are selected.');
         System.assertEquals(null, prNeeds, 'Should return null when no records are selected.');
+        System.assertEquals(null, prType, 'Should return null when no records are selected.');
         System.assertEquals(null, prCt, 'Should return null when no records are selected.');
         System.assert(ApexPages.hasMessages(ApexPages.Severity.WARNING),
             'A warning message should be displayed to the user.');
@@ -125,11 +151,13 @@ private class ProductMassUpdateControllerTest {
         Test.startTest();
         PageReference prFamily = c.updateProductFamilyDict();
         PageReference prNeeds  = c.updateFamilyOfNeedsDict();
+        PageReference prType   = c.updateProductTypeDict();
         PageReference prCt     = c.updateCustomerTypeDict();
         Test.stopTest();
 
         System.assertEquals(null, prFamily, 'Should return null when no Product Family is chosen.');
         System.assertEquals(null, prNeeds, 'Should return null when no Family of Needs is chosen.');
+        System.assertEquals(null, prType, 'Should return null when no Product Type is chosen.');
         System.assertEquals(null, prCt, 'Should return null when no Customer Type is chosen.');
         System.assert(ApexPages.hasMessages(ApexPages.Severity.WARNING),
             'A warning message should be displayed to the user.');
