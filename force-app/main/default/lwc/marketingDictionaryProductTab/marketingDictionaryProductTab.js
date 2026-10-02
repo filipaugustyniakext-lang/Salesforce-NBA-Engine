@@ -184,6 +184,12 @@ export default class MarketingDictionaryProductTab extends LightningElement {
     get isProductFamily(){ return this._activeSubtype === 'Product Family'; }
     get isFamilyOfNeeds(){ return this._activeSubtype === 'Family of Needs'; }
     get isSingleRow()    { return this.bulkRows.length === 1; }
+    get hasCustomerTypeOptions() { return this.customerTypes.length > 0; }
+    get customerTypePickerLabel() {
+        return this.bulkRows.length > 1
+            ? 'Customer Types (applies to all entries below)'
+            : 'Customer Types';
+    }
     get pendingDeleteName() { return this._pendingDeleteName; }
 
     get modalTitle() {
@@ -214,6 +220,7 @@ export default class MarketingDictionaryProductTab extends LightningElement {
         this.bulkRows = [newRow(1)];
         this.bulkFonId = null;
         this.bulkProductTypeId = null;
+        this._editModalCtSet = new Set();
         this.isModalOpen = true;
     }
 
@@ -308,7 +315,10 @@ export default class MarketingDictionaryProductTab extends LightningElement {
         }));
         this.isSaving = true;
         try {
-            await saveProductRecordsBulk({ recordsJson: JSON.stringify(records) });
+            await saveProductRecordsBulk({
+                recordsJson: JSON.stringify(records),
+                customerTypeIds: this.isFamilyOfNeeds ? [...this._editModalCtSet] : null
+            });
             const label = filled.length === 1 ? this._activeSubtype : `${filled.length} ${this._activeSubtype} entries`;
             this._showToast('Success', `${label} saved`, 'success');
             this.isModalOpen = false;
