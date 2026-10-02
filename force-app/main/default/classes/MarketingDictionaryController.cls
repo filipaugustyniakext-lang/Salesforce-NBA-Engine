@@ -33,7 +33,7 @@ public with sharing class MarketingDictionaryController {
     public static Campaign getCampaignById(Id campaignId) {
         if (campaignId == null) return null;
         List<Campaign> campaigns = [
-            SELECT Id, Name, Campaign_Group_Dict__c, Campaign_Group_Dict__r.Name,
+            SELECT Id, Name, StartDate, EndDate, Campaign_Group_Dict__c, Campaign_Group_Dict__r.Name,
                    Type, Topic_Name__c, Topic_Dict__c, Topic_Dict__r.Name,
                    Priority_Tier__c, Activation_Type__c,
                    Timing_From__c, Timing_To__c, Validity_Days__c, Duration_Days__c,

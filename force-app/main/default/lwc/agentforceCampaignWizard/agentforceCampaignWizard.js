@@ -50,6 +50,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     // --- STANDARD COMPONENT STATE ---
     @track campaignName = '';
+    @track campaignFrom = '';
+    @track campaignTo = '';
     @track selectedOfferingType = 'Product Family';
     @track selectedPriorityTier = '';
     // --- EXCLUSION SETTINGS (replaces the old timing-reference block) ---
@@ -365,6 +367,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             }
         }
         this.campaignName = baseName;
+        this.campaignFrom = campaign.StartDate || '';
+        this.campaignTo = campaign.EndDate || '';
 
         this.selectedTopicId = campaign.Topic_Dict__c || '';
         this.topicName = campaign.Topic_Dict__r?.Name
@@ -812,6 +816,23 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     handleNameChange(event) {
         this.campaignName = event.target.value; 
     }
+
+    handleCampaignFromChange(event) {
+        this.campaignFrom = event.detail.value || '';
+        this._validateCampaignTo();
+    }
+
+    handleCampaignToChange(event) {
+        this.campaignTo = event.detail.value || '';
+        this._validateCampaignTo();
+    }
+
+    _validateCampaignTo() {
+        const input = this.template.querySelector('[data-id="campaign-to"]');
+        if (!input) return;
+        input.setCustomValidity(this.isDateRangeInvalid ? 'To cannot be earlier than From.' : '');
+        input.reportValidity();
+    }
         
     handleOfferingTypeChange(event) {
         this.selectedOfferingType = event.target.value; 
@@ -1150,9 +1171,26 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         return !!raw && Number.isInteger(val) && val >= 1 && val <= 1000;
     }
 
+    get campaignToMin() {
+        return this.campaignFrom || '';
+    }
+
+    get isDateRangeInvalid() {
+        return !!this.campaignFrom && !!this.campaignTo && this.campaignTo < this.campaignFrom;
+    }
+
+    get summaryCampaignFrom() {
+        return this.campaignFrom || 'Not set';
+    }
+
+    get summaryCampaignTo() {
+        return this.campaignTo || 'Not set';
+    }
+
     get isStep1Valid() {
         if (!this.parentActivationType) return false;
         if (!this.campaignName || this.campaignName.trim() === '') return false;
+        if (this.isDateRangeInvalid) return false;
         if (this.showCampaignGroup && !this.selectedCampaignGroupId) return false;
         if (!this.selectedPriorityTier) return false;
         if (!this.hasSelectedChannel) return false;
@@ -1184,7 +1222,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     /** Draft save only needs a campaign name so a record can be persisted. */
     get isDraftSaveInvalid() {
-        return !this.campaignName || this.campaignName.trim() === '';
+        return !this.campaignName || this.campaignName.trim() === '' || this.isDateRangeInvalid;
     }
 
     /** Full activation gate across all configured wizard rules (Copy Center pending). */
@@ -1781,6 +1819,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         const num = (v) => v === '' || v === null || v === undefined ? null : Number(v);
 
         fields['Name'] = `${this.activationPrefix}${this.toCamelCase(this.campaignName)}`;
+        fields['StartDate'] = this.campaignFrom || null;
+        fields['EndDate'] = this.campaignTo || null;
         fields['Type'] = 'Standard';
         fields['Status'] = activate ? 'Active' : 'Planned';
         fields['IsActive'] = activate === true;

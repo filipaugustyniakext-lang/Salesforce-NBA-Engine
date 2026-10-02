@@ -131,6 +131,29 @@
                                     <div class="slds-m-top_medium">
                                         <lightning-input type="text" label="Campaign Name" placeholder="eg. cashloan" value={campaignName} onchange={handleNameChange} required class="custom-form-input"></lightning-input>
                                     </div>
+                                    <div class="slds-grid slds-gutters slds-m-top_medium">
+                                        <div class="slds-col slds-size_1-of-2">
+                                            <lightning-input
+                                                type="date"
+                                                label="From"
+                                                value={campaignFrom}
+                                                onchange={handleCampaignFromChange}
+                                                class="custom-form-input">
+                                            </lightning-input>
+                                        </div>
+                                        <div class="slds-col slds-size_1-of-2">
+                                            <lightning-input
+                                                type="date"
+                                                label="To"
+                                                data-id="campaign-to"
+                                                value={campaignTo}
+                                                min={campaignToMin}
+                                                message-when-range-underflow="To cannot be earlier than From."
+                                                onchange={handleCampaignToChange}
+                                                class="custom-form-input">
+                                            </lightning-input>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <!-- Section: Priority & Exclusions -->
@@ -753,6 +776,14 @@
                                         <div class="summary-row">
                                             <span class="summary-label">Campaign Name</span>
                                             <span class="summary-value">{modalTitle}</span>
+                                        </div>
+                                        <div class="summary-row">
+                                            <span class="summary-label">From</span>
+                                            <span class="summary-value">{summaryCampaignFrom}</span>
+                                        </div>
+                                        <div class="summary-row">
+                                            <span class="summary-label">To</span>
+                                            <span class="summary-value">{summaryCampaignTo}</span>
                                         </div>
                                         <template lwc:if={showCampaignGroup}>
                                             <div class="summary-row">
