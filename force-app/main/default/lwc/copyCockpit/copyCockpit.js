@@ -11,6 +11,7 @@ import updateMessageMaster from '@salesforce/apex/CopyCockpitController.updateMe
 import getProductFamilies from '@salesforce/apex/CopyCockpitController.getProductFamilies';
 import getActiveOffersByFamily from '@salesforce/apex/CopyCockpitController.getActiveOffersByFamily';
 import saveMasterRowSettings from '@salesforce/apex/CopyCockpitController.saveMasterRowSettings';
+import syncFromMce from '@salesforce/apex/MarketingCloudCopySync.syncFromMce';
 import {
     channelPrefixForType,
     composeStem,
@@ -565,6 +566,41 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             })
             .catch(err => {
                 this._showToast('Error', err?.body?.message || 'Bulk delete failed.', 'error');
+            });
+    }
+
+    // ── handlers: channel header ──────────────────────────────────────────
+
+    @track isSyncing = false;
+
+    get syncButtonLabel() {
+        return this.isSyncing ? 'Syncing...' : 'Sync from MCE';
+    }
+
+    handleSyncFromMce() {
+        if (this.isSyncing) {
+            return;
+        }
+        this.isSyncing = true;
+        syncFromMce()
+            .then(result => {
+                const count = result?.fetchedCount ?? 0;
+                const name = result?.dataExtensionName || 'CC_Message_Metadata';
+                this._showToast(
+                    'Sync from MCE',
+                    `Fetched ${count} rows from ${name}.`,
+                    'success'
+                );
+            })
+            .catch(err => {
+                this._showToast(
+                    'Sync from MCE',
+                    err?.body?.message || err?.message || 'Marketing Cloud sync failed.',
+                    'error'
+                );
+            })
+            .finally(() => {
+                this.isSyncing = false;
             });
     }
 

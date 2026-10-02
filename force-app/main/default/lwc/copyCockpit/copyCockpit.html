@@ -78,7 +78,13 @@
                                 </div>
                             </div>
                             <div class="cockpit-panel-header__right">
-                                <span class="slds-badge slds-m-right_x-small">{messageGroupCountLabel}</span>
+                                <lightning-button
+                                    label={syncButtonLabel}
+                                    icon-name="utility:sync"
+                                    onclick={handleSyncFromMce}
+                                    disabled={isSyncing}
+                                ></lightning-button>
+                                <span class="slds-badge">{messageGroupCountLabel}</span>
                             </div>
                         </div>
 

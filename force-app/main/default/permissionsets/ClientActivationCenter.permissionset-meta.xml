@@ -5,6 +5,10 @@
         <apexClass>ChannelTemplateController</apexClass>
         <enabled>true</enabled>
     </classAccesses>
+    <classAccesses>
+        <apexClass>MarketingCloudCopySync</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
     <fieldPermissions>
         <editable>true</editable>
         <field>CC_Message_Metadata__c.Source_Template__c</field>
