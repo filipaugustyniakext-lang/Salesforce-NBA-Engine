@@ -19,7 +19,7 @@ import saveCampaignOffers from '@salesforce/apex/MarketingDictionaryController.s
 import getOfferSummaries from '@salesforce/apex/MarketingDictionaryController.getOfferSummaries';
 import getCampaignTiers from '@salesforce/apex/MarketingDictionaryManagerController.getCampaignTiers';
 import getCampaignTypes from '@salesforce/apex/MarketingDictionaryController.getCampaignTypes';
-import getScoringModels from '@salesforce/apex/MarketingDictionaryController.getScoringModels';
+import getCampaignRecords from '@salesforce/apex/MarketingDictionaryManagerController.getCampaignRecords';
 import {
     parseSupportedCampaignTypes as parseTierCampaignTypes,
     buildTierAttrRows,
@@ -78,6 +78,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     @track selectedScoringModelId = '';
     @track selectedScoringModelName = '';
     @track _scoringModels = [];
+    scoringModelLoadError = '';
 
     @track selectAllChecked = false;
     @track channels = [];
@@ -185,14 +186,17 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     loadScoringModels() {
-        getScoringModels()
+        this.scoringModelLoadError = '';
+        // Same catalogue as Marketing Dictionary → Scoring → Model Definitions.
+        getCampaignRecords()
             .then(data => {
-                this._scoringModels = data || [];
+                this._scoringModels = (data || []).filter(r => r.Dictionary_Sub_Type__c === 'Scoring Model');
                 this._syncSelectedScoringModel();
             })
             .catch(err => {
                 console.error('Error loading scoring models:', err);
                 this._scoringModels = [];
+                this.scoringModelLoadError = err?.body?.message || err?.message || 'Could not load model definitions.';
                 this._syncSelectedScoringModel();
             });
     }
@@ -1410,7 +1414,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get scoringModelEmptyMessage() {
-        return 'No model definitions yet. Add them in Marketing Dictionary → Scoring → Model Definitions.';
+        return this.scoringModelLoadError
+            || 'No model definitions yet. Add them in Marketing Dictionary → Scoring → Model Definitions.';
     }
 
     get saveButtonLabel() {
