@@ -44,11 +44,13 @@
 .wizard-progress .slds-progress__marker {
     position: relative;
     z-index: 3;
+    top: -.4rem;
 }
 
 .wizard-progress .slds-progress__marker_icon {
     position: relative;
     z-index: 3;
+    top: -.6rem;
 }
 
 .step-check-icon {
