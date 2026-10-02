@@ -71,24 +71,26 @@
 
                 </div>
 
-                <div class="add-modal-section-divider"></div>
-                <lightning-combobox
-                    label="Source Template"
-                    placeholder="Select a validated template…"
-                    value={sourceTemplateId}
-                    options={templateOptions}
-                    required
-                    disabled={templatesLoading}
-                    field-level-help="Active, validated templates for this channel. The editor preview uses this shell."
-                    onchange={handleSourceTemplateChange}>
-                </lightning-combobox>
-                <template lwc:if={templatesLoading}>
-                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">Loading templates…</p>
-                </template>
-                <template lwc:if={showMissingTemplate}>
-                    <p class="slds-text-color_error slds-text-body_small slds-m-top_xx-small">
-                        No active validated template is available for this channel.
-                    </p>
+                <template lwc:if={showSourceTemplatePicker}>
+                    <div class="add-modal-section-divider"></div>
+                    <lightning-combobox
+                        label="Source Template"
+                        placeholder="Select a validated template…"
+                        value={sourceTemplateId}
+                        options={templateOptions}
+                        required
+                        disabled={templatesLoading}
+                        field-level-help="Active, validated templates for this channel. The editor preview uses this shell."
+                        onchange={handleSourceTemplateChange}>
+                    </lightning-combobox>
+                    <template lwc:if={templatesLoading}>
+                        <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">Loading templates…</p>
+                    </template>
+                    <template lwc:if={showMissingTemplate}>
+                        <p class="slds-text-color_error slds-text-body_small slds-m-top_xx-small">
+                            No active validated template is available for this channel.
+                        </p>
+                    </template>
                 </template>
 
                 <!-- ── Section: Product Family & Offer ────────────────────── -->
@@ -170,7 +172,7 @@
                 </template>
 
                 <!-- ── Section: Per-channel subtype tiles ─────────────────── -->
-                <template lwc:if={hasSubtypeOptions}>
+                <template lwc:if={showMessageTypeSection}>
                     <div class="add-modal-section-divider"></div>
                     <div class="add-modal-section-header">
                         <h3 class="add-modal-section-title">
@@ -181,6 +183,16 @@
                             <span class="add-modal-subtype-required">{subtypeValidationMsg}</span>
                         </template>
                     </div>
+                    <template lwc:if={showMissingTemplateTiles}>
+                        <p class="slds-text-color_error slds-text-body_small slds-m-bottom_x-small">
+                            No active validated template is available for this channel.
+                        </p>
+                    </template>
+                    <template lwc:if={templatesLoading}>
+                        <template lwc:if={usesTemplateTiles}>
+                            <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_x-small">Loading templates…</p>
+                        </template>
+                    </template>
                     <div class="add-modal-tiles">
                         <template for:each={subtypeTiles} for:item="tile">
                             <div
