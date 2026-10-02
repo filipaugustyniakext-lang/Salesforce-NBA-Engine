@@ -222,7 +222,6 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     @track isAddModalOpen = false;
     @track _addChannelName = '';
     @track _addChannelType = '';
-    @track _addBannerTypes = [];
 
     @track isDeleteModalOpen = false;
     @track deleteTargetId = null;
@@ -304,7 +303,6 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
 
     get addChannelName() { return this._addChannelName; }
     get addChannelType() { return this._addChannelType; }
-    get addBannerTypes() { return this._addBannerTypes; }
 
     // ── messages & groups ──────────────────────────────────────────────────
 
@@ -578,7 +576,6 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         }
         this._addChannelName = channel.Name || '';
         this._addChannelType = channel.Channel_Type__c || '';
-        this._addBannerTypes = [...(channel.Channel_Banner_Types__r || [])];
         this.isAddModalOpen = true;
     }
 
@@ -609,7 +606,6 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     _clearAddChannelContext() {
         this._addChannelName = '';
         this._addChannelType = '';
-        this._addBannerTypes = [];
     }
 
     // ── handlers: edit / clone / delete ───────────────────────────────────

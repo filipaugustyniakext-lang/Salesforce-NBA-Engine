@@ -659,7 +659,7 @@ public with sharing class ChannelTemplateController {
         List<TemplateOption> options = new List<TemplateOption>();
         if (String.isBlank(channelName) && String.isBlank(channelType)) return options;
         for (Channel_Template__c template : [
-            SELECT Id, Name, Package_Id__c, SemVer__c, Channel__r.Name, Channel__r.Channel_Type__c
+            SELECT Id, Name, Description__c, Package_Id__c, SemVer__c, Channel__r.Name, Channel__r.Channel_Type__c
             FROM Channel_Template__c
             WHERE Status__c = 'Active'
               AND Validation_Status__c = 'Valid'
@@ -671,6 +671,7 @@ public with sharing class ChannelTemplateController {
             TemplateOption option = new TemplateOption();
             option.id = template.Id;
             option.name = template.Name;
+            option.description = template.Description__c;
             option.packageLabel = String.isBlank(template.Package_Id__c)
                 ? template.Name
                 : template.Package_Id__c + ' · ' + template.SemVer__c;
@@ -749,6 +750,7 @@ public with sharing class ChannelTemplateController {
     public class TemplateOption {
         @AuraEnabled public Id id;
         @AuraEnabled public String name;
+        @AuraEnabled public String description;
         @AuraEnabled public String packageLabel;
     }
 
