@@ -19,7 +19,7 @@ import saveCampaignOffers from '@salesforce/apex/MarketingDictionaryController.s
 import getOfferSummaries from '@salesforce/apex/MarketingDictionaryController.getOfferSummaries';
 import getCampaignTiers from '@salesforce/apex/MarketingDictionaryManagerController.getCampaignTiers';
 import getCampaignTypes from '@salesforce/apex/MarketingDictionaryController.getCampaignTypes';
-import getScoringModels from '@salesforce/apex/MarketingDictionaryController.getScoringModels';
+import getCampaignRecords from '@salesforce/apex/MarketingDictionaryManagerController.getCampaignRecords';
 import {
     parseSupportedCampaignTypes as parseTierCampaignTypes,
     buildTierAttrRows,
@@ -73,13 +73,12 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     @track suppressionLookupValue = '';
     @track suppressionLookupDisplay = '';
 
-    // --- SCORING METHOD STATE ---
-    @track selectedScoringMethod = 'Pick a Model';
-    @track aprioriOverallScore = '';
-    @track fromObjectOverallScore = ''; // Fallback A-Priori when Pick a Model
+    // --- SCORING: Pick a Model + fallback score ---
+    @track fromObjectOverallScore = '';
     @track selectedScoringModelId = '';
     @track selectedScoringModelName = '';
     @track _scoringModels = [];
+    scoringModelLoadError = '';
 
     @track selectAllChecked = false;
     @track channels = [];
@@ -140,11 +139,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         { label: 'Triggered', value: 'Triggered', icon: 'utility:events' }
     ];
 
-    scoringMethodsData = [
-        { label: 'Pick a Model', value: 'Pick a Model' },
-        { label: 'A-Priori', value: 'A-priori' }
-    ];
-
     offeringTypesData = [
         { label: 'Product Family', value: 'Product Family' },
         { label: 'Family of Needs', value: 'Family of Needs' }
@@ -192,73 +186,22 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     loadScoringModels() {
-        // Active models matching Topic + Offering Type, then overlapping PF/FoN selections.
-        const topicId = this.selectedTopicId || null;
-        const offeringType = this.selectedOfferingType || null;
-        if (!topicId || !offeringType) {
-            this._scoringModels = [];
-            this._syncSelectedScoringModel();
-            return;
-        }
-        getScoringModels({ topicId, offeringType })
+        this.scoringModelLoadError = '';
+        // Same catalogue as Marketing Dictionary → Scoring → Model Definitions.
+        getCampaignRecords()
             .then(data => {
-                this._scoringModels = this._filterModelsByCampaignOfferings(data || []);
+                this._scoringModels = (data || []).filter(r => r.Dictionary_Sub_Type__c === 'Scoring Model');
                 this._syncSelectedScoringModel();
             })
             .catch(err => {
                 console.error('Error loading scoring models:', err);
                 this._scoringModels = [];
+                this.scoringModelLoadError = err?.body?.message || err?.message || 'Could not load model definitions.';
                 this._syncSelectedScoringModel();
             });
     }
 
-    /**
-     * Keep only models whose Product Family / FoN Ids (or legacy Names) overlap
-     * the campaign's currently checked offerings.
-     */
-    _filterModelsByCampaignOfferings(models) {
-        const selectedIds = this._selectedCampaignOfferingIds();
-        if (!selectedIds.length) {
-            return [];
-        }
-        const selectedNames = new Set(this._selectedCampaignOfferingNames());
-        const usePf = this.isOfferingProductFamily;
-
-        return models.filter(m => {
-            const raw = usePf ? (m.Product_Family__c || '') : (m.Family_of_Needs__c || '');
-            const tokens = raw.split(';').map(s => s.trim()).filter(Boolean);
-            if (!tokens.length) return false;
-            return tokens.some(token => {
-                if (selectedIds.includes(token)) return true;
-                if (selectedNames.has(token)) return true;
-                // Model may store Id while selection compares via catalogue Name
-                const byId = usePf ? this.productFamilyById[token] : this.familyOfNeedsById[token];
-                return !!(byId && selectedNames.has(byId.Name));
-            });
-        });
-    }
-
-    _selectedCampaignOfferingIds() {
-        if (this.isOfferingProductFamily) {
-            return this.productFamilyOptions.filter(o => o.checked).map(o => o.value);
-        }
-        if (this.isOfferingFamilyOfNeeds) {
-            return this.familyOfNeedsOptions.filter(o => o.checked).map(o => o.value);
-        }
-        return [];
-    }
-
-    _selectedCampaignOfferingNames() {
-        if (this.isOfferingProductFamily) {
-            return this.productFamilyOptions.filter(o => o.checked).map(o => o.name || o.label);
-        }
-        if (this.isOfferingFamilyOfNeeds) {
-            return this.familyOfNeedsOptions.filter(o => o.checked).map(o => o.name || o.label);
-        }
-        return [];
-    }
-
-    /** Drop / refresh selection if the chosen model is no longer in the filtered list. */
+    /** Refresh the label when the chosen model is still in Model Definitions. */
     _syncSelectedScoringModel() {
         if (!this.selectedScoringModelId) {
             this.selectedScoringModelName = '';
@@ -275,7 +218,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         const source = match.Scoring_Model_Source_System__c
             ? ` · ${match.Scoring_Model_Source_System__c}`
             : '';
-        this.selectedScoringModelName = `${match.Name}${version}${modelId}${source}`;
+        const inactive = match.Is_Active__c ? '' : ' · Inactive';
+        this.selectedScoringModelName = `${match.Name}${version}${modelId}${source}${inactive}`;
     }
 
     loadTopicDictionary() {
@@ -379,23 +323,16 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         this.selectedPriorityTier = campaign.Priority_Tier__c || '';
         this.isEmergency = campaign.Priority_Tier__c === 'Tier 1';
         this.excludeOnboarding = campaign.Exclude_Onboarding__c === true;
-        this.selectedScoringMethod = campaign.Scoring_Method__c || 'Pick a Model';
         this.selectedScoringModelId = campaign.Scoring_Model_Dict__c || '';
         this.selectedScoringModelName = campaign.Scoring_Model_Dict__r
             ? campaign.Scoring_Model_Dict__r.Name
             : '';
 
-        if (this.selectedScoringMethod === 'A-priori') {
-            this.aprioriOverallScore = campaign.Overall_Score__c != null ? String(campaign.Overall_Score__c) : '';
-            this.fromObjectOverallScore = '';
-        } else {
-            // Prefer dedicated Fallback_Score__c; fall back to Overall_Score__c for older records.
-            const fallback = campaign.Fallback_Score__c != null
-                ? campaign.Fallback_Score__c
-                : campaign.Overall_Score__c;
-            this.fromObjectOverallScore = fallback != null ? String(fallback) : '';
-            this.aprioriOverallScore = '';
-        }
+        // Older A-priori campaigns stored the score on Overall_Score__c.
+        const fallback = campaign.Scoring_Method__c === 'A-priori'
+            ? campaign.Overall_Score__c
+            : (campaign.Fallback_Score__c != null ? campaign.Fallback_Score__c : campaign.Overall_Score__c);
+        this.fromObjectOverallScore = fallback != null ? String(fallback) : '';
 
         if (campaign.Assigned_Channels__c) {
             this.editChannelValues = campaign.Assigned_Channels__c.split(';').map(c => c.trim()).filter(Boolean);
@@ -790,8 +727,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         this.filteredTopicGoals = this.allTopicGoals.filter(t =>
             (t.name || '').toLowerCase().includes(needle)
         );
-        this.clearScoringIfDisabled();
-        this.loadScoringModels();
     }
 
     handleSelectTopic(event) {
@@ -805,8 +740,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             this.topicName = event.currentTarget.dataset.name || '';
         }
         this.isTopicDropdownOpen = false;
-        this.clearScoringIfDisabled();
-        this.loadScoringModels();
     }
 
     handleNameChange(event) {
@@ -815,10 +748,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         
     handleOfferingTypeChange(event) {
         this.selectedOfferingType = event.target.value; 
-        this.clearScoringIfDisabled();
         this.matchingOffers = [];
         this.scheduleFetchOffers();
-        this.loadScoringModels();
     }
 
     handleProductFamilyChange(event) {
@@ -829,7 +760,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         this.selectAllProductFamilies = this.productFamilyOptions.every(opt => opt.checked);
         this.buildGroupedOptions();
         this.scheduleFetchOffers();
-        this.loadScoringModels();
     }
 
     handleCustomerTypeFilter(event) {
@@ -870,7 +800,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         );
         this.selectAllFamilyOfNeeds = this.familyOfNeedsOptions.every(opt => opt.checked);
         this.scheduleFetchOffers();
-        this.loadScoringModels();
     }
 
     handleEmergencyToggle() {
@@ -936,27 +865,12 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         return true;
     }
 
-    handleScoringMethodChange(event) {
-        if (this.isScoringDisabled) return;
-        this.selectedScoringMethod = event.target.value;
-    }
-
-    handleAprioriChange(event) { this.aprioriOverallScore = event.target.value; }
     handleFromObjectChange(event) { this.fromObjectOverallScore = event.target.value; }
 
     handleScoringModelChange(event) {
         this.selectedScoringModelId = event.detail.value;
         const opt = this.scoringModelOptions.find(o => o.value === this.selectedScoringModelId);
         this.selectedScoringModelName = opt ? opt.label : '';
-    }
-
-    clearScoringIfDisabled() {
-        if (this.isScoringDisabled) {
-            this.aprioriOverallScore = '';
-            this.fromObjectOverallScore = '';
-            this.selectedScoringModelId = '';
-            this.selectedScoringModelName = '';
-        }
     }
 
     handleSelectAllChange(event) {
@@ -1119,12 +1033,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get summaryScore() {
-        if (this.isScoringAPriori) return this.aprioriOverallScore || 'Not set';
         return this.fromObjectOverallScore || 'Not set';
-    }
-
-    get summaryFallbackScoreLabel() {
-        return this.isScoringFromObject ? 'Fallback A-Priori Score' : 'Overall Score';
     }
 
     get summaryScoringModel() {
@@ -1172,14 +1081,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get isStep4Valid() {
-        if (!this.selectedScoringMethod) return false;
-        if (this.isScoringAPriori) {
-            return this.isValidScoreValue(this.aprioriOverallScore);
-        }
-        if (this.isScoringFromObject) {
-            return !!this.selectedScoringModelId && this.isValidScoreValue(this.fromObjectOverallScore);
-        }
-        return false;
+        return !!this.selectedScoringModelId && this.isValidScoreValue(this.fromObjectOverallScore);
     }
 
     /** Draft save only needs a campaign name so a record can be persisted. */
@@ -1295,24 +1197,16 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     _onStepChanged() {
         this.maybeLoadOfferSummaries();
-        // Refresh Active models when entering Scoring so dictionary edits are visible.
+        // Refresh Model Definitions when entering Scoring so dictionary edits are visible.
         if (this.currentStep === 4) {
             this.loadScoringModels();
         }
-    }
-
-    get isScoringDisabled() {
-        const hasTopic = !!(this.selectedTopicId || (this.topicName && this.topicName.trim() !== ''));
-        return !hasTopic || !this.selectedOfferingType;
     }
 
     get topicDropdownContainerClass() {
         return `custom-dropdown-container topic-dropdown-container ${this.isTopicDropdownOpen ? 'slds-is-open' : ''}`;
     }
 
-    get isScoringFromObject() { return this.selectedScoringMethod === 'Pick a Model'; }
-    get isScoringAPriori() { return this.selectedScoringMethod === 'A-priori'; }
-    
     get isOfferingProductFamily() { return this.selectedOfferingType === 'Product Family'; }
     get isOfferingFamilyOfNeeds() { return this.selectedOfferingType === 'Family of Needs'; }
 
@@ -1500,14 +1394,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         });
     }
 
-    get scoringMethodOptions() {
-        return this.scoringMethodsData.map(m => ({
-            ...m,
-            inputId: `scoring-method-${m.value.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}`,
-            isChecked: this.selectedScoringMethod === m.value
-        }));
-    }
-
     get scoringModelOptions() {
         return (this._scoringModels || []).map(m => {
             const version = m.Version__c != null ? ` v${m.Version__c}` : '';
@@ -1515,8 +1401,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             const source = m.Scoring_Model_Source_System__c
                 ? ` · ${m.Scoring_Model_Source_System__c}`
                 : '';
+            const inactive = m.Is_Active__c ? '' : ' · Inactive';
             return {
-                label: `${m.Name}${version}${modelId}${source}`,
+                label: `${m.Name}${version}${modelId}${source}${inactive}`,
                 value: m.Id
             };
         });
@@ -1527,20 +1414,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get scoringModelEmptyMessage() {
-        if (!this.selectedTopicId) {
-            return 'Select a Topic on the Topic & Offering step to see matching Active scoring models.';
-        }
-        if (!this.selectedOfferingType) {
-            return 'Select an Offering Type on the Topic & Offering step to see matching Active scoring models.';
-        }
-        const selectedCount = this._selectedCampaignOfferingIds().length;
-        if (!selectedCount) {
-            return this.isOfferingProductFamily
-                ? 'Select at least one Product Family on the Topic & Offering step to see matching Active scoring models.'
-                : 'Select at least one Family of Needs on the Topic & Offering step to see matching Active scoring models.';
-        }
-        const offeringLabel = this.isOfferingProductFamily ? 'Product Family' : 'Family of Needs';
-        return `No Active Scoring Models match Topic "${this.topicName || '—'}", Offering Type "${this.selectedOfferingType}", and the selected ${offeringLabel} values. Create or activate a compatible model in Marketing Dictionary.`;
+        return this.scoringModelLoadError
+            || 'No model definitions yet. Add them in Marketing Dictionary → Scoring → Model Definitions.';
     }
 
     get saveButtonLabel() {
@@ -1792,22 +1667,11 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         fields['Priority_Tier__c'] = this.selectedPriorityTier || null;
         fields['Activation_Type__c'] = this.parentActivationType || null;
         fields['Exclude_Onboarding__c'] = this.excludeOnboarding;
-        fields['Scoring_Method__c'] = this.selectedScoringMethod || null;
+        fields['Scoring_Method__c'] = 'Pick a Model';
         fields['Offering_Type__c'] = this.selectedOfferingType || null;
-
-        if (this.isScoringAPriori) {
-            fields['Overall_Score__c'] = num(this.aprioriOverallScore);
-            fields['Fallback_Score__c'] = null;
-            fields['Scoring_Model_Dict__c'] = null;
-        } else if (this.isScoringFromObject) {
-            fields['Overall_Score__c'] = null;
-            fields['Fallback_Score__c'] = num(this.fromObjectOverallScore);
-            fields['Scoring_Model_Dict__c'] = this.selectedScoringModelId || null;
-        } else {
-            fields['Overall_Score__c'] = null;
-            fields['Fallback_Score__c'] = null;
-            fields['Scoring_Model_Dict__c'] = null;
-        }
+        fields['Overall_Score__c'] = null;
+        fields['Fallback_Score__c'] = num(this.fromObjectOverallScore);
+        fields['Scoring_Model_Dict__c'] = this.selectedScoringModelId || null;
 
         fields['Assigned_Channels__c'] = this.channels.filter(c => c.checked).map(c => c.label).join('; ');
 
