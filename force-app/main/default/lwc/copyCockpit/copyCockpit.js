@@ -568,6 +568,12 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             });
     }
 
+    // ── handlers: channel header ──────────────────────────────────────────
+
+    handleSyncFromMce() {
+        // On-demand Marketing Cloud delta sync is added in a later step.
+    }
+
     // ── handlers: add copy ────────────────────────────────────────────────
 
     handleAddCopy() {
