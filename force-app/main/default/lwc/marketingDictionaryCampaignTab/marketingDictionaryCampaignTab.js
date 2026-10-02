@@ -943,12 +943,16 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
     get hasTopics() { return this.filteredTopics.length > 0; }
     get filteredTopics() {
         const q = (this.topicSearch || '').toLowerCase();
-        return q
+        const topics = q
             ? this.allTopics.filter(t =>
                 (t.Name || '').toLowerCase().includes(q) ||
                 (t.Topic_Group_Dict__r?.Name || '').toLowerCase().includes(q) ||
                 (t.Topic_Description__c || '').toLowerCase().includes(q))
             : this.allTopics;
+        return topics.map(topic => ({
+            ...topic,
+            topicGroupName: topic.Topic_Group_Dict__r?.Name || ''
+        }));
     }
     get topicCountLabel() {
         const f = this.filteredTopics.length; const t = this.topicCount;

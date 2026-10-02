@@ -131,9 +131,15 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
         return this._rawChannels.map(ch => {
             const state = this._chState[ch.Id] || defaultChState();
             const placements = ch.Channel_Banner_Placements__r || [];
-            const filtered = this._filterAndSort(placements, state);
+            const filtered = this._filterAndSort(placements, state).map(placement => ({
+                ...placement,
+                bannerTypeName: placement.Banner_Type__r?.Name || '—'
+            }));
             const intents = ch.Channel_Banner_Intents__r || [];
-            const filteredIntents = this._filterAndSortIntents(intents, state);
+            const filteredIntents = this._filterAndSortIntents(intents, state).map(intent => ({
+                ...intent,
+                intentTargetName: intent.Intent_Target__r?.Name || '—'
+            }));
             const isActive = ch.Id === this._activeChannelId;
             const cooldowns = (ch.Channel_Cooldowns__r || []).map(cd => ({
                 ...cd,

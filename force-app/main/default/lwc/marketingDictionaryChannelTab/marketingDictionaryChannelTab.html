@@ -323,7 +323,7 @@
                                                             <tr key={pl.Id}>
                                                                 <td><div class="slds-truncate slds-text-body_small" title={pl.Name}>{pl.Name}</div></td>
                                                                 <td><div class="slds-truncate slds-text-body_small" title={pl.App_Screen__c}>{pl.App_Screen__c}</div></td>
-                                                                <td><div class="slds-truncate slds-text-body_small">{pl.Banner_Type__r.Name}</div></td>
+                                                                <td><div class="slds-truncate slds-text-body_small">{pl.bannerTypeName}</div></td>
                                                                 <td><div class="placement-desc slds-text-body_small">{pl.Position_Description__c}</div></td>
                                                                 <td class="action-col">
                                                                     <lightning-button-icon icon-name="utility:edit" variant="border-filled" size="x-small"
@@ -420,7 +420,7 @@
                                                         <template for:each={activeChannel.filteredIntents} for:item="intent">
                                                             <tr key={intent.Id}>
                                                                 <td><div class="slds-truncate slds-text-body_small" title={intent.Name}>{intent.Name}</div></td>
-                                                                <td><div class="slds-truncate slds-text-body_small">{intent.Intent_Target__r.Name}</div></td>
+                                                                <td><div class="slds-truncate slds-text-body_small">{intent.intentTargetName}</div></td>
                                                                 <td class="action-col">
                                                                     <lightning-button-icon icon-name="utility:edit" variant="border-filled" size="x-small"
                                                                         alternative-text="Edit" title="Edit"

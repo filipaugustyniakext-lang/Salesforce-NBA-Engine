@@ -283,8 +283,8 @@
                                 <tr key={tp.Id}>
                                     <td class="slds-truncate">{tp.Name}</td>
                                     <td>
-                                        <template lwc:if={tp.Topic_Group_Dict__r.Name}>
-                                            <span class="slds-badge cd-group-badge-sm">{tp.Topic_Group_Dict__r.Name}</span>
+                                        <template lwc:if={tp.topicGroupName}>
+                                            <span class="slds-badge cd-group-badge-sm">{tp.topicGroupName}</span>
                                         </template>
                                     </td>
                                     <td class="cd-col-desc slds-truncate">{tp.Topic_Description__c}</td>
