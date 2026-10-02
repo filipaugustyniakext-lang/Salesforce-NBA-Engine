@@ -1873,10 +1873,6 @@
         <visible>true</visible>
     </recordTypeVisibilities>
     <tabSettings>
-        <tab>Copy_Cockpit_Editor</tab>
-        <visibility>Visible</visibility>
-    </tabSettings>
-    <tabSettings>
         <tab>Copy_Editor</tab>
         <visibility>Visible</visibility>
     </tabSettings>
