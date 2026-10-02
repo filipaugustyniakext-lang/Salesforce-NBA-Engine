@@ -1578,7 +1578,15 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
                 await refreshApex(this._wiredCampaignResult);
             }
             this._showToast('Success', 'Deleted.', 'success');
-        } catch (e) { this._showToast('Error', e.body?.message || 'Delete failed.', 'error'); }
+        } catch (e) {
+            const message = e.body?.message || e.message || 'Delete failed.';
+            const blockedByDependency = message.includes('Please remove dependencies first');
+            this._showToast(
+                blockedByDependency ? 'Cannot delete' : 'Error',
+                message,
+                blockedByDependency ? 'warning' : 'error'
+            );
+        }
         finally { this.isSaving = false; }
     }
 
