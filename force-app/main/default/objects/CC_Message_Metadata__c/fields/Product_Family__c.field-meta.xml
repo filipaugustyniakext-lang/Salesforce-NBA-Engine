@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Product_Family__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description>Product Family dictionary entry assigned to this message in Copy Center Settings.</description>
+    <label>Product Family</label>
+    <referenceTo>Marketing_Dictionary__c</referenceTo>
+    <relationshipLabel>CC Message Metadata</relationshipLabel>
+    <relationshipName>CC_Message_Metadata_Families</relationshipName>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

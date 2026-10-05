@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>Default</label>
+    <protected>false</protected>
+    <values>
+        <field>Account_Id__c</field>
+        <value xsi:type="xsd:string">536010187</value>
+    </values>
+    <values>
+        <field>Client_Id__c</field>
+        <value xsi:type="xsd:string">vldytssaiyco6e2e1yr8526o</value>
+    </values>
+    <values>
+        <field>Client_Secret__c</field>
+        <value xsi:type="xsd:string"></value>
+    </values>
+    <values>
+        <field>Data_Extension_Key__c</field>
+        <value xsi:type="xsd:string">CC_Message_Metadata</value>
+    </values>
+    <values>
+        <field>Subdomain__c</field>
+        <value xsi:type="xsd:string">mc-zc2k18cm4lmd842xckk4zr5ym</value>
+    </values>
+</CustomMetadata>
