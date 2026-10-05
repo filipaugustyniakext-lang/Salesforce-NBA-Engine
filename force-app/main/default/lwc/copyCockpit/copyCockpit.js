@@ -590,13 +590,23 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         this.isSyncing = true;
         syncFromMce({ channel })
             .then(result => {
-                const count = result?.fetchedCount ?? 0;
-                const name = result?.dataExtensionName || 'CC_Message_Metadata';
+                const created = result?.createdCount ?? 0;
+                const updated = result?.updatedCount ?? 0;
+                const failed = result?.failedCount ?? 0;
+                const saved = created + updated;
+                const detail = [`Saved ${saved} ${channel} rows (${created} new, ${updated} updated).`];
+                if (failed > 0) {
+                    detail.push(`${failed} could not be saved.`);
+                    if (result?.errorMessage) {
+                        detail.push(result.errorMessage);
+                    }
+                }
                 this._showToast(
                     `Sync ${channel} from MCE`,
-                    `Fetched ${count} ${channel} rows from ${name}.`,
-                    'success'
+                    detail.join(' '),
+                    failed > 0 && saved === 0 ? 'error' : (failed > 0 ? 'warning' : 'success')
                 );
+                this._loadMessages(channel);
             })
             .catch(err => {
                 this._showToast(
