@@ -10,6 +10,7 @@ import cloneMessage from '@salesforce/apex/CopyCockpitController.cloneMessage';
 import updateMessageMaster from '@salesforce/apex/CopyCockpitController.updateMessageMaster';
 import getProductFamilies from '@salesforce/apex/CopyCockpitController.getProductFamilies';
 import getActiveOffersByFamily from '@salesforce/apex/CopyCockpitController.getActiveOffersByFamily';
+import getProductFamilyForOffer from '@salesforce/apex/CopyCockpitController.getProductFamilyForOffer';
 import saveMasterRowSettings from '@salesforce/apex/CopyCockpitController.saveMasterRowSettings';
 import syncFromMce from '@salesforce/apex/MarketingCloudCopySync.syncFromMce';
 import {
@@ -734,12 +735,17 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             m => nameBelongsToStem(m.Name, stem) || groupKeyFromName(m.Name) === stem
         );
         const first = groupRecords[0] || {};
-        const currentOfferId   = first.Offer__c || null;
-        const currentOfferName = first.Offer__r?.Name || null;
+        const familySource = groupRecords.find(m => m.Product_Family__c) || first;
+        const offerSource = groupRecords.find(m => m.Offer__c) || first;
+        const familyId = familySource.Product_Family__c || null;
+        const familyName = familySource.Product_Family__r?.Name || null;
+        const currentOfferId = offerSource.Offer__c || null;
+        const currentOfferName = offerSource.Offer__r?.Name || null;
 
         this._masterEditModal = {
             messageName: stem,
-            productFamilyId: null,
+            productFamilyId: familyId,
+            productFamilyName: familyName,
             offerId: currentOfferId,
             currentOfferName,
             families: [],
@@ -753,11 +759,34 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         getProductFamilies()
             .then(families => {
                 if (!this._masterEditModal) return;
+                let options = (families || []).map(f => ({ value: f.Id, label: f.Name }));
+                if (familyId && familyName && !options.some(f => f.value === familyId)) {
+                    options = [{ value: familyId, label: familyName }, ...options];
+                }
                 this._masterEditModal = {
                     ...this._masterEditModal,
-                    families: families.map(f => ({ value: f.Id, label: f.Name })),
+                    families: options,
                     isLoadingFamilies: false,
                 };
+                if (familyName) {
+                    this._loadModalOffers(familyName);
+                    return null;
+                }
+                if (!currentOfferId) return null;
+                return getProductFamilyForOffer({ offerId: currentOfferId });
+            })
+            .then(family => {
+                if (!family || !this._masterEditModal) return;
+                const known = (this._masterEditModal.families || []).some(f => f.value === family.Id);
+                this._masterEditModal = {
+                    ...this._masterEditModal,
+                    families: known
+                        ? this._masterEditModal.families
+                        : [{ value: family.Id, label: family.Name }, ...this._masterEditModal.families],
+                    productFamilyId: family.Id,
+                    productFamilyName: family.Name,
+                };
+                this._loadModalOffers(family.Name);
             })
             .catch(() => {
                 if (!this._masterEditModal) return;
@@ -779,13 +808,19 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     }
 
     _loadModalOffers(familyName) {
+        const offerId = this._masterEditModal?.offerId;
+        const offerName = this._masterEditModal?.currentOfferName;
         this._masterEditModal = { ...this._masterEditModal, isLoadingOffers: true, offers: [] };
         getActiveOffersByFamily({ familyName })
             .then(offers => {
                 if (!this._masterEditModal) return;
+                let options = (offers || []).map(o => ({ value: o.Id, label: o.Name }));
+                if (offerId && offerName && !options.some(o => o.value === offerId)) {
+                    options = [{ value: offerId, label: offerName }, ...options];
+                }
                 this._masterEditModal = {
                     ...this._masterEditModal,
-                    offers: offers.map(o => ({ value: o.Id, label: o.Name })),
+                    offers: options,
                     isLoadingOffers: false,
                 };
             })
@@ -849,6 +884,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         this._masterEditModal = { ...modal, isSaving: true };
         const settingsJson = JSON.stringify({
             offerId: modal.offerId || null,
+            productFamilyId: modal.productFamilyId || null,
             variants: modal.variants.map(v => ({ id: v.id, probability: v.probability })),
         });
         saveMasterRowSettings({ settingsJson })

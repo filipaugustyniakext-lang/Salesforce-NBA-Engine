@@ -248,16 +248,15 @@
                                                 <div class="cockpit-col-versions"></div>
                                                 <div class="cockpit-col-modified"></div>
                                                 <div class="cockpit-col-actions">
-                                                    <lightning-button-icon
-                                                        icon-name="utility:settings"
-                                                        variant="bare"
-                                                        size="small"
-                                                        alternative-text="Edit settings"
+                                                    <button
+                                                        type="button"
+                                                        class="slds-button slds-button_icon slds-button_icon-border slds-button_icon-small cockpit-quick-action"
                                                         title="Edit settings"
-                                                        class="cockpit-master-row-edit-btn"
                                                         data-name={grp.messageName}
                                                         onclick={handleMasterEdit}
-                                                    ></lightning-button-icon>
+                                                    >
+                                                        <lightning-icon icon-name="utility:settings" size="xx-small" alternative-text="Edit settings"></lightning-icon>
+                                                    </button>
                                                 </div>
                                             </div>
                                         </div>
@@ -353,36 +352,36 @@
 
                                                         <!-- Always-visible quick actions -->
                                                         <div class="cockpit-variant-actions">
-                                                            <lightning-button-icon
-                                                                icon-name="utility:edit"
-                                                                variant="bare"
-                                                                size="small"
-                                                                alternative-text="Edit"
+                                                            <button
+                                                                type="button"
+                                                                class="slds-button slds-button_icon slds-button_icon-border slds-button_icon-small cockpit-quick-action"
                                                                 title="Edit"
                                                                 data-id={v.Id}
                                                                 onclick={handleEdit}
-                                                            ></lightning-button-icon>
-                                                            <lightning-button-icon
-                                                                icon-name="utility:copy"
-                                                                variant="bare"
-                                                                size="small"
-                                                                alternative-text="Clone"
+                                                            >
+                                                                <lightning-icon icon-name="utility:edit" size="xx-small" alternative-text="Edit"></lightning-icon>
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                class="slds-button slds-button_icon slds-button_icon-border slds-button_icon-small cockpit-quick-action"
                                                                 title="Clone variant"
                                                                 data-id={v.Id}
                                                                 data-name={v.Name}
                                                                 onclick={handleClonePrompt}
-                                                            ></lightning-button-icon>
-                                                            <lightning-button-icon
-                                                                icon-name="utility:delete"
-                                                                variant="bare"
-                                                                size="small"
-                                                                alternative-text="Delete"
+                                                            >
+                                                                <lightning-icon icon-name="utility:copy" size="xx-small" alternative-text="Clone"></lightning-icon>
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                class="slds-button slds-button_icon slds-button_icon-border slds-button_icon-small cockpit-quick-action"
                                                                 title="Delete variant"
                                                                 data-id={v.Id}
                                                                 data-name={v.Name}
                                                                 data-version={v.Version__c}
                                                                 onclick={handleDeletePrompt}
-                                                            ></lightning-button-icon>
+                                                            >
+                                                                <lightning-icon icon-name="utility:delete" size="xx-small" alternative-text="Delete"></lightning-icon>
+                                                            </button>
                                                         </div>
 
                                                     </div>

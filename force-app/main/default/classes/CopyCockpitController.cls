@@ -12,6 +12,7 @@ public with sharing class CopyCockpitController {
                    Language__c,
                    Valid_From__c, Valid_To__c,
                    Offer__c, Offer__r.Name,
+                   Product_Family__c, Product_Family__r.Name,
                    Campaign__c, Campaign__r.Name,
                    Is_Active__c,
                    Block_Count__c,
@@ -104,10 +105,35 @@ public with sharing class CopyCockpitController {
     }
 
     @AuraEnabled(cacheable=false)
+    public static Marketing_Dictionary__c getProductFamilyForOffer(Id offerId) {
+        if (offerId == null) return null;
+        List<Offer_Version__c> versions = [
+            SELECT Product_Family_Name__c
+            FROM Offer_Version__c
+            WHERE Offer_Lookup__c = :offerId
+            AND Is_Active__c = true
+            AND Product_Family_Name__c != null
+            ORDER BY LastModifiedDate DESC
+            LIMIT 1
+        ];
+        if (versions.isEmpty()) return null;
+        List<Marketing_Dictionary__c> families = [
+            SELECT Id, Name
+            FROM Marketing_Dictionary__c
+            WHERE Name = :versions[0].Product_Family_Name__c
+            AND RecordType.DeveloperName = 'Product'
+            AND Dictionary_Sub_Type__c = 'Product Family'
+            LIMIT 1
+        ];
+        return families.isEmpty() ? null : families[0];
+    }
+
+    @AuraEnabled(cacheable=false)
     public static void saveMasterRowSettings(String settingsJson) {
         try {
             Map<String, Object> data = (Map<String, Object>) JSON.deserializeUntyped(settingsJson);
             String offerId = (String) data.get('offerId');
+            String familyId = (String) data.get('productFamilyId');
             List<Object> variantsList = (List<Object>) data.get('variants');
 
             List<CC_Message_Metadata__c> toUpdate = new List<CC_Message_Metadata__c>();
@@ -115,6 +141,7 @@ public with sharing class CopyCockpitController {
                 Map<String, Object> varData = (Map<String, Object>) varObj;
                 CC_Message_Metadata__c rec = new CC_Message_Metadata__c();
                 rec.Id = (Id) varData.get('id');
+                rec.Product_Family__c = String.isNotBlank(familyId) ? (Id) familyId : null;
                 rec.Offer__c = String.isNotBlank(offerId) ? (Id) offerId : null;
                 Object prob = varData.get('probability');
                 rec.Display_Probability_Manual__c = prob != null
@@ -179,6 +206,7 @@ public with sharing class CopyCockpitController {
                    Language__c,
                    Valid_From__c, Valid_To__c,
                    Offer__c, Offer__r.Name,
+                   Product_Family__c, Product_Family__r.Name,
                    Campaign__c, Campaign__r.Name,
                    Source_Template__c, Source_Template__r.Name,
                    Canvas_Blocks_JSON__c,
@@ -244,6 +272,9 @@ public with sharing class CopyCockpitController {
             if (data.get('offerId') != null && String.isNotBlank((String) data.get('offerId'))) {
                 rec.Offer__c = (Id) data.get('offerId');
             }
+            if (data.get('productFamilyId') != null && String.isNotBlank((String) data.get('productFamilyId'))) {
+                rec.Product_Family__c = (Id) data.get('productFamilyId');
+            }
             if (data.get('messageSubtype') != null) {
                 rec.Subject__c = (String) data.get('messageSubtype');
             }
@@ -279,7 +310,7 @@ public with sharing class CopyCockpitController {
                 SELECT Name, Channel__c, Channel_Type__c,
                        Subject__c, Body__c, Language__c,
                        Source_Template__c, Canvas_Blocks_JSON__c,
-                       Offer__c, Campaign__c,
+                       Offer__c, Product_Family__c, Campaign__c,
                        Valid_From__c, Valid_To__c, Version__c
                 FROM CC_Message_Metadata__c
                 WHERE Id = :sourceId

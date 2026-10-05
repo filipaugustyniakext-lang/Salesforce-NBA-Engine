@@ -318,6 +318,11 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
+        <field>CC_Message_Metadata__c.Product_Family__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
         <field>CC_Message_Metadata__c.PublishedAt__c</field>
         <readable>true</readable>
     </fieldPermissions>
