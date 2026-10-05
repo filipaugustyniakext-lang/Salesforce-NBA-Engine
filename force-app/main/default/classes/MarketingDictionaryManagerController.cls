@@ -87,10 +87,13 @@ public with sharing class MarketingDictionaryManagerController {
     /**
      * Inserts multiple Product dictionary records in a single DML call.
      * Used when the user defines several Family of Needs or Product Family values at once.
+     * Customer type Ids are applied to each new Family of Needs row.
      * @param recordsJson JSON array of Marketing_Dictionary__c records
+     * @param customerTypeIds Audience-tab Customer Type Ids, or null
+     * @return Ids of the saved records
      */
     @AuraEnabled
-    public static void saveProductRecordsBulk(String recordsJson) {
+    public static List<Id> saveProductRecordsBulk(String recordsJson, List<Id> customerTypeIds) {
         try {
             List<Marketing_Dictionary__c> records = (List<Marketing_Dictionary__c>)
                 JSON.deserialize(recordsJson, List<Marketing_Dictionary__c>.class);
@@ -99,6 +102,28 @@ public with sharing class MarketingDictionaryManagerController {
                 rec.RecordTypeId = productRecordTypeId;
             }
             upsert records;
+            if (customerTypeIds != null && !customerTypeIds.isEmpty()) {
+                List<FamilyOfNeeds_CustomerType__c> links = new List<FamilyOfNeeds_CustomerType__c>();
+                for (Marketing_Dictionary__c rec : records) {
+                    if (rec.Dictionary_Sub_Type__c != 'Family of Needs') {
+                        continue;
+                    }
+                    for (Id customerTypeId : customerTypeIds) {
+                        links.add(new FamilyOfNeeds_CustomerType__c(
+                            Family_of_Needs__c = rec.Id,
+                            Customer_Type__c = customerTypeId
+                        ));
+                    }
+                }
+                if (!links.isEmpty()) {
+                    insert links;
+                }
+            }
+            List<Id> savedIds = new List<Id>();
+            for (Marketing_Dictionary__c rec : records) {
+                savedIds.add(rec.Id);
+            }
+            return savedIds;
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());
         }
