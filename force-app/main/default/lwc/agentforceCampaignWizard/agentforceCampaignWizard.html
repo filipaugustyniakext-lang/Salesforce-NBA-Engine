@@ -681,53 +681,7 @@
                             <div class="form-module-card slds-m-bottom_large">
                                 <span class="module-header-title">Scoring Settings</span>
 
-                                <div class="slds-m-top_medium">
-                                    <fieldset class="slds-form-element" role="radiogroup">
-                                        <legend class="slds-form-element__legend slds-form-element__label custom-label-style">
-                                            Scoring Definition Method
-                                            <abbr class="slds-required" title="required">*</abbr>
-                                        </legend>
-                                        <div class="slds-form-element__control slds-m-top_xx-small">
-                                            <div class="slds-radio_button-group">
-                                                <template for:each={scoringMethodOptions} for:item="method">
-                                                    <span key={method.value} class="slds-button slds-radio_button">
-                                                        <input type="radio"
-                                                               name="campaign-scoring-method"
-                                                               id={method.inputId}
-                                                               value={method.value}
-                                                               checked={method.isChecked}
-                                                               onchange={handleScoringMethodChange} />
-                                                        <label class="slds-radio_button__label" for={method.inputId}>
-                                                            <span class="slds-radio_faux">{method.label}</span>
-                                                        </label>
-                                                    </span>
-                                                </template>
-                                            </div>
-                                        </div>
-                                    </fieldset>
-                                </div>
-
-                                <template lwc:if={isScoringAPriori}>
-                                    <div class="scoring-content-box animate-fade-in slds-m-top_medium">
-                                        <lightning-input
-                                            type="number"
-                                            label="Overall Score"
-                                            placeholder="Insert Value (1-1000)"
-                                            value={aprioriOverallScore}
-                                            onchange={handleAprioriChange}
-                                            min="1"
-                                            max="1000"
-                                            step="1"
-                                            message-when-range-underflow="Score must be at least 1"
-                                            message-when-range-overflow="Score cannot exceed 1000"
-                                            message-when-step-mismatch="Score must be a whole number"
-                                            required
-                                            class="custom-form-input">
-                                        </lightning-input>
-                                    </div>
-                                </template>
-                                <template lwc:if={isScoringFromObject}>
-                                    <div class="scoring-content-box animate-fade-in slds-m-top_medium">
+                                <div class="scoring-content-box slds-m-top_medium">
                                         <template lwc:if={hasScoringModels}>
                                             <lightning-combobox
                                                 name="scoringModel"
@@ -763,7 +717,6 @@
                                             class="custom-form-input">
                                         </lightning-input>
                                     </div>
-                                </template>
                             </div>
                         </template>
 
@@ -865,17 +818,11 @@
                                     <div class="summary-section">
                                         <h4 class="summary-section-title">Scoring</h4>
                                         <div class="summary-row">
-                                            <span class="summary-label">Scoring Method</span>
-                                            <span class="summary-value">{selectedScoringMethod}</span>
+                                            <span class="summary-label">Scoring Model</span>
+                                            <span class="summary-value">{summaryScoringModel}</span>
                                         </div>
-                                        <template lwc:if={isScoringFromObject}>
-                                            <div class="summary-row">
-                                                <span class="summary-label">Scoring Model</span>
-                                                <span class="summary-value">{summaryScoringModel}</span>
-                                            </div>
-                                        </template>
                                         <div class="summary-row">
-                                            <span class="summary-label">{summaryFallbackScoreLabel}</span>
+                                            <span class="summary-label">Fallback A-Priori Score</span>
                                             <span class="summary-value">{summaryScore}</span>
                                         </div>
                                     </div>
