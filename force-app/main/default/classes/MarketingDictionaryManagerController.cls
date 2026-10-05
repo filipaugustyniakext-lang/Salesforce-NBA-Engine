@@ -142,6 +142,14 @@ public with sharing class MarketingDictionaryManagerController {
                     throw dependencyDeleteException(rec.Name, productDependency);
                 }
             }
+            // Topic_Group_Dict__c is SetNull, so a plain delete would clear the group on
+            // every related Topic. Block that while any topic still uses the group.
+            if (rec.Dictionary_Sub_Type__c == 'Topic Group') {
+                String topicDependency = new TopicGroupUsage().describe(recordId);
+                if (topicDependency != null) {
+                    throw dependencyDeleteException(rec.Name, topicDependency);
+                }
+            }
             if (rec.RecordType.DeveloperName == 'Channel') {
                 ChannelTemplateController.deleteTemplatesForChannel(rec.Id);
             }
@@ -198,6 +206,41 @@ public with sharing class MarketingDictionaryManagerController {
                 listed += ' and ' + remaining + ' more';
             }
             return 'Products: ' + listed;
+        }
+    }
+
+    /**
+     * Reads Topic assignments outside the caller's sharing rules so a hidden topic
+     * cannot be detached by deleting its Topic Group.
+     */
+    private without sharing class TopicGroupUsage {
+        String describe(Id recordId) {
+            Integer topicCount = [
+                SELECT COUNT()
+                FROM Marketing_Dictionary__c
+                WHERE Topic_Group_Dict__c = :recordId
+                AND Dictionary_Sub_Type__c = 'Topic'
+            ];
+            if (topicCount == 0) {
+                return null;
+            }
+            List<String> names = new List<String>();
+            for (Marketing_Dictionary__c topic : [
+                SELECT Name
+                FROM Marketing_Dictionary__c
+                WHERE Topic_Group_Dict__c = :recordId
+                AND Dictionary_Sub_Type__c = 'Topic'
+                ORDER BY Name ASC
+                LIMIT 10
+            ]) {
+                names.add(String.isBlank(topic.Name) ? String.valueOf(topic.Id) : topic.Name);
+            }
+            String listed = String.join(names, ', ');
+            Integer remaining = topicCount - names.size();
+            if (remaining > 0) {
+                listed += ' and ' + remaining + ' more';
+            }
+            return 'Topics: ' + listed;
         }
     }
 
