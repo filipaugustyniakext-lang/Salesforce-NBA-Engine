@@ -253,8 +253,12 @@ public with sharing class MarketingCloudCopySync {
         putText(rec, 'MessageName__c', row.get('messagename'), 255);
         putText(rec, 'MessageType__c', row.get('messagetype'), 255);
         putText(rec, 'Message_Type__c', row.get('messagetype'), 100);
-        putText(rec, 'Channel_Type__c', row.get('messagetype'), 100);
-        putText(rec, 'Channel__c', firstFilled(row, new List<String>{ 'channelname', 'messagetype' }), 100);
+        putText(rec, 'Channel_Type__c', cockpitChannelType(row.get('messagetype')), 100);
+        String channelName = row.get('channelname');
+        if (String.isBlank(channelName)) {
+            channelName = cockpitChannelType(row.get('messagetype'));
+        }
+        putText(rec, 'Channel__c', channelName, 100);
         putText(rec, 'Subject__c', row.get('subject'), 255);
         putText(rec, 'Body__c', row.get('body'), 131072);
         putText(rec, 'CampaignId__c', row.get('campaignid'), 255);
@@ -495,10 +499,24 @@ public with sharing class MarketingCloudCopySync {
     }
 
     private static String messageTypeFilter(String channel) {
-        String value = channel.replace('\'', '\'\'');
+        String value = dataExtensionMessageType(channel).replace('\'', '\'\'');
         return 'MessageType%20eq%20%27'
             + EncodingUtil.urlEncode(value, 'UTF-8').replace('+', '%20')
             + '%27';
+    }
+
+    private static String dataExtensionMessageType(String channel) {
+        if (channel != null && channel.trim().equalsIgnoreCase('Banner')) {
+            return 'WebBanner';
+        }
+        return channel;
+    }
+
+    private static String cockpitChannelType(String messageType) {
+        if (messageType != null && messageType.trim().equalsIgnoreCase('WebBanner')) {
+            return 'Banner';
+        }
+        return messageType;
     }
 
     private static HttpRequest authorizedGet(String endpoint, String token) {

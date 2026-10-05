@@ -13,6 +13,8 @@ private class MarketingCloudCopySyncTest {
                 res.setBody('{"access_token":"token","expires_in":1000}');
             } else if (endpoint.contains('/customobjects')) {
                 res.setBody('{"count":1,"items":[{"id":"71647d3c-4ba1-f111-ba7f-f40343e980b0","name":"CC_Message_Metadata","rowCount":2}]}');
+            } else if (endpoint.contains('MessageType%20eq%20%27WebBanner%27')) {
+                res.setBody('{"count":1,"page":1,"pageSize":2500,"items":[{"keys":{"messagevariantid":"banner-1"},"values":{"messagename":"BAN_PL_Home","messagetype":"WebBanner","lastmodifiedat":"9/15/2026 4:24:44 PM"}}]}');
             } else if (endpoint.contains('MessageType%20eq%20%27Email%27')) {
                 res.setBody('{"count":1,"page":1,"pageSize":2500,"items":[{"keys":{"messagevariantid":"variant-1"},"values":{"messagename":"EMA_PL_CashLoan","messagetype":"Email","lastmodifiedat":"9/15/2026 4:24:44 PM","subject":"Hello","isactive":"true","blockcount":"3","language":"PL","messagepropertiesjson":"blocks"}}]}');
             } else {
@@ -85,6 +87,27 @@ private class MarketingCloudCopySyncTest {
         System.assert(endpoints[2].contains('$filter=MessageType%20eq%20%27In-App%27'));
         System.assertEquals(2, [SELECT COUNT() FROM CC_Message_Metadata__c]);
         System.assertEquals(0, [SELECT COUNT() FROM CC_Message_Metadata__c WHERE Name = 'Missing Key']);
+    }
+
+    @IsTest
+    static void requestsWebBannerRowsForTheBannerChannel() {
+        endpoints.clear();
+        MarketingCloudCopySync.settingsOverride = settings();
+        Test.setMock(HttpCalloutMock.class, new SuccessMock());
+
+        Test.startTest();
+        MarketingCloudCopySync.SyncResult result = MarketingCloudCopySync.syncFromMce('Banner');
+        Test.stopTest();
+
+        System.assertEquals('Banner', result.channel);
+        System.assert(endpoints[2].contains('$filter=MessageType%20eq%20%27WebBanner%27'));
+        CC_Message_Metadata__c saved = [
+            SELECT Channel_Type__c, MessageType__c
+            FROM CC_Message_Metadata__c
+            WHERE MessageVariantId__c = 'banner-1'
+        ];
+        System.assertEquals('Banner', saved.Channel_Type__c);
+        System.assertEquals('WebBanner', saved.MessageType__c);
     }
 
     @IsTest
