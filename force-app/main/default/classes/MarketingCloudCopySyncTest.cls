@@ -36,19 +36,44 @@ private class MarketingCloudCopySyncTest {
         Test.setMock(HttpCalloutMock.class, new SuccessMock());
 
         Test.startTest();
-        MarketingCloudCopySync.SyncResult result = MarketingCloudCopySync.syncFromMce();
+        MarketingCloudCopySync.SyncResult result = MarketingCloudCopySync.syncFromMce('Email');
         Test.stopTest();
 
         System.assertEquals('71647d3c-4ba1-f111-ba7f-f40343e980b0', result.dataExtensionId);
         System.assertEquals('CC_Message_Metadata', result.dataExtensionName);
+        System.assertEquals('Email', result.channel);
         System.assertEquals(2, result.rowCount);
         System.assertEquals(2, result.fetchedCount);
-        System.assertEquals('SMS_PL_SMS_1', result.oldestMessageName);
+        System.assertEquals('SMS_PL_SMS_1', result.latestMessageName);
         System.assertEquals(3, endpoints.size());
         System.assert(endpoints[1].contains('$search=CC_Message_Metadata'));
         System.assert(endpoints[2].contains('/customobjectdata/71647d3c-4ba1-f111-ba7f-f40343e980b0/rowset'));
-        System.assert(endpoints[2].contains('lastmodifiedat'));
-        System.assert(endpoints[2].contains('messagetype'));
+        System.assert(endpoints[2].contains('$filter=MessageType%20eq%20%27Email%27'));
+        System.assert(endpoints[2].contains('$orderBy=LastModifiedAt%20DESC'));
+    }
+
+    @IsTest
+    static void filtersTheActiveChannelType() {
+        endpoints.clear();
+        MarketingCloudCopySync.settingsOverride = settings();
+        Test.setMock(HttpCalloutMock.class, new SuccessMock());
+
+        Test.startTest();
+        MarketingCloudCopySync.syncFromMce('In-App');
+        Test.stopTest();
+
+        System.assert(endpoints[2].contains('$filter=MessageType%20eq%20%27In-App%27'));
+    }
+
+    @IsTest
+    static void requiresAChannel() {
+        MarketingCloudCopySync.settingsOverride = settings();
+        try {
+            MarketingCloudCopySync.syncFromMce(' ');
+            System.assert(false, 'Expected a missing channel to be rejected.');
+        } catch (AuraHandledException ex) {
+            System.assert(ex.getMessage().contains('channel'));
+        }
     }
 
     @IsTest
@@ -57,7 +82,7 @@ private class MarketingCloudCopySyncTest {
         Test.setMock(HttpCalloutMock.class, new FailureMock());
 
         try {
-            MarketingCloudCopySync.syncFromMce();
+            MarketingCloudCopySync.syncFromMce('SMS');
             System.assert(false, 'Expected the callout failure to be reported.');
         } catch (AuraHandledException ex) {
             System.assert(ex.getMessage().contains('401'));

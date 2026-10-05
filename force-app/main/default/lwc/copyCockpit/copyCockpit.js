@@ -574,21 +574,27 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     @track isSyncing = false;
 
     get syncButtonLabel() {
-        return this.isSyncing ? 'Syncing...' : 'Sync from MCE';
+        const channel = this.activeChannel?.Channel_Type__c || 'channel';
+        return this.isSyncing ? `Syncing ${channel}...` : `Sync ${channel} from MCE`;
     }
 
     handleSyncFromMce() {
         if (this.isSyncing) {
             return;
         }
+        const channel = this.activeChannel?.Channel_Type__c;
+        if (!channel) {
+            this._showToast('Sync from MCE', 'Select a channel before syncing.', 'error');
+            return;
+        }
         this.isSyncing = true;
-        syncFromMce()
+        syncFromMce({ channel })
             .then(result => {
                 const count = result?.fetchedCount ?? 0;
                 const name = result?.dataExtensionName || 'CC_Message_Metadata';
                 this._showToast(
-                    'Sync from MCE',
-                    `Fetched ${count} rows from ${name}.`,
+                    `Sync ${channel} from MCE`,
+                    `Fetched ${count} ${channel} rows from ${name}.`,
                     'success'
                 );
             })

@@ -5,7 +5,7 @@
 public with sharing class MarketingCloudCopySync {
     private static final Integer PAGE_SIZE = 2500;
     private static final Integer MAX_PAGES = 20;
-    private static final String ORDER_BY = 'lastmodifiedat%20ASC,messagetype%20ASC';
+    private static final String ORDER_BY = 'LastModifiedAt%20DESC';
 
     @TestVisible
     private static MCE_Settings__mdt settingsOverride;
@@ -15,17 +15,21 @@ public with sharing class MarketingCloudCopySync {
         @AuraEnabled public String dataExtensionName;
         @AuraEnabled public Integer rowCount;
         @AuraEnabled public Integer fetchedCount;
-        @AuraEnabled public String oldestMessageName;
-        @AuraEnabled public String oldestModifiedAt;
+        @AuraEnabled public String channel;
+        @AuraEnabled public String latestMessageName;
+        @AuraEnabled public String latestModifiedAt;
     }
 
     @AuraEnabled
-    public static SyncResult syncFromMce() {
+    public static SyncResult syncFromMce(String channel) {
         try {
+            if (String.isBlank(channel)) {
+                throw auraError('Select a channel before syncing from Marketing Cloud.');
+            }
             MCE_Settings__mdt settings = loadSettings();
             String token = requestToken(settings);
             Map<String, Object> dataExtension = findDataExtension(settings, token);
-            return fetchRows(settings, token, dataExtension);
+            return fetchRows(settings, token, dataExtension, channel.trim());
         } catch (AuraHandledException ex) {
             throw ex;
         } catch (Exception ex) {
@@ -93,12 +97,17 @@ public with sharing class MarketingCloudCopySync {
         return first;
     }
 
-    private static SyncResult fetchRows(MCE_Settings__mdt settings, String token, Map<String, Object> dataExtension) {
+    private static SyncResult fetchRows(
+        MCE_Settings__mdt settings,
+        String token,
+        Map<String, Object> dataExtension,
+        String channel
+    ) {
         String dataExtensionId = (String) dataExtension.get('id');
         SyncResult result = new SyncResult();
         result.dataExtensionId = dataExtensionId;
         result.dataExtensionName = (String) dataExtension.get('name');
-        result.rowCount = toInteger(dataExtension.get('rowCount'));
+        result.channel = channel;
         result.fetchedCount = 0;
 
         Integer page = 1;
@@ -106,7 +115,8 @@ public with sharing class MarketingCloudCopySync {
             String endpoint = 'https://' + settings.Subdomain__c
                 + '.rest.marketingcloudapis.com/data/v1/customobjectdata/'
                 + dataExtensionId
-                + '/rowset?$page=' + page
+                + '/rowset?$filter=' + messageTypeFilter(channel)
+                + '&$page=' + page
                 + '&$pageSize=' + PAGE_SIZE
                 + '&$orderBy=' + ORDER_BY;
             Map<String, Object> body = send(authorizedGet(endpoint, token));
@@ -115,11 +125,11 @@ public with sharing class MarketingCloudCopySync {
             if (result.rowCount == null) {
                 result.rowCount = toInteger(body.get('count'));
             }
-            if (pageCount > 0 && result.oldestMessageName == null) {
+            if (pageCount > 0 && result.latestMessageName == null) {
                 Map<String, Object> values = (Map<String, Object>) ((Map<String, Object>) items[0]).get('values');
                 if (values != null) {
-                    result.oldestMessageName = (String) values.get('messagename');
-                    result.oldestModifiedAt = (String) values.get('lastmodifiedat');
+                    result.latestMessageName = (String) values.get('messagename');
+                    result.latestModifiedAt = (String) values.get('lastmodifiedat');
                 }
             }
             result.fetchedCount += pageCount;
@@ -132,6 +142,13 @@ public with sharing class MarketingCloudCopySync {
             result.rowCount = result.fetchedCount;
         }
         return result;
+    }
+
+    private static String messageTypeFilter(String channel) {
+        String value = channel.replace('\'', '\'\'');
+        return 'MessageType%20eq%20%27'
+            + EncodingUtil.urlEncode(value, 'UTF-8').replace('+', '%20')
+            + '%27';
     }
 
     private static HttpRequest authorizedGet(String endpoint, String token) {
