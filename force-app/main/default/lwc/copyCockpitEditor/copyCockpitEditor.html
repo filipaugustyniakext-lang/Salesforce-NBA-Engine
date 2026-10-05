@@ -146,7 +146,7 @@
 
                         <!-- Save / Schedule / Revert / Activate button group -->
                         <div class="slds-button-group toolbar-crud-group" role="group" aria-label="Save Actions">
-                            <button class="slds-button slds-button_neutral toolbar-action-btn" type="button" onclick={handleToolbarSave} title={saveButtonLabel}>
+                            <button class="slds-button slds-button_neutral toolbar-action-btn" type="button" onclick={handleToolbarSave} title={saveButtonLabel} disabled={isSaving}>
                                 <lightning-icon icon-name="utility:save" size="x-small" class="slds-button__icon slds-button__icon_left"></lightning-icon>
                                 {saveButtonLabel}
                             </button>
@@ -435,6 +435,9 @@
                         </div>
                     </div>
                     <div class="slds-panel__body">
+                        <template lwc:if={paletteEmpty}>
+                            <p class="slds-p-around_small slds-text-body_small slds-text-color_weak">{paletteEmptyMessage}</p>
+                        </template>
                         <template for:each={blockGroups} for:item="grp">
                             <div key={grp.group} class="slds-panel__section editor-block-section">
                                 <h3 class="slds-text-title_caps editor-block-section__label">{grp.group}</h3>
@@ -689,9 +692,124 @@
                                                                 aria-labelledby={blk.contentTabId}
                                                                 style={blk.contentPanelStyle}
                                                             >
-                                                                <p class="slds-text-body_small slds-text-color_weak slds-p-around_small">
-                                                                    Content editor for <strong>{blk.label}</strong> — coming soon.
-                                                                </p>
+                                                                <div class="block-content-fields">
+                                                                    <template lwc:if={blk.noContentFields}>
+                                                                        <p class="slds-text-body_small slds-text-color_weak">This component has no content fields. Its placeholders are filled from Block Settings.</p>
+                                                                    </template>
+                                                                    <template lwc:if={blk.showModernColumns}>
+                                                                        <template lwc:if={blk.showColumnDirection}>
+                                                                            <div class="slds-form-element">
+                                                                                <span class="slds-form-element__label">Column direction</span>
+                                                                                <div class="slds-button-group" role="group" aria-label="Column direction">
+                                                                                    <button type="button" class={blk.directionLtrClass} data-instance-id={blk.instanceId} data-direction="ltr" onclick={handleColumnDirection}>Left to right</button>
+                                                                                    <button type="button" class={blk.directionRtlClass} data-instance-id={blk.instanceId} data-direction="rtl" onclick={handleColumnDirection}>Right to left</button>
+                                                                                </div>
+                                                                            </div>
+                                                                        </template>
+                                                                        <template for:each={blk.layoutColumns} for:item="column">
+                                                                            <details key={column.key} class="layout-fold" open>
+                                                                                <summary>{column.label}</summary>
+                                                                                <p class="slds-text-body_small slds-text-color_weak">Column content will be added in a later update.</p>
+                                                                                <template lwc:if={column.showPadding}>
+                                                                                    <template lwc:if={column.showDesktopPad}>
+                                                                                        <p class="slds-form-element__label slds-m-top_small">Desktop padding</p>
+                                                                                        <div class="pad-grid">
+                                                                                            <template for:each={column.desktopFields} for:item="pad">
+                                                                                                <div key={pad.key} class="slds-form-element">
+                                                                                                    <label class="slds-form-element__label">{pad.label}</label>
+                                                                                                    <input class="slds-input" type="number" min="0" data-layout-field data-instance-id={blk.instanceId} data-column={column.index} data-device="desktop" data-side={pad.side} oninput={handleLayoutPad} />
+                                                                                                </div>
+                                                                                            </template>
+                                                                                        </div>
+                                                                                    </template>
+                                                                                    <template lwc:if={column.showPadInherit}>
+                                                                                        <lightning-input class="slds-m-top_x-small" type="checkbox" label="Use desktop padding on mobile" checked={column.padMobileInherit} data-instance-id={blk.instanceId} data-column={column.index} onchange={handleLayoutInherit}></lightning-input>
+                                                                                    </template>
+                                                                                    <template lwc:if={column.showMobilePad}>
+                                                                                        <p class="slds-form-element__label slds-m-top_small">Mobile padding</p>
+                                                                                        <div class="pad-grid">
+                                                                                            <template for:each={column.mobileFields} for:item="pad">
+                                                                                                <div key={pad.key} class="slds-form-element">
+                                                                                                    <label class="slds-form-element__label">{pad.label}</label>
+                                                                                                    <input class="slds-input" type="number" min="0" data-layout-field data-instance-id={blk.instanceId} data-column={column.index} data-device="mobile" data-side={pad.side} oninput={handleLayoutPad} />
+                                                                                                </div>
+                                                                                            </template>
+                                                                                        </div>
+                                                                                    </template>
+                                                                                </template>
+                                                                                <template lwc:if={column.showColor}>
+                                                                                    <p class="slds-form-element__label slds-m-top_small">Background color</p>
+                                                                                    <div class="bg-swatches">
+                                                                                        <template for:each={column.colors} for:item="color">
+                                                                                            <button key={color.key} type="button" class={color.className} style={color.swatch} title={color.value} data-instance-id={blk.instanceId} data-column={column.index} data-color={color.value} onclick={handleLayoutColor}></button>
+                                                                                        </template>
+                                                                                    </div>
+                                                                                </template>
+                                                                                <template lwc:if={column.showImage}>
+                                                                                    <div class="slds-form-element slds-m-top_small">
+                                                                                        <label class="slds-form-element__label">Background image</label>
+                                                                                        <input class="slds-input" type="url" placeholder="https://" data-layout-field data-field="bgImage" data-instance-id={blk.instanceId} data-column={column.index} oninput={handleLayoutImage} />
+                                                                                        <template lwc:if={blk.canUploadImage}>
+                                                                                            <lightning-file-upload class="slds-m-top_x-small" label="Upload image" name={column.imageUploadName} accept={imageAccept} record-id={recordId} data-instance-id={blk.instanceId} data-column={column.index} onuploadfinished={handleLayoutImageUpload}></lightning-file-upload>
+                                                                                        </template>
+                                                                                        <p class="slds-text-body_small slds-text-color_weak">Paste a URL or upload a file. Choosing an existing Salesforce CMS image is not available in this editor.</p>
+                                                                                    </div>
+                                                                                </template>
+                                                                                <template lwc:if={column.showGradient}>
+                                                                                    <p class="slds-form-element__label slds-m-top_small">Background gradient</p>
+                                                                                    <div class="slds-button-group" role="group">
+                                                                                        <template for:each={column.gradients} for:item="gradient">
+                                                                                            <button key={gradient.key} type="button" class={gradient.className} data-instance-id={blk.instanceId} data-column={column.index} data-gradient={gradient.id} onclick={handleLayoutGradient}>{gradient.label}</button>
+                                                                                        </template>
+                                                                                    </div>
+                                                                                </template>
+                                                                            </details>
+                                                                        </template>
+                                                                    </template>
+                                                                    <template lwc:if={blk.showCopy}>
+                                                                        <div class="slds-form-element">
+                                                                            <label class="slds-form-element__label" for={blk.copyFieldId}>Copy</label>
+                                                                            <div class="slds-form-element__control">
+                                                                                <textarea id={blk.copyFieldId} class="slds-textarea" rows="4" data-content-field data-instance-id={blk.instanceId} data-field="copyText" oninput={handleBlockContentChange}></textarea>
+                                                                            </div>
+                                                                        </div>
+                                                                    </template>
+                                                                    <template lwc:if={blk.showImage}>
+                                                                        <div class="slds-form-element slds-m-top_small">
+                                                                            <label class="slds-form-element__label" for={blk.imageFieldId}>Image URL</label>
+                                                                            <div class="slds-form-element__control">
+                                                                                <input id={blk.imageFieldId} class="slds-input" type="url" placeholder="https://" data-content-field data-instance-id={blk.instanceId} data-field="imageUrl" oninput={handleBlockContentChange} />
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="slds-form-element slds-m-top_x-small">
+                                                                            <label class="slds-form-element__label" for={blk.altFieldId}>Alt text</label>
+                                                                            <div class="slds-form-element__control">
+                                                                                <input id={blk.altFieldId} class="slds-input" type="text" data-content-field data-instance-id={blk.instanceId} data-field="altText" oninput={handleBlockContentChange} />
+                                                                            </div>
+                                                                        </div>
+                                                                    </template>
+                                                                    <template lwc:if={blk.showLegal}>
+                                                                        <div class="slds-form-element slds-m-top_small">
+                                                                            <label class="slds-form-element__label" for={blk.legalFieldId}>Legal copy</label>
+                                                                            <div class="slds-form-element__control">
+                                                                                <textarea id={blk.legalFieldId} class="slds-textarea" rows="3" data-content-field data-instance-id={blk.instanceId} data-field="legalText" oninput={handleBlockContentChange}></textarea>
+                                                                            </div>
+                                                                        </div>
+                                                                    </template>
+                                                                    <template lwc:if={blk.showSpacer}>
+                                                                        <div class="slds-form-element">
+                                                                            <label class="slds-form-element__label" for={blk.spacerFieldId}>Spacer height (px)</label>
+                                                                            <div class="slds-form-element__control">
+                                                                                <input id={blk.spacerFieldId} class="slds-input" type="number" min="0" data-content-field data-instance-id={blk.instanceId} data-field="spacerHeight" oninput={handleBlockContentChange} />
+                                                                            </div>
+                                                                        </div>
+                                                                    </template>
+                                                                    <template lwc:if={blk.missingBlockTemplate}>
+                                                                        <p class="slds-text-color_error slds-text-body_small slds-m-top_small">
+                                                                            This source template has no HTML file for {blk.blockType}.
+                                                                        </p>
+                                                                    </template>
+                                                                </div>
                                                             </div>
 
                                                             <!-- Settings panel -->
@@ -703,12 +821,82 @@
                                                                 style={blk.settingsPanelStyle}
                                                             >
                                                                 <div class="settings-panel-stack">
+                                                                    <template lwc:if={blk.noBlockSettings}>
+                                                                        <p class="slds-text-body_small slds-text-color_weak">This component does not use block settings.</p>
+                                                                    </template>
+
+                                                                    <template lwc:if={blk.showModernBlock}>
+                                                                    <div class="settings-card">
+                                                                        <h2 class="settings-card__title">Block settings</h2>
+                                                                        <template lwc:if={blk.showHideDesktop}>
+                                                                            <lightning-input type="toggle" label="Hide on desktop" checked={blk.hideDesktopOn} message-toggle-active="Hidden" message-toggle-inactive="Visible" data-instance-id={blk.instanceId} data-flag="hideDesktop" onchange={handleLayoutFlag}></lightning-input>
+                                                                        </template>
+                                                                        <template lwc:if={blk.showHideMobile}>
+                                                                            <lightning-input type="toggle" label="Hide on mobile" checked={blk.hideMobileOn} message-toggle-active="Hidden" message-toggle-inactive="Visible" data-instance-id={blk.instanceId} data-flag="hideMobile" onchange={handleLayoutFlag}></lightning-input>
+                                                                        </template>
+                                                                        <template lwc:if={blk.showBlockPadding}>
+                                                                            <template lwc:if={blk.showBlockDesktopPad}>
+                                                                                <p class="slds-form-element__label slds-m-top_small">Desktop padding</p>
+                                                                                <div class="pad-grid">
+                                                                                    <template for:each={blk.desktopPadFields} for:item="pad">
+                                                                                        <div key={pad.key} class="slds-form-element">
+                                                                                            <label class="slds-form-element__label">{pad.label}</label>
+                                                                                            <input class="slds-input" type="number" min="0" data-layout-field data-instance-id={blk.instanceId} data-device="desktop" data-side={pad.side} oninput={handleLayoutPad} />
+                                                                                        </div>
+                                                                                    </template>
+                                                                                </div>
+                                                                            </template>
+                                                                            <template lwc:if={blk.showBlockPadInherit}>
+                                                                                <lightning-input class="slds-m-top_x-small" type="checkbox" label="Use desktop padding on mobile" checked={blk.padMobileInherit} data-instance-id={blk.instanceId} onchange={handleLayoutInherit}></lightning-input>
+                                                                            </template>
+                                                                            <template lwc:if={blk.showBlockMobilePad}>
+                                                                                <p class="slds-form-element__label slds-m-top_small">Mobile padding</p>
+                                                                                <div class="pad-grid">
+                                                                                    <template for:each={blk.mobilePadFields} for:item="pad">
+                                                                                        <div key={pad.key} class="slds-form-element">
+                                                                                            <label class="slds-form-element__label">{pad.label}</label>
+                                                                                            <input class="slds-input" type="number" min="0" data-layout-field data-instance-id={blk.instanceId} data-device="mobile" data-side={pad.side} oninput={handleLayoutPad} />
+                                                                                        </div>
+                                                                                    </template>
+                                                                                </div>
+                                                                            </template>
+                                                                        </template>
+                                                                        <template lwc:if={blk.showBlockColor}>
+                                                                            <p class="slds-form-element__label slds-m-top_small">Background color</p>
+                                                                            <div class="bg-swatches">
+                                                                                <template for:each={blk.colorOptions} for:item="color">
+                                                                                    <button key={color.key} type="button" class={color.className} style={color.swatch} title={color.value} data-instance-id={blk.instanceId} data-color={color.value} onclick={handleLayoutColor}></button>
+                                                                                </template>
+                                                                            </div>
+                                                                        </template>
+                                                                        <template lwc:if={blk.showBlockImage}>
+                                                                            <div class="slds-form-element slds-m-top_small">
+                                                                                <label class="slds-form-element__label">Background image</label>
+                                                                                <input class="slds-input" type="url" placeholder="https://" data-layout-field data-field="bgImage" data-instance-id={blk.instanceId} oninput={handleLayoutImage} />
+                                                                                <template lwc:if={blk.canUploadImage}>
+                                                                                    <lightning-file-upload class="slds-m-top_x-small" label="Upload image" name={blk.blockImageUploadName} accept={imageAccept} record-id={recordId} data-instance-id={blk.instanceId} onuploadfinished={handleLayoutImageUpload}></lightning-file-upload>
+                                                                                </template>
+                                                                                <p class="slds-text-body_small slds-text-color_weak">Paste a URL or upload a file. The same URL is written to &#123;&#123;blo-bg-img&#125;&#125; for desktop and mobile. Choosing an existing Salesforce CMS image is not available in this editor.</p>
+                                                                            </div>
+                                                                        </template>
+                                                                        <template lwc:if={blk.showBlockGradient}>
+                                                                            <p class="slds-form-element__label slds-m-top_small">Background gradient</p>
+                                                                            <div class="gradient-choices">
+                                                                                <template for:each={blk.gradientOptions} for:item="gradient">
+                                                                                    <button key={gradient.key} type="button" class={gradient.className} data-instance-id={blk.instanceId} data-gradient={gradient.id} onclick={handleLayoutGradient}>{gradient.label}</button>
+                                                                                </template>
+                                                                            </div>
+                                                                        </template>
+                                                                    </div>
+                                                                    </template>
 
                                                                     <!-- Card 1: Layout & Visibility -->
+                                                                    <template lwc:if={blk.showLayoutCard}>
                                                                     <div class="settings-card">
                                                                         <h2 class="settings-card__title">Layout &amp; Visibility</h2>
 
                                                                         <!-- Visibility button groups -->
+                                                                        <template lwc:if={blk.showViewDesktop}>
                                                                         <div class="block-vis-grid">
                                                                             <span class="block-vis-grid__label">View on desktop</span>
                                                                             <div class="slds-button-group" role="group" aria-label="View on desktop">
@@ -720,6 +908,8 @@
                                                                                     onclick={handleBlockVisClick}>Hide</button>
                                                                             </div>
                                                                         </div>
+                                                                        </template>
+                                                                        <template lwc:if={blk.showViewMobile}>
                                                                         <div class="block-vis-grid">
                                                                             <span class="block-vis-grid__label">View on mobile</span>
                                                                             <div class="slds-button-group" role="group" aria-label="View on mobile">
@@ -731,8 +921,10 @@
                                                                                     onclick={handleBlockVisClick}>Hide</button>
                                                                             </div>
                                                                         </div>
+                                                                        </template>
 
                                                                         <!-- Padding box -->
+                                                                        <template lwc:if={blk.showPadding}>
                                                                         <div class="block-pad-header">
                                                                             <h3 class="block-pad-header__title">Padding</h3>
                                                                             <div class="block-pad-header__actions">
@@ -769,8 +961,10 @@
                                                                                 </div>
                                                                             </div>
                                                                         </div>
+                                                                        </template>
 
                                                                         <!-- Block background -->
+                                                                        <template lwc:if={blk.showBackground}>
                                                                         <div class="slds-form-element slds-m-top_small">
                                                                             <label class="slds-form-element__label" for={blk.bgValueId}>Block Background</label>
                                                                             <div class="slds-form-element__control">
@@ -781,12 +975,32 @@
                                                                                     oninput={handleBlockBgChange} />
                                                                             </div>
                                                                         </div>
-                                                                    </div>
+                                                                        </template>
 
-                                                                    <!-- Card 2: Column Layout (TextImage only) -->
-                                                                    <template lwc:if={blk.isTextImage}>
+                                                                        <template lwc:if={blk.showHeightDesktop}>
+                                                                            <div class="slds-form-element slds-m-top_small">
+                                                                                <label class="slds-form-element__label" for={blk.heightDesktopId}>Block height on desktop</label>
+                                                                                <div class="slds-form-element__control">
+                                                                                    <input id={blk.heightDesktopId} class="slds-input" type="number" min="0" value={blk.heightDesktop} data-instance-id={blk.instanceId} data-field="heightDesktop" onchange={handleBlockHeightChange} />
+                                                                                </div>
+                                                                            </div>
+                                                                        </template>
+                                                                        <template lwc:if={blk.showHeightMobile}>
+                                                                            <div class="slds-form-element slds-m-top_small">
+                                                                                <label class="slds-form-element__label" for={blk.heightMobileId}>Block height on mobile</label>
+                                                                                <div class="slds-form-element__control">
+                                                                                    <input id={blk.heightMobileId} class="slds-input" type="number" min="0" value={blk.heightMobile} data-instance-id={blk.instanceId} data-field="heightMobile" onchange={handleBlockHeightChange} />
+                                                                                </div>
+                                                                            </div>
+                                                                        </template>
+                                                                    </div>
+                                                                    </template>
+
+                                                                    <!-- Card 2: Column Layout -->
+                                                                    <template lwc:if={blk.showColumnLayout}>
                                                                         <div class="settings-card">
                                                                             <h2 class="settings-card__title">Column Layout</h2>
+                                                                            <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_x-small">Left to right writes ltr. Right to left writes rtl.</p>
                                                                             <div class="column-layout-picker">
 
                                                                                 <!-- Option: Text left, Image right -->
@@ -924,14 +1138,22 @@
                                     </div>
                                 </template>
 
-                                <div class="editor-preview__content">
-                                    <template lwc:if={previewIsEmpty}>
+                                <div class={previewContentClass}>
+                                    <template lwc:if={renderSourceLoading}>
                                         <div class="editor-preview__empty">
-                                            <lightning-icon icon-name="utility:preview" size="medium" class="slds-m-bottom_small editor-preview__empty-icon"></lightning-icon>
-                                            <p class="slds-text-body_small slds-text-color_weak">Add components to the canvas to see a preview.</p>
+                                            <lightning-spinner alternative-text="Loading template" size="small"></lightning-spinner>
                                         </div>
                                     </template>
-                                    <template lwc:else>
+                                    <template lwc:elseif={hasShellPreview}>
+                                        <div class="editor-preview__shell" lwc:dom="manual" data-preview-host></div>
+                                    </template>
+                                    <template lwc:elseif={previewIsEmpty}>
+                                        <div class="editor-preview__empty">
+                                            <lightning-icon icon-name="utility:preview" size="medium" class="slds-m-bottom_small editor-preview__empty-icon"></lightning-icon>
+                                            <p class="slds-text-body_small slds-text-color_weak">{previewStatusMessage}</p>
+                                        </div>
+                                    </template>
+                                    <template lwc:elseif={showIconPreview}>
                                         <template for:each={previewBlocks} for:item="pb">
                                             <div key={pb.instanceId} class={pb.previewBlockClass}>
                                                 <lightning-icon icon-name={pb.icon} size="x-small" class="slds-m-right_x-small editor-preview-block__icon"></lightning-icon>

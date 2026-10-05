@@ -25,38 +25,50 @@ public with sharing class ProductMassUpdateController {
     }
 
     public PageReference updateProductFamilyDict() {
-        if (selectedRecords.isEmpty()) {
-            ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.WARNING, 'Please select at least one record.'));
-            return null;
-        }
-        Id dictId = dummyProduct.Product_Family_Dict__c;
-        if (dictId == null) {
-            ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.WARNING, 'Please select a Product Family.'));
-            return null;
-        }
-        for (Product2 p : selectedRecords) p.Product_Family_Dict__c = dictId;
-        try {
-            update selectedRecords;
-            return standardController.cancel();
-        } catch (Exception e) {
-            ApexPages.addMessages(e);
-            return null;
-        }
+        return updateDictionaryLookup(
+            Product2.Product_Family_Dict__c,
+            dummyProduct.Product_Family_Dict__c,
+            'Please select a Product Family.'
+        );
+    }
+
+    public PageReference updateProductTypeDict() {
+        return updateDictionaryLookup(
+            Product2.Product_Type_Dict__c,
+            dummyProduct.Product_Type_Dict__c,
+            'Please select a Product Type.'
+        );
     }
 
     public PageReference updateFamilyOfNeedsDict() {
+        return updateDictionaryLookup(
+            Product2.Family_of_Needs_Dict__c,
+            dummyProduct.Family_of_Needs_Dict__c,
+            'Please select a Family of Needs.'
+        );
+    }
+
+    /**
+     * Writes only the requested dictionary lookup. List-view selections carry the
+     * other lookup columns, and saving those rows would reapply them.
+     */
+    private PageReference updateDictionaryLookup(Schema.SObjectField field, Id dictId, String missingMessage) {
         if (selectedRecords.isEmpty()) {
             ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.WARNING, 'Please select at least one record.'));
             return null;
         }
-        Id dictId = dummyProduct.Family_of_Needs_Dict__c;
         if (dictId == null) {
-            ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.WARNING, 'Please select a Family of Needs.'));
+            ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.WARNING, missingMessage));
             return null;
         }
-        for (Product2 p : selectedRecords) p.Family_of_Needs_Dict__c = dictId;
+        List<Product2> updates = new List<Product2>();
+        for (Product2 selected : selectedRecords) {
+            Product2 row = new Product2(Id = selected.Id);
+            row.put(field, dictId);
+            updates.add(row);
+        }
         try {
-            update selectedRecords;
+            update updates;
             return standardController.cancel();
         } catch (Exception e) {
             ApexPages.addMessages(e);

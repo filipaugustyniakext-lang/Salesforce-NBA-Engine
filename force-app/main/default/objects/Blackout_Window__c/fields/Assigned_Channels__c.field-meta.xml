@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Assigned_Channels__c</fullName>
+    <description>Semicolon-separated Channel dictionary Names that honor this blackout date. Empty means no channels are restricted (operator should select at least one).</description>
+    <inlineHelpText>Select which channels should pause marketing communications on this blackout date. Leave intrusive channels selected and omit softer ones (e.g. banners) when they may stay live.</inlineHelpText>
+    <label>Assigned Channels</label>
+    <length>4000</length>
+    <type>LongTextArea</type>
+    <visibleLines>3</visibleLines>
+</CustomField>

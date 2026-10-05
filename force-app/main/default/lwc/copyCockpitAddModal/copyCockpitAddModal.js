@@ -2,19 +2,15 @@ import { LightningElement, api, track, wire } from 'lwc';
 import getProductFamilies from '@salesforce/apex/CopyCockpitController.getProductFamilies';
 import getActiveOffersByFamily from '@salesforce/apex/CopyCockpitController.getActiveOffersByFamily';
 import getPlaceholders from '@salesforce/apex/CopyCockpitController.getPlaceholders';
-import getExistingVariants from '@salesforce/apex/CopyCockpitController.getExistingVariants';
-
-const CHANNEL_PREFIX_MAP = {
-    'Email':             'EMA',
-    'SMS':               'SMS',
-    'Push':              'PUSH',
-    'Banner':            'BAN',
-    'In-App':            'INAPP',
-    'AI Agent Inbound':  'AII',
-    'AI Agent Outbound': 'AIO',
-    'Branch Agent':      'BRA',
-    'WhatsApp':          'WHP',
-};
+import getStemVariantInfo from '@salesforce/apex/CopyCockpitController.getStemVariantInfo';
+import getSelectableTemplates from '@salesforce/apex/ChannelTemplateController.getSelectableTemplates';
+import {
+    channelPrefixForType,
+    composeFullName,
+    composeLocale,
+    composeStem,
+    nextAvailableVariant
+} from 'c/copyMessageNaming';
 
 const SUBTYPE_OPTIONS = {
     Email: [
@@ -33,24 +29,16 @@ const LANGUAGE_OPTIONS = [
     { label: 'ES', value: 'ES' },
 ];
 
-function nextAvailableVariant(takenVariants) {
-    const taken = new Set((takenVariants || []).map(Number));
-    let v = 1;
-    while (taken.has(v)) v++;
-    return v;
-}
-
 export default class CopyCockpitAddModal extends LightningElement {
 
     @api channelName = '';
     @api channelType = '';
-    @api bannerTypes = [];
 
-    // Composed name parts
+    // Editable name parts (master-level)
     @track countryCode = '';
     @track messageName = '';
 
-    // Variant + language
+    // Auto parts
     @track version  = 1;
     @track language = 'PL';
 
@@ -68,40 +56,84 @@ export default class CopyCockpitAddModal extends LightningElement {
 
     // Per-channel subtype
     @track selectedSubtype = null;
+    @track sourceTemplateId = '';
 
     @track isSaving         = false;
     @track variantError     = '';
     @track variantSuggested = false;
+    @track isExistingMaster = false;
 
     _takenVariants    = [];
-    _variantCheckName = '';
-
+    _variantCheckStem = '';
     @wire(getProductFamilies)
     _wiredFamilies;
 
     @wire(getPlaceholders)
     _wiredPlaceholders;
 
+    @wire(getSelectableTemplates, { channelName: '$channelName', channelType: '$channelType' })
+    _wiredTemplates;
+
     // ── derived ───────────────────────────────────────────────────────────────
 
     get channelPrefix() {
-        return CHANNEL_PREFIX_MAP[this.channelType] || this.channelType || '';
+        return channelPrefixForType(this.channelType);
+    }
+
+    get nameStem() {
+        return composeStem(this.channelPrefix, this.countryCode, this.language, this.messageName);
     }
 
     get composedName() {
-        const cc = (this.countryCode || '').trim().toUpperCase();
-        const mn = (this.messageName || '').trim();
-        if (!cc || !mn) return '';
-        return `${this.channelPrefix}_${cc}_${mn}`;
+        return composeFullName(
+            this.channelPrefix, this.countryCode, this.language, this.messageName, this.version
+        );
     }
 
     get composedNamePreview() {
         const cc = (this.countryCode || '').trim().toUpperCase() || '<CountryCode>';
+        const lang = (this.language || '').trim().toUpperCase() || '<Language>';
         const mn = (this.messageName || '').trim() || '<MessageName>';
-        return `${this.channelPrefix}_${cc}_${mn}`;
+        const v  = this.version != null ? this.version : '<Variant>';
+        return `${this.channelPrefix}_${cc}-${lang}_${mn}_${v}`;
+    }
+
+    get namingConventionHint() {
+        return 'ChannelPrefix_Locale_MessageName_VariantNumber';
     }
 
     get languageOptions() { return LANGUAGE_OPTIONS; }
+
+    get templateOptions() {
+        return (this._wiredTemplates?.data || []).map(template => ({
+            value: template.id,
+            label: template.packageLabel ? `${template.name} (${template.packageLabel})` : template.name
+        }));
+    }
+
+    get usesTemplateTiles() {
+        return this.channelType !== 'Email' && this.channelType !== 'Push';
+    }
+
+    get showSourceTemplatePicker() {
+        return !this.usesTemplateTiles;
+    }
+
+    get hasTemplateOptions() {
+        return this.templateOptions.length > 0;
+    }
+
+    get showMissingTemplate() {
+        return this.showSourceTemplatePicker && !this.templatesLoading && !this.hasTemplateOptions;
+    }
+
+    get showMissingTemplateTiles() {
+        return this.usesTemplateTiles && !this.templatesLoading && !this.hasTemplateOptions;
+    }
+
+    get templatesLoading() {
+        return !this._wiredTemplates?.data && !this._wiredTemplates?.error;
+    }
 
     get familyOptions() {
         if (!this._wiredFamilies.data) return [];
@@ -128,18 +160,22 @@ export default class CopyCockpitAddModal extends LightningElement {
     }
 
     get subtypeOptions() {
-        if (this.channelType === 'Banner' || this.channelType === 'In-App') {
-            return (this.bannerTypes || []).map(bt => ({
-                value: bt.Id,
-                label: bt.Name,
-                icon: 'utility:image',
-                description: bt.Description__c || '',
+        if (this.usesTemplateTiles) {
+            return (this._wiredTemplates?.data || []).map(template => ({
+                value: template.id,
+                label: template.name,
+                icon: 'utility:layout',
+                description: template.description || template.packageLabel || ''
             }));
         }
         return SUBTYPE_OPTIONS[this.channelType] || [];
     }
 
     get hasSubtypeOptions() { return this.subtypeOptions.length > 0; }
+
+    get showMessageTypeSection() {
+        return this.usesTemplateTiles || this.hasSubtypeOptions;
+    }
 
     get subtypeLabel() {
         if (this.channelType === 'Email') return 'Email Creation Method';
@@ -167,11 +203,29 @@ export default class CopyCockpitAddModal extends LightningElement {
     get versionError()        { return this.variantError; }
     get versionSuggested()    { return this.variantSuggested; }
 
+    get variantHint() {
+        if (this.isExistingMaster) {
+            return `Existing master found — creating Variant ${this.version}.`;
+        }
+        return 'New message — Variant 1.';
+    }
+
+    get isLanguageLocked() {
+        return this.isExistingMaster;
+    }
+
+    get languageHelp() {
+        return this.isExistingMaster
+            ? 'Locked to the existing master message language. Change it from the master row.'
+            : 'Shared by all variants of this message. Change later from the master row.';
+    }
+
     get canSave() {
         if (!(this.countryCode || '').trim())  return false;
         if (!(this.messageName || '').trim())  return false;
         if (!this.version || this.version < 1) return false;
         if (!this.language)                    return false;
+        if (!this.sourceTemplateId)            return false;
         if (!this.productFamilyId)             return false;
         if (this.hasDuplicateVariant)          return false;
         if (this.subtypeRequired && !this.selectedSubtype) return false;
@@ -194,15 +248,17 @@ export default class CopyCockpitAddModal extends LightningElement {
         this._onNamePartChanged();
     }
 
-    handleVersionChange(e) {
-        this.version = Number(e.target.value);
-        this._validateVariant();
+    handleSourceTemplateChange(e) {
+        this.sourceTemplateId = e.detail?.value || '';
     }
 
-    handleLanguageChange(e) { this.language = e.detail.value; }
+    handleLanguageChange(e) {
+        this.language = e.detail?.value || e.target?.value || '';
+        this._onNamePartChanged();
+    }
 
     handleFamilyChange(e) {
-        const familyId = e.detail.value;
+        const familyId = e.detail?.value || e.target?.value || '';
         const familyOption = (this.familyOptions || []).find(f => f.value === familyId);
         this.productFamilyId   = familyId || null;
         this.productFamilyName = familyOption?.label || null;
@@ -213,12 +269,14 @@ export default class CopyCockpitAddModal extends LightningElement {
         }
     }
 
-    handleOfferChange(e) { this.offerId = e.detail.value; }
+    handleOfferChange(e) { this.offerId = e.detail?.value || e.target?.value || ''; }
 
     handlePlaceholderChange(e) { this.selectedPlaceholders = e.detail.value; }
 
     handleSelectSubtype(e) {
-        this.selectedSubtype = e.currentTarget.dataset.value;
+        const value = e.currentTarget.dataset.value;
+        this.selectedSubtype = value;
+        if (this.usesTemplateTiles) this.sourceTemplateId = value;
     }
 
     handleCancel() {
@@ -240,8 +298,10 @@ export default class CopyCockpitAddModal extends LightningElement {
     // ── private ───────────────────────────────────────────────────────────────
 
     _onNamePartChanged() {
-        this.variantError    = '';
+        this.variantError     = '';
         this.variantSuggested = false;
+        this.isExistingMaster = false;
+        this._variantCheckStem = '';
         this._checkNameVariants();
     }
 
@@ -257,53 +317,54 @@ export default class CopyCockpitAddModal extends LightningElement {
     }
 
     _checkNameVariants() {
-        const name = this.composedName;
-        if (!name || name === this._variantCheckName) return;
-        this._variantCheckName = name;
+        const stem = this.nameStem;
+        if (!stem || stem === this._variantCheckStem) return;
+        this._variantCheckStem = stem;
 
-        getExistingVariants({ messageName: name, channelType: this.channelType })
-            .then(variants => {
-                if (this._variantCheckName !== this.composedName) return;
-                this._takenVariants = variants || [];
-                if (this._takenVariants.length > 0) {
-                    const next = nextAvailableVariant(this._takenVariants);
-                    this.version        = next;
+        getStemVariantInfo({ nameStem: stem, channelType: this.channelType })
+            .then(info => {
+                if (this._variantCheckStem !== this.nameStem) return;
+                const variants = info?.variants || [];
+                this._takenVariants = variants;
+                if (variants.length > 0) {
+                    const next = nextAvailableVariant(variants);
+                    this.version          = next;
+                    this.isExistingMaster = true;
                     this.variantSuggested = true;
-                    this.variantError   = '';
+                    this.variantError     = '';
+                    if (info.language) this.language = info.language;
                 } else {
-                    this.version        = 1;
+                    this.version          = 1;
+                    this.isExistingMaster = false;
                     this.variantSuggested = false;
-                    this.variantError   = '';
+                    this.variantError     = '';
                 }
             })
             .catch(() => {});
     }
 
-    _validateVariant() {
-        const v     = Number(this.version);
-        const taken = new Set(this._takenVariants.map(Number));
-        if (taken.has(v)) {
-            this.variantError = `Variant ${v} already exists for "${this.composedName}". Use variant ${nextAvailableVariant(this._takenVariants)} instead.`;
-        } else {
-            this.variantError = '';
-        }
-        this.variantSuggested = false;
-    }
-
     _dispatchSave(action) {
         this.isSaving = true;
+        const fullName = this.composedName;
+        const selectedTemplate = (this._wiredTemplates?.data || []).find(template => template.id === this.sourceTemplateId);
         this.dispatchEvent(new CustomEvent('save', {
             detail: {
-                messageName:      this.composedName,
-                version:          Number(this.version),
-                language:         this.language,
-                offerId:          this.offerId || null,
-                productFamilyId:  this.productFamilyId || null,
+                messageName:       fullName,
+                nameStem:          this.nameStem,
+                countryCode:       (this.countryCode || '').trim().toUpperCase(),
+                locale:            composeLocale(this.countryCode, this.language),
+                messageNamePart:   (this.messageName || '').trim(),
+                channelPrefix:     this.channelPrefix,
+                version:           Number(this.version),
+                language:          this.language,
+                offerId:           this.offerId || null,
+                productFamilyId:   this.productFamilyId || null,
                 productFamilyName: this.productFamilyName || null,
-                placeholders:     this.isBannerChannel ? [...this.selectedPlaceholders] : [],
-                channelName:      this.channelName,
-                channelType:      this.channelType,
-                messageSubtype:   this.selectedSubtype,
+                placeholders:      this.isBannerChannel ? [...this.selectedPlaceholders] : [],
+                channelName:       this.channelName,
+                channelType:       this.channelType,
+                sourceTemplateId:  this.sourceTemplateId,
+                messageSubtype:    this.usesTemplateTiles ? (selectedTemplate?.name || null) : this.selectedSubtype,
                 action,
             },
         }));

@@ -44,11 +44,13 @@
 .wizard-progress .slds-progress__marker {
     position: relative;
     z-index: 3;
+    top: -.4rem;
 }
 
 .wizard-progress .slds-progress__marker_icon {
     position: relative;
     z-index: 3;
+    top: -.6rem;
 }
 
 .step-check-icon {
@@ -1315,6 +1317,15 @@
 
 .channel-btn-inactive:hover {
     background-color: #f3f3f3 !important;
+}
+
+.channel-btn-disabled,
+.channel-btn-disabled:hover {
+    background-color: #f3f3f3 !important;
+    border-color: #dddbda !important;
+    color: #9c9c9c !important;
+    cursor: not-allowed !important;
+    opacity: 0.65;
 }
 
 .channel-btn-label {

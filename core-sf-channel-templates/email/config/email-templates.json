@@ -1,0 +1,50 @@
+{
+  "templates": [
+    {
+      "templateName": "Email Commercial Master",
+      "templatePath": "SFMC_CB_Email_Master_Commercial",
+      "templateBody": "",
+      "templateBodyFile": "email-templates/SFMC_CB_Email_Master_Commercial.html",
+      "bodySlotKey": "49fwfqshzd9",
+      "bodySlotLabel": "BODY",
+      "contentBlocks": [
+        {
+          "blockName": "Text-Image (LR/RL)",
+          "blockPath": "Content Builder\\00_Admin\\Custom Apps\\Content Center\\Channels\\Email\\Content Blocks\\CODE_GL_TextImage (LR/RL)",
+          "blockBody": "",
+          "blockBodyFile": "email-templates/blocks/SFMC_CB_Email_TextImage.html"
+        },
+        {
+          "blockName": "Banner (LR/RL)",
+          "blockPath": "Content Builder\\00_Admin\\Custom Apps\\Content Center\\Channels\\Email\\Content Blocks\\CODE_GL_Banner (LR/RL)",
+          "blockBody": "",
+          "blockBodyFile": "email-templates/blocks/SFMC_CB_Email_Banner.html"
+        },
+        {
+          "blockName": "Rich Text",
+          "blockPath": "Content Builder\\00_Admin\\Custom Apps\\Content Center\\Channels\\Email\\Content Blocks\\CODE_GL_RichText",
+          "blockBody": "",
+          "blockBodyFile": "email-templates/blocks/SFMC_CB_Email_RichText.html"
+        },
+        {
+          "blockName": "Image",
+          "blockPath": "Content Builder\\00_Admin\\Custom Apps\\Content Center\\Channels\\Email\\Content Blocks\\CODE_GL_Image",
+          "blockBody": "",
+          "blockBodyFile": "email-templates/blocks/SFMC_CB_Email_Image.html"
+        },
+        {
+          "blockName": "Prefooter",
+          "blockPath": "Content Builder\\00_Admin\\Custom Apps\\Content Center\\Channels\\Email\\Content Blocks\\CODE_GL_PreFooter",
+          "blockBody": "",
+          "blockBodyFile": "email-templates/blocks/SFMC_CB_Email_Prefooter.html"
+        },
+        {
+          "blockName": "ArrowList",
+          "blockPath": "Content Builder\\00_Admin\\Custom Apps\\Content Center\\Channels\\Email\\Content Blocks\\CODE_GL_ArrowList",
+          "blockBody": "",
+          "blockBodyFile": "email-templates/blocks/SFMC_CB_Email_RichText.html"
+        }
+      ]
+    }
+  ]
+}

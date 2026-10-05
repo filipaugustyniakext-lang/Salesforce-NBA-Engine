@@ -1,0 +1,664 @@
+@IsTest
+private class ChannelTemplateControllerTest {
+    @TestSetup
+    static void setupData() {
+        Id channelRecordTypeId = Schema.SObjectType.Marketing_Dictionary__c
+            .getRecordTypeInfosByDeveloperName().get('Channel').getRecordTypeId();
+        insert new Marketing_Dictionary__c(
+            Name = 'Email Main',
+            RecordTypeId = channelRecordTypeId,
+            Channel_Type__c = 'Email',
+            Is_Active__c = true
+        );
+    }
+
+    @IsTest
+    static void savesClassifiesAndReplacesShellFiles() {
+        Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
+        Channel_Template__c template = new Channel_Template__c(
+            Name = 'Standard Email',
+            Status__c = 'Draft',
+            Version__c = 1,
+            Description__c = 'Default responsive shell'
+        );
+
+        Test.startTest();
+        Id templateId = ChannelTemplateController.saveTemplate(template, channel.Id);
+        Id firstDocumentId = uploadFile(templateId, 'email-shell.html', '<html>first</html>');
+        String firstError = ChannelTemplateController.classifyUploadedFiles(
+            templateId, new List<Id>{ firstDocumentId }, 'SHELL_HTML'
+        );
+        Id replacementDocumentId = uploadFile(templateId, 'email-shell-v2.html', '<html>second</html>');
+        String replacementError = ChannelTemplateController.classifyUploadedFiles(
+            templateId, new List<Id>{ replacementDocumentId }, 'SHELL_HTML'
+        );
+        List<ChannelTemplateController.TemplateDefinition> definitions =
+            ChannelTemplateController.getChannelTemplates(channel.Id);
+        Test.stopTest();
+
+        System.assertEquals(null, firstError);
+        System.assertEquals(null, replacementError);
+        System.assertEquals(1, definitions.size());
+        System.assertEquals(1, definitions[0].assets.size(), 'A replacement shell must remove the prior shell link.');
+        System.assertEquals('SHELL_HTML', definitions[0].assets[0].assetType);
+        System.assertEquals(replacementDocumentId, definitions[0].assets[0].documentId);
+    }
+
+    @IsTest
+    static void activeTemplateArchivesPriorActiveTemplate() {
+        Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
+        Id firstId = createDraftTemplate(channel.Id, 'First', 1);
+        Id firstShellId = uploadFile(firstId, 'first.html', '<html>{{CONTENT}}</html>');
+        ChannelTemplateController.classifyUploadedFiles(
+            firstId, new List<Id>{ firstShellId }, 'SHELL_HTML'
+        );
+        attachManifest(firstId, 'email.first', 'Email', 'email-preview@1');
+        ChannelTemplateController.saveTemplate(
+            new Channel_Template__c(Id = firstId, Name = 'First', Status__c = 'Active', Version__c = 1),
+            channel.Id
+        );
+        Channel_Template__c second = new Channel_Template__c(
+            Name = 'Second', Status__c = 'Draft', Version__c = 2
+        );
+
+        Test.startTest();
+        Id secondId = ChannelTemplateController.saveTemplate(second, channel.Id);
+        Id shellDocumentId = uploadFile(secondId, 'second.html', '<html>{{CONTENT}}</html>');
+        ChannelTemplateController.classifyUploadedFiles(
+            secondId, new List<Id>{ shellDocumentId }, 'SHELL_HTML'
+        );
+        attachManifest(secondId, 'email.second', 'Email', 'email-preview@1');
+        second.Id = secondId;
+        second.Status__c = 'Active';
+        ChannelTemplateController.saveTemplate(second, channel.Id);
+        Test.stopTest();
+
+        Set<Id> templateIds = new Set<Id>{ firstId, secondId };
+        Map<Id, Channel_Template__c> records = new Map<Id, Channel_Template__c>([
+            SELECT Id, Status__c FROM Channel_Template__c WHERE Id IN :templateIds
+        ]);
+        System.assertEquals('Archived', records.get(firstId).Status__c);
+        System.assertEquals('Active', records.get(secondId).Status__c);
+
+        ChannelTemplateController.saveTemplate(
+            new Channel_Template__c(
+                Id = secondId,
+                Name = 'Second',
+                Status__c = 'Archived',
+                Version__c = 2,
+                Description__c = ''
+            ),
+            channel.Id
+        );
+        System.assertEquals('Archived', [
+            SELECT Status__c FROM Channel_Template__c WHERE Id = :secondId
+        ].Status__c);
+    }
+
+    @IsTest
+    static void invalidExtensionIsUnlinkedAndReturnsMessage() {
+        Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
+        Id templateId = createDraftTemplate(channel.Id, 'Invalid Upload Test', 1);
+        Id documentId = uploadFile(templateId, 'wrong.html', '<html></html>');
+
+        Test.startTest();
+        String errorMessage = ChannelTemplateController.classifyUploadedFiles(
+            templateId, new List<Id>{ documentId }, 'SHELL_CSS'
+        );
+        Test.stopTest();
+
+        System.assert(errorMessage.contains('.css'));
+        System.assertEquals(0, [
+            SELECT COUNT()
+            FROM ContentDocumentLink
+            WHERE LinkedEntityId = :templateId
+              AND ContentDocumentId = :documentId
+        ]);
+    }
+
+    @IsTest
+    static void rejectsActivationBeforeShellHtmlExists() {
+        Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
+        Boolean rejected = false;
+        Test.startTest();
+        try {
+            ChannelTemplateController.saveTemplate(
+                new Channel_Template__c(Name = 'Incomplete Active', Status__c = 'Active', Version__c = 1),
+                channel.Id
+            );
+        } catch (AuraHandledException error) {
+            rejected = true;
+        }
+        Test.stopTest();
+        System.assertEquals(true, rejected);
+    }
+
+    @IsTest
+    static void validatesManifestAndPersistsPackageIdentity() {
+        Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
+        Id templateId = createDraftTemplate(channel.Id, 'Validated Email', 1);
+        Id shellId = uploadFile(templateId, 'validated.html', '<html>{{CONTENT}}</html>');
+        ChannelTemplateController.classifyUploadedFiles(
+            templateId, new List<Id>{ shellId }, 'SHELL_HTML'
+        );
+        attachManifest(templateId, 'email.validated', 'Email', 'email-preview@1');
+
+        Test.startTest();
+        ChannelTemplateController.ValidationResponse response =
+            ChannelTemplateController.validateTemplate(templateId);
+        Test.stopTest();
+
+        Channel_Template__c template = [
+            SELECT Package_Id__c, SemVer__c, Package_Hash__c,
+                   Compiler_Version__c, Validation_Status__c
+            FROM Channel_Template__c
+            WHERE Id = :templateId
+        ];
+        System.assertEquals(true, response.valid);
+        System.assertEquals('email.validated', template.Package_Id__c);
+        System.assertEquals('1.0.0', template.SemVer__c);
+        System.assertEquals(64, template.Package_Hash__c.length());
+        System.assertEquals('email-preview@1', template.Compiler_Version__c);
+        System.assertEquals('Valid', template.Validation_Status__c);
+    }
+
+    @IsTest
+    static void acceptsMasterFileNameAndBlockPlaceholders() {
+        Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
+        Id templateId = createDraftTemplate(channel.Id, 'Placeholder Email', 1);
+        Id shellId = uploadFile(
+            templateId,
+            'SFMC_CB_Email_Master_Commercial.html',
+            '<div data-key="49fwfqshzd9"></div>'
+        );
+        Id blockId = uploadFile(
+            templateId,
+            'SFMC_CB_Email_RichText.html',
+            '<td>{{CELL_PADDING_STYLE}}{{RICH_TEXT_ROWS}}</td>'
+        );
+        ChannelTemplateController.classifyUploadedFiles(
+            templateId, new List<Id>{ shellId, blockId }, 'CONTENT_BLOCK'
+        );
+        String manifest = JSON.serialize(new Map<String, Object>{
+            'schemaVersion' => '1.0',
+            'packageId' => 'email.placeholders',
+            'semver' => '1.0.0',
+            'channelKind' => 'Email',
+            'runtime' => new Map<String, Object>{ 'previewCompiler' => 'email-preview@1' },
+            'masterShell' => new Map<String, Object>{
+                'fileName' => 'SFMC_CB_Email_Master_Commercial.html',
+                'injection' => new Map<String, Object>{ 'bodySlotKey' => '49fwfqshzd9' }
+            },
+            'contentBlocks' => new List<Object>{
+                new Map<String, Object>{
+                    'type' => 'RichText',
+                    'fileName' => 'SFMC_CB_Email_RichText.html',
+                    'rendererId' => 'email/populateRichTextBlock@1',
+                    'placeholders' => new List<String>{ '{{CELL_PADDING_STYLE}}', '{{RICH_TEXT_ROWS}}' }
+                }
+            }
+        });
+        Id manifestId = uploadFile(templateId, 'template.manifest.json', manifest);
+        System.assertEquals(null, ChannelTemplateController.classifyUploadedFiles(
+            templateId, new List<Id>{ manifestId }, 'MANIFEST'
+        ));
+
+        ChannelTemplateController.ValidationResponse response =
+            ChannelTemplateController.validateTemplate(templateId);
+        System.assertEquals('Package is valid.', response.message);
+        System.assertEquals(true, response.valid);
+    }
+
+    @IsTest
+    static void selectableTemplateExposesShellAndBlockHtml() {
+        Marketing_Dictionary__c channel = [SELECT Id, Name, Channel_Type__c FROM Marketing_Dictionary__c LIMIT 1];
+        Id templateId = createDraftTemplate(channel.Id, 'Commercial Email', 3);
+        Id shellId = uploadFile(
+            templateId,
+            'SFMC_CB_Email_Master_Commercial.html',
+            '<div data-key="49fwfqshzd9" data-label="BODY"></div>'
+        );
+        Id blockId = uploadFile(
+            templateId,
+            'SFMC_CB_Email_RichText.html',
+            '<td>{{CELL_PADDING_STYLE}}{{RICH_TEXT_ROWS}}</td>'
+        );
+        System.assertEquals(null, ChannelTemplateController.classifyUploadedFiles(
+            templateId, new List<Id>{ shellId }, 'SHELL_HTML'
+        ));
+        System.assertEquals(null, ChannelTemplateController.classifyUploadedFiles(
+            templateId, new List<Id>{ blockId }, 'CONTENT_BLOCK'
+        ));
+        String manifest = JSON.serialize(new Map<String, Object>{
+            'schemaVersion' => '1.0',
+            'packageId' => 'email.commercial.preview',
+            'semver' => '1.2.0',
+            'channelKind' => 'Email',
+            'runtime' => new Map<String, Object>{ 'previewCompiler' => 'email-preview@1' },
+            'masterShell' => new Map<String, Object>{
+                'fileName' => 'SFMC_CB_Email_Master_Commercial.html',
+                'injection' => new Map<String, Object>{ 'bodySlotKey' => '49fwfqshzd9' }
+            },
+            'contentBlocks' => new List<Object>{
+                new Map<String, Object>{
+                    'type' => 'RichText',
+                    'fileName' => 'SFMC_CB_Email_RichText.html',
+                    'rendererId' => 'email/populateRichTextBlock@1',
+                    'placeholders' => new List<String>{ '{{CELL_PADDING_STYLE}}', '{{RICH_TEXT_ROWS}}' }
+                }
+            }
+        });
+        Id manifestId = uploadFile(templateId, 'template.manifest.json', manifest);
+        System.assertEquals(null, ChannelTemplateController.classifyUploadedFiles(
+            templateId, new List<Id>{ manifestId }, 'MANIFEST'
+        ));
+        System.assertEquals(0, ChannelTemplateController.getSelectableTemplates(channel.Name, channel.Channel_Type__c).size());
+
+        Test.startTest();
+        ChannelTemplateController.saveTemplate(
+            new Channel_Template__c(Id = templateId, Name = 'Commercial Email', Status__c = 'Active', Version__c = 3),
+            channel.Id
+        );
+        List<ChannelTemplateController.TemplateOption> options =
+            ChannelTemplateController.getSelectableTemplates(channel.Name, channel.Channel_Type__c);
+        ChannelTemplateController.TemplateRenderSource source =
+            ChannelTemplateController.getTemplateRenderSource(templateId);
+        Test.stopTest();
+
+        System.assertEquals(0, ChannelTemplateController.getSelectableTemplates('Other Channel', 'Email').size());
+        System.assertEquals(1, options.size());
+        System.assertEquals(templateId, options[0].id);
+        System.assert(source.shellHtml.contains('49fwfqshzd9'));
+        System.assertEquals('49fwfqshzd9', source.bodySlotKey);
+        System.assertEquals(1, source.blocks.size());
+        System.assertEquals('RichText', source.blocks[0].type);
+        System.assert(source.blocks[0].html.contains('{{RICH_TEXT_ROWS}}'));
+    }
+
+    @IsTest
+    static void componentCatalogValidatesWithoutManifestFile() {
+        Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
+        Id templateId = createDraftTemplate(channel.Id, 'Catalog Email', 4);
+        Id shellId = uploadFile(templateId, 'shell.html', '<div>{{CONTENT}}</div>');
+        Id blockId = uploadFile(
+            templateId,
+            'SFMC_CB_Email_RichText.html',
+            '<td>{{RICH_TEXT_ROWS}}</td>'
+        );
+        System.assertEquals(null, ChannelTemplateController.classifyUploadedFiles(
+            templateId, new List<Id>{ shellId }, 'SHELL_HTML'
+        ));
+        System.assertEquals(null, ChannelTemplateController.classifyUploadedFiles(
+            templateId, new List<Id>{ blockId }, 'CONTENT_BLOCK'
+        ));
+        ChannelTemplateController.saveComponentCatalog(
+            templateId,
+            JSON.serialize(new List<Object>{
+                new Map<String, Object>{
+                    'type' => 'RichText',
+                    'label' => 'Intro copy',
+                    'description' => 'Opening paragraph',
+                    'icon' => 'utility:display_rich_text',
+                    'fileName' => 'SFMC_CB_Email_RichText.html',
+                    'bindings' => new List<Object>{
+                        new Map<String, Object>{
+                            'placeholder' => 'RICH_TEXT_ROWS',
+                            'source' => 'copy'
+                        }
+                    }
+                }
+            })
+        );
+
+        Test.startTest();
+        ChannelTemplateController.ValidationResponse response =
+            ChannelTemplateController.validateTemplate(templateId);
+        ChannelTemplateController.TemplateRenderSource source =
+            ChannelTemplateController.getTemplateRenderSource(templateId);
+        List<ChannelTemplateController.TemplateDefinition> definitions =
+            ChannelTemplateController.getChannelTemplates(channel.Id);
+        Test.stopTest();
+
+        System.assertEquals(true, response.valid, response.message);
+        System.assertEquals(1, source.blocks.size());
+        System.assertEquals('Intro copy', source.blocks[0].label);
+        System.assertEquals('utility:display_rich_text', source.blocks[0].icon);
+        System.assertEquals('Content', source.blocks[0].componentGroup);
+        System.assert(source.blocks[0].html.contains('{{RICH_TEXT_ROWS}}'));
+        ChannelTemplateController.TemplateDefinition definition = null;
+        for (ChannelTemplateController.TemplateDefinition item : definitions) {
+            if (item.id == templateId) definition = item;
+        }
+        System.assertEquals(1, definition.components.size());
+        System.assertEquals('Intro copy', definition.components[0].label);
+        System.assertEquals('copy', definition.components[0].bindings[0].source);
+        System.assertEquals('RICH_TEXT_ROWS', definition.components[0].bindings[0].placeholder);
+        System.assertEquals('copy', source.blocks[0].bindings[0].source);
+    }
+
+    @IsTest
+    static void contentBlockPlaceholdersMustBeBound() {
+        Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
+        Id templateId = createDraftTemplate(channel.Id, 'Bound Blocks', 6);
+        Id blockId = uploadFile(
+            templateId,
+            'text-image.html',
+            '<td class="{{ desktopClass }}" style="direction:{{columnDirection}};padding:{{CELL_PADDING_STYLE}};">{{copy}}</td>'
+        );
+        System.assertEquals(null, ChannelTemplateController.classifyUploadedFiles(
+            templateId, new List<Id>{ blockId }, 'CONTENT_BLOCK'
+        ));
+
+        List<ChannelTemplateController.FilePlaceholders> scans =
+            ChannelTemplateController.getContentBlockPlaceholders(templateId);
+        System.assertEquals(1, scans.size());
+        System.assertEquals(4, scans[0].placeholders.size());
+        System.assert(scans[0].placeholders.contains('CELL_PADDING_STYLE'));
+        System.assert(scans[0].placeholders.contains('columnDirection'));
+        System.assert(scans[0].placeholders.contains('desktopClass'));
+        System.assert(scans[0].placeholders.contains('copy'));
+
+        Boolean rejected = false;
+        try {
+            ChannelTemplateController.saveComponentCatalog(
+                templateId,
+                JSON.serialize(new List<Object>{
+                    new Map<String, Object>{
+                        'type' => 'TextImage',
+                        'label' => 'Text Image',
+                        'icon' => 'utility:layout_card',
+                        'fileName' => 'text-image.html',
+                        'bindings' => new List<Object>()
+                    }
+                })
+            );
+        } catch (AuraHandledException error) {
+            rejected = true;
+        }
+        System.assertEquals(true, rejected);
+
+        ChannelTemplateController.saveComponentCatalog(
+            templateId,
+            JSON.serialize(new List<Object>{
+                new Map<String, Object>{
+                    'type' => 'TextImage',
+                    'label' => 'Text Image',
+                    'description' => 'Two columns',
+                    'icon' => 'utility:layout_card',
+                    'fileName' => 'text-image.html',
+                    'blockSettings' => new List<String>{ 'columnLayout' },
+                    'bindings' => new List<Object>{
+                        new Map<String, Object>{ 'placeholder' => 'desktopClass', 'source' => 'viewDesktop' },
+                        new Map<String, Object>{ 'placeholder' => 'columnDirection', 'source' => 'columnLayout' },
+                        new Map<String, Object>{ 'placeholder' => 'CELL_PADDING_STYLE', 'source' => 'padding' },
+                        new Map<String, Object>{ 'placeholder' => 'copy', 'source' => 'copy' }
+                    }
+                }
+            })
+        );
+        ChannelTemplateController.TemplateRenderSource source =
+            ChannelTemplateController.getTemplateRenderSource(templateId);
+        System.assertEquals(4, source.blocks[0].bindings.size());
+        System.assert(source.blocks[0].blockSettings.contains('viewDesktop'));
+        System.assert(source.blocks[0].blockSettings.contains('padding'));
+        System.assert(source.blocks[0].blockSettings.contains('columnLayout'));
+    }
+
+    @IsTest
+    static void draftContentBlockIsHiddenFromCopyCenter() {
+        Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
+        Id templateId = createDraftTemplate(channel.Id, 'Draft Block', 7);
+        Id blockId = uploadFile(templateId, 'draft-block.html', '<td>{{CELL_PADDING_STYLE}}</td>');
+        System.assertEquals(null, ChannelTemplateController.classifyUploadedFiles(
+            templateId, new List<Id>{ blockId }, 'CONTENT_BLOCK'
+        ));
+        ChannelTemplateController.saveComponentCatalog(
+            templateId,
+            JSON.serialize(new List<Object>{
+                new Map<String, Object>{
+                    'fileName' => 'draft-block.html',
+                    'status' => 'Draft',
+                    'label' => '',
+                    'bindings' => new List<Object>()
+                }
+            })
+        );
+        ChannelTemplateController.TemplateRenderSource source =
+            ChannelTemplateController.getTemplateRenderSource(templateId);
+        List<ChannelTemplateController.TemplateDefinition> definitions =
+            ChannelTemplateController.getChannelTemplates(channel.Id);
+        ChannelTemplateController.TemplateDefinition definition = null;
+        for (ChannelTemplateController.TemplateDefinition item : definitions) {
+            if (item.id == templateId) definition = item;
+        }
+        System.assertEquals(0, source.blocks.size());
+        System.assertEquals(1, definition.components.size());
+        System.assertEquals('Draft', definition.components[0].status);
+    }
+
+    @IsTest
+    static void nonEmailTemplateCanActivateWithoutHtmlShell() {
+        Id channelRecordTypeId = Schema.SObjectType.Marketing_Dictionary__c
+            .getRecordTypeInfosByDeveloperName().get('Channel').getRecordTypeId();
+        Marketing_Dictionary__c bannerChannel = new Marketing_Dictionary__c(
+            Name = 'Web Main Banner',
+            RecordTypeId = channelRecordTypeId,
+            Channel_Type__c = 'Banner',
+            Is_Active__c = true
+        );
+        insert bannerChannel;
+
+        Id templateId = ChannelTemplateController.saveTemplate(
+            new Channel_Template__c(Name = 'Main Banner', Status__c = 'Draft', Version__c = 1),
+            bannerChannel.Id
+        );
+        attachManifest(templateId, 'banner.main', 'webBanner', 'banner-lwc@1');
+
+        Test.startTest();
+        ChannelTemplateController.saveTemplate(
+            new Channel_Template__c(
+                Id = templateId, Name = 'Main Banner', Status__c = 'Active', Version__c = 1
+            ),
+            bannerChannel.Id
+        );
+        Test.stopTest();
+
+        System.assertEquals('Active', [
+            SELECT Status__c FROM Channel_Template__c WHERE Id = :templateId
+        ].Status__c);
+    }
+
+    @IsTest
+    static void activePackageRejectsDirectDeleteAndNewFileVersion() {
+        Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
+        Id templateId = createDraftTemplate(channel.Id, 'Immutable Email', 1);
+        Id shellDocumentId = uploadFile(
+            templateId,
+            'immutable.html',
+            '<html>{{CONTENT}}</html>'
+        );
+        ChannelTemplateController.classifyUploadedFiles(
+            templateId, new List<Id>{ shellDocumentId }, 'SHELL_HTML'
+        );
+        attachManifest(templateId, 'email.immutable', 'Email', 'email-preview@1');
+        ChannelTemplateController.saveTemplate(
+            new Channel_Template__c(
+                Id = templateId,
+                Name = 'Immutable Email',
+                Status__c = 'Active',
+                Version__c = 1
+            ),
+            channel.Id
+        );
+        Id externalDocumentId = uploadFile(
+            channel.Id,
+            'external-reference.html',
+            '<html>external</html>'
+        );
+        ContentDocumentLink shellLink = [
+            SELECT Id, LinkedEntityId, ContentDocumentId
+            FROM ContentDocumentLink
+            WHERE LinkedEntityId = :templateId
+              AND ContentDocumentId = :shellDocumentId
+            LIMIT 1
+        ];
+
+        Boolean deleteRejected = false;
+        Boolean fileVersionRejected = false;
+        Boolean linkInsertRejected = false;
+        Boolean linkDeleteRejected = false;
+        Test.startTest();
+        try {
+            delete new Channel_Template__c(Id = templateId);
+        } catch (DmlException error) {
+            deleteRejected = true;
+        }
+        try {
+            insert new ContentVersion(
+                Title = 'immutable-v2',
+                PathOnClient = 'immutable-v2.html',
+                VersionData = Blob.valueOf('<html>changed</html>'),
+                ContentDocumentId = shellDocumentId
+            );
+        } catch (DmlException error) {
+            fileVersionRejected = true;
+        }
+        try {
+            insert new ContentDocumentLink(
+                LinkedEntityId = templateId,
+                ContentDocumentId = externalDocumentId,
+                ShareType = 'V'
+            );
+        } catch (DmlException error) {
+            linkInsertRejected = true;
+        }
+        try {
+            delete shellLink;
+        } catch (DmlException error) {
+            linkDeleteRejected = true;
+        }
+        Test.stopTest();
+
+        System.assertEquals(true, deleteRejected);
+        System.assertEquals(true, fileVersionRejected);
+        System.assertEquals(true, linkInsertRejected);
+        System.assertEquals(true, linkDeleteRejected);
+    }
+
+    @IsTest
+    static void deletesAssetAndTemplateWithoutDeletingSharedFiles() {
+        Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
+        Id templateId = createDraftTemplate(channel.Id, 'Delete Test', 1);
+        Id assetDocumentId = uploadFile(templateId, 'block.html', '<div>block</div>');
+        ChannelTemplateController.classifyUploadedFiles(
+            templateId, new List<Id>{ assetDocumentId }, 'CONTENT_BLOCK'
+        );
+
+        Test.startTest();
+        ChannelTemplateController.deleteTemplateAsset(templateId, assetDocumentId);
+        Id shellDocumentId = uploadFile(templateId, 'shell.css', 'body {}');
+        ChannelTemplateController.classifyUploadedFiles(
+            templateId, new List<Id>{ shellDocumentId }, 'SHELL_CSS'
+        );
+        ChannelTemplateController.deleteTemplate(templateId);
+        Test.stopTest();
+
+        System.assertEquals(0, [SELECT COUNT() FROM Channel_Template__c WHERE Id = :templateId]);
+        System.assertEquals(0, [SELECT COUNT() FROM ContentDocumentLink WHERE LinkedEntityId = :templateId]);
+        System.assertEquals(0, [SELECT COUNT() FROM ContentDocument WHERE Id = :shellDocumentId]);
+    }
+
+    @IsTest
+    static void deletingChannelCleansUpTemplateFileLinks() {
+        Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
+        Id templateId = createDraftTemplate(channel.Id, 'Channel Cascade Test', 1);
+        Id documentId = uploadFile(templateId, 'channel-shell.html', '<html></html>');
+        ChannelTemplateController.classifyUploadedFiles(
+            templateId, new List<Id>{ documentId }, 'SHELL_HTML'
+        );
+
+        Test.startTest();
+        MarketingDictionaryManagerController.deleteDictionaryRecord(channel.Id);
+        Test.stopTest();
+
+        System.assertEquals(0, [SELECT COUNT() FROM Channel_Template__c WHERE Id = :templateId]);
+        System.assertEquals(0, [SELECT COUNT() FROM ContentDocumentLink WHERE LinkedEntityId = :templateId]);
+    }
+
+    @IsTest
+    static void previewActionShellValidatesWithoutComponentFiles() {
+        Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
+        Id templateId = createDraftTemplate(channel.Id, 'Shell Actions', 5);
+        String shell = '<div data-key="header" data-label="HEADER" data-preview-action="preload"><p>Fixed header</p></div>'
+            + '<div data-key="body" data-label="BODY" data-preview-action="expectContent"><p>Offer copy</p><img data-preview-field="image" src="https://example.com/a.png" alt=""></div>';
+        Id shellId = uploadFile(templateId, 'banner-shell.html', shell);
+        System.assertEquals(null, ChannelTemplateController.classifyUploadedFiles(
+            templateId, new List<Id>{ shellId }, 'SHELL_HTML'
+        ));
+
+        Test.startTest();
+        ChannelTemplateController.ValidationResponse response =
+            ChannelTemplateController.validateTemplate(templateId);
+        ChannelTemplateController.TemplateRenderSource source =
+            ChannelTemplateController.getTemplateRenderSource(templateId);
+        Test.stopTest();
+
+        System.assertEquals(true, response.valid, response.message);
+        System.assert(source.previewActions.contains('preload'));
+        System.assert(source.previewActions.contains('expectContent'));
+        System.assertEquals(1, source.blocks.size());
+        System.assertEquals('Content', source.blocks[0].type);
+        System.assertEquals('BODY', source.blocks[0].label);
+        System.assert(source.blocks[0].html.contains('Offer copy'));
+    }
+
+    private static Id createDraftTemplate(Id channelId, String name, Decimal version) {
+        return ChannelTemplateController.saveTemplate(
+            new Channel_Template__c(Name = name, Status__c = 'Draft', Version__c = version),
+            channelId
+        );
+    }
+
+    private static Id attachManifest(
+        Id templateId,
+        String packageId,
+        String channelKind,
+        String compilerVersion
+    ) {
+        String manifest = JSON.serialize(new Map<String, Object>{
+            'schemaVersion' => '1.0',
+            'packageId' => packageId,
+            'semver' => '1.0.0',
+            'channelKind' => channelKind,
+            'runtime' => new Map<String, Object>{ 'previewCompiler' => compilerVersion },
+            'masterShell' => new Map<String, Object>{
+                'injection' => new Map<String, Object>{
+                    'fallbackPlaceholder' => '{{CONTENT}}'
+                }
+            },
+            'contentBlocks' => new List<Object>()
+        });
+        Id documentId = uploadFile(templateId, 'template.manifest.json', manifest);
+        String error = ChannelTemplateController.classifyUploadedFiles(
+            templateId, new List<Id>{ documentId }, 'MANIFEST'
+        );
+        System.assertEquals(null, error);
+        return documentId;
+    }
+
+    private static Id uploadFile(Id templateId, String path, String body) {
+        String title = path.contains('.') ? path.substring(0, path.lastIndexOf('.')) : path;
+        ContentVersion version = new ContentVersion(
+            Title = title,
+            PathOnClient = path,
+            VersionData = Blob.valueOf(body),
+            FirstPublishLocationId = templateId
+        );
+        insert version;
+        return [
+            SELECT ContentDocumentId
+            FROM ContentVersion
+            WHERE Id = :version.Id
+        ].ContentDocumentId;
+    }
+}

@@ -272,6 +272,29 @@
 
                     <template lwc:else>
                         <!-- Bulk add mode -->
+                        <template lwc:if={isFamilyOfNeeds}>
+                            <div class="slds-m-bottom_small">
+                                <p class="slds-form-element__label slds-m-bottom_x-small">{customerTypePickerLabel}</p>
+                                <template lwc:if={hasCustomerTypeOptions}>
+                                    <div class="ct-checkbox-group">
+                                        <template for:each={editModalCtList} for:item="ct">
+                                            <label key={ct.Id} class="ct-checkbox-label">
+                                                <input type="checkbox"
+                                                    data-ct-id={ct.Id}
+                                                    checked={ct.checked}
+                                                    onchange={handleEditModalCtChange} />
+                                                <span>{ct.Name}</span>
+                                            </label>
+                                        </template>
+                                    </div>
+                                </template>
+                                <template lwc:else>
+                                    <p class="slds-text-body_small slds-text-color_weak">
+                                        No Customer Types yet. Add them on the Audience tab.
+                                    </p>
+                                </template>
+                            </div>
+                        </template>
                         <template lwc:if={isProductFamily}>
                             <lightning-combobox
                                 label="Related Family of Needs (applies to all entries below)"
@@ -279,6 +302,14 @@
                                 options={familyOfNeedsOptions}
                                 placeholder="Select Family of Needs..."
                                 onchange={handleBulkFonChange}
+                                class="slds-m-bottom_small">
+                            </lightning-combobox>
+                            <lightning-combobox
+                                label="Product Type (applies to all entries below)"
+                                value={bulkProductTypeId}
+                                options={productTypeOptions}
+                                placeholder="Select Product Type..."
+                                onchange={handleBulkProductTypeChange}
                                 class="slds-m-bottom_medium">
                             </lightning-combobox>
                         </template>

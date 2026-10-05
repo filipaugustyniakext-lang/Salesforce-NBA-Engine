@@ -1,0 +1,22 @@
+/**
+ * Main Banner (mobile app) client styles — aligned to Figma mainBanner.
+ * Phone mock: 375px wide with 20px inset → banner 315×191.
+ * UniCredit fonts load from the Landing Page HTML via ContentBlockById('56').
+ */
+
+.main-banner-preview {
+  width: 315px;
+  max-width: 315px;
+  height: 191px;
+  min-height: 191px;
+  padding: 1rem;
+  border-radius: 12px;
+  color: #fff;
+  font-family: 'UniCredit', sans-serif;
+  overflow: hidden;
+  background: #002d36;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  box-sizing: border-box;
+  display: grid;
+  gap: 1rem;
+}

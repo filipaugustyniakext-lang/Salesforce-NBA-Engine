@@ -1,0 +1,1155 @@
+public with sharing class ChannelTemplateController {
+    private static final Map<String, String> ASSET_PREFIXES = new Map<String, String>{
+        'MANIFEST' => '[MANIFEST]',
+        'SHELL_HTML' => '[SHELL_HTML]',
+        'SHELL_CSS' => '[SHELL_CSS]',
+        'SHELL_JS' => '[SHELL_JS]',
+        'CONTENT_BLOCK' => '[CONTENT_BLOCK]'
+    };
+
+    public class TemplateAsset {
+        @AuraEnabled public Id documentId;
+        @AuraEnabled public String name;
+        @AuraEnabled public String fileExtension;
+        @AuraEnabled public String assetType;
+        @AuraEnabled public String assetTypeLabel;
+        @AuraEnabled public Integer contentSize;
+        @AuraEnabled public Datetime createdDate;
+        @AuraEnabled public String createdByName;
+        @AuraEnabled public String downloadUrl;
+    }
+
+    public class TemplateDefinition {
+        @AuraEnabled public Id id;
+        @AuraEnabled public String name;
+        @AuraEnabled public String status;
+        @AuraEnabled public Decimal version;
+        @AuraEnabled public String description;
+        @AuraEnabled public String packageId;
+        @AuraEnabled public String semVer;
+        @AuraEnabled public String packageHash;
+        @AuraEnabled public String compilerVersion;
+        @AuraEnabled public String validationStatus;
+        @AuraEnabled public String validationMessage;
+        @AuraEnabled public Datetime validatedAt;
+        @AuraEnabled public Datetime lastModifiedDate;
+        @AuraEnabled public List<TemplateAsset> assets = new List<TemplateAsset>();
+        @AuraEnabled public List<CatalogComponent> components = new List<CatalogComponent>();
+    }
+
+    public class CatalogComponent {
+        @AuraEnabled public String type;
+        @AuraEnabled public String label;
+        @AuraEnabled public String description;
+        @AuraEnabled public String icon;
+        @AuraEnabled public String fileName;
+        @AuraEnabled public String componentGroup;
+        @AuraEnabled public String status;
+        @AuraEnabled public List<String> placeholders;
+        @AuraEnabled public List<String> blockSettings;
+        @AuraEnabled public List<PlaceholderBinding> bindings;
+        @AuraEnabled public String layoutJson;
+    }
+
+    public class PlaceholderBinding {
+        @AuraEnabled public String placeholder;
+        @AuraEnabled public String source;
+    }
+
+    public class FilePlaceholders {
+        @AuraEnabled public String fileName;
+        @AuraEnabled public String htmlBody;
+        @AuraEnabled public List<String> placeholders = new List<String>();
+    }
+
+    public class ValidationResponse {
+        @AuraEnabled public Boolean valid;
+        @AuraEnabled public String message;
+        @AuraEnabled public String packageId;
+        @AuraEnabled public String semVer;
+        @AuraEnabled public String packageHash;
+        @AuraEnabled public String compilerVersion;
+    }
+
+    @AuraEnabled(cacheable=true)
+    public static List<TemplateDefinition> getChannelTemplates(Id channelId) {
+        if (channelId == null) return new List<TemplateDefinition>();
+
+        List<Channel_Template__c> records = [
+            SELECT Id, Name, Status__c, Version__c, Description__c,
+                   Package_Id__c, SemVer__c, Package_Hash__c, Compiler_Version__c,
+                   Validation_Status__c, Validation_Message__c, Validated_At__c,
+                   Manifest_JSON__c, LastModifiedDate
+            FROM Channel_Template__c
+            WHERE Channel__c = :channelId
+            ORDER BY Status__c ASC, Version__c DESC NULLS LAST, Name ASC
+            LIMIT 500
+        ];
+
+        Map<Id, TemplateDefinition> byId = new Map<Id, TemplateDefinition>();
+        for (Channel_Template__c record : records) {
+            TemplateDefinition definition = new TemplateDefinition();
+            definition.id = record.Id;
+            definition.name = record.Name;
+            definition.status = record.Status__c;
+            definition.version = record.Version__c;
+            definition.description = record.Description__c;
+            definition.packageId = record.Package_Id__c;
+            definition.semVer = record.SemVer__c;
+            definition.packageHash = record.Package_Hash__c;
+            definition.compilerVersion = record.Compiler_Version__c;
+            definition.validationStatus = record.Validation_Status__c;
+            definition.validationMessage = record.Validation_Message__c;
+            definition.validatedAt = record.Validated_At__c;
+            definition.lastModifiedDate = record.LastModifiedDate;
+            definition.components = readCatalog(record.Manifest_JSON__c);
+            byId.put(record.Id, definition);
+        }
+
+        if (!byId.isEmpty()) {
+            for (ContentDocumentLink link : [
+                SELECT LinkedEntityId, ContentDocumentId,
+                       ContentDocument.Title,
+                       ContentDocument.LatestPublishedVersion.FileExtension,
+                       ContentDocument.LatestPublishedVersion.ContentSize,
+                       ContentDocument.LatestPublishedVersion.CreatedDate,
+                       ContentDocument.LatestPublishedVersion.CreatedBy.Name
+                FROM ContentDocumentLink
+                WHERE LinkedEntityId IN :byId.keySet()
+                ORDER BY ContentDocument.Title ASC
+            ]) {
+                TemplateDefinition definition = byId.get(link.LinkedEntityId);
+                if (definition == null) continue;
+                definition.assets.add(toAsset(link));
+            }
+        }
+
+        List<TemplateDefinition> result = new List<TemplateDefinition>();
+        for (Channel_Template__c record : records) result.add(byId.get(record.Id));
+        return result;
+    }
+
+    @AuraEnabled
+    public static Id saveTemplate(Channel_Template__c record, Id channelId) {
+        if (record == null || channelId == null) {
+            throw new AuraHandledException('Template and Channel are required.');
+        }
+        if (String.isBlank(record.Name)) {
+            throw new AuraHandledException('Template Name is required.');
+        }
+
+        Marketing_Dictionary__c channel = [
+            SELECT Id, Channel_Type__c
+            FROM Marketing_Dictionary__c
+            WHERE Id = :channelId
+            LIMIT 1
+        ];
+        record.Name = record.Name.trim();
+        Channel_Template__c existing;
+        if (record.Id == null) {
+            record.put('Channel__c', channelId);
+        } else {
+            existing = [
+                SELECT Channel__c, Status__c
+                FROM Channel_Template__c
+                WHERE Id = :record.Id
+                LIMIT 1
+            ];
+            if (existing.Channel__c != channelId) {
+                throw new AuraHandledException('A template cannot be moved to another channel.');
+            }
+            if (existing.Status__c == 'Active' && record.Status__c == 'Archived') {
+                update new Channel_Template__c(Id = record.Id, Status__c = 'Archived');
+                return record.Id;
+            }
+            if (existing.Status__c == 'Active' && record.Status__c != 'Archived') {
+                throw new AuraHandledException(
+                    'Active template packages are immutable. Archive this version before changing it.'
+                );
+            }
+        }
+        if (String.isBlank(record.Status__c)) record.Status__c = 'Draft';
+        if (record.Version__c == null || record.Version__c < 1) record.Version__c = 1;
+
+        if (record.Status__c == 'Active') {
+            if (record.Id == null) {
+                throw new AuraHandledException(
+                    'Create the template as Draft, attach its source files, define its components, then validate it before activation.'
+                );
+            }
+            ChannelTemplateManifestService.ValidationResult validation =
+                ChannelTemplateManifestService.validate(record.Id, channel.Channel_Type__c);
+            if (!validation.valid) {
+                throw new AuraHandledException(
+                    'Template package validation failed:\n' + validation.message
+                );
+            }
+            applyValidation(record, validation);
+            List<Channel_Template__c> activeTemplates = [
+                SELECT Id, Status__c
+                FROM Channel_Template__c
+                WHERE Channel__c = :channelId
+                  AND Status__c = 'Active'
+                  AND Id != :record.Id
+            ];
+            for (Channel_Template__c activeTemplate : activeTemplates) {
+                activeTemplate.Status__c = 'Archived';
+            }
+            if (!activeTemplates.isEmpty()) update activeTemplates;
+        }
+
+        upsert record;
+        return record.Id;
+    }
+
+    @AuraEnabled
+    public static void saveComponentCatalog(Id templateId, String componentsJson) {
+        if (templateId == null) throw new AuraHandledException('Template is required.');
+        Channel_Template__c template = [
+            SELECT Id, Status__c
+            FROM Channel_Template__c
+            WHERE Id = :templateId
+            LIMIT 1
+        ];
+        if (template.Status__c == 'Active') {
+            throw new AuraHandledException(
+                'Active template packages are immutable. Archive this version before changing it.'
+            );
+        }
+        List<Object> rawRows;
+        try {
+            rawRows = (List<Object>) JSON.deserializeUntyped(
+                String.isBlank(componentsJson) ? '[]' : componentsJson
+            );
+        } catch (Exception error) {
+            throw new AuraHandledException('Component catalog is not valid.');
+        }
+        List<Object> components = new List<Object>();
+        Set<String> types = new Set<String>();
+        Map<String, String> blockHtmlByName = contentBlockBodies(templateId);
+        for (Object rawRow : rawRows) {
+            if (!(rawRow instanceof Map<String, Object>)) continue;
+            Map<String, Object> row = (Map<String, Object>) rawRow;
+            String fileName = textValue(row.get('fileName'));
+            if (String.isBlank(fileName)) {
+                throw new AuraHandledException('Each content block requires an HTML file.');
+            }
+            String status = textValue(row.get('status'));
+            if (String.isBlank(status)) status = 'Active';
+            if (status != 'Draft' && status != 'Ready' && status != 'Active') status = 'Draft';
+            Boolean publishable = status == 'Ready' || status == 'Active';
+            String label = textValue(row.get('label'));
+            if (publishable && String.isBlank(label)) {
+                throw new AuraHandledException('Content Block Name is required for ' + fileName + '.');
+            }
+            if (label.length() > 80) label = label.substring(0, 80);
+            String type = textValue(row.get('type'));
+            if (publishable && String.isBlank(type)) type = componentTypeToken(label, fileName);
+            if (String.isNotBlank(type) && !isComponentType(type)) {
+                throw new AuraHandledException(
+                    'Component type for ' + fileName + ' must start with a letter and use only letters, numbers, and underscores.'
+                );
+            }
+            if (publishable && !isComponentType(type)) {
+                throw new AuraHandledException('Content Block Name is required for ' + fileName + '.');
+            }
+            if (publishable && types.contains(type.toLowerCase())) {
+                throw new AuraHandledException('Component type ' + type + ' is already used.');
+            }
+            if (publishable) types.add(type.toLowerCase());
+            String description = textValue(row.get('description'));
+            if (publishable && String.isBlank(description)) {
+                throw new AuraHandledException('Description is required for ' + fileName + '.');
+            }
+            if (description.length() > 255) description = description.substring(0, 255);
+            String icon = textValue(row.get('icon'));
+            if (publishable && !isComponentIcon(icon)) {
+                throw new AuraHandledException(
+                    'Enter an SLDS icon name (utility, doctype, standard, custom, or action) for ' + fileName + '.'
+                );
+            }
+            List<PlaceholderBinding> bindings = readBindings(row.get('bindings'));
+            List<String> blockSettings = readStringList(row.get('blockSettings'));
+            String blockHtml = lookupBlockHtml(blockHtmlByName, fileName);
+            List<String> placeholders = blockHtml == null
+                ? readStringList(row.get('placeholders'))
+                : extractPlaceholders(blockHtml);
+            if (publishable) assertPlaceholderBindings(type, placeholders, bindings);
+            if (publishable && !placeholders.isEmpty()) {
+                for (String setting : blockSettings) {
+                    if (!BLOCK_SETTING_SOURCES.contains(setting)) continue;
+                    Boolean mapped = false;
+                    for (PlaceholderBinding binding : bindings) {
+                        if (binding.source == setting) {
+                            mapped = true;
+                            break;
+                        }
+                    }
+                    if (!mapped) {
+                        throw new AuraHandledException('Bind a placeholder to ' + setting + ' for ' + fileName + '.');
+                    }
+                }
+            }
+            Set<String> enabledSettings = new Set<String>(blockSettings);
+            for (PlaceholderBinding binding : bindings) {
+                if (BLOCK_SETTING_SOURCES.contains(binding.source)) enabledSettings.add(binding.source);
+            }
+            blockSettings = new List<String>();
+            for (String setting : BLOCK_SETTING_ORDER) {
+                if (enabledSettings.contains(setting)) blockSettings.add(setting);
+            }
+            List<Object> bindingRows = new List<Object>();
+            for (PlaceholderBinding binding : bindings) {
+                bindingRows.add(new Map<String, Object>{
+                    'placeholder' => binding.placeholder,
+                    'source' => binding.source
+                });
+            }
+            components.add(new Map<String, Object>{
+                'type' => type,
+                'label' => label,
+                'description' => description,
+                'icon' => icon,
+                'fileName' => fileName,
+                'group' => type == 'Spacer' ? 'Layout' : 'Content',
+                'status' => status,
+                'placeholders' => placeholders,
+                'blockSettings' => blockSettings,
+                'bindings' => bindingRows,
+                'layout' => row.get('layout')
+            });
+        }
+        template.Manifest_JSON__c = JSON.serialize(new Map<String, Object>{
+            'schemaVersion' => '2.0',
+            'components' => components
+        });
+        template.Validation_Status__c = 'Not Validated';
+        template.Validation_Message__c = null;
+        template.Package_Hash__c = null;
+        update template;
+    }
+
+    @AuraEnabled
+    public static List<FilePlaceholders> getContentBlockPlaceholders(Id templateId) {
+        List<FilePlaceholders> scans = new List<FilePlaceholders>();
+        if (templateId == null) return scans;
+        List<ContentDocumentLink> links = [
+            SELECT ContentDocument.Title, ContentDocument.LatestPublishedVersionId
+            FROM ContentDocumentLink
+            WHERE LinkedEntityId = :templateId
+        ];
+        Set<Id> versionIds = new Set<Id>();
+        for (ContentDocumentLink link : links) {
+            if (!isContentBlockTitle(link.ContentDocument.Title)) continue;
+            versionIds.add(link.ContentDocument.LatestPublishedVersionId);
+        }
+        Map<Id, ContentVersion> versions = versionIds.isEmpty()
+            ? new Map<Id, ContentVersion>()
+            : new Map<Id, ContentVersion>([
+                SELECT Id, VersionData FROM ContentVersion WHERE Id IN :versionIds
+            ]);
+        for (ContentDocumentLink link : links) {
+            if (!isContentBlockTitle(link.ContentDocument.Title)) continue;
+            ContentVersion version = versions.get(link.ContentDocument.LatestPublishedVersionId);
+            FilePlaceholders scan = new FilePlaceholders();
+            scan.fileName = stripKnownPrefix(link.ContentDocument.Title);
+            scan.htmlBody = version == null || version.VersionData == null ? '' : version.VersionData.toString();
+            scan.placeholders = extractPlaceholders(scan.htmlBody);
+            scans.add(scan);
+        }
+        return scans;
+    }
+
+    @AuraEnabled
+    public static ValidationResponse validateTemplate(Id templateId) {
+        Channel_Template__c template = [
+            SELECT Id, Status__c, Channel__r.Channel_Type__c,
+                   Package_Id__c, SemVer__c, Package_Hash__c,
+                   Compiler_Version__c, Validation_Status__c,
+                   Validation_Message__c
+            FROM Channel_Template__c
+            WHERE Id = :templateId
+            LIMIT 1
+        ];
+        if (template.Status__c == 'Active') {
+            ValidationResponse frozenResponse = new ValidationResponse();
+            frozenResponse.valid = template.Validation_Status__c == 'Valid';
+            frozenResponse.message = template.Validation_Message__c;
+            frozenResponse.packageId = template.Package_Id__c;
+            frozenResponse.semVer = template.SemVer__c;
+            frozenResponse.packageHash = template.Package_Hash__c;
+            frozenResponse.compilerVersion = template.Compiler_Version__c;
+            return frozenResponse;
+        }
+        ChannelTemplateManifestService.ValidationResult validation =
+            ChannelTemplateManifestService.validate(
+                template.Id,
+                template.Channel__r.Channel_Type__c
+            );
+        applyValidation(template, validation);
+        update template;
+
+        ValidationResponse response = new ValidationResponse();
+        response.valid = validation.valid;
+        response.message = validation.message;
+        response.packageId = validation.packageId;
+        response.semVer = validation.semVer;
+        response.packageHash = validation.packageHash;
+        response.compilerVersion = validation.compilerVersion;
+        return response;
+    }
+
+    @AuraEnabled
+    public static String classifyUploadedFiles(Id templateId, List<Id> documentIds, String assetType) {
+        if (documentIds == null || documentIds.isEmpty()) return null;
+        Set<Id> uploadedDocumentIds = new Set<Id>(documentIds);
+        try {
+            if (templateId == null) throw new TemplateAssetException('Template is required.');
+            if (!ASSET_PREFIXES.containsKey(assetType)) {
+                throw new TemplateAssetException('Unsupported template asset type.');
+            }
+            // Enforces template access and prevents classifying files linked elsewhere.
+            Channel_Template__c template = [
+                SELECT Id, Status__c FROM Channel_Template__c WHERE Id = :templateId LIMIT 1
+            ];
+            if (template == null) {
+                throw new TemplateAssetException('Template is required.');
+            }
+            if (template.Status__c == 'Active') {
+                throw new TemplateAssetException(
+                    'Active template packages are immutable. Archive this version before replacing files.'
+                );
+            }
+            Set<Id> linkedDocumentIds = new Set<Id>();
+            for (ContentDocumentLink link : [
+                SELECT ContentDocumentId
+                FROM ContentDocumentLink
+                WHERE LinkedEntityId = :templateId
+                  AND ContentDocumentId IN :uploadedDocumentIds
+            ]) {
+                linkedDocumentIds.add(link.ContentDocumentId);
+            }
+            if (linkedDocumentIds.size() != uploadedDocumentIds.size()) {
+                throw new TemplateAssetException('One or more uploaded files are not linked to this template.');
+            }
+
+            String requiredExtension = assetType == 'MANIFEST'
+                ? 'json'
+                : assetType == 'SHELL_CSS'
+                ? 'css'
+                : assetType == 'SHELL_JS' ? 'js' : 'html';
+            String prefix = ASSET_PREFIXES.get(assetType);
+            List<ContentDocument> updates = [
+                SELECT Id, Title, LatestPublishedVersion.FileExtension
+                FROM ContentDocument
+                WHERE Id IN :uploadedDocumentIds
+            ];
+            if (updates.size() != uploadedDocumentIds.size()) {
+                throw new TemplateAssetException('One or more uploaded files could not be found.');
+            }
+
+            for (ContentDocument document : updates) {
+                String extension = document.LatestPublishedVersion.FileExtension == null
+                    ? ''
+                    : document.LatestPublishedVersion.FileExtension.toLowerCase();
+                if (extension != requiredExtension) {
+                    throw new TemplateAssetException(
+                        'File "' + document.Title + '" must use the .' + requiredExtension + ' extension.'
+                    );
+                }
+                document.Title = prefix + ' ' + stripKnownPrefix(document.Title);
+            }
+            update updates;
+
+            // A master shell has at most one file of each source type. A new
+            // upload replaces the old file while content blocks remain additive.
+            if (assetType != 'CONTENT_BLOCK') {
+                Set<Id> replacedDocumentIds = new Set<Id>();
+                for (ContentDocumentLink link : [
+                    SELECT ContentDocumentId, ContentDocument.Title
+                    FROM ContentDocumentLink
+                    WHERE LinkedEntityId = :templateId
+                ]) {
+                    if (!uploadedDocumentIds.contains(link.ContentDocumentId)
+                        && link.ContentDocument.Title.startsWith(prefix)) {
+                        replacedDocumentIds.add(link.ContentDocumentId);
+                    }
+                }
+                removeTemplateFileLinks(templateId, replacedDocumentIds);
+            }
+            markNeedsValidation(templateId);
+            return null;
+        } catch (Exception e) {
+            // File upload runs in an earlier transaction. Return an error rather
+            // than throwing so this cleanup is committed.
+            try {
+                removeTemplateFileLinks(templateId, uploadedDocumentIds);
+            } catch (Exception cleanupError) {
+                return e.getMessage() + ' The invalid upload could not be removed automatically.';
+            }
+            return e.getMessage();
+        }
+    }
+
+    @AuraEnabled
+    public static void deleteTemplateAsset(Id templateId, Id documentId) {
+        if (templateId == null || documentId == null) return;
+        Channel_Template__c template = [
+            SELECT Id, Status__c FROM Channel_Template__c WHERE Id = :templateId LIMIT 1
+        ];
+        if (template.Status__c == 'Active') {
+            throw new AuraHandledException(
+                'Active template packages are immutable. Archive this version before removing files.'
+            );
+        }
+        removeTemplateFileLinks(template.Id, new Set<Id>{ documentId });
+        markNeedsValidation(template.Id);
+    }
+
+    @AuraEnabled
+    public static void deleteTemplate(Id templateId) {
+        if (templateId == null) return;
+        Channel_Template__c template = [
+            SELECT Id, Status__c
+            FROM Channel_Template__c
+            WHERE Id = :templateId
+            LIMIT 1
+        ];
+        if (template.Status__c == 'Active') {
+            throw new AuraHandledException(
+                'Active template packages cannot be deleted. Archive this version first.'
+            );
+        }
+        Set<Id> documentIds = new Set<Id>();
+        for (ContentDocumentLink link : [
+            SELECT ContentDocumentId
+            FROM ContentDocumentLink
+            WHERE LinkedEntityId = :templateId
+        ]) {
+            documentIds.add(link.ContentDocumentId);
+        }
+        removeTemplateFileLinks(templateId, documentIds);
+        delete template;
+    }
+
+    public static void deleteTemplatesForChannel(Id channelId) {
+        if (channelId == null) return;
+        List<Channel_Template__c> templates = [
+            SELECT Id
+            FROM Channel_Template__c
+            WHERE Channel__c = :channelId
+        ];
+        if (templates.isEmpty()) return;
+
+        Set<Id> templateIds = new Map<Id, Channel_Template__c>(templates).keySet();
+        List<ContentDocumentLink> links = [
+            SELECT Id, ContentDocumentId
+            FROM ContentDocumentLink
+            WHERE LinkedEntityId IN :templateIds
+        ];
+        Set<Id> documentIds = new Set<Id>();
+        for (ContentDocumentLink link : links) documentIds.add(link.ContentDocumentId);
+        ChannelTemplateTriggerHandler.allowActiveDelete = true;
+        try {
+            if (!links.isEmpty()) delete links;
+
+            Set<Id> orphanIds = new Set<Id>(documentIds);
+            if (!orphanIds.isEmpty()) {
+                for (ContentDocumentLink remainingLink : [
+                    SELECT ContentDocumentId
+                    FROM ContentDocumentLink
+                    WHERE ContentDocumentId IN :orphanIds
+                ]) {
+                    orphanIds.remove(remainingLink.ContentDocumentId);
+                }
+                if (!orphanIds.isEmpty()) {
+                    // File ownership may prevent deleting the underlying document.
+                    // The template links are already removed, so orphan cleanup is
+                    // best-effort and must not block channel deletion.
+                    Database.delete(
+                        [SELECT Id FROM ContentDocument WHERE Id IN :orphanIds],
+                        false
+                    );
+                }
+            }
+            delete templates;
+        } finally {
+            ChannelTemplateTriggerHandler.allowActiveDelete = false;
+        }
+    }
+
+    private static void applyValidation(
+        Channel_Template__c template,
+        ChannelTemplateManifestService.ValidationResult validation
+    ) {
+        ChannelTemplateManifestService.applyToTemplate(template, validation);
+    }
+
+    private static void markNeedsValidation(Id templateId) {
+        update new Channel_Template__c(
+            Id = templateId,
+            Validation_Status__c = 'Not Validated',
+            Validation_Message__c = 'Source files changed. Validate the package again.',
+            Package_Hash__c = null,
+            Validated_At__c = null
+        );
+    }
+
+    private static void removeTemplateFileLinks(Id templateId, Set<Id> documentIds) {
+        if (templateId == null || documentIds == null || documentIds.isEmpty()) return;
+        List<ContentDocumentLink> links = [
+            SELECT Id, ContentDocumentId
+            FROM ContentDocumentLink
+            WHERE LinkedEntityId = :templateId
+              AND ContentDocumentId IN :documentIds
+        ];
+        if (!links.isEmpty()) delete links;
+
+        Set<Id> orphanIds = new Set<Id>(documentIds);
+        for (ContentDocumentLink remainingLink : [
+            SELECT ContentDocumentId
+            FROM ContentDocumentLink
+            WHERE ContentDocumentId IN :orphanIds
+        ]) {
+            orphanIds.remove(remainingLink.ContentDocumentId);
+        }
+        if (!orphanIds.isEmpty()) {
+            Database.delete(
+                [SELECT Id FROM ContentDocument WHERE Id IN :orphanIds],
+                false
+            );
+        }
+    }
+
+    private class TemplateAssetException extends Exception {}
+
+    private static TemplateAsset toAsset(ContentDocumentLink link) {
+        String title = link.ContentDocument.Title;
+        String assetType = resolveAssetType(title);
+        TemplateAsset asset = new TemplateAsset();
+        asset.documentId = link.ContentDocumentId;
+        asset.name = stripKnownPrefix(title);
+        asset.fileExtension = link.ContentDocument.LatestPublishedVersion.FileExtension;
+        asset.assetType = assetType;
+        asset.assetTypeLabel = assetTypeLabel(assetType);
+        asset.contentSize = link.ContentDocument.LatestPublishedVersion.ContentSize;
+        asset.createdDate = link.ContentDocument.LatestPublishedVersion.CreatedDate;
+        asset.createdByName = link.ContentDocument.LatestPublishedVersion.CreatedBy.Name;
+        asset.downloadUrl = '/sfc/servlet.shepherd/document/download/' + link.ContentDocumentId;
+        return asset;
+    }
+
+    private static String resolveAssetType(String title) {
+        for (String assetType : ASSET_PREFIXES.keySet()) {
+            if (title != null && title.startsWith(ASSET_PREFIXES.get(assetType))) return assetType;
+        }
+        return 'UNCLASSIFIED';
+    }
+
+    private static String stripKnownPrefix(String title) {
+        if (title == null) return '';
+        for (String prefix : ASSET_PREFIXES.values()) {
+            if (title.startsWith(prefix)) return title.substring(prefix.length()).trim();
+        }
+        return title;
+    }
+
+    @AuraEnabled(cacheable=true)
+    public static List<TemplateOption> getSelectableTemplates(String channelName, String channelType) {
+        List<TemplateOption> options = new List<TemplateOption>();
+        if (String.isBlank(channelName) && String.isBlank(channelType)) return options;
+        for (Channel_Template__c template : [
+            SELECT Id, Name, Description__c, Package_Id__c, SemVer__c, Channel__r.Name, Channel__r.Channel_Type__c
+            FROM Channel_Template__c
+            WHERE Status__c = 'Active'
+              AND Validation_Status__c = 'Valid'
+              AND (Channel__r.Name = :channelName OR Channel__r.Channel_Type__c = :channelType)
+            ORDER BY Channel__r.Name ASC, Name ASC
+        ]) {
+            Boolean exactChannel = template.Channel__r.Name == channelName;
+            if (String.isNotBlank(channelName) && !exactChannel) continue;
+            TemplateOption option = new TemplateOption();
+            option.id = template.Id;
+            option.name = template.Name;
+            option.description = template.Description__c;
+            option.packageLabel = String.isBlank(template.Package_Id__c)
+                ? template.Name
+                : template.Package_Id__c + ' · ' + template.SemVer__c;
+            options.add(option);
+        }
+        return options;
+    }
+
+    @AuraEnabled
+    public static TemplateRenderSource getTemplateRenderSource(Id templateId) {
+        Channel_Template__c template = [
+            SELECT Id, Name, Manifest_JSON__c, Status__c, Validation_Status__c
+            FROM Channel_Template__c
+            WHERE Id = :templateId
+            LIMIT 1
+        ];
+        TemplateRenderSource source = new TemplateRenderSource();
+        source.templateId = template.Id;
+        source.name = template.Name;
+        HtmlLibrary library = readHtmlFiles(template.Id);
+        Map<String, String> htmlByName = library.byName;
+        String shellName = '';
+        if (String.isNotBlank(template.Manifest_JSON__c)) {
+            Map<String, Object> manifest = (Map<String, Object>) JSON.deserializeUntyped(
+                protectManifest(template.Manifest_JSON__c)
+            );
+            Map<String, Object> master = manifest.get('masterShell') instanceof Map<String, Object>
+                ? (Map<String, Object>) manifest.get('masterShell') : new Map<String, Object>();
+            Map<String, Object> injection = master.get('injection') instanceof Map<String, Object>
+                ? (Map<String, Object>) master.get('injection') : new Map<String, Object>();
+            shellName = stringValue(master.get('fileName'));
+            if (String.isNotBlank(stringValue(injection.get('bodySlotKey')))) {
+                source.bodySlotKey = restorePlaceholder(stringValue(injection.get('bodySlotKey')));
+            }
+            for (CatalogComponent component : readCatalog(template.Manifest_JSON__c)) {
+                RenderBlock renderBlock = new RenderBlock();
+                renderBlock.type = component.type;
+                renderBlock.fileName = component.fileName;
+                renderBlock.label = component.label;
+                renderBlock.description = component.description;
+                renderBlock.icon = component.icon;
+                renderBlock.componentGroup = component.componentGroup;
+                renderBlock.placeholders = component.placeholders;
+                renderBlock.blockSettings = component.blockSettings;
+                renderBlock.bindings = component.bindings;
+                renderBlock.layoutJson = component.layoutJson;
+                renderBlock.status = component.status;
+                renderBlock.html = htmlByName.get(baseName(renderBlock.fileName).toLowerCase());
+                if (String.isBlank(renderBlock.html)) {
+                    String withExtension = baseName(renderBlock.fileName).toLowerCase();
+                    if (!withExtension.endsWith('.html')) renderBlock.html = htmlByName.get(withExtension + '.html');
+                }
+                if (String.isNotBlank(renderBlock.type) && component.status != 'Draft' && component.status != 'Ready') {
+                    source.blocks.add(renderBlock);
+                }
+            }
+        }
+        source.shellHtml = library.shellHtml;
+        if (String.isBlank(source.shellHtml)) {
+            source.shellHtml = htmlByName.get(baseName(shellName).toLowerCase());
+        }
+        if (String.isBlank(source.shellHtml)) {
+            for (String name : htmlByName.keySet()) {
+                if (name.contains('master')) {
+                    source.shellHtml = htmlByName.get(name);
+                    break;
+                }
+            }
+        }
+        source.bodySlotKey = detectBodySlotKey(source.shellHtml, source.bodySlotKey);
+        source.previewActions = previewActions(source.shellHtml);
+        addShellContentBlock(source);
+        return source;
+    }
+
+    public class TemplateOption {
+        @AuraEnabled public Id id;
+        @AuraEnabled public String name;
+        @AuraEnabled public String description;
+        @AuraEnabled public String packageLabel;
+    }
+
+    public class TemplateRenderSource {
+        @AuraEnabled public Id templateId;
+        @AuraEnabled public String name;
+        @AuraEnabled public String shellHtml;
+        @AuraEnabled public String bodySlotKey;
+        @AuraEnabled public List<String> previewActions = new List<String>();
+        @AuraEnabled public List<RenderBlock> blocks = new List<RenderBlock>();
+    }
+
+    public class RenderBlock {
+        @AuraEnabled public String type;
+        @AuraEnabled public String fileName;
+        @AuraEnabled public String html;
+        @AuraEnabled public String label;
+        @AuraEnabled public String description;
+        @AuraEnabled public String icon;
+        @AuraEnabled public String componentGroup;
+        @AuraEnabled public String status;
+        @AuraEnabled public List<String> placeholders;
+        @AuraEnabled public List<String> blockSettings;
+        @AuraEnabled public List<PlaceholderBinding> bindings;
+        @AuraEnabled public String layoutJson;
+    }
+
+    private static final List<String> BLOCK_SETTING_ORDER = new List<String>{
+        'viewDesktop', 'viewMobile', 'padding', 'background', 'columnLayout', 'heightDesktop', 'heightMobile'
+    };
+    private static final Set<String> BLOCK_SETTING_SOURCES = new Set<String>(BLOCK_SETTING_ORDER);
+    private static final Set<String> BINDING_SOURCES = new Set<String>{
+        'copy', 'imageUrl', 'altText', 'legal',
+        'viewDesktop', 'viewMobile', 'padding', 'background', 'columnLayout', 'heightDesktop', 'heightMobile',
+        'hideDesktop', 'hideMobile', 'padDesktop', 'padMobile', 'bgColor', 'bgImage', 'bgGradient', 'columnDir',
+        'colPadDesktop', 'colPadMobile', 'colBgColor', 'colBgImage', 'colBgGradient'
+    };
+
+    private static Boolean isComponentType(String type) {
+        return String.isNotBlank(type) && Pattern.matches('[A-Za-z][A-Za-z0-9_]{0,79}', type);
+    }
+
+    private static Boolean isComponentIcon(String icon) {
+        return String.isNotBlank(icon)
+            && Pattern.matches('(utility|doctype|standard|custom|action):[A-Za-z0-9_]+', icon);
+    }
+
+    private static String componentTypeToken(String label, String fileName) {
+        String source = String.isNotBlank(label) ? label : fileName;
+        if (String.isBlank(source)) source = 'Block';
+        source = source.replaceAll('(?i)\\.html$', '');
+        String token = source.replaceAll('[^A-Za-z0-9_]', '');
+        if (String.isBlank(token) || !Pattern.matches('[A-Za-z].*', token)) {
+            token = 'Block' + (token == null ? '' : token);
+        }
+        return token.length() > 80 ? token.substring(0, 80) : token;
+    }
+
+    private static List<String> readStringList(Object raw) {
+        List<String> values = new List<String>();
+        if (!(raw instanceof List<Object>)) return values;
+        for (Object item : (List<Object>) raw) {
+            String value = textValue(item);
+            if (String.isNotBlank(value) && !values.contains(value)) values.add(value);
+        }
+        return values;
+    }
+
+    private static List<PlaceholderBinding> readBindings(Object raw) {
+        List<PlaceholderBinding> bindings = new List<PlaceholderBinding>();
+        if (!(raw instanceof List<Object>)) return bindings;
+        for (Object item : (List<Object>) raw) {
+            if (!(item instanceof Map<String, Object>)) continue;
+            Map<String, Object> row = (Map<String, Object>) item;
+            PlaceholderBinding binding = new PlaceholderBinding();
+            binding.placeholder = textValue(row.get('placeholder')).replace('{', '').replace('}', '').trim();
+            binding.source = textValue(row.get('source'));
+            if (String.isNotBlank(binding.placeholder)) bindings.add(binding);
+        }
+        return bindings;
+    }
+
+    private static void assertPlaceholderBindings(
+        String type,
+        List<String> placeholders,
+        List<PlaceholderBinding> bindings
+    ) {
+        Set<String> found = new Set<String>(placeholders);
+        Set<String> bound = new Set<String>();
+        for (PlaceholderBinding binding : bindings) {
+            if (String.isBlank(binding.source) || !BINDING_SOURCES.contains(binding.source)) {
+                throw new AuraHandledException('Choose a Content Settings or Block Settings value for {{' + binding.placeholder + '}}.');
+            }
+            if (!bound.add(binding.placeholder)) {
+                throw new AuraHandledException('{{' + binding.placeholder + '}} is bound more than once.');
+            }
+            if (!found.contains(binding.placeholder)) {
+                throw new AuraHandledException('{{' + binding.placeholder + '}} is not in the HTML for ' + type + '.');
+            }
+        }
+        for (String name : placeholders) {
+            if (bound.contains(name) || isStructuralPlaceholder(name)) continue;
+            throw new AuraHandledException('Bind {{' + name + '}} on ' + type + ' to a Content Settings or Block Settings value.');
+        }
+    }
+
+    private static Boolean isStructuralPlaceholder(String name) {
+        return new Set<String>{
+            'blo-hide-dsk', 'blo-hide-mob', 'blo-pad-dsk', 'blo-pad-mob',
+            'blo-bg-color', 'blo-bg-img', 'blo-bg-grd', 'column-dir',
+            'col-pad-dsk', 'col-pad-mob', 'col-bg-color', 'col-bg-image', 'col-bg-gradient'
+        }.contains(name);
+    }
+
+    private static List<String> extractPlaceholders(String html) {
+        List<String> names = new List<String>();
+        Matcher matcher = Pattern.compile('\\{\\{\\s*([A-Za-z0-9_.:\\-]+)\\s*\\}\\}')
+            .matcher(String.valueOf(html));
+        while (matcher.find()) {
+            if (!names.contains(matcher.group(1))) names.add(matcher.group(1));
+        }
+        return names;
+    }
+
+    private static Boolean isContentBlockTitle(String title) {
+        return title != null && title.startsWith(ASSET_PREFIXES.get('CONTENT_BLOCK'));
+    }
+
+    private static Map<String, String> contentBlockBodies(Id templateId) {
+        Map<String, String> bodies = new Map<String, String>();
+        List<ContentDocumentLink> links = [
+            SELECT ContentDocument.Title, ContentDocument.LatestPublishedVersionId
+            FROM ContentDocumentLink
+            WHERE LinkedEntityId = :templateId
+        ];
+        Set<Id> versionIds = new Set<Id>();
+        for (ContentDocumentLink link : links) {
+            if (!isContentBlockTitle(link.ContentDocument.Title)) continue;
+            versionIds.add(link.ContentDocument.LatestPublishedVersionId);
+        }
+        Map<Id, ContentVersion> versions = versionIds.isEmpty()
+            ? new Map<Id, ContentVersion>()
+            : new Map<Id, ContentVersion>([
+                SELECT Id, VersionData FROM ContentVersion WHERE Id IN :versionIds
+            ]);
+        for (ContentDocumentLink link : links) {
+            if (!isContentBlockTitle(link.ContentDocument.Title)) continue;
+            ContentVersion version = versions.get(link.ContentDocument.LatestPublishedVersionId);
+            if (version == null || version.VersionData == null) continue;
+            String html = version.VersionData.toString();
+            String name = stripKnownPrefix(link.ContentDocument.Title).toLowerCase();
+            bodies.put(name, html);
+            if (!name.endsWith('.html')) bodies.put(name + '.html', html);
+            Integer dot = name.lastIndexOf('.');
+            if (dot > 0) bodies.put(name.substring(0, dot), html);
+        }
+        return bodies;
+    }
+
+    private static String lookupBlockHtml(Map<String, String> bodies, String fileName) {
+        String normalized = baseName(fileName).toLowerCase();
+        if (String.isBlank(normalized) || bodies == null) return null;
+        if (bodies.containsKey(normalized)) return bodies.get(normalized);
+        if (!normalized.endsWith('.html') && bodies.containsKey(normalized + '.html')) {
+            return bodies.get(normalized + '.html');
+        }
+        Integer dot = normalized.lastIndexOf('.');
+        return dot > 0 ? bodies.get(normalized.substring(0, dot)) : null;
+    }
+
+    private static List<CatalogComponent> readCatalog(String jsonText) {
+        List<CatalogComponent> components = new List<CatalogComponent>();
+        if (String.isBlank(jsonText)) return components;
+        Map<String, Object> manifest;
+        try {
+            manifest = (Map<String, Object>) JSON.deserializeUntyped(protectManifest(jsonText));
+        } catch (Exception error) {
+            return components;
+        }
+        Object rawComponents = manifest.get('components');
+        if (!(rawComponents instanceof List<Object>)) {
+            rawComponents = manifest.containsKey('contentBlocks')
+                ? manifest.get('contentBlocks')
+                : manifest.get('blocks');
+        }
+        if (!(rawComponents instanceof List<Object>)) return components;
+        for (Object rawComponent : (List<Object>) rawComponents) {
+            if (!(rawComponent instanceof Map<String, Object>)) continue;
+            Map<String, Object> row = (Map<String, Object>) rawComponent;
+            CatalogComponent component = new CatalogComponent();
+            component.type = restorePlaceholder(textValue(row.get('type')));
+            if (String.isBlank(component.type)) component.type = restorePlaceholder(textValue(row.get('id')));
+            component.fileName = restorePlaceholder(textValue(row.get('fileName')));
+            component.label = textValue(row.get('label'));
+            if (String.isBlank(component.label)) component.label = textValue(row.get('displayName'));
+            if (String.isBlank(component.label)) component.label = component.type;
+            component.description = textValue(row.get('description'));
+            component.icon = textValue(row.get('icon'));
+            component.componentGroup = textValue(row.get('group'));
+            if (String.isBlank(component.componentGroup)) {
+                component.componentGroup = component.type == 'Spacer' ? 'Layout' : 'Content';
+            }
+            if (row.containsKey('placeholders')) component.placeholders = readStringList(row.get('placeholders'));
+            if (row.containsKey('blockSettings')) component.blockSettings = readStringList(row.get('blockSettings'));
+            if (row.containsKey('bindings')) component.bindings = readBindings(row.get('bindings'));
+            if (row.get('layout') != null) component.layoutJson = JSON.serialize(row.get('layout'));
+            if (row.containsKey('status')) component.status = textValue(row.get('status'));
+            if (String.isNotBlank(component.type) || String.isNotBlank(component.fileName)) components.add(component);
+        }
+        return components;
+    }
+
+    private static String detectBodySlotKey(String shell, String declaredKey) {
+        String expectBlocksKey = previewActionKey(shell, 'expectBlocks');
+        if (String.isNotBlank(expectBlocksKey)) return expectBlocksKey;
+        if (String.isNotBlank(declaredKey)) return declaredKey;
+        String source = String.valueOf(shell);
+        Matcher keyBeforeLabel = Pattern.compile('data-key="([^"]+)"[^>]*data-label="BODY"').matcher(source);
+        if (keyBeforeLabel.find()) return keyBeforeLabel.group(1);
+        Matcher keyAfterLabel = Pattern.compile('data-label="BODY"[^>]*data-key="([^"]+)"').matcher(source);
+        if (keyAfterLabel.find()) return keyAfterLabel.group(1);
+        return '49fwfqshzd9';
+    }
+
+    private static List<String> previewActions(String shell) {
+        List<String> actions = new List<String>();
+        Matcher matcher = Pattern.compile('(?i)data-preview-action\\s*=\\s*"(preload|expectBlocks|expectContent)"')
+            .matcher(String.valueOf(shell));
+        while (matcher.find()) actions.add(matcher.group(1));
+        return actions;
+    }
+
+    private static String previewActionKey(String shell, String action) {
+        Matcher matcher = Pattern.compile('(?is)<div\\b[^>]*\\bdata-preview-action\\s*=\\s*"' + action + '"[^>]*>')
+            .matcher(String.valueOf(shell));
+        if (!matcher.find()) return '';
+        Matcher key = Pattern.compile('(?i)data-key="([^"]+)"').matcher(matcher.group(0));
+        return key.find() ? key.group(1) : '';
+    }
+
+    private static void addShellContentBlock(TemplateRenderSource source) {
+        if (source == null || source.blocks == null || !source.blocks.isEmpty()) return;
+        if (source.previewActions == null || !source.previewActions.contains('expectContent')) return;
+        if (source.previewActions.contains('expectBlocks')) return;
+        String regionHtml = previewRegionInner(source.shellHtml, 'expectContent');
+        if (String.isBlank(regionHtml)) return;
+        RenderBlock block = new RenderBlock();
+        block.type = 'Content';
+        block.label = previewRegionLabel(source.shellHtml, 'expectContent');
+        if (String.isBlank(block.label)) block.label = 'Content';
+        block.description = 'Content from the shell layout.';
+        block.icon = 'utility:edit';
+        block.componentGroup = 'Content';
+        block.html = regionHtml;
+        source.blocks.add(block);
+    }
+
+    private static String previewRegionLabel(String shell, String action) {
+        Matcher matcher = Pattern.compile('(?is)<div\\b[^>]*\\bdata-preview-action\\s*=\\s*"' + action + '"[^>]*>')
+            .matcher(String.valueOf(shell));
+        if (!matcher.find()) return '';
+        Matcher label = Pattern.compile('(?i)data-label="([^"]*)"').matcher(matcher.group(0));
+        return label.find() ? label.group(1) : '';
+    }
+
+    private static String previewRegionInner(String shell, String action) {
+        String source = String.valueOf(shell);
+        Matcher matcher = Pattern.compile('(?is)<div\\b[^>]*\\bdata-preview-action\\s*=\\s*"' + action + '"[^>]*>')
+            .matcher(source);
+        if (!matcher.find()) return '';
+        Integer openEnd = matcher.end();
+        Integer closeAt = matchingDivClose(source, openEnd);
+        if (closeAt < 0 || closeAt < openEnd) return '';
+        return source.substring(openEnd, closeAt);
+    }
+
+    private static Integer matchingDivClose(String html, Integer fromIndex) {
+        Integer depth = 1;
+        Integer index = fromIndex;
+        while (index < html.length() && depth > 0) {
+            Integer nextOpen = html.indexOf('<div', index);
+            Integer nextClose = html.indexOf('</div>', index);
+            if (nextClose < 0) return -1;
+            if (nextOpen >= 0 && nextOpen < nextClose) {
+                depth++;
+                index = nextOpen + 4;
+            } else {
+                depth--;
+                if (depth == 0) return nextClose;
+                index = nextClose + 6;
+            }
+        }
+        return -1;
+    }
+
+    private static String defaultComponentIcon(String type) {
+        if (type == 'RichText') return 'utility:display_rich_text';
+        if (type == 'Image') return 'utility:image';
+        if (type == 'TextImage') return 'utility:layout_card';
+        if (type == 'Banner') return 'utility:layout_banner';
+        if (type == 'Prefooter') return 'utility:note';
+        if (type == 'Spacer') return 'utility:spacer';
+        return 'utility:page';
+    }
+
+    private static String textValue(Object value) {
+        return value == null ? '' : String.valueOf(value).trim();
+    }
+
+    private class HtmlLibrary {
+        public String shellHtml = '';
+        public Map<String, String> byName = new Map<String, String>();
+    }
+
+    private static HtmlLibrary readHtmlFiles(Id templateId) {
+        HtmlLibrary library = new HtmlLibrary();
+        List<ContentDocumentLink> links = [
+            SELECT ContentDocument.Title, ContentDocument.LatestPublishedVersionId,
+                   ContentDocument.LatestPublishedVersion.FileExtension
+            FROM ContentDocumentLink
+            WHERE LinkedEntityId = :templateId
+        ];
+        Set<Id> versionIds = new Set<Id>();
+        for (ContentDocumentLink link : links) {
+            if (isHtmlFile(link)) versionIds.add(link.ContentDocument.LatestPublishedVersionId);
+        }
+        Map<Id, ContentVersion> versions = versionIds.isEmpty()
+            ? new Map<Id, ContentVersion>()
+            : new Map<Id, ContentVersion>([SELECT Id, VersionData FROM ContentVersion WHERE Id IN :versionIds]);
+        for (ContentDocumentLink link : links) {
+            if (!isHtmlFile(link)) continue;
+            ContentVersion version = versions.get(link.ContentDocument.LatestPublishedVersionId);
+            if (version == null || version.VersionData == null) continue;
+            String rawTitle = link.ContentDocument.Title == null ? '' : link.ContentDocument.Title;
+            Boolean shellFile = rawTitle.startsWith('[SHELL_HTML]');
+            String title = rawTitle;
+            Integer marker = title.indexOf(']');
+            if (title.startsWith('[') && marker >= 0) title = title.substring(marker + 1).trim();
+            String html = version.VersionData.toString();
+            library.byName.put((title + '.html').toLowerCase(), html);
+            library.byName.put(title.toLowerCase(), html);
+            if (shellFile) library.shellHtml = html;
+        }
+        return library;
+    }
+
+    private static Boolean isHtmlFile(ContentDocumentLink link) {
+        if (link.ContentDocument == null || link.ContentDocument.LatestPublishedVersion == null) return false;
+        String extension = link.ContentDocument.LatestPublishedVersion.FileExtension;
+        String title = link.ContentDocument.Title == null ? '' : link.ContentDocument.Title.toLowerCase();
+        return 'html'.equalsIgnoreCase(extension) || title.endsWith('.html');
+    }
+
+    private static String protectManifest(String jsonText) {
+        String source = String.valueOf(jsonText);
+        String result = '';
+        Integer cursor = 0;
+        while (cursor < source.length()) {
+            Integer open = source.indexOf('{{', cursor);
+            if (open < 0) return result + source.substring(cursor);
+            Integer close = source.indexOf('}}', open + 2);
+            if (close < 0) return result + source.substring(cursor);
+            result += source.substring(cursor, open) + '[[CC:' + source.substring(open + 2, close) + ']]';
+            cursor = close + 2;
+        }
+        return result;
+    }
+
+    private static String restorePlaceholder(String value) {
+        String text = String.valueOf(value);
+        Integer cursor = 0;
+        String restored = '';
+        while (cursor < text.length()) {
+            Integer open = text.indexOf('[[CC:', cursor);
+            if (open < 0) return restored + text.substring(cursor);
+            Integer close = text.indexOf(']]', open + 5);
+            if (close < 0) return restored + text.substring(cursor);
+            restored += text.substring(cursor, open) + '{{' + text.substring(open + 5, close) + '}}';
+            cursor = close + 2;
+        }
+        return restored;
+    }
+
+    private static String stringValue(Object value) {
+        return value == null ? '' : String.valueOf(value).trim();
+    }
+
+    private static String baseName(String path) {
+        String normalized = String.valueOf(path).replace('\\', '/');
+        Integer slash = normalized.lastIndexOf('/');
+        return slash >= 0 ? normalized.substring(slash + 1) : normalized;
+    }
+
+    private static String assetTypeLabel(String assetType) {
+        if (assetType == 'MANIFEST') return 'Package Manifest';
+        if (assetType == 'SHELL_HTML') return 'Shell HTML';
+        if (assetType == 'SHELL_CSS') return 'Shell CSS';
+        if (assetType == 'SHELL_JS') return 'Shell JavaScript';
+        if (assetType == 'CONTENT_BLOCK') return 'Content Block HTML';
+        return 'Unclassified File';
+    }
+}

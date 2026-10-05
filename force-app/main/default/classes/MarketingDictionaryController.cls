@@ -33,7 +33,7 @@ public with sharing class MarketingDictionaryController {
     public static Campaign getCampaignById(Id campaignId) {
         if (campaignId == null) return null;
         List<Campaign> campaigns = [
-            SELECT Id, Name, Campaign_Group_Dict__c, Campaign_Group_Dict__r.Name,
+            SELECT Id, Name, StartDate, EndDate, Campaign_Group_Dict__c, Campaign_Group_Dict__r.Name,
                    Type, Topic_Name__c, Topic_Dict__c, Topic_Dict__r.Name,
                    Priority_Tier__c, Activation_Type__c,
                    Timing_From__c, Timing_To__c, Validity_Days__c, Duration_Days__c,
@@ -60,7 +60,11 @@ public with sharing class MarketingDictionaryController {
         return CampaignOfferingLabelSync.healCampaigns(500);
     }
 
-    @AuraEnabled(cacheable=true)
+    /**
+     * Every Scoring Model from Marketing Dictionary → Model Definitions.
+     * The campaign wizard does not filter by topic, offering type, or product family.
+     */
+    @AuraEnabled
     public static List<Marketing_Dictionary__c> getScoringModels() {
         return [
             SELECT Id, Name, Topic_Description__c, Is_Active__c,
@@ -68,13 +72,13 @@ public with sharing class MarketingDictionaryController {
                    Scoring_Model_Group_Dict__c, Scoring_Model_Group_Dict__r.Name,
                    Assigned_Topic_Dict__c, Assigned_Topic_Dict__r.Name,
                    Offering_Type__c, Product_Family__c, Family_of_Needs__c,
+                   Scoring_Model_Source_System__c, Data360_DMO__c,
                    Model_Expiration_Date__c
             FROM Marketing_Dictionary__c
             WHERE RecordType.DeveloperName = 'Campaign'
             AND Dictionary_Sub_Type__c = 'Scoring Model'
-            AND Is_Active__c = true
             ORDER BY Name ASC, Version__c DESC NULLS LAST
-            LIMIT 500
+            LIMIT 2000
         ];
     }
 
@@ -258,7 +262,7 @@ public with sharing class MarketingDictionaryController {
     @AuraEnabled(cacheable=true)
     public static List<Marketing_Dictionary__c> getChannelDictionaryRecords() {
         return [
-            SELECT Id, Name, Channel_Type__c, Channel_Icon__c
+            SELECT Id, Name, Channel_Type__c, Channel_Icon__c, Is_Active__c
             FROM Marketing_Dictionary__c
             WHERE RecordType.DeveloperName = 'Channel'
             ORDER BY Channel_Type__c ASC, Name ASC

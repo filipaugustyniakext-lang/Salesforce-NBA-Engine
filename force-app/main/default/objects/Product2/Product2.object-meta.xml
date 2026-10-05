@@ -165,6 +165,7 @@
         <excludedStandardButtons>CreateParentVariant</excludedStandardButtons>
         <listViewButtons>Update_Family_of_Needs</listViewButtons>
         <listViewButtons>Update_Product_Family</listViewButtons>
+        <listViewButtons>Update_Product_Type</listViewButtons>
         <listViewButtons>Update_Customer_Type</listViewButtons>
         <lookupDialogsAdditionalFields>PRODUCT2.NAME</lookupDialogsAdditionalFields>
         <lookupDialogsAdditionalFields>PRODUCT2.CUSTOMER_PRODUCT_ID</lookupDialogsAdditionalFields>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RemoteSiteSetting xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Marketing Cloud auth host for Copy Center sync.</description>
+    <disableProtocolSecurity>false</disableProtocolSecurity>
+    <isActive>true</isActive>
+    <url>https://mc-zc2k18cm4lmd842xckk4zr5ym.auth.marketingcloudapis.com</url>
+</RemoteSiteSetting>
