@@ -33,7 +33,6 @@ export default class CopyCockpitAddModal extends LightningElement {
 
     @api channelName = '';
     @api channelType = '';
-    @api bannerTypes = [];
 
     // Editable name parts (master-level)
     @track countryCode = '';
@@ -108,8 +107,16 @@ export default class CopyCockpitAddModal extends LightningElement {
     get templateOptions() {
         return (this._wiredTemplates?.data || []).map(template => ({
             value: template.id,
-            label: `${template.name} (${template.packageLabel})`
+            label: template.packageLabel ? `${template.name} (${template.packageLabel})` : template.name
         }));
+    }
+
+    get usesTemplateTiles() {
+        return this.channelType !== 'Email' && this.channelType !== 'Push';
+    }
+
+    get showSourceTemplatePicker() {
+        return !this.usesTemplateTiles;
     }
 
     get hasTemplateOptions() {
@@ -117,7 +124,11 @@ export default class CopyCockpitAddModal extends LightningElement {
     }
 
     get showMissingTemplate() {
-        return !this.templatesLoading && !this.hasTemplateOptions;
+        return this.showSourceTemplatePicker && !this.templatesLoading && !this.hasTemplateOptions;
+    }
+
+    get showMissingTemplateTiles() {
+        return this.usesTemplateTiles && !this.templatesLoading && !this.hasTemplateOptions;
     }
 
     get templatesLoading() {
@@ -149,18 +160,22 @@ export default class CopyCockpitAddModal extends LightningElement {
     }
 
     get subtypeOptions() {
-        if (this.channelType === 'Banner' || this.channelType === 'In-App') {
-            return (this.bannerTypes || []).map(bt => ({
-                value: bt.Id,
-                label: bt.Name,
-                icon: 'utility:image',
-                description: bt.Description__c || '',
+        if (this.usesTemplateTiles) {
+            return (this._wiredTemplates?.data || []).map(template => ({
+                value: template.id,
+                label: template.name,
+                icon: 'utility:layout',
+                description: template.description || template.packageLabel || ''
             }));
         }
         return SUBTYPE_OPTIONS[this.channelType] || [];
     }
 
     get hasSubtypeOptions() { return this.subtypeOptions.length > 0; }
+
+    get showMessageTypeSection() {
+        return this.usesTemplateTiles || this.hasSubtypeOptions;
+    }
 
     get subtypeLabel() {
         if (this.channelType === 'Email') return 'Email Creation Method';
@@ -259,7 +274,9 @@ export default class CopyCockpitAddModal extends LightningElement {
     handlePlaceholderChange(e) { this.selectedPlaceholders = e.detail.value; }
 
     handleSelectSubtype(e) {
-        this.selectedSubtype = e.currentTarget.dataset.value;
+        const value = e.currentTarget.dataset.value;
+        this.selectedSubtype = value;
+        if (this.usesTemplateTiles) this.sourceTemplateId = value;
     }
 
     handleCancel() {
@@ -329,6 +346,7 @@ export default class CopyCockpitAddModal extends LightningElement {
     _dispatchSave(action) {
         this.isSaving = true;
         const fullName = this.composedName;
+        const selectedTemplate = (this._wiredTemplates?.data || []).find(template => template.id === this.sourceTemplateId);
         this.dispatchEvent(new CustomEvent('save', {
             detail: {
                 messageName:       fullName,
@@ -346,7 +364,7 @@ export default class CopyCockpitAddModal extends LightningElement {
                 channelName:       this.channelName,
                 channelType:       this.channelType,
                 sourceTemplateId:  this.sourceTemplateId,
-                messageSubtype:    this.selectedSubtype,
+                messageSubtype:    this.usesTemplateTiles ? (selectedTemplate?.name || null) : this.selectedSubtype,
                 action,
             },
         }));

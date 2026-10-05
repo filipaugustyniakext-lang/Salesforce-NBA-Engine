@@ -10,8 +10,6 @@ import saveCooldownRecord from '@salesforce/apex/MarketingDictionaryManagerContr
 import deleteCooldownRecord from '@salesforce/apex/MarketingDictionaryManagerController.deleteCooldownRecord';
 import saveBlackoutDayRule from '@salesforce/apex/MarketingDictionaryManagerController.saveBlackoutDayRule';
 import deleteBlackoutDayRule from '@salesforce/apex/MarketingDictionaryManagerController.deleteBlackoutDayRule';
-import saveBannerType from '@salesforce/apex/MarketingDictionaryManagerController.saveBannerType';
-import deleteBannerType from '@salesforce/apex/MarketingDictionaryManagerController.deleteBannerType';
 import saveBannerPlacement from '@salesforce/apex/MarketingDictionaryManagerController.saveBannerPlacement';
 import saveBannerPlacementsBulk from '@salesforce/apex/MarketingDictionaryManagerController.saveBannerPlacementsBulk';
 import deleteBannerPlacement from '@salesforce/apex/MarketingDictionaryManagerController.deleteBannerPlacement';
@@ -27,7 +25,6 @@ const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Satu
 
 let _key = 0;
 const newKey = () => String(++_key);
-const newBTRow = (i) => ({ key: newKey(), name: '', label: `Type ${i}` });
 const newPlRow = () => ({ key: newKey(), placeholderId: '', appScreen: '', bannerTypeId: '', description: '' });
 const newITRow = (i) => ({ key: newKey(), name: '', label: `Target ${i}` });
 const newIntentRow = () => ({ key: newKey(), intentValue: '', intentTargetId: '' });
@@ -58,7 +55,6 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
     @track isChannelModalOpen = false;
     @track isCooldownModalOpen = false;
     @track isDayRuleModalOpen = false;
-    @track isBannerTypeModalOpen = false;
     @track isPlacementModalOpen = false;
     @track isIntentTargetModalOpen = false;
     @track isIntentModalOpen = false;
@@ -67,8 +63,6 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
     @track editCooldown = EMPTY_COOLDOWN();
     @track editDayRule = EMPTY_DAY_RULE();
     @track editPlacement = EMPTY_PLACEMENT();
-    @track bannerTypeRows = [newBTRow(1)];
-    @track editBannerType = {};
     @track intentTargetRows = [newITRow(1)];
     @track placementRows = [newPlRow()];
     @track intentRows = [newIntentRow()];
@@ -82,8 +76,6 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
     isLoading = true;
     _activeChannelId = null;
     _activeBannerChannelId = null;
-    // 'add' | 'editOne'
-    _bannerTypeMode = 'add';
     // 'addRows' | 'editOne' | 'editAll'
     _placementMode = 'addRows';
     // 'add' | 'editAll'
@@ -152,7 +144,6 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
                 Channel_Cooldowns__r: cooldowns.length ? cooldowns : null,
                 weekDays,
                 isBanner: ch.Channel_Type__c === 'Banner',
-                isNotBanner: ch.Channel_Type__c !== 'Banner',
                 templatesTabLabel: `${ch.Name} Templates`,
                 statusLabel: ch.Is_Active__c === false ? 'Inactive' : 'Active',
                 statusClass: ch.Is_Active__c === false
@@ -289,7 +280,6 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
         if (this._pendingDeleteType === 'channel') return `Permanently delete the channel "${this._pendingDeleteName}" and all its rules, templates, attached template files, and placeholders?`;
         if (this._pendingDeleteType === 'cooldown') return `Delete the cooldown rule for "${this._pendingDeleteName}"?`;
         if (this._pendingDeleteType === 'dayRule') return `Remove the weekly restriction ${this._pendingDeleteName}?`;
-        if (this._pendingDeleteType === 'bannerType') return `Delete banner type "${this._pendingDeleteName}"? Placeholders using it will lose their type link.`;
         if (this._pendingDeleteType === 'intentTarget') return `Delete intent target "${this._pendingDeleteName}"? Intents mapped to it will lose their target link.`;
         if (this._pendingDeleteType === 'intent') return `Delete intent "${this._pendingDeleteName}"?`;
         return `Delete placeholder "${this._pendingDeleteName}"?`;
@@ -297,14 +287,6 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
     get iconPreviewName() {
         const v = this.editChannel.Channel_Icon__c?.trim();
         return v && VALID_ICON.test(v) ? v : null;
-    }
-    get isAddBannerTypeMode() { return this._bannerTypeMode === 'add'; }
-    get bannerTypeModalTitle() { return this._bannerTypeMode === 'editOne' ? 'Edit Banner Type' : 'Add Banner Types'; }
-    get isSingleBannerTypeRow() { return this.bannerTypeRows.length === 1; }
-    get bannerTypeSaveLabel() {
-        if (this._bannerTypeMode === 'editOne') return 'Save';
-        const n = this.bannerTypeRows.filter(r => r.name.trim()).length;
-        return n > 1 ? `Save ${n}` : 'Save';
     }
     get isEditOnePlacementMode() { return this._placementMode === 'editOne'; }
     get isEditAllPlacementMode() { return this._placementMode === 'editAll'; }
@@ -575,82 +557,6 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
         this.isDeleteModalOpen = true;
     }
 
-    // ── Banner Type handlers ─────────────────────────────────────────────
-
-    handleNewBannerType(event) {
-        this._activeBannerChannelId = event.currentTarget.dataset.channelid;
-        this._bannerTypeMode = 'add';
-        this.bannerTypeRows = [newBTRow(1)];
-        this.isBannerTypeModalOpen = true;
-    }
-
-    handleEditBannerType(event) {
-        const channelId = event.currentTarget.dataset.channelid;
-        this._activeBannerChannelId = channelId;
-        this._bannerTypeMode = 'editOne';
-        const ch = this._rawChannels.find(c => c.Id === channelId);
-        const found = ch?.Channel_Banner_Types__r?.find(bt => bt.Id === event.currentTarget.dataset.btid);
-        this.editBannerType = found
-            ? { Id: found.Id, Name: found.Name, Description__c: found.Description__c || '', Image_URL__c: found.Image_URL__c || '' }
-            : { Id: event.currentTarget.dataset.btid, Name: event.currentTarget.dataset.name, Description__c: '', Image_URL__c: '' };
-        this.isBannerTypeModalOpen = true;
-    }
-
-    handleEditBannerTypeFieldChange(event) {
-        this.editBannerType = { ...this.editBannerType, [event.currentTarget.dataset.field]: event.detail.value };
-    }
-
-    handleBannerTypeRowChange(event) {
-        const key = event.currentTarget.dataset.key;
-        this.bannerTypeRows = this.bannerTypeRows.map(r => r.key === key ? { ...r, name: event.detail.value } : r);
-    }
-
-    handleAddBannerTypeRow() {
-        this.bannerTypeRows = [...this.bannerTypeRows, newBTRow(this.bannerTypeRows.length + 1)];
-    }
-
-    handleRemoveBannerTypeRow(event) {
-        const key = event.currentTarget.dataset.key;
-        if (this.bannerTypeRows.length === 1) return;
-        this.bannerTypeRows = this.bannerTypeRows.filter(r => r.key !== key).map((r, i) => ({ ...r, label: `Type ${i + 1}` }));
-    }
-
-    async handleSaveBannerTypes() {
-        this.isSaving = true;
-        try {
-            if (this._bannerTypeMode === 'editOne') {
-                if (!this.editBannerType.Name?.trim()) { this._showToast('Validation', 'Banner type name is required', 'error'); this.isSaving = false; return; }
-                await saveBannerType({ bannerTypeJson: JSON.stringify({
-                    Id: this.editBannerType.Id,
-                    Name: this.editBannerType.Name.trim(),
-                    Description__c: this.editBannerType.Description__c?.trim() || null,
-                    Image_URL__c: this.editBannerType.Image_URL__c?.trim() || null,
-                    Channel__c: this._activeBannerChannelId
-                }) });
-                this._showToast('Success', 'Banner type saved', 'success');
-            } else {
-                const filled = this.bannerTypeRows.filter(r => r.name.trim());
-                if (!filled.length) { this._showToast('Validation', 'Enter at least one banner type name', 'error'); this.isSaving = false; return; }
-                for (const row of filled) {
-                    await saveBannerType({ bannerTypeJson: JSON.stringify({ Name: row.name.trim(), Channel__c: this._activeBannerChannelId }) });
-                }
-                this._showToast('Success', `${filled.length === 1 ? 'Banner type' : filled.length + ' banner types'} saved`, 'success');
-            }
-            this.isBannerTypeModalOpen = false;
-            await refreshApex(this._wiredResult);
-        } catch (e) { this._showToast('Error', e.body?.message || e.message, 'error'); }
-        finally { this.isSaving = false; }
-    }
-
-    handleDeleteBannerType(event) {
-        this._pendingDeleteId = event.currentTarget.dataset.btid;
-        this._pendingDeleteName = event.currentTarget.dataset.name || 'this banner type';
-        this._pendingDeleteType = 'bannerType';
-        this.isDeleteModalOpen = true;
-    }
-
-    handleCloseBannerTypeModal() { this.isBannerTypeModalOpen = false; }
-
     // ── Banner Placement handlers ────────────────────────────────────────
 
     handleNewPlacement(event) {
@@ -758,7 +664,6 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
             if (type === 'channel') { await deleteDictionaryRecord({ recordId: id }); this._showToast('Success', 'Channel deleted', 'success'); }
             else if (type === 'cooldown') { await deleteCooldownRecord({ cooldownId: id }); this._showToast('Success', 'Cooldown rule deleted', 'success'); }
             else if (type === 'dayRule') { await deleteBlackoutDayRule({ recordId: id }); this._showToast('Success', 'Weekly restriction removed', 'success'); }
-            else if (type === 'bannerType') { await deleteBannerType({ recordId: id }); this._showToast('Success', 'Banner type deleted', 'success'); }
             else if (type === 'intentTarget') { await deleteIntentTarget({ recordId: id }); this._showToast('Success', 'Intent target deleted', 'success'); }
             else if (type === 'intent') { await deleteBannerIntent({ recordId: id }); this._showToast('Success', 'Intent deleted', 'success'); }
             else { await deleteBannerPlacement({ recordId: id }); this._showToast('Success', 'Placeholder deleted', 'success'); }

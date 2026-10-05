@@ -185,88 +185,18 @@
                                 </div>
                             </lightning-tab>
 
-                            <!-- Channel-specific message templates -->
-                            <template lwc:if={activeChannel.isNotBanner}>
-                                <lightning-tab value="templates" label={activeChannel.templatesTabLabel}>
-                                    <div class="tab-content slds-p-around_small">
-                                        <c-channel-template-manager
-                                            channel-id={activeChannel.Id}
-                                            channel-name={activeChannel.Name}>
-                                        </c-channel-template-manager>
-                                    </div>
-                                </lightning-tab>
-                            </template>
+                            <!-- Master templates, same for every channel including Banner -->
+                            <lightning-tab value="templates" label={activeChannel.templatesTabLabel}>
+                                <div class="tab-content slds-p-around_small">
+                                    <c-channel-template-manager
+                                        channel-id={activeChannel.Id}
+                                        channel-name={activeChannel.Name}>
+                                    </c-channel-template-manager>
+                                </div>
+                            </lightning-tab>
 
                             <!-- Banner sub-tabs (Banner channels only) -->
                             <template lwc:if={activeChannel.isBanner}>
-
-                                <!-- Banner Types tab -->
-                                <lightning-tab value="banner-types" label={activeChannel.templatesTabLabel}>
-                                    <div class="tab-content slds-p-around_small">
-                                        <c-channel-template-manager
-                                            channel-id={activeChannel.Id}
-                                            channel-name={activeChannel.Name}>
-                                        </c-channel-template-manager>
-                                        <div class="slds-border_top slds-m-top_large slds-p-top_medium">
-                                            <h3 class="slds-text-heading_small">Banner Types</h3>
-                                            <p class="slds-text-body_small slds-text-color_weak">
-                                                Legacy banner type definitions and their representative images.
-                                            </p>
-                                        </div>
-                                        <div class="tab-toolbar slds-m-bottom_x-small">
-                                            <div class="tab-toolbar__actions">
-                                                <lightning-button label="Add Types" icon-name="utility:add" variant="neutral"
-                                                    size="x-small" data-channelid={activeChannel.Id} onclick={handleNewBannerType}>
-                                                </lightning-button>
-                                            </div>
-                                        </div>
-                                        <template lwc:if={activeChannel.Channel_Banner_Types__r}>
-                                            <div class="placement-scroll-container">
-                                                <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_fixed-layout placement-table">
-                                                    <thead>
-                                                        <tr class="slds-line-height_reset">
-                                                            <th style="width:22%"><div class="slds-truncate">Name</div></th>
-                                                            <th style="width:20%"><div class="slds-truncate">Image</div></th>
-                                                            <th><div class="slds-truncate">Description</div></th>
-                                                            <th class="action-col"></th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        <template for:each={activeChannel.Channel_Banner_Types__r} for:item="bt">
-                                                            <tr key={bt.Id}>
-                                                                <td><div class="slds-truncate slds-text-body_small" title={bt.Name}>{bt.Name}</div></td>
-                                                                <td>
-                                                                    <template lwc:if={bt.Image_URL__c}>
-                                                                        <img src={bt.Image_URL__c} alt={bt.Name} class="bt-thumb" />
-                                                                    </template>
-                                                                    <template lwc:else>
-                                                                        <span class="slds-text-body_small slds-text-color_weak">—</span>
-                                                                    </template>
-                                                                </td>
-                                                                <td><div class="placement-desc slds-text-body_small">{bt.Description__c}</div></td>
-                                                                <td class="action-col">
-                                                                    <lightning-button-icon icon-name="utility:edit" variant="border-filled" size="x-small"
-                                                                        alternative-text="Edit" title="Edit"
-                                                                        data-btid={bt.Id} data-channelid={activeChannel.Id}
-                                                                        onclick={handleEditBannerType} class="slds-m-right_xx-small">
-                                                                    </lightning-button-icon>
-                                                                    <lightning-button-icon icon-name="utility:delete" variant="border-filled" size="x-small"
-                                                                        alternative-text="Delete" title="Delete"
-                                                                        data-btid={bt.Id} data-name={bt.Name}
-                                                                        onclick={handleDeleteBannerType}>
-                                                                    </lightning-button-icon>
-                                                                </td>
-                                                            </tr>
-                                                        </template>
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </template>
-                                        <template lwc:else>
-                                            <p class="slds-text-body_small slds-text-color_weak">No banner types defined.</p>
-                                        </template>
-                                    </div>
-                                </lightning-tab>
 
                                 <!-- Placeholders tab -->
                                 <lightning-tab value="placements" label="Placeholders">
@@ -597,75 +527,6 @@
                     <lightning-button label="Cancel" onclick={handleCloseDayRuleModal}></lightning-button>
                     <lightning-button variant="brand" label="Save Rule" disabled={isSaving}
                         onclick={handleSaveDayRule} class="slds-m-left_x-small">
-                    </lightning-button>
-                </footer>
-            </div>
-        </section>
-        <div class="slds-backdrop slds-backdrop_open" role="presentation"></div>
-    </template>
-
-    <!-- Banner Type modal -->
-    <template lwc:if={isBannerTypeModalOpen}>
-        <section role="dialog" tabindex="-1" aria-modal="true"
-                 aria-labelledby="bt-modal-heading" class="slds-modal slds-fade-in-open">
-            <div class="slds-modal__container">
-                <header class="slds-modal__header">
-                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse"
-                            title="Close" onclick={handleCloseBannerTypeModal}>
-                        <lightning-icon icon-name="utility:close" size="small" alternative-text="Close"></lightning-icon>
-                    </button>
-                    <h2 id="bt-modal-heading" class="slds-modal__title">{bannerTypeModalTitle}</h2>
-                </header>
-                <div class="slds-modal__content slds-p-around_medium">
-                    <template lwc:if={isAddBannerTypeMode}>
-                        <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
-                            Enter one banner type name per row (e.g. mainBanner, vasBanner).
-                        </p>
-                        <template for:each={bannerTypeRows} for:item="row">
-                            <div key={row.key} class="slds-grid slds-gutters_x-small slds-m-bottom_x-small slds-grid_vertical-align-end">
-                                <div class="slds-col">
-                                    <lightning-input label={row.label} value={row.name}
-                                        placeholder="e.g. mainBanner"
-                                        data-key={row.key} onchange={handleBannerTypeRowChange}>
-                                    </lightning-input>
-                                </div>
-                                <div class="slds-col slds-no-flex slds-p-bottom_xx-small">
-                                    <lightning-button-icon icon-name="utility:close" variant="bare"
-                                        alternative-text="Remove" title="Remove"
-                                        data-key={row.key} onclick={handleRemoveBannerTypeRow}
-                                        disabled={isSingleBannerTypeRow}>
-                                    </lightning-button-icon>
-                                </div>
-                            </div>
-                        </template>
-                        <lightning-button label="Add another" icon-name="utility:add" variant="neutral"
-                            onclick={handleAddBannerTypeRow} class="slds-m-top_x-small">
-                        </lightning-button>
-                    </template>
-                    <template lwc:else>
-                        <lightning-input label="Banner Type Name" value={editBannerType.Name} required
-                            placeholder="e.g. mainBanner"
-                            data-field="Name" onchange={handleEditBannerTypeFieldChange}>
-                        </lightning-input>
-                        <div class="slds-m-top_small">
-                            <lightning-input label="Image URL" value={editBannerType.Image_URL__c}
-                                placeholder="https://…"
-                                field-level-help="URL of a representative image or mockup for this banner type."
-                                data-field="Image_URL__c" onchange={handleEditBannerTypeFieldChange}>
-                            </lightning-input>
-                        </div>
-                        <div class="slds-m-top_small">
-                            <lightning-textarea label="Description" value={editBannerType.Description__c}
-                                placeholder="Describe what this banner type is used for…"
-                                data-field="Description__c" onchange={handleEditBannerTypeFieldChange}>
-                            </lightning-textarea>
-                        </div>
-                    </template>
-                </div>
-                <footer class="slds-modal__footer">
-                    <lightning-button label="Cancel" onclick={handleCloseBannerTypeModal}></lightning-button>
-                    <lightning-button variant="brand" label={bannerTypeSaveLabel} disabled={isSaving}
-                        onclick={handleSaveBannerTypes} class="slds-m-left_x-small">
                     </lightning-button>
                 </footer>
             </div>
