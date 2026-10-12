@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Calibrated_Base_Score_Column__c</fullName>
+    <description>Numeric DMO column used as the input to the Calibrated Base Score formula.</description>
+    <externalId>false</externalId>
+    <label>Calibrated Base Score Column</label>
+    <length>255</length>
+    <required>true</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>
