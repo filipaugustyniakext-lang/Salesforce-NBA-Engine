@@ -17,10 +17,12 @@
 
                 <!-- STANDARD ACTIVATION CAMPAIGN WORKSPACE (MULTI-STEP) -->
                     <!-- SLDS Progress Indicator (stable blueprint; not beta lightning-progress-indicator) -->
-                    <div class="slds-progress wizard-progress">
+                    <div class="slds-progress">
                         <ol class="slds-progress__list">
                             <template for:each={wizardSteps} for:item="step">
                                 <li key={step.value} class={step.itemClass}>
+                                    
+                                    <!-- Completed Step -->
                                     <template lwc:if={step.isComplete}>
                                         <button type="button"
                                                 class="slds-button slds-progress__marker slds-progress__marker_icon"
@@ -34,6 +36,8 @@
                                             <span class="slds-assistive-text">{step.assistiveText}</span>
                                         </button>
                                     </template>
+                                    
+                                    <!-- Active Step -->
                                     <template lwc:elseif={step.isActive}>
                                         <button type="button"
                                                 class="slds-button slds-progress__marker"
@@ -43,23 +47,30 @@
                                             <span class="slds-assistive-text">{step.assistiveText}</span>
                                         </button>
                                     </template>
+                                    
+                                    <!-- Future/Incomplete Step -->
                                     <template lwc:else>
                                         <div class="slds-progress__marker" title={step.label}>
                                             <span class="slds-assistive-text">{step.assistiveText}</span>
                                         </div>
                                     </template>
-                                    <div class="slds-progress__item_content slds-grid slds-grid_align-center">
-                                        <span class="wizard-step-label" title={step.label}>{step.label}</span>
+                                    
+                                    <!-- Step Label -->
+                                    <div class="slds-progress__item_content slds-grid slds-grid_align-spread">
+                                        {step.label}
                                     </div>
+                                    
                                 </li>
                             </template>
                         </ol>
+                        
+                        <!-- Progress Bar -->
                         <div class="slds-progress-bar slds-progress-bar_x-small"
-                             aria-valuemin="0"
-                             aria-valuemax="100"
-                             aria-valuenow={progressBarValue}
-                             aria-label="Campaign wizard progress"
-                             role="progressbar">
+                            aria-valuemin="0"
+                            aria-valuemax="100"
+                            aria-valuenow={progressBarValue}
+                            aria-label="Campaign wizard progress"
+                            role="progressbar">
                             <span class="slds-progress-bar__value" style={progressBarStyle}>
                                 <span class="slds-assistive-text">Progress: {progressBarValue}%</span>
                             </span>
@@ -130,33 +141,6 @@
 
                                     <div class="slds-m-top_medium">
                                         <lightning-input type="text" label="Campaign Name" placeholder="eg. cashloan" value={campaignName} onchange={handleNameChange} required class="custom-form-input"></lightning-input>
-                                    </div>
-                                    <div class="slds-grid slds-gutters slds-m-top_medium">
-                                        <div class="slds-col slds-size_1-of-2">
-                                            <lightning-input
-                                                type="date"
-                                                label="From"
-                                                value={campaignFrom}
-                                                onchange={handleCampaignFromChange}
-                                                required
-                                                message-when-value-missing="From is required."
-                                                class="custom-form-input">
-                                            </lightning-input>
-                                        </div>
-                                        <div class="slds-col slds-size_1-of-2">
-                                            <lightning-input
-                                                type="date"
-                                                label="To"
-                                                data-id="campaign-to"
-                                                value={campaignTo}
-                                                min={campaignToMin}
-                                                required
-                                                message-when-value-missing="To is required."
-                                                message-when-range-underflow="To cannot be earlier than From."
-                                                onchange={handleCampaignToChange}
-                                                class="custom-form-input">
-                                            </lightning-input>
-                                        </div>
                                     </div>
                                 </div>
 
@@ -654,26 +638,97 @@
                                 
                             </div>
                         </template>
-
                         
-
-                        <!-- STEP 3: Copy Assignment (ghost placeholder) -->
+                        <!-- STEP 3: Copy Assignment -->
                         <template lwc:if={isStep3}>
-                            <div class="form-module-card slds-m-bottom_large">
-                                <span class="module-header-title">Copy Assignment</span>
-                                <div class="copy-assignment-ghost slds-m-top_medium">
-                                    <lightning-icon icon-name="utility:preview" size="large" class="copy-assignment-ghost-icon"></lightning-icon>
-                                    <h3 class="slds-text-heading_small slds-m-top_small">Coming soon</h3>
-                                    <p class="slds-text-body_regular slds-text-color_weak slds-m-top_x-small">
-                                        Copy Center message variants that match this campaign’s offering settings
-                                        (product family, family of needs, and selected offers) will be assignable here.
-                                    </p>
-                                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_small">
-                                        This step is a placeholder so the full wizard flow is already in place.
-                                        You can continue to Scoring without selecting copy.
-                                    </p>
-                                </div>
-                            </div>
+                                    <div class="form-module-card slds-m-bottom_large">
+                                        <span class="module-header-title">Copy Assignment</span>
+                                        <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small slds-m-bottom_medium">
+                                            Select the message variants you want to assign to each active channel.
+                                        </p>
+
+                                        <div class="copy-assignment-layout slds-grid">
+                                            <!-- Vertical Channel Tabs -->
+                                            <div class="slds-col slds-size_1-of-4 slds-p-right_medium copy-tabs-sidebar">
+                                                <ul class="slds-vertical-tabs__nav" role="tablist" aria-orientation="vertical">
+                                                    <template for:each={copyChannelTabs} for:item="tab">
+                                                        <li key={tab.value} class={tab.cssClass} title={tab.label} role="presentation">
+                                                            <a class="slds-vertical-tabs__link" role="tab" data-value={tab.value} onclick={handleCopyChannelSelect}>
+                                                                <span class="slds-vertical-tabs__left-icon">
+                                                                    <lightning-icon icon-name={tab.icon} size="x-small"></lightning-icon>
+                                                                </span>
+                                                                <span class="slds-truncate">{tab.label}</span>
+                                                                <template lwc:if={tab.selectedCount}>
+                                                                    <span class="slds-badge slds-m-left_x-small cockpit-badge-ready">{tab.selectedCount}</span>
+                                                                </template>
+                                                            </a>
+                                                        </li>
+                                                    </template>
+                                                </ul>
+                                            </div>
+
+                                            <!-- List Builder Area -->
+                                            <div class="slds-col slds-size_3-of-4 copy-list-builder-container">
+                                                <template lwc:if={isLoadingCopy}>
+                                                    <div class="slds-is-relative slds-p-around_large">
+                                                        <lightning-spinner alternative-text="Loading copy..." size="small"></lightning-spinner>
+                                                    </div>
+                                                </template>
+                                                <template lwc:else>
+                                                    <div class="offer-list-builder-card">
+                                                        <div class="slds-p-vertical_x-small slds-p-horizontal_medium slds-theme_shade offer-list-builder-header">
+                                                            <span class="module-header-title">{activeCopyChannelLabel} Variants</span>
+                                                            <div class="slds-text-title slds-m-top_xx-small">Filtered by your Step 2 offering selections</div>
+                                                        </div>
+                                                        <div class="slds-scrollable offer-list-builder-scroll" style="max-height: 400px;">
+                                                            <table class="slds-table slds-table_bordered slds-table_fixed-layout slds-table_resizable-cols" role="grid">
+                                                                <thead>
+                                                                    <tr class="slds-line-height_reset">
+                                                                        <th scope="col" style="width:3.75rem"></th>
+                                                                        <th scope="col"><div class="slds-truncate" title="Variant Name">Variant Name</div></th>
+                                                                        <th scope="col"><div class="slds-truncate" title="Language">Lang</div></th>
+                                                                        <th scope="col"><div class="slds-truncate" title="Status">Status</div></th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    <template lwc:if={activeChannelCopyVariants.length}>
+                                                                        <template for:each={activeChannelCopyVariants} for:item="variant">
+                                                                            <tr key={variant.id} aria-selected={variant.selected} class={variant.rowClass}>
+                                                                                <td class="slds-text-align_right" role="gridcell">
+                                                                                    <button class="slds-button slds-button_icon slds-button_icon-border-filled offer-add-btn"
+                                                                                            data-id={variant.id}
+                                                                                            title={variant.toggleTitle}
+                                                                                            onclick={handleCopyVariantToggle}>
+                                                                                        <lightning-icon icon-name={variant.toggleIcon} size="xx-small"></lightning-icon>
+                                                                                    </button>
+                                                                                </td>
+                                                                                <td role="gridcell" class="slds-p-horizontal_medium">
+                                                                                    <div class="slds-truncate" title={variant.name}>{variant.name}</div>
+                                                                                </td>
+                                                                                <td role="gridcell">
+                                                                                    <span class="cockpit-copy-lang">{variant.language}</span>
+                                                                                </td>
+                                                                                <td role="gridcell">
+                                                                                    <span class={variant.statusClass}>{variant.status}</span>
+                                                                                </td>
+                                                                            </tr>
+                                                                        </template>
+                                                                    </template>
+                                                                    <template lwc:else>
+                                                                        <tr>
+                                                                            <td colspan="4" class="slds-text-align_center slds-p-around_medium slds-text-color_weak">
+                                                                                No variants match your selected offerings for this channel.
+                                                                            </td>
+                                                                        </tr>
+                                                                    </template>
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </div>
                         </template>
 
                         <!-- STEP 4: Scoring Settings -->
@@ -733,14 +788,6 @@
                                         <div class="summary-row">
                                             <span class="summary-label">Campaign Name</span>
                                             <span class="summary-value">{modalTitle}</span>
-                                        </div>
-                                        <div class="summary-row">
-                                            <span class="summary-label">From</span>
-                                            <span class="summary-value">{summaryCampaignFrom}</span>
-                                        </div>
-                                        <div class="summary-row">
-                                            <span class="summary-label">To</span>
-                                            <span class="summary-value">{summaryCampaignTo}</span>
                                         </div>
                                         <template lwc:if={showCampaignGroup}>
                                             <div class="summary-row">

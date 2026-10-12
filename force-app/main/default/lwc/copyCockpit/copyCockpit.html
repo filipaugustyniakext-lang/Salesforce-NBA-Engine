@@ -76,15 +76,25 @@
                                     <h2 class="slds-text-heading_small">{activeChannel.Name}</h2>
                                     <span class="slds-text-body_small slds-text-color_weak">{activeChannel.Channel_Type__c}</span>
                                 </div>
+                                <div>
+                                    <span class="slds-badge">{messageGroupCountLabel}</span>
+                                </div>
                             </div>
                             <div class="cockpit-panel-header__right">
-                                <lightning-button
-                                    label={syncButtonLabel}
+                                <lightning-button-group>
+                                    <lightning-button
+                                    label={syncMCEButtonLabel}
                                     icon-name="utility:sync"
-                                    onclick={handleSyncFromMce}
-                                    disabled={isSyncing}
+                                    onclick={handleSyncWithMCE}
+                                    disabled={isSyncingMCE}
                                 ></lightning-button>
-                                <span class="slds-badge">{messageGroupCountLabel}</span>
+                                 <lightning-button
+                                    label={syncD360ButtonLabel}
+                                    icon-name="utility:data_cloud"
+                                    onclick={handleSyncWithD360}
+                                    disabled={isSyncingD360}
+                                ></lightning-button>
+                                </lightning-button-group>
                             </div>
                         </div>
 
@@ -98,24 +108,14 @@
                                 class="cockpit-search"
                             ></lightning-input>
                             <div class="cockpit-toolbar__right">
-                                <div class="cockpit-status-filters">
-                                    <template for:each={statusFilters} for:item="sf">
-                                        <button
-                                            key={sf.value}
-                                            class={sf.pillClass}
-                                            data-value={sf.value}
-                                            onclick={handleStatusFilter}
-                                        >{sf.label}</button>
-                                    </template>
-                                </div>
-                                <button class="cockpit-expand-btn" onclick={handleToggleAll}>
-                                    <lightning-icon
-                                        icon-name={expandAllIcon}
-                                        size="x-small"
-                                        class="slds-m-right_xx-small"
-                                    ></lightning-icon>
-                                    {expandAllLabel}
-                                </button>
+                                <lightning-combobox
+                                    variant="label-hidden"
+                                    value={_statusFilter}
+                                    options={statusFilterOptions}
+                                    onchange={handleStatusFilterChange}
+                                    class="cockpit-status-dropdown"
+                                ></lightning-combobox>
+                                
                                 <lightning-button
                                     label="Add Copy"
                                     icon-name="utility:add"
@@ -174,7 +174,15 @@
                                     <span class="cockpit-col-blocks">Blocks</span>
                                     <span class="cockpit-col-versions">Versions</span>
                                     <span class="cockpit-col-modified">Last Modified</span>
-                                    <span class="cockpit-col-actions"></span>
+                                    <span class="cockpit-col-actions">
+                                        <lightning-button-icon 
+                                            onclick={handleToggleAll}
+                                            icon-name={expandAllIcon}
+                                            size="medium"
+                                            label={expandAllLabel} 
+                                            variant="bare"                                       
+                                        ></lightning-button-icon>
+                                    </span>
                                 </div>
 
                                 <template for:each={filteredGroups} for:item="grp">
@@ -221,7 +229,7 @@
                                                         <span class="cockpit-copy-lang">{grp.language}</span>
                                                     </template>
                                                     <span class="cockpit-master-counts">
-                                                        <span class="cockpit-stat-chip">{grp.totalVariants}v</span>
+                                                        <span class="cockpit-stat-chip">{grp.totalVariants}</span>
                                                         <template lwc:if={grp.publishedCount}>
                                                             <span class="cockpit-stat-chip cockpit-stat-chip_live">{grp.publishedCount} live</span>
                                                         </template>
@@ -248,15 +256,22 @@
                                                 <div class="cockpit-col-versions"></div>
                                                 <div class="cockpit-col-modified"></div>
                                                 <div class="cockpit-col-actions">
-                                                    <button
-                                                        type="button"
-                                                        class="slds-button slds-button_icon slds-button_icon-border slds-button_icon-small cockpit-quick-action"
-                                                        title="Edit settings"
+                                                    <lightning-button-icon 
+                                                        icon-name="utility:settings" 
+                                                        variant="border-filled" 
+                                                        onclick={handleMasterEdit} 
+                                                        alternative-text="Edit Settings" 
                                                         data-name={grp.messageName}
-                                                        onclick={handleMasterEdit}
-                                                    >
-                                                        <lightning-icon icon-name="utility:settings" size="xx-small" alternative-text="Edit settings"></lightning-icon>
-                                                    </button>
+                                                        size="small" >    
+                                                    </lightning-button-icon>
+                                                     <lightning-button-icon 
+                                                        icon-name="utility:delete" 
+                                                        variant="border-filled" 
+                                                        onclick={handleMasterDelete} 
+                                                        alternative-text="Delete Message" 
+                                                        data-name={grp.messageName}
+                                                        size="small" >    
+                                                    </lightning-button-icon>
                                                 </div>
                                             </div>
                                         </div>
@@ -281,7 +296,7 @@
 
                                                         <!-- Indent + name / label -->
                                                         <div class="cockpit-variant-name-cell">
-                                                            <span class="cockpit-variant-num">{v.versionLabel}</span>
+                                                            <span class="cockpit-variant-num">Variant {v.versionLabel}</span>
                                                             <template lwc:if={v.Subject__c}>
                                                                 <span class="cockpit-variant-subject">{v.Subject__c}</span>
                                                             </template>
@@ -422,6 +437,7 @@
         <c-copy-cockpit-add-modal
             channel-name={addChannelName}
             channel-type={addChannelType}
+            banner-types={addBannerTypes}
             onclose={handleAddModalClose}
             onsave={handleAddModalSave}
         ></c-copy-cockpit-add-modal>
@@ -462,6 +478,34 @@
                 <footer class="slds-modal__footer">
                     <lightning-button label="Cancel" onclick={handleBulkDeleteCancel} class="slds-m-right_x-small"></lightning-button>
                     <lightning-button label="Delete All" variant="destructive" onclick={handleBulkDeleteConfirm}></lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+    <!-- MCE Sync Warning Modal -->
+    <template lwc:if={isSyncModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="sync-modal-title" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header slds-theme_warning slds-theme_alert-texture">
+                    <lightning-icon icon-name="utility:warning" size="small" class="slds-m-right_x-small"></lightning-icon>
+                    <h2 id="sync-modal-title" class="slds-modal__title">Sync Data from MCE</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <p><strong>Warning:</strong> Any unsynced edits made here in Salesforce for this channel might be overwritten by data coming from Marketing Cloud if matching variants are found.</p>
+                    <p class="slds-m-top_medium">How much data do you want to sync?</p>
+                    <ul class="slds-list_dotted slds-m-top_xx-small slds-m-bottom_small">
+                        <li><strong>Incremental (Last 20 Mins):</strong> Retrieves only recent changes for a faster update.</li>
+                        <li><strong>Full Sync:</strong> Retrieves the entire repository for this channel (may take longer).</li>
+                    </ul>
+                </div>
+                <footer class="slds-modal__footer slds-grid slds-grid_align-spread">
+                    <lightning-button label="Cancel" onclick={handleSyncCancel}></lightning-button>
+                    <div>
+                        <lightning-button label="Incremental (Last 20 Mins)" onclick={handleSyncPartialConfirm} class="slds-m-right_x-small"></lightning-button>
+                        <lightning-button label="Confirm Full Sync" variant="brand" onclick={handleSyncFullConfirm}></lightning-button>
+                    </div>
                 </footer>
             </div>
         </section>

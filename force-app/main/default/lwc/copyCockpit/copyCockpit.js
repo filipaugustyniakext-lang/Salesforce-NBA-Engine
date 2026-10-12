@@ -12,7 +12,9 @@ import getProductFamilies from '@salesforce/apex/CopyCockpitController.getProduc
 import getActiveOffersByFamily from '@salesforce/apex/CopyCockpitController.getActiveOffersByFamily';
 import getProductFamilyForOffer from '@salesforce/apex/CopyCockpitController.getProductFamilyForOffer';
 import saveMasterRowSettings from '@salesforce/apex/CopyCockpitController.saveMasterRowSettings';
-import syncFromMce from '@salesforce/apex/MarketingCloudCopySync.syncFromMce';
+import syncWithMCE from '@salesforce/apex/MarketingCloudCopySync.syncWithMCE';
+import deleteVariantsFromMCE from '@salesforce/apex/MarketingCloudCopySync.deleteVariantsFromMCE';
+import refreshStreamViaFlow from '@salesforce/apex/FlowInit_TriggerDataSourceObjectRefresh.refreshStreamViaFlow';
 import {
     channelPrefixForType,
     composeStem,
@@ -224,6 +226,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     @track isAddModalOpen = false;
     @track _addChannelName = '';
     @track _addChannelType = '';
+    @track _addBannerTypes = [];
 
     @track isDeleteModalOpen = false;
     @track deleteTargetId = null;
@@ -305,6 +308,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
 
     get addChannelName() { return this._addChannelName; }
     get addChannelType() { return this._addChannelType; }
+    get addBannerTypes() { return this._addBannerTypes; }
 
     // ── messages & groups ──────────────────────────────────────────────────
 
@@ -316,11 +320,8 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
 
     get searchTerm() { return this._searchTerm; }
 
-    get statusFilters() {
-        return STATUS_FILTERS.map(sf => ({
-            ...sf,
-            pillClass: `cockpit-status-pill${this._statusFilter === sf.value ? ' cockpit-status-pill_active' : ''}`,
-        }));
+    get statusFilterOptions() {
+        return STATUS_FILTERS;
     }
 
     get allGroups() {
@@ -461,8 +462,8 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         this._searchTerm = e.target.value;
     }
 
-    handleStatusFilter(e) {
-        this._statusFilter = e.currentTarget.dataset.value;
+    handleStatusFilterChange(e) {
+        this._statusFilter = e.detail.value;
     }
 
     handleToggleGroup(e) {
@@ -557,11 +558,12 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     handleBulkDeleteConfirm() {
         const ids = Array.from(this._selectedIds);
         this.isBulkDeleteModalOpen = false;
+        
         Promise.all(ids.map(id => deleteRecord(id)))
             .then(() => {
                 this._messages = this._messages.filter(m => !ids.includes(m.Id));
                 this._selectedIds = new Set();
-                this._showToast('Deleted', `${ids.length} variant${ids.length !== 1 ? 's' : ''} deleted.`, 'success');
+                this._showToast('Deleted', `${ids.length} variant(s) deleted.`, 'success');
             })
             .catch(err => {
                 this._showToast('Error', err?.body?.message || 'Bulk delete failed.', 'error');
@@ -570,24 +572,55 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
 
     // ── handlers: channel header ──────────────────────────────────────────
 
-    @track isSyncing = false;
+    @track isSyncingMCE = false;
+    @track isSyncingD360 = false;
+    @track isSyncModalOpen = false;
 
-    get syncButtonLabel() {
+    get syncMCEButtonLabel() {
         const channel = this.activeChannel?.Channel_Type__c || 'channel';
-        return this.isSyncing ? `Syncing ${channel}...` : `Sync ${channel} from MCE`;
+        return this.isSyncingMCE ? `Syncing ${channel}...` : `Sync with MCE`;
     }
 
-    handleSyncFromMce() {
-        if (this.isSyncing) {
-            return;
-        }
+    get syncD360ButtonLabel() {
+        const channel = this.activeChannel?.Channel_Type__c || 'channel';
+        return this.isSyncingD360 ? `Syncing ${channel}...` : `Push to D360`;
+    }
+
+
+    handleSyncWithMCE() {
         const channel = this.activeChannel?.Channel_Type__c;
         if (!channel) {
-            this._showToast('Sync from MCE', 'Select a channel before syncing.', 'error');
+            this._showToast('Sync with MCE', 'Select a channel before syncing.', 'error');
             return;
         }
-        this.isSyncing = true;
-        syncFromMce({ channel })
+        // Open the warning modal instead of firing immediately
+        this.isSyncModalOpen = true; 
+    }
+
+    handleSyncCancel() {
+        this.isSyncModalOpen = false;
+    }
+
+    handleSyncPartialConfirm() {
+        this.isSyncModalOpen = false;
+        this._executeMceSync(20); // Sync only last 20 mins
+    }
+
+    handleSyncFullConfirm() {
+        this.isSyncModalOpen = false;
+        this._executeMceSync(null); // Sync all
+    }
+
+    _executeMceSync(minutesBack) {
+        if (this.isSyncingMCE) return;
+        
+        const channel = this.activeChannel?.Channel_Type__c;
+        if (!channel) return;
+
+        this.isSyncingMCE = true;
+        
+        // Pass both channel and minutesBack to the updated Apex method
+        syncWithMCE({ channel: channel, minutesBack: minutesBack })
             .then(result => {
                 const created = result?.createdCount ?? 0;
                 const updated = result?.updatedCount ?? 0;
@@ -601,7 +634,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
                     }
                 }
                 this._showToast(
-                    `Sync ${channel} from MCE`,
+                    `Sync ${channel} with MCE`,
                     detail.join(' '),
                     failed > 0 && saved === 0 ? 'error' : (failed > 0 ? 'warning' : 'success')
                 );
@@ -609,13 +642,96 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             })
             .catch(err => {
                 this._showToast(
-                    'Sync from MCE',
-                    err?.body?.message || err?.message || 'Marketing Cloud sync failed.',
+                    'Sync with MCE',
+                    err?.body?.message || err?.message || 'Marketing Cloud Engagement sync failed.',
                     'error'
                 );
             })
             .finally(() => {
-                this.isSyncing = false;
+                this.isSyncingMCE = false;
+            });
+    }
+
+    handleDeleteConfirm() {
+        const id = this.deleteTargetId;
+        const variantId = this.deleteTargetVersion; // Ensure this maps to the actual MessageVariantId string
+
+        // 1. Delete from MCE first
+        deleteVariantsFromMCE({ variantIds: [variantId] })
+            .then(() => {
+                // 2. Delete from Salesforce
+                return deleteRecord(id);
+            })
+            .then(() => {
+                this._messages = this._messages.filter(m => m.Id !== id);
+                this._selectedIds = new Set([...this._selectedIds].filter(sid => sid !== id));
+                this._showToast('Deleted', 'Variant deleted from Salesforce and MCE.', 'success');
+            })
+            .catch(err => {
+                this._showToast('Error', err?.body?.message || 'Delete failed.', 'error');
+            })
+            .finally(() => {
+                this.isDeleteModalOpen = false;
+                this.deleteTargetId = null;
+                this.deleteTargetName = '';
+                this.deleteTargetVersion = null;
+            });
+    }
+
+    handleBulkDeleteConfirm() {
+        const ids = Array.from(this._selectedIds);
+        
+        // Map Salesforce Ids to their corresponding MessageVariantIds
+        const variantIdsToDelete = this._messages
+            .filter(m => ids.includes(m.Id))
+            .map(m => m.Message_Variant_Id__c); // Replace with your exact API name for variant id
+
+        this.isBulkDeleteModalOpen = false;
+
+        deleteVariantsFromMCE({ variantIds: variantIdsToDelete })
+            .then(() => {
+                return Promise.all(ids.map(id => deleteRecord(id)));
+            })
+            .then(() => {
+                this._messages = this._messages.filter(m => !ids.includes(m.Id));
+                this._selectedIds = new Set();
+                this._showToast('Deleted', `${ids.length} variant(s) deleted from Salesforce and MCE.`, 'success');
+            })
+            .catch(err => {
+                this._showToast('Error', err?.body?.message || 'Bulk delete failed.', 'error');
+            });
+    }
+
+    handleSyncWithD360() {
+        if (this.isSyncingD360) {
+            return;
+        }
+
+        const channel = this.activeChannel?.Channel_Type__c;
+        if (!channel) {
+            this._showToast('D360 Sync', 'Select a channel before syncing.', 'error');
+            return;
+        }
+
+        // Map your Salesforce channel name to your actual Data Cloud Stream API Name
+        // Adjust this string interpolation based on your actual D360 naming conventions
+        const dsoId = `1dsds0000000p8zAAA`; 
+
+        this.isSyncingD360 = true;
+        
+        refreshStreamViaFlow({ dsoId: dsoId })
+            .then(() => {
+                this._showToast('D360 Sync', `${channel} refresh initiated successfully.`, 'success');
+            })
+            .catch(err => {
+                this._showToast(
+                    'D360 Sync Error', 
+                    err?.body?.message || 'Failed to trigger Data Cloud refresh.', 
+                    'error'
+                );
+            })
+            .finally(() => {
+                this.isSyncingD360 = false;
             });
     }
 
@@ -629,6 +745,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         }
         this._addChannelName = channel.Name || '';
         this._addChannelType = channel.Channel_Type__c || '';
+        this._addBannerTypes = [...(channel.Channel_Banner_Types__r || [])];
         this.isAddModalOpen = true;
     }
 
@@ -659,6 +776,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     _clearAddChannelContext() {
         this._addChannelName = '';
         this._addChannelType = '';
+        this._addBannerTypes = [];
     }
 
     // ── handlers: edit / clone / delete ───────────────────────────────────
@@ -705,11 +823,12 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
 
     handleDeleteConfirm() {
         const id = this.deleteTargetId;
+        
         deleteRecord(id)
             .then(() => {
                 this._messages = this._messages.filter(m => m.Id !== id);
                 this._selectedIds = new Set([...this._selectedIds].filter(sid => sid !== id));
-                this._showToast('Deleted', 'Variant deleted.', 'success');
+                this._showToast('Deleted', 'Variant deleted successfully.', 'success');
             })
             .catch(err => {
                 this._showToast('Error', err?.body?.message || 'Delete failed.', 'error');

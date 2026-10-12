@@ -50,8 +50,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     // --- STANDARD COMPONENT STATE ---
     @track campaignName = '';
-    @track campaignFrom = '';
-    @track campaignTo = '';
     @track selectedOfferingType = 'Product Family';
     @track selectedPriorityTier = '';
     // --- EXCLUSION SETTINGS (replaces the old timing-reference block) ---
@@ -111,6 +109,12 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     // --- SELECTED-OFFER SUMMARY (shown on the Summary step) ---
     @track offerSummaries = [];
     @track expandedOfferParams = {};
+
+    // --- COPY ASSIGNMENT -- 
+    @track activeCopyChannelValue = '';
+    @track copyVariantData = []; // Raw fetched variants matching step 2
+    @track selectedCopyVariantIds = []; // Master list of assigned variants across all channels
+    @track isLoadingCopy = false;
 
     // Offers saved on the campaign (edit mode). Restored active-only from junction.
     editSavedOfferIds = null;
@@ -311,8 +315,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             }
         }
         this.campaignName = baseName;
-        this.campaignFrom = campaign.StartDate || '';
-        this.campaignTo = campaign.EndDate || '';
 
         this.selectedTopicId = campaign.Topic_Dict__c || '';
         this.topicName = campaign.Topic_Dict__r?.Name
@@ -749,23 +751,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     handleNameChange(event) {
         this.campaignName = event.target.value; 
     }
-
-    handleCampaignFromChange(event) {
-        this.campaignFrom = event.detail.value || '';
-        this._validateCampaignTo();
-    }
-
-    handleCampaignToChange(event) {
-        this.campaignTo = event.detail.value || '';
-        this._validateCampaignTo();
-    }
-
-    _validateCampaignTo() {
-        const input = this.template.querySelector('[data-id="campaign-to"]');
-        if (!input) return;
-        input.setCustomValidity(this.isDateRangeInvalid ? 'To cannot be earlier than From.' : '');
-        input.reportValidity();
-    }
         
     handleOfferingTypeChange(event) {
         this.selectedOfferingType = event.target.value; 
@@ -1080,26 +1065,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         return !!raw && Number.isInteger(val) && val >= 1 && val <= 1000;
     }
 
-    get campaignToMin() {
-        return this.campaignFrom || '';
-    }
-
-    get isDateRangeInvalid() {
-        return !!this.campaignFrom && !!this.campaignTo && this.campaignTo < this.campaignFrom;
-    }
-
-    get summaryCampaignFrom() {
-        return this.campaignFrom || 'Not set';
-    }
-
-    get summaryCampaignTo() {
-        return this.campaignTo || 'Not set';
-    }
-
     get isStep1Valid() {
         if (!this.parentActivationType) return false;
         if (!this.campaignName || this.campaignName.trim() === '') return false;
-        if (!this.campaignFrom || !this.campaignTo || this.isDateRangeInvalid) return false;
         if (this.showCampaignGroup && !this.selectedCampaignGroupId) return false;
         if (!this.selectedPriorityTier) return false;
         if (!this.hasSelectedChannel) return false;
@@ -1122,11 +1090,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         return !!this.selectedScoringModelId && this.isValidScoreValue(this.fromObjectOverallScore);
     }
 
-    /** Draft save needs a name and a valid From/To range. */
+    /** Draft save only needs a campaign name so a record can be persisted. */
     get isDraftSaveInvalid() {
-        return !this.campaignName || this.campaignName.trim() === ''
-            || !this.campaignFrom || !this.campaignTo
-            || this.isDateRangeInvalid;
+        return !this.campaignName || this.campaignName.trim() === '';
     }
 
     /** Full activation gate across all configured wizard rules (Copy Center pending). */
@@ -1674,6 +1640,83 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         this._offerFetchTimer = setTimeout(() => this.fetchMatchingOffers(), 300);
     }
 
+    // --- STEP 3: COPY ASSIGNMENT LOGIC ---
+
+    get copyChannelTabs() {
+        // Uses the existing channels state from Step 1
+        const activeChannels = this.channels.filter(c => c.checked && !c.disabled);
+        
+        // Auto-select first tab if none selected
+        if (activeChannels.length > 0 && !this.activeCopyChannelValue) {
+            this.activeCopyChannelValue = activeChannels[0].value;
+        }
+
+        return activeChannels.map(c => {
+            const isActive = this.activeCopyChannelValue === c.value;
+            const selectedCount = this.copyVariantData.filter(v => v.channel === c.value && this.selectedCopyVariantIds.includes(v.id)).length;
+            return {
+                ...c,
+                selectedCount: selectedCount > 0 ? selectedCount : null,
+                cssClass: `slds-vertical-tabs__nav-item ${isActive ? 'slds-is-active' : ''}`,
+                icon: c.icon || 'utility:channel_program_levels'
+            };
+        });
+    }
+
+    get activeCopyChannelLabel() {
+        const active = this.channels.find(c => c.value === this.activeCopyChannelValue);
+        return active ? active.label : '';
+    }
+
+    get activeChannelCopyVariants() {
+        return this.copyVariantData
+            .filter(v => v.channel === this.activeCopyChannelValue)
+            .map(v => {
+                const selected = this.selectedCopyVariantIds.includes(v.id);
+                return {
+                    ...v,
+                    selected,
+                    rowClass: selected ? 'slds-hint-parent offer-row-selected' : 'slds-hint-parent',
+                    toggleIcon: selected ? 'utility:check' : 'utility:add',
+                    toggleTitle: selected ? 'Remove variant' : 'Add variant',
+                    statusClass: v.status === 'Published' ? 'slds-badge cockpit-badge-published' : 'slds-badge cockpit-badge-ready'
+                };
+            });
+    }
+
+    handleCopyChannelSelect(event) {
+        this.activeCopyChannelValue = event.currentTarget.dataset.value;
+    }
+
+    handleCopyVariantToggle(event) {
+        const variantId = event.currentTarget.dataset.id;
+        if (this.selectedCopyVariantIds.includes(variantId)) {
+            this.selectedCopyVariantIds = this.selectedCopyVariantIds.filter(id => id !== variantId);
+        } else {
+            this.selectedCopyVariantIds = [...this.selectedCopyVariantIds, variantId];
+        }
+    }
+
+    // Hook this into `_onStepChanged()` in your JS so it queries when Step 3 opens:
+    fetchCopyVariantsForStep3() {
+        this.isLoadingCopy = true;
+        const activeChannelNames = this.channels.filter(c => c.checked).map(c => c.value);
+        
+        // Derived from your Step 2 state
+        const productFamilies = this.productFamilyOptions.filter(o => o.checked).map(o => o.name);
+        const offerIds = this.selectedOfferIds;
+
+        // TODO: Wire to a new Apex method e.g., getCopyVariantsForWizard(channels, productFamilies, offers)
+        // Simulating the Apex response mapping below:
+        /*
+        getCopyVariantsForWizard({ channels: activeChannelNames, productFamilies, offerIds })
+            .then(data => {
+                this.copyVariantData = data; 
+                this.isLoadingCopy = false;
+            });
+        */
+    }
+
     handleSaveDraft() {
         if (this.isDraftSaveInvalid) return;
         this.isLoading = true;
@@ -1696,8 +1739,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         const num = (v) => v === '' || v === null || v === undefined ? null : Number(v);
 
         fields['Name'] = `${this.activationPrefix}${this.toCamelCase(this.campaignName)}`;
-        fields['StartDate'] = this.campaignFrom || null;
-        fields['EndDate'] = this.campaignTo || null;
         fields['Type'] = 'Standard';
         fields['Status'] = activate ? 'Active' : 'Planned';
         fields['IsActive'] = activate === true;

@@ -26,9 +26,9 @@
         </template>
 
         <template lwc:elseif={hasTemplates}>
-            <div class="template-grid">
+            <div class="template-grid slds-grid slds-wrap">
                 <template for:each={templates} for:item="item">
-                    <article key={item.id} class="template-card">
+                    <article key={item.id} class="template-card slds-col slds-size_1-of-2">
                         <header class="template-card__header">
                             <div>
                                 <div class="template-card__title-row">
@@ -371,7 +371,7 @@
                                                                                         </template>
                                                                                         <template lwc:if={choice.isGradient}>
                                                                                             <template for:each={choice.gradients} for:item="gradient">
-                                                                                                <div key={gradient.key} class="layout-preset">
+                                                                                                <div key={gradient.key} class="slds-m-top_small layout-preset">
                                                                                                     <lightning-input label="Preset name" value={gradient.label} data-file={gradient.fileName} data-column={gradient.columnIndex} data-index={gradient.index} data-field="label" disabled={isEditingActive} onchange={handleGradientField}></lightning-input>
                                                                                                     <lightning-textarea label="CSS" value={gradient.css} data-file={gradient.fileName} data-column={gradient.columnIndex} data-index={gradient.index} data-field="css" disabled={isEditingActive} onchange={handleGradientField}></lightning-textarea>
                                                                                                     <lightning-button label="Remove" data-file={gradient.fileName} data-column={gradient.columnIndex} data-index={gradient.index} disabled={isEditingActive} onclick={handleRemoveGradient}></lightning-button>
@@ -424,7 +424,7 @@
                                                                                     </template>
                                                                                     <template lwc:if={choice.isGradient}>
                                                                                         <template for:each={choice.gradients} for:item="gradient">
-                                                                                            <div key={gradient.key} class="layout-preset">
+                                                                                            <div key={gradient.key} class="slds-m-top_small layout-preset">
                                                                                                 <lightning-input label="Preset name" value={gradient.label} data-file={gradient.fileName} data-column={gradient.columnIndex} data-index={gradient.index} data-field="label" disabled={isEditingActive} onchange={handleGradientField}></lightning-input>
                                                                                                 <lightning-textarea label="CSS" value={gradient.css} data-file={gradient.fileName} data-column={gradient.columnIndex} data-index={gradient.index} data-field="css" disabled={isEditingActive} onchange={handleGradientField}></lightning-textarea>
                                                                                                 <lightning-button label="Remove" data-file={gradient.fileName} data-column={gradient.columnIndex} data-index={gradient.index} disabled={isEditingActive} onclick={handleRemoveGradient}></lightning-button>
