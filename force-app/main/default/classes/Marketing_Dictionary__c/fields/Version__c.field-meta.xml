@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Version__c</fullName>
+    <description>Version number for Scoring Model definitions. Auto-set to 1 for a new model master; incremented for each new version of the same model name.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Read-only. Set automatically when creating a new model or a new version.</inlineHelpText>
+    <label>Version</label>
+    <precision>4</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

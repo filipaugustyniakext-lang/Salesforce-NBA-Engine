@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Value_Source__c</fullName>
+    <description>How the value of this offer attribute is populated: autopopulated from reference values, set apriori at campaign configuration time, or entered by the CRM operator at offer creation.</description>
+    <inlineHelpText>Autopopulate: pulled from Reference Values. Apriori: fixed value set at campaign level. Operator Defined: CRM user fills it at offer creation.</inlineHelpText>
+    <label>Value Source</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Autopopulate</fullName>
+                <default>false</default>
+                <label>Autopopulate from Reference Values</label>
+            </value>
+            <value>
+                <fullName>Apriori</fullName>
+                <default>false</default>
+                <label>Apriori</label>
+            </value>
+            <value>
+                <fullName>Operator Defined</fullName>
+                <default>false</default>
+                <label>Operator Defined</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

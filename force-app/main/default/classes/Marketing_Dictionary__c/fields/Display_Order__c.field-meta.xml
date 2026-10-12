@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Display_Order__c</fullName>
+    <description>Controls the sequence in which this offer parameter appears in the offer wizard. Lower numbers appear first. Use increments of 10 to leave room for future insertions.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Enter a number to set the position of this parameter in the offer wizard (lower = earlier).</inlineHelpText>
+    <label>Display Order</label>
+    <precision>3</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

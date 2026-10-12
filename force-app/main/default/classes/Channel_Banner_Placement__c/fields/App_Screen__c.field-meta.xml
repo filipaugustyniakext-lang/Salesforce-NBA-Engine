@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>App_Screen__c</fullName>
+    <description>The app screen identifier where this placement appears (e.g. HOME_PAGE, PRODUCTS_ALL, CARD_DETAILS).</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Enter the app screen identifier, e.g. HOME_PAGE or CARD_DETAILS.</inlineHelpText>
+    <label>App Screen</label>
+    <length>80</length>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Parameter_API_Name__c</fullName>
+    <description>The Salesforce API field name this parameter maps to on the Offer_Version__c object (e.g. Grace_Period_Days__c). Used by the offer wizard to dynamically bind UI inputs to the correct fields.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Enter the exact API name of the corresponding field on Offer Version (e.g. Grace_Period_Days__c).</inlineHelpText>
+    <label>Parameter API Name</label>
+    <length>80</length>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Family_of_Needs__c</fullName>
+    <deleteConstraint>Restrict</deleteConstraint>
+    <label>Family of Needs</label>
+    <referenceTo>Marketing_Dictionary__c</referenceTo>
+    <relationshipLabel>Family of Needs Customer Types</relationshipLabel>
+    <relationshipName>FamilyOfNeeds_CustomerTypes</relationshipName>
+    <required>true</required>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

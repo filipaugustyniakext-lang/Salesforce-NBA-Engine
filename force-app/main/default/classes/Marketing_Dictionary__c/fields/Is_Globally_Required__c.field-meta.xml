@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Is_Globally_Required__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>When checked, this offer parameter is mandatory regardless of which product family the offer belongs to. Per-product-family rules in Offer Attribute Rules can still mark it required for specific families even when this is unchecked.</description>
+    <inlineHelpText>Check if this parameter must always be filled in, for every product family.</inlineHelpText>
+    <label>Globally Required</label>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>

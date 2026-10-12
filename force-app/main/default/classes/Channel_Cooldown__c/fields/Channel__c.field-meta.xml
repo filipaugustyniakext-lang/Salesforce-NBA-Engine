@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Channel__c</fullName>
+    <description>The parent Channel dictionary record this cooldown rule applies to. Must be a Marketing Dictionary record with the Channel record type.</description>
+    <inlineHelpText>Select the channel dictionary entry this cooldown period belongs to.</inlineHelpText>
+    <label>Channel</label>
+    <referenceTo>Marketing_Dictionary__c</referenceTo>
+    <relationshipLabel>Channel Cooldowns</relationshipLabel>
+    <relationshipName>Channel_Cooldowns</relationshipName>
+    <relationshipOrder>0</relationshipOrder>
+    <reparentableMasterDetail>false</reparentableMasterDetail>
+    <trackTrending>false</trackTrending>
+    <type>MasterDetail</type>
+    <writeRequiresMasterRead>false</writeRequiresMasterRead>
+</CustomField>

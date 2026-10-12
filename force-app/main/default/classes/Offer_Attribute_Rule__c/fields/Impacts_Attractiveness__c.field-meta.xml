@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Impacts_Attractiveness__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>When checked, this attribute/family combination contributes to offer attractiveness scoring. Requires a weight value.</description>
+    <label>Impacts Offer Attractiveness</label>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>

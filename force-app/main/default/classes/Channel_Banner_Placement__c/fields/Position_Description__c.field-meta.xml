@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Position_Description__c</fullName>
+    <description>Human-readable description of where this banner appears within the app screen (e.g. &quot;Directly below the balance header&quot;).</description>
+    <inlineHelpText>Describe where on the screen this banner placeholder is located.</inlineHelpText>
+    <label>Position Description</label>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>TextArea</type>
+</CustomField>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Product_Family__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description>The Product Family dictionary entry this rule applies to. Links to a Marketing Dictionary record with the Product record type and Dictionary Sub-Type of Product Family.</description>
+    <inlineHelpText>Select the Product Family this visibility and requiredness rule applies to.</inlineHelpText>
+    <label>Product Family</label>
+    <referenceTo>Marketing_Dictionary__c</referenceTo>
+    <relationshipLabel>Offer Attribute Rules (Product Family)</relationshipLabel>
+    <relationshipName>Offer_Attribute_Rules_Product_Family</relationshipName>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

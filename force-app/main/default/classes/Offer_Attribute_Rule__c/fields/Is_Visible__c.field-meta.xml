@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Is_Visible__c</fullName>
+    <defaultValue>true</defaultValue>
+    <description>When checked, the offer wizard will show this parameter input for the linked Product Family. When unchecked the parameter is hidden regardless of the global setting. Allows hiding globally-defined parameters that are not relevant to a specific product family.</description>
+    <inlineHelpText>Check if this parameter should appear in the offer wizard for the selected product family.</inlineHelpText>
+    <label>Visible</label>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>
