@@ -40,7 +40,7 @@ private class MarketingCloudCopySyncTest {
         Test.setMock(HttpCalloutMock.class, new SuccessMock());
 
         Test.startTest();
-        MarketingCloudCopySync.SyncResult result = MarketingCloudCopySync.syncFromMce('Email');
+        MarketingCloudCopySync.SyncResult result = MarketingCloudCopySync.syncWithMCE('Email');
         Test.stopTest();
 
         System.assertEquals('71647d3c-4ba1-f111-ba7f-f40343e980b0', result.dataExtensionId);
@@ -81,7 +81,7 @@ private class MarketingCloudCopySyncTest {
         Test.setMock(HttpCalloutMock.class, new SuccessMock());
 
         Test.startTest();
-        MarketingCloudCopySync.syncFromMce('In-App');
+        MarketingCloudCopySync.syncWithMCE('In-App');
         Test.stopTest();
 
         System.assert(endpoints[2].contains('$filter=MessageType%20eq%20%27In-App%27'));
@@ -96,7 +96,7 @@ private class MarketingCloudCopySyncTest {
         Test.setMock(HttpCalloutMock.class, new SuccessMock());
 
         Test.startTest();
-        MarketingCloudCopySync.SyncResult result = MarketingCloudCopySync.syncFromMce('Banner');
+        MarketingCloudCopySync.SyncResult result = MarketingCloudCopySync.syncWithMCE('Banner');
         Test.stopTest();
 
         System.assertEquals('Banner', result.channel);
@@ -114,7 +114,7 @@ private class MarketingCloudCopySyncTest {
     static void requiresAChannel() {
         MarketingCloudCopySync.settingsOverride = settings();
         try {
-            MarketingCloudCopySync.syncFromMce(' ');
+            MarketingCloudCopySync.syncWithMCE(' ');
             System.assert(false, 'Expected a missing channel to be rejected.');
         } catch (AuraHandledException ex) {
             System.assert(ex.getMessage().contains('channel'));
@@ -127,7 +127,7 @@ private class MarketingCloudCopySyncTest {
         Test.setMock(HttpCalloutMock.class, new FailureMock());
 
         try {
-            MarketingCloudCopySync.syncFromMce('SMS');
+            MarketingCloudCopySync.syncWithMCE('SMS');
             System.assert(false, 'Expected the callout failure to be reported.');
         } catch (AuraHandledException ex) {
             System.assert(ex.getMessage().contains('401'));

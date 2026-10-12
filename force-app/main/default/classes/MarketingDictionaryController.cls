@@ -61,11 +61,26 @@ public with sharing class MarketingDictionaryController {
     }
 
     /**
-     * Every Scoring Model from Marketing Dictionary → Model Definitions.
-     * The campaign wizard does not filter by topic, offering type, or product family.
+     * Active Scoring Models for Campaign Wizard Pick-a-Model.
+     * Requires Topic + Offering Type. Caller further filters by overlapping
+     * Product Family / Family of Needs Ids on the client.
+     * Returns empty when topic or offering type is missing (avoid unscoped lists).
      */
     @AuraEnabled
-    public static List<Marketing_Dictionary__c> getScoringModels() {
+    public static List<Marketing_Dictionary__c> getScoringModels(Id topicId, String offeringType) {
+        if (topicId == null || String.isBlank(offeringType)) {
+            return new List<Marketing_Dictionary__c>();
+        }
+
+        String offering = offeringType.trim();
+        // Campaign picklist historically used "Family of needs"; Scoring Models use "Family of Needs".
+        if (offering.equalsIgnoreCase('family of needs')) {
+            offering = 'Family of Needs';
+        }
+        if (offering != 'Product Family' && offering != 'Family of Needs') {
+            return new List<Marketing_Dictionary__c>();
+        }
+
         return [
             SELECT Id, Name, Topic_Description__c, Is_Active__c,
                    Version__c, Model_Id__c,
@@ -77,8 +92,11 @@ public with sharing class MarketingDictionaryController {
             FROM Marketing_Dictionary__c
             WHERE RecordType.DeveloperName = 'Campaign'
             AND Dictionary_Sub_Type__c = 'Scoring Model'
+            AND Is_Active__c = true
+            AND Assigned_Topic_Dict__c = :topicId
+            AND Offering_Type__c = :offering
             ORDER BY Name ASC, Version__c DESC NULLS LAST
-            LIMIT 2000
+            LIMIT 500
         ];
     }
 

@@ -25,8 +25,34 @@ public with sharing class MarketingCloudCopySync {
         @AuraEnabled public String errorMessage;
     }
 
+    // Overload to fix deployment dependency
+    public static SyncResult syncAllWithMCE() {
+        return syncAllWithMCE(20);
+    }
+
     @AuraEnabled
-    public static SyncResult syncFromMce(String channel) {
+    public static SyncResult syncAllWithMCE(Integer minutesBack) {
+        try {
+            MCE_Settings__mdt settings = loadSettings();
+            String token = requestToken(settings);
+            Map<String, Object> dataExtension = findDataExtension(settings, token);
+            
+            // Pass the minutesBack parameter to limit the rowset
+            SyncResult result = fetchRows(settings, token, dataExtension, null, minutesBack); 
+            
+            // Initiate the block sync asynchronously, passing the same window
+            syncBlocksAsync(null, minutesBack);
+            
+            return result;
+        } catch (AuraHandledException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw auraError(ex.getMessage());
+        }
+    }
+
+    @AuraEnabled
+    public static SyncResult syncWithMCE(String channel, Integer minutesBack) {
         try {
             if (String.isBlank(channel)) {
                 throw auraError('Select a channel before syncing from Marketing Cloud.');
@@ -34,11 +60,96 @@ public with sharing class MarketingCloudCopySync {
             MCE_Settings__mdt settings = loadSettings();
             String token = requestToken(settings);
             Map<String, Object> dataExtension = findDataExtension(settings, token);
-            return fetchRows(settings, token, dataExtension, channel.trim());
+            
+            // Pass the parameter from the UI
+            SyncResult result = fetchRows(settings, token, dataExtension, channel.trim(), minutesBack);
+            
+            // Initiate the block sync asynchronously
+            syncBlocksAsync(channel.trim(), minutesBack);
+            
+            return result;
         } catch (AuraHandledException ex) {
             throw ex;
         } catch (Exception ex) {
             throw auraError(ex.getMessage());
+        }
+    }
+    @AuraEnabled
+    public static void deleteVariantsFromMCE(List<String> variantIds) {
+        try {
+            if (variantIds == null || variantIds.isEmpty()) {
+                return;
+            }
+            
+            MCE_Settings__mdt settings = loadSettings();
+            String token = requestToken(settings);
+
+            // Apex allows up to 100 synchronous callouts per transaction.
+            // For standard LWC UI deletions, this loop is perfectly safe.
+            for (String variantId : variantIds) {
+                if (String.isBlank(variantId)) continue;
+                
+                // MCE REST API format for targeting a Data Extension row by primary key
+                String endpoint = 'https://' + settings.Subdomain__c
+                    + '.rest.marketingcloudapis.com/data/v1/customobjectdata/key/'
+                    + EncodingUtil.urlEncode(settings.Data_Extension_Key__c, 'UTF-8')
+                    + '/row/MessageVariantId:' + EncodingUtil.urlEncode(variantId, 'UTF-8');
+
+                HttpRequest req = new HttpRequest();
+                req.setMethod('DELETE');
+                req.setEndpoint(endpoint);
+                req.setHeader('Authorization', 'Bearer ' + token);
+                req.setTimeout(120000);
+
+                HttpResponse res = new Http().send(req);
+                
+                // 200-level codes are success. 
+                // We also intentionally ignore 404s (if the row doesn't exist in MCE anymore, our job is already done).
+                if (res.getStatusCode() >= 300 && res.getStatusCode() != 404) {
+                    throw auraError('Failed to delete variant ' + variantId + ' from MCE (' + res.getStatusCode() + '): ' + res.getBody());
+                }
+            }
+        } catch (AuraHandledException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw auraError(ex.getMessage());
+        }
+    }
+
+    @future(callout=true)
+    public static void deleteVariantsFromMCEAsync(List<String> variantIds) {
+        try {
+            if (variantIds == null || variantIds.isEmpty()) {
+                return;
+            }
+            
+            MCE_Settings__mdt settings = loadSettings(); //[cite: 3]
+            String token = requestToken(settings); //[cite: 3]
+
+            // Note: @future methods allow up to 100 callouts per transaction.
+            for (String variantId : variantIds) {
+                if (String.isBlank(variantId)) continue;
+                
+                String endpoint = 'https://' + settings.Subdomain__c //[cite: 3]
+                    + '.rest.marketingcloudapis.com/data/v1/customobjectdata/key/'
+                    + EncodingUtil.urlEncode(settings.Data_Extension_Key__c, 'UTF-8') //[cite: 3]
+                    + '/row/MessageVariantId:' + EncodingUtil.urlEncode(variantId, 'UTF-8');
+
+                HttpRequest req = new HttpRequest();
+                req.setMethod('DELETE');
+                req.setEndpoint(endpoint);
+                req.setHeader('Authorization', 'Bearer ' + token);
+                req.setTimeout(120000);
+
+                HttpResponse res = new Http().send(req);
+                
+                // 200-level codes indicate success. 404 means it's already gone.
+                if (res.getStatusCode() >= 300 && res.getStatusCode() != 404) {
+                    System.debug('Failed to delete variant ' + variantId + ' from MCE (' + res.getStatusCode() + '): ' + res.getBody());
+                }
+            }
+        } catch (Exception ex) {
+            System.debug('Error in MCE Delete Async: ' + ex.getMessage());
         }
     }
 
@@ -106,7 +217,8 @@ public with sharing class MarketingCloudCopySync {
         MCE_Settings__mdt settings,
         String token,
         Map<String, Object> dataExtension,
-        String channel
+        String channel,
+        Integer minutesBack
     ) {
         String dataExtensionId = (String) dataExtension.get('id');
         SyncResult result = new SyncResult();
@@ -121,39 +233,71 @@ public with sharing class MarketingCloudCopySync {
 
         List<Map<String, String>> rows = new List<Map<String, String>>();
         Integer page = 1;
+        Datetime cutoffTime = null;
+        Boolean stopFetching = false;
+
         while (page <= MAX_PAGES) {
             String endpoint = 'https://' + settings.Subdomain__c
                 + '.rest.marketingcloudapis.com/data/v1/customobjectdata/'
                 + dataExtensionId
-                + '/rowset?$filter=' + messageTypeFilter(channel)
-                + '&$page=' + page
+                + '/rowset?$page=' + page
                 + '&$pageSize=' + PAGE_SIZE
                 + '&$orderBy=' + ORDER_BY;
+                
+            if (String.isNotBlank(channel)) {
+                endpoint += '&$filter=' + messageTypeFilter(channel);
+            }
+
             Map<String, Object> body = send(authorizedGet(endpoint, token));
             List<Object> items = (List<Object>) body.get('items');
             List<Object> pageItems = items == null ? new List<Object>() : items;
-            Integer pageCount = pageItems.size();
+            
             if (result.rowCount == null) {
                 result.rowCount = toInteger(body.get('count'));
             }
+            
             for (Object itemValue : pageItems) {
                 if (rows.size() >= 10000) {
+                    stopFetching = true;
                     break;
                 }
-                rows.add(flattenRow((Map<String, Object>) itemValue));
+                
+                Map<String, String> row = flattenRow((Map<String, Object>) itemValue);
+                
+                // If a time limit is set, check the timestamp
+                if (minutesBack != null) {
+                    String modStr = row.get('lastmodifiedat');
+                    if (String.isNotBlank(modStr)) {
+                        Datetime rowTime = parseDatetime(modStr);
+                        if (rowTime != null) {
+                            // Set the cutoff relative to the very first (newest) record we process
+                            if (cutoffTime == null) {
+                                cutoffTime = rowTime.addMinutes(-minutesBack);
+                            }
+                            // If this row is older than the cutoff, we can safely stop fetching everything
+                            if (rowTime < cutoffTime) {
+                                stopFetching = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                rows.add(row);
             }
-            if (pageCount > 0 && result.latestMessageName == null && !rows.isEmpty()) {
+            
+            if (pageItems.size() > 0 && result.latestMessageName == null && !rows.isEmpty()) {
                 result.latestMessageName = rows[0].get('messagename');
                 result.latestModifiedAt = rows[0].get('lastmodifiedat');
             }
-            result.fetchedCount += pageCount;
-            if (rows.size() >= 10000
-                || pageCount < PAGE_SIZE
-                || (result.rowCount != null && result.fetchedCount >= result.rowCount)) {
+            
+            result.fetchedCount += pageItems.size(); // Note: counts raw fetched, not just what passed the cutoff
+            
+            if (stopFetching || pageItems.size() < PAGE_SIZE || (result.rowCount != null && result.fetchedCount >= result.rowCount)) {
                 break;
             }
             page++;
         }
+        
         if (result.rowCount == null) {
             result.rowCount = result.fetchedCount;
         }
@@ -552,4 +696,180 @@ public with sharing class MarketingCloudCopySync {
         ex.setMessage(message);
         return ex;
     }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // BLOCKS DATA EXTENSION SYNC
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @future(callout=true)
+    public static void syncBlocksAsync(String channel, Integer minutesBack) {
+        try {
+            MCE_Settings__mdt settings = loadSettings();
+            String token = requestToken(settings);
+            
+            String endpoint = 'https://' + settings.Subdomain__c
+                + '.rest.marketingcloudapis.com/data/v1/customobjects?$search=CC_Message_Blocks_All';
+            Map<String, Object> body = send(authorizedGet(endpoint, token));
+            
+            List<Object> items = (List<Object>) body.get('items');
+            if (items == null || items.isEmpty()) return;
+            
+            Map<String, Object> first = (Map<String, Object>) items[0];
+            String deId = (String) first.get('id');
+            if (String.isBlank(deId)) return;
+            
+            fetchBlockRows(settings, token, deId, channel, minutesBack);
+        } catch (Exception ex) {
+            System.debug('Error in syncBlocksAsync: ' + ex.getMessage());
+        }
+    }
+
+    private static void fetchBlockRows(MCE_Settings__mdt settings, String token, String dataExtensionId, String channel, Integer minutesBack) {
+        List<Map<String, String>> rows = new List<Map<String, String>>();
+        Integer page = 1;
+        Datetime cutoffTime = null;
+        Boolean stopFetching = false;
+        
+        while (page <= MAX_PAGES) {
+            String endpoint = 'https://' + settings.Subdomain__c
+                + '.rest.marketingcloudapis.com/data/v1/customobjectdata/'
+                + dataExtensionId
+                + '/rowset?$page=' + page
+                + '&$pageSize=' + PAGE_SIZE
+                + '&$orderBy=updatedat%20DESC';
+                
+            if (String.isNotBlank(channel)) {
+                endpoint += '&$filter=' + messageTypeFilter(channel);
+            }
+            
+            Map<String, Object> body = send(authorizedGet(endpoint, token));
+            List<Object> items = (List<Object>) body.get('items');
+            List<Object> pageItems = items == null ? new List<Object>() : items;
+            
+            for (Object itemValue : pageItems) {
+                if (rows.size() >= 10000) {
+                    stopFetching = true;
+                    break;
+                }
+                
+                Map<String, String> row = flattenRow((Map<String, Object>) itemValue);
+                
+                if (minutesBack != null) {
+                    // Note: Blocks DE uses updatedat, not lastmodifiedat
+                    String modStr = row.get('updatedat'); 
+                    if (String.isNotBlank(modStr)) {
+                        Datetime rowTime = parseDatetime(modStr);
+                        if (rowTime != null) {
+                            if (cutoffTime == null) {
+                                cutoffTime = rowTime.addMinutes(-minutesBack);
+                            }
+                            if (rowTime < cutoffTime) {
+                                stopFetching = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                rows.add(row);
+            }
+            
+            if (stopFetching || pageItems.size() < PAGE_SIZE) {
+                break;
+            }
+            page++;
+        }
+        upsertBlockRows(rows);
+    }
+
+    private static void upsertBlockRows(List<Map<String, String>> rows) {
+        Map<String, CC_Message_Blocks_All__c> incoming = new Map<String, CC_Message_Blocks_All__c>();
+        
+        for (Map<String, String> row : rows) {
+            String variantId = row.get('messagevariantid');
+            String orderStr = row.get('contentblockorder');
+            
+            if (String.isBlank(variantId) || String.isBlank(orderStr)) {
+                continue;
+            }
+            
+            // Build a composite key for matching: "variantId|order"
+            String compositeKey = (variantId.trim() + '|' + orderStr.trim()).toLowerCase();
+            incoming.put(compositeKey, toBlockRecord(row));
+        }
+        
+        Map<String, Id> existingIds = findExistingBlockIds(incoming.keySet());
+        List<CC_Message_Blocks_All__c> toInsert = new List<CC_Message_Blocks_All__c>();
+        List<CC_Message_Blocks_All__c> toUpdate = new List<CC_Message_Blocks_All__c>();
+        
+        for (String key : incoming.keySet()) {
+            CC_Message_Blocks_All__c rec = incoming.get(key);
+            if (existingIds.containsKey(key)) {
+                rec.Id = existingIds.get(key);
+                toUpdate.add(rec);
+            } else {
+                toInsert.add(rec);
+            }
+        }
+        
+        if (!toInsert.isEmpty()) Database.insert(toInsert, false);
+        if (!toUpdate.isEmpty()) Database.update(toUpdate, false);
+    }
+
+    private static Map<String, Id> findExistingBlockIds(Set<String> keys) {
+        Map<String, Id> existingIds = new Map<String, Id>();
+        if (keys.isEmpty()) return existingIds;
+        
+        // Extract just the variant IDs to limit our SOQL query size
+        Set<String> variantIds = new Set<String>();
+        for (String key : keys) {
+            variantIds.add(key.substringBefore('|'));
+        }
+        
+        List<String> variantIdList = new List<String>(variantIds);
+        for (Integer start = 0; start < variantIdList.size(); start += 200) {
+            Integer last = Math.min(start + 200, variantIdList.size());
+            List<String> chunk = new List<String>();
+            for (Integer index = start; index < last; index++) {
+                chunk.add(variantIdList[index]);
+            }
+            
+            for (CC_Message_Blocks_All__c existing : [
+                SELECT Id, MessageVariantId__c, ContentBlockOrder__c
+                FROM CC_Message_Blocks_All__c
+                WHERE MessageVariantId__c IN :chunk
+            ]) {
+                if (String.isBlank(existing.MessageVariantId__c) || existing.ContentBlockOrder__c == null) {
+                    continue;
+                }
+                // Reconstruct the composite key from the existing record to find a match
+                String key = (existing.MessageVariantId__c.trim() + '|' + existing.ContentBlockOrder__c.longValue()).toLowerCase();
+                existingIds.put(key, existing.Id);
+            }
+        }
+        return existingIds;
+    }
+
+    private static CC_Message_Blocks_All__c toBlockRecord(Map<String, String> row) {
+        CC_Message_Blocks_All__c rec = new CC_Message_Blocks_All__c();
+        String variantId = row.get('messagevariantid');
+        String orderStr = row.get('contentblockorder');
+        
+        rec.MessageVariantId__c = variantId;
+        putNumber(rec, 'ContentBlockOrder__c', orderStr);
+        
+        // Fallback for Name field to ensure standard field is populated
+        putText(rec, 'Name', variantId + '-' + orderStr, 80); 
+        
+        putText(rec, 'MessageName__c', row.get('messagename'), 255);
+        putText(rec, 'MessageType__c', row.get('messagetype'), 255);
+        putText(rec, 'BlockType__c', row.get('blocktype'), 255);
+        putText(rec, 'ContentBlockPath__c', row.get('contentblockpath'), 255);
+        putText(rec, 'ContentBuilderAssetId__c', row.get('contentbuilderassetid'), 255);
+        putText(rec, 'ContentJson__c', row.get('contentjson'), 131072);
+        putText(rec, 'ContentJsonPart2__c', row.get('contentjsonpart2'), 131072);
+        putNumber(rec, 'MessageVariant__c', row.get('messagevariant'));
+        
+        return rec;
+    }
+
 }
