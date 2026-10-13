@@ -1,47 +1,52 @@
-# Salesforce DX retrieve (Client Activation Center)
+# Make the Salesforce org the source of truth
 
-Use these commands from a machine where the Salesforce CLI is installed and your sandbox or scratch org is authorized (for example Code Builder).
+Git `main` and the org have diverged. To reset the repo to **what is deployed now**, run the snapshot on a machine that is already logged into that org (Code Builder). This cloud agent has the CLI but no authorized org, so it cannot retrieve or replace `main` itself.
 
-## Option A — Retrieve everything this repo tracks (recommended)
-
-Updates local files under `force-app` with whatever is currently deployed in the org:
+## Replace `force-app` with the org
 
 ```bash
-sf org login web --alias cac-dev --set-default
-sf project retrieve start --source-dir force-app --target-org cac-dev
+cd /home/codebuilder/client-activation-center
+git fetch origin
+git checkout main
+git pull origin main
+chmod +x scripts/snapshot-org-to-force-app.sh
+./scripts/snapshot-org-to-force-app.sh <org-alias-or-username>
 ```
 
-Compare the result with git to see org vs repo drift (missing wizard dates, old LWC bundles, and so on).
+The script:
 
-## Option B — Retrieve using the generated manifest
+1. Builds a manifest of **unmanaged** metadata currently in the org.
+2. Moves the existing `force-app` aside and retrieves into a new `force-app`.
+3. Clears `Client_Secret__c` if Marketing Cloud settings come back with a secret.
+4. Stops before commit so you can review the diff.
 
-`client-activation-center-retrieve.xml` lists metadata types and members that exist in this repository (Apex, LWC, objects, permission sets, tabs, flexipages, MCE settings, and related pieces).
+Then publish that snapshot as `main`:
 
 ```bash
-sf project retrieve start --manifest manifest/client-activation-center-retrieve.xml --target-org cac-dev
+git add -A force-app manifest
+git status
+git commit -m "chore: replace force-app with the deployed org snapshot"
+git push origin main
 ```
 
-## Option C — Quick check for the two reported UI issues
+That push is a normal update of `main`. It replaces Salesforce source with the org. It does not delete `core-sf-channel-templates` or other non-metadata files, because those are not in the org.
+
+## What “everything deployed” includes
+
+`sf project generate manifest --from-org` lists unmanaged metadata and skips managed and unlocked packages. The script also skips Settings and Profiles: those are org-wide, very large, and not the Client Activation Center source.
+
+After the snapshot, the org’s copy of the wizard and the Campaign tab is what `main` will contain. If From/To or the tier-modal comment differ from an older git branch, the org version wins.
+
+## Narrower retrieve
+
+`client-activation-center-retrieve.xml` lists only the metadata types already in this repository. Use it to refresh those members without dropping files the org does not return:
 
 ```bash
-sf project retrieve start \
-  --metadata LightningComponentBundle:agentforceCampaignWizard \
-  --metadata LightningComponentBundle:marketingDictionaryCampaignTab \
-  --target-org cac-dev
+sf project retrieve start --manifest manifest/client-activation-center-retrieve.xml --target-org <alias>
 ```
 
-If the retrieved wizard bundle has no `From` / `To` date inputs under Campaign Name, the org is behind `main` — deploy from git rather than retrieve.
-
-If the campaign tab HTML still contains bare `TIER MODAL` text outside a comment, retrieve will show the broken template until you deploy the fix from `main`.
-
-## Notes
-
-- Retrieve **overwrites** local metadata with org versions. Commit or stash local changes first.
-- Custom metadata secrets (for example MCE client secret) may come back empty or omitted depending on org values; do not commit secrets.
-- Regenerate the manifest after adding new metadata under `force-app`:
+Regenerate that file after local metadata changes:
 
 ```bash
 python3 scripts/generate-retrieve-manifest.py
 ```
-
-(Or re-run the generation logic documented in the repo history if the script is not present yet.)
