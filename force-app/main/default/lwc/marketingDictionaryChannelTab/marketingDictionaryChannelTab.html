@@ -89,7 +89,7 @@
                         <lightning-tabset active-tab-value={activeChannel.activeTab} onactive={handleTabActive} data-channelid={activeChannel.Id}>
 
                             <!-- Cooldown Rules tab -->
-                            <lightning-tab value="cooldown" label="Cooldown Rules" data-channelid={activeChannel.Id}>
+                            <lightning-tab value="cooldown" label="Cooldown Rules" data-channelid={activeChannel.Id} icon-name="utility:waits" size="x-small">
                                 <div class="tab-content slds-p-around_small">
                                     <div class="slds-grid slds-grid_vertical-align-center slds-m-bottom_x-small">
                                         <div class="slds-col"></div>
@@ -130,7 +130,7 @@
                             </lightning-tab>
 
                             <!-- Weekly Restrictions tab (per channel) -->
-                            <lightning-tab value="weekly" label="Weekly Restrictions" data-channelid={activeChannel.Id}>
+                            <lightning-tab value="weekly" label="Weekly Restrictions" data-channelid={activeChannel.Id} icon-name="utility:restriction_policy" size="x-small">
                                 <div class="tab-content slds-p-around_small">
                                     <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
                                         Define which days of the week this channel may send, and optional hour-range blocks.
@@ -186,7 +186,7 @@
                             </lightning-tab>
 
                             <!-- Master templates, same for every channel including Banner -->
-                            <lightning-tab value="templates" label={activeChannel.templatesTabLabel}>
+                            <lightning-tab value="templates" label={activeChannel.templatesTabLabel} icon-name="utility:insert_template" size="x-small">
                                 <div class="tab-content slds-p-around_small">
                                     <c-channel-template-manager
                                         channel-id={activeChannel.Id}
@@ -199,7 +199,7 @@
                             <template lwc:if={activeChannel.isBanner}>
 
                                 <!-- Placeholders tab -->
-                                <lightning-tab value="placements" label="Placeholders">
+                                <lightning-tab value="placements" label="Placeholders" icon-name="utility:drag" size="x-small">
                                     <div class="tab-content slds-p-around_small">
                                         <div class="tab-toolbar slds-m-bottom_x-small">
                                             <lightning-input
@@ -281,7 +281,7 @@
                                 </lightning-tab>
 
                                 <!-- Intents tab -->
-                                <lightning-tab value="intents" label="Intents">
+                                <lightning-tab value="intents" label="Intents" icon-name="utility:target" size="x-small">
                                     <div class="tab-content slds-p-around_small">
                                         <div class="tab-toolbar slds-m-bottom_x-small">
                                             <lightning-input
