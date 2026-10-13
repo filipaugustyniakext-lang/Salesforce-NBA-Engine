@@ -27,7 +27,8 @@ if ! command -v sf >/dev/null 2>&1; then
 fi
 
 if [[ -n "$(git status --porcelain)" ]]; then
-  echo "Working tree is not clean. Commit or stash before snapshotting the org." >&2
+  echo "Working tree is not clean (including staged files). Commit or stash first, then re-run." >&2
+  git status --short >&2
   exit 1
 fi
 
