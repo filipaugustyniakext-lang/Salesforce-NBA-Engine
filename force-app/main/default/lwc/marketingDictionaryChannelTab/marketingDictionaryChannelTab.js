@@ -70,8 +70,11 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
     @track _intentPasteTargetId = '';
     @track isSaving = false;
     @track _chState = {}; // keyed by channel Id
+    @track _showTabScrollPrev = false;
+    @track _showTabScrollNext = false;
 
     _wiredResult;
+    _tabNavScrollEl;
     _rawChannels = [];
     isLoading = true;
     _activeChannelId = null;
@@ -139,9 +142,11 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
             }));
             const weekDays = this._buildWeekDays(ch.Blackout_Day_Rules__r || [], ch.Id);
             const tabMenuItems = this._buildTabMenuItems(ch, state.activeTab);
+            const settingsTabs = this._buildSettingsTabs(ch, state.activeTab);
             return {
                 ...ch,
                 tabMenuItems,
+                settingsTabs,
                 Is_Active__c: ch.Is_Active__c !== false,
                 Channel_Cooldowns__r: cooldowns.length ? cooldowns : null,
                 weekDays,
@@ -168,20 +173,28 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
         });
     }
 
-    _buildTabMenuItems(ch, activeTab) {
-        const items = [
-            { value: 'cooldown', label: 'Cooldown Rules' },
-            { value: 'weekly', label: 'Weekly Restrictions' },
-            { value: 'templates', label: `${ch.Name} Templates` }
+    _buildSettingsTabs(ch, activeTab) {
+        const tabs = [
+            { value: 'cooldown', label: 'Cooldown Rules', iconName: 'utility:waits' },
+            { value: 'weekly', label: 'Weekly Restrictions', iconName: 'utility:restriction_policy' },
+            { value: 'templates', label: `${ch.Name} Templates`, iconName: 'utility:insert_template' }
         ];
         if (ch.Channel_Type__c === 'Banner') {
-            items.push(
-                { value: 'placements', label: 'Placeholders' },
-                { value: 'intents', label: 'Intents' }
+            tabs.push(
+                { value: 'placements', label: 'Placeholders', iconName: 'utility:drag' },
+                { value: 'intents', label: 'Intents', iconName: 'utility:target' }
             );
         }
-        return items.map(item => ({
-            ...item,
+        return tabs.map(tab => ({
+            ...tab,
+            navClass: `ch-tab-nav__btn${tab.value === activeTab ? ' ch-tab-nav__btn_active' : ''}`
+        }));
+    }
+
+    _buildTabMenuItems(ch, activeTab) {
+        return this._buildSettingsTabs(ch, activeTab).map(item => ({
+            value: item.value,
+            label: item.label,
             checked: item.value === activeTab
         }));
     }
@@ -279,6 +292,51 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
         this._chState = { ...this._chState, [channelId]: { ...current, ...patch } };
     }
 
+    get isChannelTabCooldown() {
+        return this.activeChannel?.activeTab === 'cooldown';
+    }
+    get isChannelTabWeekly() {
+        return this.activeChannel?.activeTab === 'weekly';
+    }
+    get isChannelTabTemplates() {
+        return this.activeChannel?.activeTab === 'templates';
+    }
+    get isChannelTabPlacements() {
+        return this.activeChannel?.activeTab === 'placements';
+    }
+    get isChannelTabIntents() {
+        return this.activeChannel?.activeTab === 'intents';
+    }
+    get showTabScrollPrev() {
+        return this._showTabScrollPrev;
+    }
+    get showTabScrollNext() {
+        return this._showTabScrollNext;
+    }
+
+    renderedCallback() {
+        const scrollEl = this.template.querySelector('.ch-tab-nav__scroll');
+        if (scrollEl !== this._tabNavScrollEl) {
+            this._tabNavScrollEl = scrollEl;
+        }
+        if (scrollEl) {
+            this._updateTabNavOverflow();
+        }
+    }
+
+    _updateTabNavOverflow() {
+        const el = this._tabNavScrollEl;
+        if (!el) {
+            this._showTabScrollPrev = false;
+            this._showTabScrollNext = false;
+            return;
+        }
+        const { scrollLeft, scrollWidth, clientWidth } = el;
+        const overflow = scrollWidth > clientWidth + 2;
+        this._showTabScrollPrev = overflow && scrollLeft > 2;
+        this._showTabScrollNext = overflow && scrollLeft + clientWidth < scrollWidth - 2;
+    }
+
     get activeChannel() {
         if (!this._activeChannelId) return null;
         return this.channels.find(ch => ch.Id === this._activeChannelId) || null;
@@ -359,10 +417,26 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
 
     // ── Tab handler ──────────────────────────────────────────────────────
 
-    handleTabActive(event) {
-        const channelId = event.currentTarget.dataset.channelid;
-        const tabValue = event.target.value;
-        if (channelId) this._updateChState(channelId, { activeTab: tabValue });
+    handleSettingsTabClick(event) {
+        const tabValue = event.currentTarget.dataset.value;
+        const channelId = this.activeChannel?.Id;
+        if (channelId && tabValue) {
+            this._updateChState(channelId, { activeTab: tabValue });
+            // eslint-disable-next-line @lwc/lwc/no-async-operation
+            requestAnimationFrame(() => this._updateTabNavOverflow());
+        }
+    }
+
+    handleTabNavScroll() {
+        this._updateTabNavOverflow();
+    }
+
+    handleTabNavScrollPrev() {
+        this._tabNavScrollEl?.scrollBy({ left: -140, behavior: 'smooth' });
+    }
+
+    handleTabNavScrollNext() {
+        this._tabNavScrollEl?.scrollBy({ left: 140, behavior: 'smooth' });
     }
 
     handleTabMenuSelect(event) {
@@ -370,6 +444,8 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
         const channelId = this.activeChannel?.Id;
         if (channelId && tabValue) {
             this._updateChState(channelId, { activeTab: tabValue });
+            // eslint-disable-next-line @lwc/lwc/no-async-operation
+            requestAnimationFrame(() => this._updateTabNavOverflow());
         }
     }
 
