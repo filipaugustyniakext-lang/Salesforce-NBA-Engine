@@ -216,14 +216,11 @@
     </layoutSections>
     <relatedLists>
         <fields>NAME</fields>
-        <fields>Offer__c</fields>
-        <relatedList>Campaign_Offers__r</relatedList>
+        <relatedList>Campaign_Offer__c.Campaign__c</relatedList>
     </relatedLists>
     <relatedLists>
         <fields>NAME</fields>
-        <fields>Message_Variant__c</fields>
-        <fields>Is_Eligible__c</fields>
-        <relatedList>Campaign_Copy_Variants__r</relatedList>
+        <relatedList>Campaign_Copy_Variant__c.Campaign__c</relatedList>
     </relatedLists>
     <relatedLists>
         <fields>MEMBER_TYPE</fields>
