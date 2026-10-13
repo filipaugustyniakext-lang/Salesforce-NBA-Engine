@@ -17,11 +17,15 @@
 
                 <!-- STANDARD ACTIVATION CAMPAIGN WORKSPACE (MULTI-STEP) -->
                     <!-- SLDS Progress Indicator (stable blueprint; not beta lightning-progress-indicator) -->
-                    <div class="slds-progress">
+                    <div class="slds-progress wizard-progress">
                         <ol class="slds-progress__list">
                             <template for:each={wizardSteps} for:item="step">
                                 <li key={step.value} class={step.itemClass}>
-                                    
+                                    <!-- Step label above track line (SLDS default puts content below marker) -->
+                                    <div class="slds-progress__item_content wizard-step-label">
+                                        {step.label}
+                                    </div>
+
                                     <!-- Completed Step -->
                                     <template lwc:if={step.isComplete}>
                                         <button type="button"
@@ -54,12 +58,6 @@
                                             <span class="slds-assistive-text">{step.assistiveText}</span>
                                         </div>
                                     </template>
-                                    
-                                    <!-- Step Label -->
-                                    <div class="slds-progress__item_content slds-grid slds-grid_align-spread">
-                                        {step.label}
-                                    </div>
-                                    
                                 </li>
                             </template>
                         </ol>
