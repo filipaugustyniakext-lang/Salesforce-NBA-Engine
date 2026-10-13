@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<MarketSegmentDefinition xmlns="http://soap.sforce.com/2006/04/metadata">
-    <includeCriteria>{&quot;type&quot;:&quot;TextComparison&quot;,&quot;path&quot;:null,&quot;joinPath&quot;:null,&quot;subject&quot;:{&quot;objectApiName&quot;:&quot;GCP_EXTERNAL_CUSTOMER_DMO__dlm&quot;,&quot;fieldApiName&quot;:&quot;cstmr_id__c&quot;},&quot;selfReference&quot;:false,&quot;operator&quot;:&quot;in&quot;,&quot;subjectFieldDataType&quot;:&quot;TEXT&quot;,&quot;subjectFieldBusinessType&quot;:&quot;TEXT&quot;,&quot;subjectFieldSourceType&quot;:&quot;DIRECT&quot;,&quot;values&quot;:[&quot;70264f6c-a02f-4328-8913-81785a22be38&quot;,&quot;93e51ad4-4ca9-4103-86bc-7383ff7a4056&quot;,&quot;be0a194b-d738-4d1d-8928-4762d90697b4&quot;,&quot;8157d3a8-7908-41fe-82b8-61c6c3e899a8&quot;,&quot;be727137-3f7e-46dd-a5af-e45c6c3560ed&quot;,&quot;41d8d4cc-3f44-4903-ae8a-5a824d34c8f7&quot;]}</includeCriteria>
-    <masterLabel>Test_PUSH_Customer</masterLabel>
-    <segmentOn>GCP_EXTERNAL_CUSTOMER_DMO__dlm</segmentOn>
-    <segmentType>UI</segmentType>
-</MarketSegmentDefinition>

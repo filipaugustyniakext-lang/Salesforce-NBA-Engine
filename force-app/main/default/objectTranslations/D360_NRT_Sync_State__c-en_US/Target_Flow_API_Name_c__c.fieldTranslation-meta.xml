@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<CustomFieldTranslation xmlns="http://soap.sforce.com/2006/04/metadata">
-    <label><!-- Target Flow API Name --></label>
-    <name>Target_Flow_API_Name_c__c</name>
-</CustomFieldTranslation>

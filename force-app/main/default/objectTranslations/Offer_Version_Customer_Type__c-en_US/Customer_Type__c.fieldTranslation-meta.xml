@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<CustomFieldTranslation xmlns="http://soap.sforce.com/2006/04/metadata">
-    <help><!-- Select the customer-type audience (a Marketing Dictionary Customer Type entry, e.g. Retail or SME) this offer version targets. --></help>
-    <label><!-- Customer Type --></label>
-    <name>Customer_Type__c</name>
-    <relationshipLabel><!-- Offer Version Customer Types --></relationshipLabel>
-</CustomFieldTranslation>

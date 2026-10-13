@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<DataSrcDataModelFieldMap xmlns="http://soap.sforce.com/2006/04/metadata">
-    <filterApplied>false</filterApplied>
-    <masterLabel>Snapshot_D360_Sandbox_12052026DLO_UC1_FunnelAbandonment_EXIT_UATprospect_idDMO_UC1_FunnelAbandonment_EXIT_UATprospect_idBfpXlaJIUBRjnda</masterLabel>
-    <sourceField>DLO_UC1_FunnelAbandonment_EXIT_UAT.prospect_id__c</sourceField>
-    <targetField>DMO_UC1_FunnelAbandonment_EXIT_UAT__dlm.prospect_id__c</targetField>
-    <templateVersion>1</templateVersion>
-    <versionNumber>1.0</versionNumber>
-</DataSrcDataModelFieldMap>

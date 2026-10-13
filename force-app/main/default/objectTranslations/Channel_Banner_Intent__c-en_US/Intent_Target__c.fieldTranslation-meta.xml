@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<CustomFieldTranslation xmlns="http://soap.sforce.com/2006/04/metadata">
-    <help><!-- Select or create the target app view this intent should open. --></help>
-    <label><!-- Intent Target --></label>
-    <name>Intent_Target__c</name>
-    <relationshipLabel><!-- Banner Intents --></relationshipLabel>
-</CustomFieldTranslation>

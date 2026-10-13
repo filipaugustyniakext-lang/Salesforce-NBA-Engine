@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<CustomFieldTranslation xmlns="http://soap.sforce.com/2006/04/metadata">
-    <label><!-- Source Model ID Column --></label>
-    <name>Source_Model_Id_Column__c</name>
-</CustomFieldTranslation>

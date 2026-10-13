@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<CustomFieldTranslation xmlns="http://soap.sforce.com/2006/04/metadata">
-    <help><!-- For Picklist parameters, enter one option per line. These become the dropdown choices shown to marketers in the offer wizard. --></help>
-    <label><!-- Picklist Values --></label>
-    <name>Picklist_Values__c</name>
-</CustomFieldTranslation>

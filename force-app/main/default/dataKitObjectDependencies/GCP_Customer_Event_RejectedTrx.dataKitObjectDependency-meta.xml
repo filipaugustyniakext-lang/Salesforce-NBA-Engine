@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<DataKitObjectDependency xmlns="http://soap.sforce.com/2006/04/metadata">
-    <dataPackageKitDef>UC4_TriggeredEvents_deploy</dataPackageKitDef>
-    <developerName>GCP_Customer_Event_RejectedTrx</developerName>
-    <masterLabel>GCP_Customer_Event_RejectedTrx__dll</masterLabel>
-    <sourceObject>GCP_Customer_Event_RejectedTrx</sourceObject>
-    <sourceObjectType>DataSourceObject</sourceObjectType>
-    <targetObject>GCP_Customer_Event_RejectedTrx</targetObject>
-</DataKitObjectDependency>

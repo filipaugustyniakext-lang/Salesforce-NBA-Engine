@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<ExtlClntAppOauthSettings xmlns="http://soap.sforce.com/2006/04/metadata">
-    <commaSeparatedOauthScopes>Api, RefreshToken, CDPIngest, CDPProfile, Interaction</commaSeparatedOauthScopes>
-    <externalClientApplication>UniCredit_Mobile_Backend</externalClientApplication>
-    <isFirstPartyAppEnabled>false</isFirstPartyAppEnabled>
-    <label>UniCredit_Mobile_Backend_oauth</label>
-    <oauthLink>00Dds000003DP2G:888ds000000Krcr</oauthLink>
-</ExtlClntAppOauthSettings>

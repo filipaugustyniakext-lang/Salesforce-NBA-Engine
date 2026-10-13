@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<CustomFieldTranslation xmlns="http://soap.sforce.com/2006/04/metadata">
-    <help><!-- Check if this parameter should appear in the offer wizard for the selected product family. --></help>
-    <label><!-- Visible --></label>
-    <name>Is_Visible__c</name>
-</CustomFieldTranslation>

@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<DataSrcDataModelFieldMap xmlns="http://soap.sforce.com/2006/04/metadata">
-    <filterApplied>false</filterApplied>
-    <masterLabel>Snapshot_D360_Sandbox_12052026UAT_GCP_Big_Querycstmr_mob_phn_numGCP_EXTERNAL_CUSTOMER_DMOcstmr_mob_phn_numLBivGcjSpIITgBf</masterLabel>
-    <sourceField>GCP_CUSTOMER_DSO1.cstmr_mob_phn_num__c</sourceField>
-    <targetField>GCP_EXTERNAL_CUSTOMER_DMO__dlm.cstmr_mob_phn_num__c</targetField>
-    <templateVersion>1</templateVersion>
-    <versionNumber>1.0</versionNumber>
-</DataSrcDataModelFieldMap>

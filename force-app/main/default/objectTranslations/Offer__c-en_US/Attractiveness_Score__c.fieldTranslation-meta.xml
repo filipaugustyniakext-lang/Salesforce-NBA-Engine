@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<CustomFieldTranslation xmlns="http://soap.sforce.com/2006/04/metadata">
-    <help><!-- System-calculated from the offer parameters and the product family weighting. Higher (closer to 1) is more attractive. --></help>
-    <label><!-- Attractiveness Score --></label>
-    <name>Attractiveness_Score__c</name>
-</CustomFieldTranslation>

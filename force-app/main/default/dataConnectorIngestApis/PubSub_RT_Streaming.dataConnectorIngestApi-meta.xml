@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<DataConnectorIngestApi xmlns="http://soap.sforce.com/2006/04/metadata">
-    <masterLabel>PubSub_RT_Streaming</masterLabel>
-    <sourceName>PubSub_RT_Streaming</sourceName>
-</DataConnectorIngestApi>

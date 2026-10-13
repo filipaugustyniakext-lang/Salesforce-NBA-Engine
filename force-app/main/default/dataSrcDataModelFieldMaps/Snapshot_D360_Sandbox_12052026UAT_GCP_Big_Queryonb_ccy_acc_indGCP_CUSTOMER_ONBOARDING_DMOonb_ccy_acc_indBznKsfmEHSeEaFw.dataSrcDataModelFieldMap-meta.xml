@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<DataSrcDataModelFieldMap xmlns="http://soap.sforce.com/2006/04/metadata">
-    <filterApplied>false</filterApplied>
-    <masterLabel>Snapshot_D360_Sandbox_12052026UAT_GCP_Big_Queryonb_ccy_acc_indGCP_CUSTOMER_ONBOARDING_DMOonb_ccy_acc_indBznKsfmEHSeEaFw</masterLabel>
-    <sourceField>GCP_CUSTOMER_ONBOARDING_DSO1.onb_ccy_acc_ind__c</sourceField>
-    <targetField>GCP_CUSTOMER_ONBOARDING_DMO__dlm.onb_ccy_acc_ind__c</targetField>
-    <templateVersion>1</templateVersion>
-    <versionNumber>1.0</versionNumber>
-</DataSrcDataModelFieldMap>

@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<DataSrcDataModelFieldMap xmlns="http://soap.sforce.com/2006/04/metadata">
-    <filterApplied>false</filterApplied>
-    <masterLabel>Snapshot_D360_Sandbox_12052026UAT_GCP_Big_Queryrecord_modification_dateGCP_CUSTOMER_ONBOARDING_DMOrecord_modification_dateVdUVErbgmkwSacw</masterLabel>
-    <sourceField>GCP_CUSTOMER_ONBOARDING_DSO1.record_modification_date__c</sourceField>
-    <targetField>GCP_CUSTOMER_ONBOARDING_DMO__dlm.record_modification_date__c</targetField>
-    <templateVersion>1</templateVersion>
-    <versionNumber>1.0</versionNumber>
-</DataSrcDataModelFieldMap>

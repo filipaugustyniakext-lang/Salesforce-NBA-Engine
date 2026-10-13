@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<CustomFieldTranslation xmlns="http://soap.sforce.com/2006/04/metadata">
-    <help><!-- Assigned automatically as the next available number. It does not change after the model is created. --></help>
-    <label><!-- Model ID --></label>
-    <name>Model_Id__c</name>
-</CustomFieldTranslation>

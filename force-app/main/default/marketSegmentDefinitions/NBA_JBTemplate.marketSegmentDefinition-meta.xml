@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<MarketSegmentDefinition xmlns="http://soap.sforce.com/2006/04/metadata">
-    <masterLabel>NBA_JBTemplate</masterLabel>
-    <segmentOn>ssot__CampaignMember__dlm</segmentOn>
-    <segmentType>UI</segmentType>
-</MarketSegmentDefinition>

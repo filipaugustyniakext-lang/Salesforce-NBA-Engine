@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<CustomFieldTranslation xmlns="http://soap.sforce.com/2006/04/metadata">
-    <help><!-- Select the model definition this configuration applies to. --></help>
-    <label><!-- Model Definition --></label>
-    <name>Scoring_Model__c</name>
-    <relationshipLabel><!-- Scoring Model Settings --></relationshipLabel>
-</CustomFieldTranslation>

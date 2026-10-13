@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<DataSrcDataModelFieldMap xmlns="http://soap.sforce.com/2006/04/metadata">
-    <filterApplied>false</filterApplied>
-    <masterLabel>Snapshot_D360_Sandbox_12052026UAT_GCP_Big_Queryprofile_tpGCP_EXTERNAL_CUSTOMER_DMOprofile_tpesPBaBYmcbfjtAN</masterLabel>
-    <sourceField>GCP_CUSTOMER_DSO1.profile_tp__c</sourceField>
-    <targetField>GCP_EXTERNAL_CUSTOMER_DMO__dlm.profile_tp__c</targetField>
-    <templateVersion>1</templateVersion>
-    <versionNumber>1.0</versionNumber>
-</DataSrcDataModelFieldMap>

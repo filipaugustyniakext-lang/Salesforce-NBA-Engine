@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<CustomFieldTranslation xmlns="http://soap.sforce.com/2006/04/metadata">
-    <help><!-- Select the Family of Needs that this Product Family belongs to. --></help>
-    <label><!-- Related Family of Needs --></label>
-    <name>Related_Family_of_Needs__c</name>
-    <relationshipLabel><!-- Product Families --></relationshipLabel>
-</CustomFieldTranslation>

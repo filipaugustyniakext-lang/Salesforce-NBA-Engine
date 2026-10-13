@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
-    <fullName>Cooldown_Days_Must_Be_Positive</fullName>
-    <active>true</active>
-    <errorConditionFormula>Cooldown_Days__c &lt; 0</errorConditionFormula>
-    <errorDisplayField>Cooldown_Days__c</errorDisplayField>
-    <errorMessage>Cooldown Days must be an integer greater than or equal to 0.</errorMessage>
-</ValidationRule>

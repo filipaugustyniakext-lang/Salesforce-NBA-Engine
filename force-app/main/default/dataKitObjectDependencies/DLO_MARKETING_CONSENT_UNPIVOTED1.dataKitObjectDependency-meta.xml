@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<DataKitObjectDependency xmlns="http://soap.sforce.com/2006/04/metadata">
-    <dataPackageKitDef>Snapshot_D360_Sandbox_12052026</dataPackageKitDef>
-    <developerName>DLO_MARKETING_CONSENT_UNPIVOTED1</developerName>
-    <masterLabel>DLO_MARKETING_CONSENT_UNPIVOTED__dll</masterLabel>
-    <sourceObject>DLO_MARKETING_CONSENT_UNPIVOTED</sourceObject>
-    <sourceObjectType>DataSourceObject</sourceObjectType>
-    <targetObject>DLO_MARKETING_CONSENT_UNPIVOTED1</targetObject>
-</DataKitObjectDependency>

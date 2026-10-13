@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<DataSrcDataModelFieldMap xmlns="http://soap.sforce.com/2006/04/metadata">
-    <filterApplied>false</filterApplied>
-    <masterLabel>Snapshot_D360_Sandbox_12052026UAT_GCP_Big_Queryinsert_job_idGCP_CUSTOMER_ONBOARDING_DMOinsert_job_idLVlHWcezyeEIytp</masterLabel>
-    <sourceField>GCP_CUSTOMER_ONBOARDING_DSO1.insert_job_id__c</sourceField>
-    <targetField>GCP_CUSTOMER_ONBOARDING_DMO__dlm.insert_job_id__c</targetField>
-    <templateVersion>1</templateVersion>
-    <versionNumber>1.0</versionNumber>
-</DataSrcDataModelFieldMap>

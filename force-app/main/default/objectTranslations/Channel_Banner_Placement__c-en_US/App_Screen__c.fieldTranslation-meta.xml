@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<CustomFieldTranslation xmlns="http://soap.sforce.com/2006/04/metadata">
-    <help><!-- Enter the app screen identifier, e.g. HOME_PAGE or CARD_DETAILS. --></help>
-    <label><!-- App Screen --></label>
-    <name>App_Screen__c</name>
-</CustomFieldTranslation>

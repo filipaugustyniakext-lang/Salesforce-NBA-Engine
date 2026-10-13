@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<CustomFieldTranslation xmlns="http://soap.sforce.com/2006/04/metadata">
-    <help><!-- Until when the record is blocked from receiving communication. Leave empty if indefinitely. --></help>
-    <label><!-- Valid To (optional) --></label>
-    <name>Valid_To__c</name>
-</CustomFieldTranslation>

@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<MktCalcInsightObjectDef xmlns="http://soap.sforce.com/2006/04/metadata">
-    <creationType>System</creationType>
-    <description>Stores pre computed counts for each profile-Dimension combination</description>
-    <expression>SELECT CG_Audience_Qualified__dlm.Profile_Id__c as profile_id__c,CG_Audience_Qualified__dlm.Profile_Id_Kq__c as profile_id_kq__c,CG_Audience_Qualified__dlm.Dimension_0_Id__c as dimension_0_id__c,CG_Audience_Qualified__dlm.Dimension_1_Id__c as dimension_1_id__c,CG_Audience_Qualified__dlm.Dimension_2_Id__c as dimension_2_id__c, count(CG_Audience_Qualified__dlm.Profile_Id__c) as profile_count__c from CG_Audience_Qualified__dlm WHERE YEAR(CG_Audience_Qualified__dlm.Publish_Timestamp__c) = YEAR(current_date()) AND MONTH(CG_Audience_Qualified__dlm.Publish_Timestamp__c) = MONTH(current_date()) AND DAY(CG_Audience_Qualified__dlm.Publish_Timestamp__c) &lt;= DAY(current_date())-1  GROUP BY profile_id__c,profile_id_kq__c,dimension_0_id__c,dimension_1_id__c,dimension_2_id__c</expression>
-    <masterLabel>Cg_Monthly_Count</masterLabel>
-</MktCalcInsightObjectDef>

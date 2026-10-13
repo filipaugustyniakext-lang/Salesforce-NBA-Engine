@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<CustomFieldTranslation xmlns="http://soap.sforce.com/2006/04/metadata">
-    <label><!-- Source Template --></label>
-    <name>Source_Template__c</name>
-    <relationshipLabel><!-- CC_Message_Metadata --></relationshipLabel>
-</CustomFieldTranslation>

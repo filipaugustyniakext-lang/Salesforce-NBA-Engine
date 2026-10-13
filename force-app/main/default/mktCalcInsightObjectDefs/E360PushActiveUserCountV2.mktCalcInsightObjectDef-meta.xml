@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<MktCalcInsightObjectDef xmlns="http://soap.sforce.com/2006/04/metadata">
-    <creationType>Custom</creationType>
-    <expression>SELECT APPROX_COUNT_DISTINCT(ssot__DeviceApplicationEngagement__dlm.ssot__DeviceId__c) AS device_count__c, ssot__DeviceApplicationEngagement__dlm.ssot__SoftwareApplicationId__c AS app_id__c FROM ssot__DeviceApplicationEngagement__dlm WHERE ( (ssot__DeviceApplicationEngagement__dlm.ssot__EngagementDateTm__c &gt;= date_sub(current_date(), 30)) AND ssot__DeviceApplicationEngagement__dlm.ssot__EngagementChannelActionId__c = &apos;APP_OPEN&apos; ) GROUP BY app_id__c</expression>
-    <masterLabel>E360PushActiveUserCountV2</masterLabel>
-</MktCalcInsightObjectDef>

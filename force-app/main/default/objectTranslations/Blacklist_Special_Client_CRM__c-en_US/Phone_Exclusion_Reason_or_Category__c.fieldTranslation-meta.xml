@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<CustomFieldTranslation xmlns="http://soap.sforce.com/2006/04/metadata">
-    <label><!-- Phone Exclusion Reason or Category --></label>
-    <name>Phone_Exclusion_Reason_or_Category__c</name>
-    <relationshipLabel><!-- Blacklist Special Client CRM (Phone Exclusion Reason or Category) --></relationshipLabel>
-</CustomFieldTranslation>

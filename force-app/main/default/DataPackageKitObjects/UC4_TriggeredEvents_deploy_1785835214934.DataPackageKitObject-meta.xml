@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<DataPackageKitObject xmlns="http://soap.sforce.com/2006/04/metadata">
-    <masterLabel>UC4_TriggeredEvents_deploy</masterLabel>
-    <parentDataPackageKitDefinitionName>UC4_TriggeredEvents_deploy</parentDataPackageKitDefinitionName>
-    <referenceObjectName>DA_PL_UC4_Customer_Event_RejectedTrx_UAT</referenceObjectName>
-    <referenceObjectType>DataKitObjectTemplate</referenceObjectType>
-</DataPackageKitObject>

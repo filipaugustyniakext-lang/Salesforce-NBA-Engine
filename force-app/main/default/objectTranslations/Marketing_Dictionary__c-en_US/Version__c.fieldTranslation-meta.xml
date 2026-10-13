@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<CustomFieldTranslation xmlns="http://soap.sforce.com/2006/04/metadata">
-    <help><!-- Read-only. Set automatically when creating a new model or a new version. --></help>
-    <label><!-- Version --></label>
-    <name>Version__c</name>
-</CustomFieldTranslation>

@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<CustomFieldTranslation xmlns="http://soap.sforce.com/2006/04/metadata">
-    <help><!-- Select the Model Group. Only Scoring Model Group dictionary entries should be selected. --></help>
-    <label><!-- Scoring Model Group --></label>
-    <name>Scoring_Model_Group_Dict__c</name>
-    <relationshipLabel><!-- Scoring Models (Group) --></relationshipLabel>
-</CustomFieldTranslation>

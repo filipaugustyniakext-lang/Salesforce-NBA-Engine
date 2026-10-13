@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<CustomFieldTranslation xmlns="http://soap.sforce.com/2006/04/metadata">
-    <help><!-- Select the offer parameter definition this product-family rule applies to. --></help>
-    <label><!-- Offer Attribute --></label>
-    <name>Offer_Attribute__c</name>
-    <relationshipLabel><!-- Offer Attribute Rules --></relationshipLabel>
-</CustomFieldTranslation>

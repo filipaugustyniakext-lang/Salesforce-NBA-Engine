@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<ExternalDataConnector xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-    <dataConnectionStatus>Connected</dataConnectionStatus>
-    <dataConnectorConfiguration xsi:nil="true"/>
-    <dataConnectorType>SalesforceMarketingCloud</dataConnectorType>
-    <dataPlatform>Salesforce_Marketing_Cloud</dataPlatform>
-    <masterLabel>UniCredit S.A. Sandbox</masterLabel>
-</ExternalDataConnector>
