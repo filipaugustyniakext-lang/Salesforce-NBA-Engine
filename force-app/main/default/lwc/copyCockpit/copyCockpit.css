@@ -472,35 +472,38 @@
 /* ─── Status badges / variant status picker ───────────────────────────────── */
 
 .cockpit-status-picker {
-    display: inline-flex;
-    align-items: center;
-    border-radius: 15rem;
-    padding: 0 0.2rem 0 0.55rem;
-    max-width: 100%;
-    font-size: 0.75rem;
-    font-weight: 700;
-    line-height: 1.25;
-    border: none;
+    font-size: var(--slds-c-badge-font-size, var(--slds-g-font-scale-neg-1));
+    font-weight: var(--slds-g-font-weight-4);
+    line-height: normal;
+    white-space: nowrap;
+    border-width: var(--slds-c-badge-sizing-border, var(--slds-g-sizing-border-1));
+    border-style: solid;
+    border-color: var(--slds-c-badge-color-border, transparent);
+    border-radius: var(--slds-c-badge-radius-border, var(--slds-g-radius-border-1));
+}
+
+.cockpit-status-picker .fix-slds-input_faux {
+    line-height: 1.2rem !important;
 }
 
 .cockpit-status-picker--draft {
-    background-color: #f3f3f3;
-    color: #3e3e3c;
+    color: var(--slds-g-color-palette-neutral-0);
+    background-color: var(--slds-g-color-palette-neutral-100)
 }
 
 .cockpit-status-picker--ready {
-    background-color: #d8e6fe;
-    color: #0176d3;
+    color: var(--slds-g-color-brand-base-15);
+    background-color: var(--slds-g-color-brand-base-90)
 }
 
 .cockpit-status-picker--published {
-    background-color: #2e844a;
-    color: #ffffff;
+    color: var(--slds-g-color-on-success-1);
+    background-color: var(--slds-g-color-success-base-95);
 }
 
 .cockpit-status-picker--archived {
-    background-color: #ecebea;
-    color: #706e6b;
+    color: var(--slds-g-color-palette-neutral-0);
+    background-color: var(--slds-g-color-palette-neutral-95)
 }
 
 .cockpit-variant-status-combobox {

@@ -314,7 +314,33 @@ public with sharing class CopyCockpitController {
                 'Status must be one of: Draft, Ready, Published, or Archived.'
             );
         }
+        CC_Message_Metadata__c existing = [
+            SELECT Status__c
+            FROM CC_Message_Metadata__c
+            WHERE Id = :recordId
+            LIMIT 1
+        ];
+        assertAllowedStatusTransition(existing.Status__c, status);
         update new CC_Message_Metadata__c(Id = recordId, Status__c = status);
+    }
+
+    @TestVisible
+    private static void assertAllowedStatusTransition(String fromStatus, String toStatus) {
+        String from = String.isBlank(fromStatus) ? 'Draft' : fromStatus.trim();
+        String to = toStatus.trim();
+        if (from == to) {
+            return;
+        }
+        if (from == 'Published' && to != 'Archived') {
+            throw new AuraHandledException(
+                'Published messages can only be changed to Archived.'
+            );
+        }
+        if (from == 'Archived' && to != 'Published') {
+            throw new AuraHandledException(
+                'Archived messages can only be restored to Published.'
+            );
+        }
     }
 
     @AuraEnabled

@@ -54,6 +54,57 @@ const VARIANT_STATUS_OPTIONS = [
     { value: 'Archived', label: 'Archived' },
 ];
 
+function allowedTargetStatuses(fromStatus) {
+    const from = (fromStatus || 'Draft').toLowerCase();
+    if (from === 'published') {
+        return ['Published', 'Archived'];
+    }
+    if (from === 'archived') {
+        return ['Archived', 'Published'];
+    }
+    return VARIANT_STATUS_OPTIONS.map(o => o.value);
+}
+
+function isStatusTransitionAllowed(fromStatus, toStatus) {
+    return allowedTargetStatuses(fromStatus).includes(toStatus);
+}
+
+function statusChangeNeedsConfirm(fromStatus, toStatus) {
+    const from = (fromStatus || '').toLowerCase();
+    const to = (toStatus || '').toLowerCase();
+    if (from === to) {
+        return false;
+    }
+    return to === 'published' || to === 'archived';
+}
+
+function buildStatusConfirmCopy(fromStatus, toStatus, variantName) {
+    const to = (toStatus || '').toLowerCase();
+    const label = variantName || 'this variant';
+    if (to === 'published') {
+        return {
+            title: 'Publish message variant?',
+            message:
+                `"${label}" will become available to the NBA engine content selection ` +
+                'and may be sent to customers. Do you want to continue?',
+        };
+    }
+    if (to === 'archived') {
+        return {
+            title: 'Archive message variant?',
+            message:
+                `"${label}" will no longer be available to active campaigns that use it ` +
+                'and will not be selected for customer activation. Do you want to continue?',
+        };
+    }
+    return { title: 'Change status?', message: 'Do you want to continue?' };
+}
+
+function variantStatusOptionsFor(fromStatus) {
+    const allowed = new Set(allowedTargetStatuses(fromStatus));
+    return VARIANT_STATUS_OPTIONS.filter(o => allowed.has(o.value));
+}
+
 const STATUS_FILTERS = [
     { value: 'All',       label: 'All' },
     { value: 'Draft',     label: 'Draft' },
@@ -206,6 +257,7 @@ function buildGroups(records, expandedSet, editingGroupName, selectedIds, versio
                 statusClass:        statusBadgeClass(v.Status__c),
                 statusPickerClass:  statusPickerClass(v.Status__c),
                 statusAriaLabel:    `Status for ${v.Name || 'variant'}`,
+                variantStatusOptions: variantStatusOptionsFor(v.Status__c),
                 validFromFmt:       fmtDate(v.Valid_From__c),
                 validToFmt:         fmtDate(v.Valid_To__c),
                 campaignName:       v.Campaign__r?.Name || null,
@@ -282,6 +334,9 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     @track deleteTargetId = null;
     @track deleteTargetName = '';
     @track deleteTargetVersion = null;
+
+    /** Pending status change when confirmation modal is open. */
+    @track _statusConfirmModal = null;
 
     @track isBulkDeleteModalOpen = false;
 
@@ -370,8 +425,20 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
 
     get searchTerm() { return this._searchTerm; }
 
-    get variantStatusOptions() {
-        return VARIANT_STATUS_OPTIONS;
+    get isStatusConfirmOpen() {
+        return !!this._statusConfirmModal;
+    }
+
+    get statusConfirmTitle() {
+        return this._statusConfirmModal?.title || 'Change status?';
+    }
+
+    get statusConfirmMessage() {
+        return this._statusConfirmModal?.message || '';
+    }
+
+    get statusConfirmProceedLabel() {
+        return this._statusConfirmModal?.proceedLabel || 'Confirm';
     }
 
     get statusFilterOptions() {
@@ -531,14 +598,69 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             return;
         }
         const previousStatus = prior.Status__c;
+
+        if (!isStatusTransitionAllowed(previousStatus, newStatus)) {
+            this._setMessageStatus(recordId, previousStatus);
+            this._showToast(
+                'Status change not allowed',
+                this._statusTransitionHint(previousStatus),
+                'warning'
+            );
+            return;
+        }
+
+        if (statusChangeNeedsConfirm(previousStatus, newStatus)) {
+            const copy = buildStatusConfirmCopy(previousStatus, newStatus, prior.Name);
+            this._setMessageStatus(recordId, previousStatus);
+            this._statusConfirmModal = {
+                recordId,
+                previousStatus,
+                newStatus,
+                title: copy.title,
+                message: copy.message,
+                proceedLabel: newStatus === 'Published' ? 'Publish' : 'Archive',
+            };
+            return;
+        }
+
+        this._applyStatusChange(recordId, previousStatus, newStatus);
+    }
+
+    handleStatusConfirmCancel() {
+        this._statusConfirmModal = null;
+    }
+
+    handleStatusConfirmProceed() {
+        const pending = this._statusConfirmModal;
+        if (!pending) {
+            return;
+        }
+        this._statusConfirmModal = null;
+        this._applyStatusChange(pending.recordId, pending.previousStatus, pending.newStatus);
+    }
+
+    _statusTransitionHint(fromStatus) {
+        const from = (fromStatus || '').toLowerCase();
+        if (from === 'published') {
+            return 'Published messages can only be moved to Archived.';
+        }
+        if (from === 'archived') {
+            return 'Archived messages can only be restored to Published.';
+        }
+        return 'That status change is not allowed for this variant.';
+    }
+
+    _setMessageStatus(recordId, status) {
         this._messages = this._messages.map(m =>
-            m.Id === recordId ? { ...m, Status__c: newStatus } : m
+            m.Id === recordId ? { ...m, Status__c: status } : m
         );
+    }
+
+    _applyStatusChange(recordId, previousStatus, newStatus) {
+        this._setMessageStatus(recordId, newStatus);
         updateMessageStatus({ recordId, status: newStatus })
             .catch(err => {
-                this._messages = this._messages.map(m =>
-                    m.Id === recordId ? { ...m, Status__c: previousStatus } : m
-                );
+                this._setMessageStatus(recordId, previousStatus);
                 this._showToast(
                     'Status update failed',
                     err?.body?.message || 'Could not update variant status.',

@@ -128,4 +128,21 @@ private class CopyCockpitSettingsTest {
         row = [SELECT Status__c FROM CC_Message_Metadata__c WHERE Id = :row.Id];
         System.assertEquals('Published', row.Status__c);
     }
+
+    @IsTest
+    static void updateMessageStatus_blocksPublishedToDraft() {
+        CC_Message_Metadata__c row = new CC_Message_Metadata__c(
+            Name = 'EMA_PL_StatusBlock_1',
+            Channel_Type__c = 'Email',
+            Status__c = 'Published'
+        );
+        insert row;
+
+        try {
+            CopyCockpitController.updateMessageStatus(row.Id, 'Draft');
+            System.assert(false, 'Expected Published → Draft to be rejected.');
+        } catch (AuraHandledException ex) {
+            System.assert(ex.getMessage().contains('Archived'));
+        }
+    }
 }
