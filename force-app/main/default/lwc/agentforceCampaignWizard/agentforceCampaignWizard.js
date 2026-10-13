@@ -943,43 +943,18 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     ];
 
     /**
-     * SLDS progress-indicator states per step:
-     * - slds-is-completed (+ marker_icon + success icon)
-     * - slds-is-active
-     * - default incomplete
-     * @see https://v1.lightningdesignsystem.com/components/progress-indicator/
+     * lightning-progress-indicator current-step must match a progress-step value (string).
+     * @see https://developer.salesforce.com/docs/platform/lightning-component-reference/guide/lightning-progress-step.html
      */
     get wizardSteps() {
-        return this.wizardStepData.map(step => {
-            const isComplete = step.value < this.currentStep;
-            const isActive = step.value === this.currentStep;
-            let itemClass = 'slds-progress__item wizard-progress__step';
-            let assistiveText = step.label;
-            if (isComplete) {
-                itemClass += ' slds-is-completed';
-                assistiveText = `${step.label} - Completed`;
-            } else if (isActive) {
-                itemClass += ' slds-is-active';
-                assistiveText = `${step.label} - Active`;
-            }
-            return {
-                ...step,
-                itemClass,
-                isComplete,
-                isActive,
-                assistiveText
-            };
-        });
+        return this.wizardStepData.map(step => ({
+            ...step,
+            progressValue: String(step.value)
+        }));
     }
 
-    get progressBarValue() {
-        const lastIndex = this.wizardStepData.length - 1;
-        if (lastIndex <= 0) return 0;
-        return Math.round(((this.currentStep - 1) / lastIndex) * 100);
-    }
-
-    get progressBarStyle() {
-        return `width: ${this.progressBarValue}%;`;
+    get wizardCurrentStepValue() {
+        return String(this.currentStep);
     }
 
     get isStep1() { return this.currentStep === 1; }
@@ -1191,13 +1166,27 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         }
     }
 
-    handleStepClick(event) {
-        const step = parseInt(event.currentTarget.dataset.step, 10);
-        if (!Number.isInteger(step) || step < 1) return;
-        // Only allow navigating back to completed / current steps.
-        if (step <= this.currentStep) {
-            this.currentStep = step;
+    handleWizardStepFocus(event) {
+        const index = parseInt(event.detail.index, 10);
+        if (Number.isNaN(index)) {
+            return;
+        }
+        const stepNum = index + 1;
+        if (stepNum < 1 || stepNum > this.wizardStepData.length) {
+            return;
+        }
+        // Only allow navigating back to completed or current steps (keyboard / focus).
+        if (stepNum <= this.currentStep && stepNum !== this.currentStep) {
+            this.currentStep = stepNum;
             this._onStepChanged();
+        }
+    }
+
+    handleWizardStepBlur(event) {
+        const stepIndex = event.detail.index;
+        // Optional: react when a step loses focus (see progress-step docs).
+        if (stepIndex === undefined || stepIndex === null) {
+            return;
         }
     }
 
