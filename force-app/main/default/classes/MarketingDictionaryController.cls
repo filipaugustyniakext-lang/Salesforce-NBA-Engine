@@ -363,6 +363,31 @@ public with sharing class MarketingDictionaryController {
     }
 
     /**
+     * Read-only campaign configuration grouped for the Marketing Campaign record page
+     * (mirrors wizard steps: properties, topic/offering, copy, scoring).
+     */
+    @AuraEnabled(cacheable=true)
+    public static Map<String, Object> getCampaignConfigurationView(Id campaignId) {
+        Map<String, Object> view = new Map<String, Object>();
+        if (campaignId == null) {
+            return view;
+        }
+
+        Campaign campaign = getCampaignById(campaignId);
+        if (campaign == null) {
+            return view;
+        }
+
+        CopyVariantQuery copyQuery = new CopyVariantQuery();
+        OfferQuery offerQuery = new OfferQuery();
+
+        view.put('campaign', campaign);
+        view.put('offers', offerQuery.fetchCampaignOffers(campaignId));
+        view.put('copyVariants', copyQuery.fetchCampaignCopyVariantDetails(campaignId));
+        return view;
+    }
+
+    /**
      * Returns a summary of each offer's active version for display in the Campaign
      * wizard summary step. One entry per offer that has an active version, keyed by
      * offer Id, including key header fields plus a flat `parameters` list (populated
@@ -616,6 +641,48 @@ public with sharing class MarketingDictionaryController {
                 results.add(new Map<String, String>{
                     'id' => row.Message_Variant__c,
                     'status' => row.Message_Variant__r.Status__c
+                });
+            }
+            return results;
+        }
+
+        List<Map<String, Object>> fetchCampaignCopyVariantDetails(Id campaignId) {
+            List<Map<String, Object>> results = new List<Map<String, Object>>();
+            if (campaignId == null) {
+                return results;
+            }
+
+            for (Campaign_Copy_Variant__c row : [
+                SELECT Is_Eligible__c,
+                       Message_Variant__c,
+                       Message_Variant__r.Name,
+                       Message_Variant__r.Channel_Type__c,
+                       Message_Variant__r.Status__c,
+                       Message_Variant__r.Version__c,
+                       Message_Variant__r.Display_Probability__c,
+                       Message_Variant__r.Display_Probability_Manual__c
+                FROM Campaign_Copy_Variant__c
+                WHERE Campaign__c = :campaignId
+                ORDER BY Message_Variant__r.Channel_Type__c, Message_Variant__r.Name
+                LIMIT 500
+            ]) {
+                if (row.Message_Variant__c == null) {
+                    continue;
+                }
+                Decimal manual = row.Message_Variant__r.Display_Probability_Manual__c;
+                Decimal computed = row.Message_Variant__r.Display_Probability__c;
+                String weight = manual != null
+                    ? String.valueOf(manual)
+                    : (computed != null ? String.valueOf(computed) : '—');
+
+                results.add(new Map<String, Object>{
+                    'id' => row.Message_Variant__c,
+                    'name' => row.Message_Variant__r.Name,
+                    'channel' => row.Message_Variant__r.Channel_Type__c,
+                    'status' => row.Message_Variant__r.Status__c,
+                    'version' => row.Message_Variant__r.Version__c,
+                    'weight' => weight,
+                    'eligible' => row.Is_Eligible__c == true
                 });
             }
             return results;

@@ -80,6 +80,7 @@
     </types>
     <types>
         <members>agentforceCampaignWizardAction</members>
+        <members>Marketing_Campaign_Record_Page</members>
         <members>offerManagerAction</members>
         <members>productManagerAction</members>
         <name>AuraDefinitionBundle</name>
