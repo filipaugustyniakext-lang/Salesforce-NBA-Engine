@@ -953,7 +953,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         return this.wizardStepData.map(step => {
             const isComplete = step.value < this.currentStep;
             const isActive = step.value === this.currentStep;
-            let itemClass = 'slds-progress__item';
+            let itemClass = 'slds-progress__item wizard-progress__step';
             let assistiveText = step.label;
             if (isComplete) {
                 itemClass += ' slds-is-completed';

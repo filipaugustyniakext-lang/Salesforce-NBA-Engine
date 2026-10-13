@@ -1,34 +1,55 @@
-/* --- WIZARD PROGRESS INDICATOR (SLDS blueprint) --- */
-/* https://v1.lightningdesignsystem.com/components/progress-indicator/ */
+/* --- WIZARD PROGRESS INDICATOR --- */
+/* First/last markers anchor the track; middle markers evenly spaced (space-between). */
 .wizard-progress {
-    padding: 0 1.5rem 1.5rem;
     position: relative;
-    --wizard-progress-marker-row: 3.25rem;
+    padding: 0 0 1.25rem;
+    --wizard-label-gap: 0.5rem;
+    --wizard-marker-size: 1rem;
+    --wizard-marker-row: 2.85rem;
+    --wizard-track-inset: calc(var(--wizard-marker-size) / 2);
 }
 
-.wizard-progress .slds-progress__list {
+.wizard-progress__list {
     display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
     position: relative;
     z-index: 2;
-    align-items: flex-end;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    list-style: none;
 }
 
 .wizard-progress .slds-progress__item {
-    position: relative;
-    flex: 1 1 0;
+    flex: 0 0 auto;
+}
+
+.wizard-progress__step {
+    max-width: 6.5rem;
     min-width: 0;
+}
+
+.wizard-progress__step-stack {
     display: flex;
     flex-direction: column;
     align-items: center;
 }
 
+.wizard-progress__step:first-child .wizard-progress__step-stack {
+    align-items: flex-start;
+}
+
+.wizard-progress__step:last-child .wizard-progress__step-stack {
+    align-items: flex-end;
+}
+
 .wizard-progress .slds-progress__item_content {
-    order: 1;
     position: relative;
-    padding: 0 0.25rem 0.5rem;
-    margin: 0;
+    padding: 0;
+    margin: 0 0 var(--wizard-label-gap);
     top: auto;
-    width: 100%;
+    width: auto;
 }
 
 .wizard-step-label {
@@ -36,11 +57,18 @@
     font-weight: 500;
     color: #706e6b;
     display: block;
-    text-align: center;
     line-height: 1.25;
     white-space: normal;
-    max-width: 7rem;
-    margin: 0 auto;
+    text-align: center;
+    max-width: 6.5rem;
+}
+
+.wizard-progress__step:first-child .wizard-step-label {
+    text-align: left;
+}
+
+.wizard-progress__step:last-child .wizard-step-label {
+    text-align: right;
 }
 
 .wizard-progress .slds-is-active .wizard-step-label {
@@ -53,38 +81,41 @@
     font-weight: 600;
 }
 
-.wizard-progress .slds-progress__marker {
-    order: 2;
+.wizard-progress__marker {
     position: relative;
     z-index: 3;
     flex-shrink: 0;
 }
 
-.wizard-progress .slds-progress__item.slds-is-active .slds-progress__marker {
-    top: 0.4rem;
+.wizard-progress__marker_incomplete {
+    top: 0.25rem;
 }
 
-.wizard-progress .slds-progress__item:not(.slds-is-active):not(.slds-is-completed) .slds-progress__marker {
-    top: 0.9rem;
+.wizard-progress .slds-progress__item.slds-is-active .wizard-progress__marker {
+    top: 0;
 }
 
 .wizard-progress .slds-progress__marker_icon {
-    position: relative;
-    z-index: 3;
-    top: 0.4rem;
+    top: 0;
 }
 
 .step-check-icon {
     --slds-c-icon-color-foreground-default: #ffffff;
 }
 
-.wizard-progress .slds-progress-bar {
+.wizard-progress__track {
     position: absolute;
-    top: var(--wizard-progress-marker-row);
-    left: 1.5rem;
-    right: 1.5rem;
     z-index: 1;
+    top: var(--wizard-marker-row);
+    left: var(--wizard-track-inset);
+    right: var(--wizard-track-inset);
     transform: translateY(-50%);
+    pointer-events: none;
+}
+
+.wizard-progress__track-bar {
+    width: 100%;
+    margin: 0;
 }
 
 .wizard-progress .slds-progress-bar__value {
