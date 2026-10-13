@@ -16,8 +16,11 @@ import healCampaignOfferingLabels from '@salesforce/apex/MarketingDictionaryCont
 import getMatchingOffers from '@salesforce/apex/MarketingDictionaryController.getMatchingOffers';
 import getCampaignOffers from '@salesforce/apex/MarketingDictionaryController.getCampaignOffers';
 import saveCampaignOffers from '@salesforce/apex/MarketingDictionaryController.saveCampaignOffers';
+import getCampaignCopyVariants from '@salesforce/apex/MarketingDictionaryController.getCampaignCopyVariants';
+import saveCampaignCopyVariants from '@salesforce/apex/MarketingDictionaryController.saveCampaignCopyVariants';
 import getOfferSummaries from '@salesforce/apex/MarketingDictionaryController.getOfferSummaries';
 import getPublishedVariantsForWizard from '@salesforce/apex/CopyCockpitController.getPublishedVariantsForWizard';
+import { parseFullName } from 'c/copyMessageNaming';
 import getCampaignTiers from '@salesforce/apex/MarketingDictionaryManagerController.getCampaignTiers';
 import getCampaignTypes from '@salesforce/apex/MarketingDictionaryController.getCampaignTypes';
 import getCampaignRecords from '@salesforce/apex/MarketingDictionaryManagerController.getCampaignRecords';
@@ -27,6 +30,27 @@ import {
     buildTierExclusionChips,
     buildTierTypeChips
 } from 'c/nbaTierConfig';
+
+const COPY_STATUS_BADGE_CLASS = {
+    draft: 'slds-badge slds-theme_lightest',
+    ready: 'slds-badge slds-theme_info',
+    published: 'slds-badge slds-theme_success',
+    archived: 'slds-badge slds-theme_shade'
+};
+
+function copyStatusBadgeClass(status) {
+    return COPY_STATUS_BADGE_CLASS[(status || '').toLowerCase()] || 'slds-badge slds-theme_lightest';
+}
+
+function formatVariantWeight(manual, computed) {
+    if (manual !== null && manual !== undefined && manual !== '') {
+        return String(manual);
+    }
+    if (computed !== null && computed !== undefined && computed !== '') {
+        return String(computed);
+    }
+    return '—';
+}
 
 export default class AgentforceCampaignWizard extends NavigationMixin(LightningElement) {
     @api recordId;
@@ -51,6 +75,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     // --- STANDARD COMPONENT STATE ---
     @track campaignName = '';
+    @track activeFrom = '';
+    @track activeTo = '';
+    @track campaignDurationDays = '';
     @track selectedOfferingType = 'Product Family';
     @track selectedPriorityTier = '';
     // --- EXCLUSION SETTINGS (replaces the old timing-reference block) ---
@@ -119,6 +146,10 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     // Offers saved on the campaign (edit mode). Restored active-only from junction.
     editSavedOfferIds = null;
+    editSavedCopyVariantIds = null;
+
+    /** Channel type → dictionary Channel_Icon__c (first row wins per type). */
+    channelIconByType = {};
 
     // --- EDIT MODE PRE-SELECTED VALUES ---
     editProductFamilyValues = null;
@@ -316,6 +347,11 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             }
         }
         this.campaignName = baseName;
+        this.activeFrom = campaign.Active_From__c || '';
+        this.activeTo = campaign.Active_To__c || '';
+        this.campaignDurationDays = campaign.Duration_Days__c != null
+            ? String(campaign.Duration_Days__c)
+            : '';
 
         this.selectedTopicId = campaign.Topic_Dict__c || '';
         this.topicName = campaign.Topic_Dict__r?.Name
@@ -359,6 +395,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
         this.applyEditOfferingSelections();
         this.loadSavedCampaignOffers();
+        this.loadSavedCampaignCopyVariants();
         this.loadScoringModels();
     }
 
@@ -429,6 +466,16 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             .catch(err => console.error('Error loading saved campaign offers:', err));
     }
 
+    loadSavedCampaignCopyVariants() {
+        if (!this.recordId) return;
+        getCampaignCopyVariants({ campaignId: this.recordId })
+            .then(data => {
+                this.editSavedCopyVariantIds = (data || []).map(row => row.id);
+                this.selectedCopyVariantIds = [...this.editSavedCopyVariantIds];
+            })
+            .catch(err => console.error('Error loading saved campaign copy variants:', err));
+    }
+
     // --- CAMPAIGN TYPE / GROUP DERIVATION ---
     get matchedCampaignType() {
         const key = (this.parentActivationType || '').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -473,9 +520,13 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             const groupMap = {};
             const allChannels = [];
 
+            const iconByType = {};
             data.forEach(rec => {
                 const type = rec.Channel_Type__c || 'Other';
                 const icon = rec.Channel_Icon__c || 'utility:connected_apps';
+                if (!iconByType[type]) {
+                    iconByType[type] = icon;
+                }
                 const disabled = rec.Is_Active__c === false;
                 if (!groupMap[type]) {
                     groupMap[type] = { type, icon, items: [] };
@@ -485,10 +536,18 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 const isActive = this.editChannelValues
                     ? this.editChannelValues.includes(rec.Name)
                     : false;
-                allChannels.push({ label: rec.Name, value: rec.Name, checked: isActive, disabled });
+                allChannels.push({
+                    label: rec.Name,
+                    value: rec.Name,
+                    channelType: type,
+                    icon,
+                    checked: isActive,
+                    disabled
+                });
                 groupMap[type].items.push({
                     label: rec.Name,
                     value: rec.Name,
+                    channelType: type,
                     icon: rec.Channel_Icon__c || 'utility:connected_apps',
                     active: isActive,
                     disabled,
@@ -500,6 +559,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 });
             });
 
+            this.channelIconByType = iconByType;
             this.channelGroups = Object.values(groupMap);
             this.channels = allChannels;
             const enabledChannels = allChannels.filter(c => !c.disabled);
@@ -750,7 +810,19 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     handleNameChange(event) {
-        this.campaignName = event.target.value; 
+        this.campaignName = event.target.value;
+    }
+
+    handleActiveFromChange(event) {
+        this.activeFrom = event.target.value;
+    }
+
+    handleActiveToChange(event) {
+        this.activeTo = event.target.value;
+    }
+
+    handleCampaignDurationChange(event) {
+        this.campaignDurationDays = event.target.value;
     }
         
     handleOfferingTypeChange(event) {
@@ -1041,9 +1113,33 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         return !!raw && Number.isInteger(val) && val >= 1 && val <= 1000;
     }
 
+    get isAlwaysOnActivation() {
+        const key = (this.parentActivationType || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        return key === 'alwayson';
+    }
+
+    get hasValidActiveWindow() {
+        if (!this.activeFrom || !this.activeTo) {
+            return false;
+        }
+        const fromMs = new Date(this.activeFrom).getTime();
+        const toMs = new Date(this.activeTo).getTime();
+        if (Number.isNaN(fromMs) || Number.isNaN(toMs)) {
+            return false;
+        }
+        return toMs >= fromMs;
+    }
+
     get isStep1Valid() {
         if (!this.parentActivationType) return false;
         if (!this.campaignName || this.campaignName.trim() === '') return false;
+        if (!this.activeFrom || !this.activeTo || !this.hasValidActiveWindow) return false;
+        if (this.isAlwaysOnActivation) {
+            const days = Number(this.campaignDurationDays);
+            if (!this.campaignDurationDays || !Number.isInteger(days) || days < 1) {
+                return false;
+            }
+        }
         if (this.showCampaignGroup && !this.selectedCampaignGroupId) return false;
         if (!this.selectedPriorityTier) return false;
         if (!this.hasSelectedChannel) return false;
@@ -1057,14 +1153,27 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         return true;
     }
 
+    get selectedChannelTypes() {
+        const types = [];
+        const seen = new Set();
+        this.channels.filter(c => c.checked && !c.disabled).forEach(ch => {
+            const typeKey = ch.channelType || ch.label;
+            if (!seen.has(typeKey)) {
+                seen.add(typeKey);
+                types.push(typeKey);
+            }
+        });
+        return types;
+    }
+
     get isStep3Valid() {
-        const activeChannels = this.channels.filter(c => c.checked && !c.disabled);
-        if (activeChannels.length === 0) {
+        const channelTypes = this.selectedChannelTypes;
+        if (channelTypes.length === 0) {
             return false;
         }
-        return activeChannels.every(ch =>
+        return channelTypes.every(type =>
             this.copyVariantData.some(
-                v => v.channel === ch.value && this.selectedCopyVariantIds.includes(v.id)
+                v => v.channel === type && this.selectedCopyVariantIds.includes(v.id)
             )
         );
     }
@@ -1642,24 +1751,34 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     // --- STEP 3: COPY ASSIGNMENT LOGIC ---
 
-    get copyChannelTabs() {
-        const activeChannels = this.channels.filter(c => c.checked && !c.disabled);
+    _iconForChannelType(channelType) {
+        const selected = this.channels.find(
+            c => c.checked && !c.disabled && c.channelType === channelType
+        );
+        if (selected && selected.icon) {
+            return selected.icon;
+        }
+        return this.channelIconByType[channelType] || 'utility:connected_apps';
+    }
 
-        return activeChannels.map(c => {
-            const isActive = this.activeCopyChannelValue === c.value;
-            const selectedCount = this.copyVariantData.filter(v => v.channel === c.value && this.selectedCopyVariantIds.includes(v.id)).length;
+    get copyChannelTabs() {
+        return this.selectedChannelTypes.map(type => {
+            const isActive = this.activeCopyChannelValue === type;
+            const selectedCount = this.copyVariantData.filter(
+                v => v.channel === type && this.selectedCopyVariantIds.includes(v.id)
+            ).length;
             return {
-                ...c,
+                label: type,
+                value: type,
                 selectedCount: selectedCount > 0 ? selectedCount : null,
                 cssClass: `slds-vertical-tabs__nav-item ${isActive ? 'slds-is-active' : ''}`,
-                icon: c.icon || 'utility:channel_program_levels'
+                icon: this._iconForChannelType(type)
             };
         });
     }
 
     get activeCopyChannelLabel() {
-        const active = this.channels.find(c => c.value === this.activeCopyChannelValue);
-        return active ? active.label : '';
+        return this.activeCopyChannelValue || '';
     }
 
     get activeChannelSelectedCopyCount() {
@@ -1680,8 +1799,30 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                     toggleIcon: selected ? 'utility:check' : 'utility:add',
                     toggleTitle: selected ? 'Remove variant' : 'Add variant',
                     toggleAssistive: selected ? `Remove ${v.name}` : `Add ${v.name}`,
-                    statusClass: 'slds-badge cockpit-badge-published'
+                    statusClass: copyStatusBadgeClass(v.status)
                 };
+            });
+    }
+
+    handleCopyVariantPreview(event) {
+        const variantId = event.currentTarget.dataset.id;
+        if (!variantId) {
+            return;
+        }
+        const pageRef = {
+            type: 'standard__navItemPage',
+            attributes: { apiName: 'Copy_Center' },
+            state: { c__editId: variantId }
+        };
+        this[NavigationMixin.GenerateUrl](pageRef)
+            .then(url => {
+                const opened = window.open(url, '_blank');
+                if (!opened) {
+                    this[NavigationMixin.Navigate](pageRef);
+                }
+            })
+            .catch(() => {
+                this[NavigationMixin.Navigate](pageRef);
             });
     }
 
@@ -1700,20 +1841,20 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     // Hook this into `_onStepChanged()` in your JS so it queries when Step 3 opens:
     _ensureActiveCopyChannel() {
-        const activeChannels = this.channels.filter(c => c.checked && !c.disabled);
-        if (activeChannels.length === 0) {
+        const channelTypes = this.selectedChannelTypes;
+        if (channelTypes.length === 0) {
             this.activeCopyChannelValue = '';
             return;
         }
-        const stillValid = activeChannels.some(c => c.value === this.activeCopyChannelValue);
+        const stillValid = channelTypes.includes(this.activeCopyChannelValue);
         if (!stillValid) {
-            this.activeCopyChannelValue = activeChannels[0].value;
+            this.activeCopyChannelValue = channelTypes[0];
         }
     }
 
     fetchCopyVariantsForStep3() {
         this._ensureActiveCopyChannel();
-        const channelTypes = this.channels.filter(c => c.checked && !c.disabled).map(c => c.value);
+        const channelTypes = this.selectedChannelTypes;
         const productFamilyNames = this.productFamilyOptions.filter(o => o.checked).map(o => o.name);
         const offerIds = this.selectedOfferIds || [];
 
@@ -1726,15 +1867,34 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         this.isLoadingCopy = true;
         getPublishedVariantsForWizard({ channelTypes, productFamilyNames, offerIds })
             .then(rows => {
-                this.copyVariantData = (rows || []).map(row => ({
-                    id: row.Id,
-                    channel: row.Channel_Type__c,
-                    name: row.Name,
-                    language: row.Language__c || '—',
-                    status: row.Status__c
-                }));
+                this.copyVariantData = (rows || []).map(row => {
+                    const parsed = parseFullName(row.Name);
+                    const variantNumber = row.Version__c != null
+                        ? String(row.Version__c)
+                        : (parsed.variant != null ? String(parsed.variant) : '—');
+                    const messageName = parsed.messageName || row.Name;
+                    return {
+                        id: row.Id,
+                        channel: row.Channel_Type__c,
+                        name: row.Name,
+                        messageName,
+                        variantNumber,
+                        weight: formatVariantWeight(
+                            row.Display_Probability_Manual__c,
+                            row.Display_Probability__c
+                        ),
+                        language: row.Language__c || '—',
+                        status: row.Status__c
+                    };
+                });
                 const validIds = new Set(this.copyVariantData.map(v => v.id));
-                this.selectedCopyVariantIds = this.selectedCopyVariantIds.filter(id => validIds.has(id));
+                const pending = this.editSavedCopyVariantIds || [];
+                const restored = pending.filter(id => validIds.has(id));
+                const kept = this.selectedCopyVariantIds.filter(id => validIds.has(id));
+                this.selectedCopyVariantIds = [...new Set([...restored, ...kept])];
+                if (this.editSavedCopyVariantIds) {
+                    this.editSavedCopyVariantIds = null;
+                }
             })
             .catch(() => {
                 this.copyVariantData = [];
@@ -1752,17 +1912,49 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get summaryCopyAssignment() {
-        const activeChannels = this.channels.filter(c => c.checked && !c.disabled);
+        const channelTypes = this.selectedChannelTypes;
         if (!this.selectedCopyVariantIds.length) {
             return 'None selected';
         }
-        const parts = activeChannels.map(ch => {
+        const parts = channelTypes.map(type => {
             const count = this.copyVariantData.filter(
-                v => v.channel === ch.value && this.selectedCopyVariantIds.includes(v.id)
+                v => v.channel === type && this.selectedCopyVariantIds.includes(v.id)
             ).length;
-            return `${ch.label}: ${count}`;
+            return `${type}: ${count}`;
         });
         return parts.join('; ');
+    }
+
+    get summaryActiveFrom() {
+        return this.formatSummaryDateTime(this.activeFrom);
+    }
+
+    get summaryActiveTo() {
+        return this.formatSummaryDateTime(this.activeTo);
+    }
+
+    get summaryCampaignDuration() {
+        if (!this.isAlwaysOnActivation) {
+            return '—';
+        }
+        return this.campaignDurationDays || '—';
+    }
+
+    formatSummaryDateTime(value) {
+        if (!value) {
+            return '—';
+        }
+        const d = new Date(value);
+        if (Number.isNaN(d.getTime())) {
+            return value;
+        }
+        return d.toLocaleString('en-GB', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
     }
 
     handleSaveDraft() {
@@ -1797,6 +1989,11 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         fields['Topic_Name__c'] = this.topicName || null;
         fields['Priority_Tier__c'] = this.selectedPriorityTier || null;
         fields['Activation_Type__c'] = this.parentActivationType || null;
+        fields['Active_From__c'] = this.activeFrom || null;
+        fields['Active_To__c'] = this.activeTo || null;
+        fields['Duration_Days__c'] = this.isAlwaysOnActivation
+            ? num(this.campaignDurationDays)
+            : null;
         fields['Exclude_Onboarding__c'] = this.excludeOnboarding;
         fields['Scoring_Method__c'] = 'Pick a Model';
         fields['Offering_Type__c'] = this.selectedOfferingType || null;
@@ -1830,6 +2027,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             const recordInput = { fields };
             updateRecord(recordInput)
                 .then(() => this.persistCampaignOffers(this.recordId))
+                .then(() => this.persistCampaignCopyVariants(this.recordId))
                 .then(() => {
                     this.isLoading = false;
                     this.dispatchEvent(new ShowToastEvent({ title: 'Success!', message: successMessage, variant: 'success' }));
@@ -1841,7 +2039,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 });
         } else {
             createRecord({ apiName: 'Campaign', fields })
-                .then(camp => this.persistCampaignOffers(camp.id).then(() => camp.id))
+                .then(camp => this.persistCampaignOffers(camp.id)
+                    .then(() => this.persistCampaignCopyVariants(camp.id))
+                    .then(() => camp.id))
                 .then(campId => {
                     this.isLoading = false;
                     this.dispatchEvent(new ShowToastEvent({ title: 'Success!', message: successMessage, variant: 'success' }));
@@ -1859,6 +2059,13 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             ? this.selectedOfferIds
             : [];
         return saveCampaignOffers({ campaignId, offerIds });
+    }
+
+    persistCampaignCopyVariants(campaignId) {
+        return saveCampaignCopyVariants({
+            campaignId,
+            messageVariantIds: this.selectedCopyVariantIds || []
+        });
     }
 
     navigateToRecord(recordId) {

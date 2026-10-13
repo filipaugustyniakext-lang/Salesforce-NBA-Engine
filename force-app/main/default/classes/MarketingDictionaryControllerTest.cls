@@ -128,4 +128,41 @@ private class MarketingDictionaryControllerTest {
         System.assertEquals(0, nullResult.size(), 'Null input returns an empty list');
         System.assertEquals(0, emptyResult.size(), 'Empty input returns an empty list');
     }
+
+    @IsTest
+    static void saveCampaignCopyVariants_persistsOnlyPublishedRows() {
+        Campaign camp = new Campaign(Name = 'Copy Camp', Status = 'Planned', IsActive = false);
+        insert camp;
+
+        CC_Message_Metadata__c published = new CC_Message_Metadata__c(
+            Name = 'EMA_PL_CC_1',
+            Channel_Type__c = 'Email',
+            Status__c = 'Published'
+        );
+        CC_Message_Metadata__c draft = new CC_Message_Metadata__c(
+            Name = 'EMA_PL_CC_2',
+            Channel_Type__c = 'Email',
+            Status__c = 'Draft'
+        );
+        insert new List<CC_Message_Metadata__c>{ published, draft };
+
+        Test.startTest();
+        MarketingDictionaryController.saveCampaignCopyVariants(
+            camp.Id,
+            new List<Id>{ published.Id, draft.Id }
+        );
+        Test.stopTest();
+
+        List<Campaign_Copy_Variant__c> rows = [
+            SELECT Message_Variant__c
+            FROM Campaign_Copy_Variant__c
+            WHERE Campaign__c = :camp.Id
+        ];
+        System.assertEquals(1, rows.size(), 'Only published variant is persisted');
+        System.assertEquals(published.Id, rows[0].Message_Variant__c);
+
+        List<Map<String, String>> loaded = MarketingDictionaryController.getCampaignCopyVariants(camp.Id);
+        System.assertEquals(1, loaded.size());
+        System.assertEquals(published.Id, loaded[0].get('id'));
+    }
 }

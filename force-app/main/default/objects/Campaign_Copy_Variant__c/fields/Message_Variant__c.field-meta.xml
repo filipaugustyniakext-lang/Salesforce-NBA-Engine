@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Message_Variant__c</fullName>
+    <deleteConstraint>Restrict</deleteConstraint>
+    <description>Copy Center message variant (CC_Message_Metadata__c) assigned to the campaign.</description>
+    <label>Message Variant</label>
+    <referenceTo>CC_Message_Metadata__c</referenceTo>
+    <relationshipLabel>Campaign Copy Variants</relationshipLabel>
+    <relationshipName>Campaign_Copy_Variants</relationshipName>
+    <required>true</required>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

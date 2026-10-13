@@ -97,6 +97,45 @@
                                     <div class="slds-m-top_medium">
                                         <lightning-input type="text" label="Campaign Name" placeholder="eg. cashloan" value={campaignName} onchange={handleNameChange} required class="custom-form-input"></lightning-input>
                                     </div>
+
+                                    <div class="slds-grid slds-gutters slds-m-top_medium">
+                                        <div class="slds-col slds-size_1-of-2">
+                                            <lightning-input
+                                                type="datetime"
+                                                label="Active From"
+                                                value={activeFrom}
+                                                onchange={handleActiveFromChange}
+                                                required
+                                                class="custom-form-input">
+                                            </lightning-input>
+                                        </div>
+                                        <div class="slds-col slds-size_1-of-2">
+                                            <lightning-input
+                                                type="datetime"
+                                                label="Active To"
+                                                value={activeTo}
+                                                onchange={handleActiveToChange}
+                                                required
+                                                class="custom-form-input">
+                                            </lightning-input>
+                                        </div>
+                                    </div>
+
+                                    <template lwc:if={isAlwaysOnActivation}>
+                                        <div class="slds-m-top_medium">
+                                            <lightning-input
+                                                type="number"
+                                                label="Campaign Duration (Days)"
+                                                value={campaignDurationDays}
+                                                onchange={handleCampaignDurationChange}
+                                                min="1"
+                                                step="1"
+                                                required
+                                                field-level-help="How long a customer should keep receiving communication from this campaign before being eligible for another."
+                                                class="custom-form-input">
+                                            </lightning-input>
+                                        </div>
+                                    </template>
                                 </div>
 
                                 <!-- Section: Priority & Exclusions -->
@@ -604,7 +643,7 @@
 
                                         <div class="copy-assignment-layout slds-grid">
                                             <!-- Vertical Channel Tabs -->
-                                            <div class="slds-col slds-size_1-of-4 slds-p-right_medium copy-tabs-sidebar">
+                                            <div class="slds-col slds-size_1-of-6 slds-p-right_medium copy-tabs-sidebar">
                                                 <ul class="slds-vertical-tabs__nav" role="tablist" aria-orientation="vertical">
                                                     <template for:each={copyChannelTabs} for:item="tab">
                                                         <li key={tab.value} class={tab.cssClass} title={tab.label} role="presentation">
@@ -623,9 +662,9 @@
                                             </div>
 
                                             <!-- List Builder Area -->
-                                            <div class="slds-col slds-size_3-of-4 copy-list-builder-container">
-                                                <div class="offer-list-builder-card">
-                                                    <div class="slds-p-vertical_x-small slds-p-horizontal_medium slds-theme_shade offer-list-builder-header">
+                                            <div class="slds-col slds-size_5-of-6 copy-list-builder-container">
+                                                <div class="offer-list-builder-card copy-assignment-list-card">
+                                                    <div class="slds-theme_shade copy-assignment-list-header">
                                                         <div class="slds-grid slds-grid_vertical-align-center slds-m-bottom_x-small">
                                                             <span class="module-header-title">{activeCopyChannelLabel} — Published Variants</span>
                                                             <template lwc:if={isLoadingCopy}>
@@ -638,7 +677,7 @@
                                                             Published Copy Center messages matching your Step 2 product families and/or selected offers.
                                                         </div>
                                                     </div>
-                                                    <div class="slds-scrollable offer-list-builder-scroll" style="max-height: 400px;">
+                                                    <div class="copy-assignment-list-scroll">
                                                         <div class="slds-scrollable_none">
                                                             <table
                                                                 aria-multiselectable="true"
@@ -648,9 +687,11 @@
                                                                 <thead class="slds-assistive-text">
                                                                     <tr class="slds-line-height_reset">
                                                                         <th scope="col" style="width:3.75rem"></th>
-                                                                        <th scope="col"><div class="slds-truncate" title="Variant Name">Variant Name</div></th>
-                                                                        <th scope="col" style="width:4rem"><div class="slds-truncate" title="Language">Lang</div></th>
-                                                                        <th scope="col" style="width:6rem"><div class="slds-truncate" title="Status">Status</div></th>
+                                                                        <th scope="col"><div class="slds-truncate" title="Message Name">Message Name</div></th>
+                                                                        <th scope="col" style="width:5rem"><div class="slds-truncate" title="Variant Number">Variant #</div></th>
+                                                                        <th scope="col" style="width:5rem"><div class="slds-truncate" title="Weight">Weight</div></th>
+                                                                        <th scope="col" style="width:6.5rem"><div class="slds-truncate" title="Status">Status</div></th>
+                                                                        <th scope="col" style="width:3rem"></th>
                                                                     </tr>
                                                                 </thead>
                                                                 <tbody>
@@ -667,21 +708,35 @@
                                                                                         <span class="slds-assistive-text">{variant.toggleAssistive}</span>
                                                                                     </button>
                                                                                 </td>
-                                                                                <td role="gridcell" class="slds-p-horizontal_medium">
-                                                                                    <div class="slds-truncate" title={variant.name}>{variant.name}</div>
+                                                                                <td role="gridcell" class="slds-p-horizontal_small">
+                                                                                    <div class="slds-truncate" title={variant.messageName}>{variant.messageName}</div>
                                                                                 </td>
                                                                                 <td role="gridcell">
-                                                                                    <span class="cockpit-copy-lang">{variant.language}</span>
+                                                                                    <span class="slds-truncate" title={variant.variantNumber}>{variant.variantNumber}</span>
+                                                                                </td>
+                                                                                <td role="gridcell">
+                                                                                    <span class="slds-truncate" title={variant.weight}>{variant.weight}</span>
                                                                                 </td>
                                                                                 <td role="gridcell">
                                                                                     <span class={variant.statusClass}>{variant.status}</span>
+                                                                                </td>
+                                                                                <td class="slds-text-align_right" role="gridcell">
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        class="slds-button slds-button_icon slds-button_icon-border"
+                                                                                        data-id={variant.id}
+                                                                                        title="Open in Copy Center"
+                                                                                        onclick={handleCopyVariantPreview}>
+                                                                                        <lightning-icon icon-name="utility:chevronright" size="xx-small" alternative-text="Open in Copy Center"></lightning-icon>
+                                                                                        <span class="slds-assistive-text">Open in Copy Center</span>
+                                                                                    </button>
                                                                                 </td>
                                                                             </tr>
                                                                         </template>
                                                                     </template>
                                                                     <template lwc:else>
                                                                         <tr>
-                                                                            <td colspan="4" class="slds-text-align_center slds-text-color_weak slds-p-vertical_medium">
+                                                                            <td colspan="6" class="slds-text-align_center slds-text-color_weak slds-p-vertical_medium">
                                                                                 <template lwc:if={isLoadingCopy}>Loading…</template>
                                                                                 <template lwc:else>No published variants match your offerings for this channel.</template>
                                                                             </td>
@@ -759,6 +814,20 @@
                                             <div class="summary-row">
                                                 <span class="summary-label">Campaign Group</span>
                                                 <span class="summary-value">{selectedCampaignGroupName}</span>
+                                            </div>
+                                        </template>
+                                        <div class="summary-row">
+                                            <span class="summary-label">Active From</span>
+                                            <span class="summary-value">{summaryActiveFrom}</span>
+                                        </div>
+                                        <div class="summary-row">
+                                            <span class="summary-label">Active To</span>
+                                            <span class="summary-value">{summaryActiveTo}</span>
+                                        </div>
+                                        <template lwc:if={isAlwaysOnActivation}>
+                                            <div class="summary-row">
+                                                <span class="summary-label">Campaign Duration (Days)</span>
+                                                <span class="summary-value">{summaryCampaignDuration}</span>
                                             </div>
                                         </template>
                                         <div class="summary-row">

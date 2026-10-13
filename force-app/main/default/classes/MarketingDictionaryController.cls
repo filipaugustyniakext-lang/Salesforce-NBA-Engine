@@ -37,6 +37,7 @@ public with sharing class MarketingDictionaryController {
                    Type, Topic_Name__c, Topic_Dict__c, Topic_Dict__r.Name,
                    Priority_Tier__c, Activation_Type__c,
                    Timing_From__c, Timing_To__c, Validity_Days__c, Duration_Days__c,
+                   Active_From__c, Active_To__c,
                    Scoring_Method__c, Offering_Type__c, Status, IsActive,
                    Overall_Score__c, Fallback_Score__c,
                    Scoring_Model_Dict__c, Scoring_Model_Dict__r.Name,
@@ -351,6 +352,16 @@ public with sharing class MarketingDictionaryController {
         new OfferQuery().replaceCampaignOffers(campaignId, offerIds);
     }
 
+    @AuraEnabled(cacheable=false)
+    public static List<Map<String, String>> getCampaignCopyVariants(Id campaignId) {
+        return new CopyVariantQuery().fetchCampaignCopyVariants(campaignId);
+    }
+
+    @AuraEnabled
+    public static void saveCampaignCopyVariants(Id campaignId, List<Id> messageVariantIds) {
+        new CopyVariantQuery().replaceCampaignCopyVariants(campaignId, messageVariantIds);
+    }
+
     /**
      * Returns a summary of each offer's active version for display in the Campaign
      * wizard summary step. One entry per offer that has an active version, keyed by
@@ -582,6 +593,74 @@ public with sharing class MarketingDictionaryController {
                 }
             }
             return params;
+        }
+    }
+
+    private without sharing class CopyVariantQuery {
+        List<Map<String, String>> fetchCampaignCopyVariants(Id campaignId) {
+            if (campaignId == null) {
+                return new List<Map<String, String>>();
+            }
+
+            List<Map<String, String>> results = new List<Map<String, String>>();
+            for (Campaign_Copy_Variant__c row : [
+                SELECT Message_Variant__c, Message_Variant__r.Status__c
+                FROM Campaign_Copy_Variant__c
+                WHERE Campaign__c = :campaignId
+                AND Is_Eligible__c = true
+                AND Message_Variant__r.Status__c = 'Published'
+            ]) {
+                if (row.Message_Variant__c == null) {
+                    continue;
+                }
+                results.add(new Map<String, String>{
+                    'id' => row.Message_Variant__c,
+                    'status' => row.Message_Variant__r.Status__c
+                });
+            }
+            return results;
+        }
+
+        void replaceCampaignCopyVariants(Id campaignId, List<Id> messageVariantIds) {
+            if (campaignId == null) {
+                return;
+            }
+
+            delete [
+                SELECT Id
+                FROM Campaign_Copy_Variant__c
+                WHERE Campaign__c = :campaignId
+            ];
+
+            if (messageVariantIds == null || messageVariantIds.isEmpty()) {
+                return;
+            }
+
+            Set<Id> uniqueIds = new Set<Id>(messageVariantIds);
+            Set<Id> publishedIds = new Set<Id>();
+            for (CC_Message_Metadata__c msg : [
+                SELECT Id
+                FROM CC_Message_Metadata__c
+                WHERE Id IN :uniqueIds
+                AND Status__c = 'Published'
+            ]) {
+                publishedIds.add(msg.Id);
+            }
+
+            List<Campaign_Copy_Variant__c> toInsert = new List<Campaign_Copy_Variant__c>();
+            for (Id variantId : uniqueIds) {
+                if (!publishedIds.contains(variantId)) {
+                    continue;
+                }
+                toInsert.add(new Campaign_Copy_Variant__c(
+                    Campaign__c = campaignId,
+                    Message_Variant__c = variantId,
+                    Is_Eligible__c = true
+                ));
+            }
+            if (!toInsert.isEmpty()) {
+                insert toInsert;
+            }
         }
     }
 

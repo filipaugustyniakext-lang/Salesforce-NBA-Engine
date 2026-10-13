@@ -4,6 +4,8 @@
         <members>AIAgentPayloadBuilderTest</members>
         <members>BannerContentAPITest</members>
         <members>BannerDataGraphTransformerTest</members>
+        <members>CampaignCopyVariantHandler</members>
+        <members>CampaignCopyVariantHandlerTest</members>
         <members>CampaignOfferingLabelSync</members>
         <members>CampaignPathController</members>
         <members>ChangePasswordControllerTest</members>
@@ -96,6 +98,7 @@
         <members>CC_Message_Blocks_All__c</members>
         <members>CC_Message_Metadata__c</members>
         <members>Campaign</members>
+        <members>Campaign_Copy_Variant__c</members>
         <members>Campaign_Offer__c</members>
         <members>Campaign_Tier__c</members>
         <members>Channel_Banner_Intent_Target__c</members>
