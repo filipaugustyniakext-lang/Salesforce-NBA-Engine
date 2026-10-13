@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomFieldTranslation xmlns="http://soap.sforce.com/2006/04/metadata">
+    <help><!-- Stores Product Family dictionary record Ids so renames propagate automatically. --></help>
+    <label><!-- Product Family --></label>
+    <name>Product_Family__c</name>
+</CustomFieldTranslation>

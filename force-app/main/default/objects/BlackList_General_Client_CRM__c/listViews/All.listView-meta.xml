@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>All</fullName>
+    <columns>NAME</columns>
+    <columns>ExternalCustomerId__c</columns>
+    <columns>Blocked_App__c</columns>
+    <columns>Blocked_Email_Channel__c</columns>
+    <columns>Blocked_Phone_Channel__c</columns>
+    <columns>Blocked_Push_Channel__c</columns>
+    <columns>Is_Currently_Active__c</columns>
+    <columns>Valid_To__c</columns>
+    <filterScope>Everything</filterScope>
+    <label>All</label>
+</ListView>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FieldSrcTrgtRelationship xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <definitionCreationType>Segment_Membership</definitionCreationType>
+    <lookupFieldName>PROSPECT_UAT_SM_1776878368248__dlm.rel_1776878370916_end__c</lookupFieldName>
+    <masterLabel>PROSPECT_UAT_SM_1776878368248_Id_map_PROSPECT_UAT_prospect_id_1776878370916</masterLabel>
+    <owner>DataCloud</owner>
+    <relationshipCardinality>ManyToOne</relationshipCardinality>
+    <sourceFieldName>PROSPECT_UAT_SM_1776878368248__dlm.Id__c</sourceFieldName>
+    <targetEntity xsi:nil="true"/>
+    <targetFieldName>PROSPECT_UAT__dlm.prospect_id__c</targetFieldName>
+</FieldSrcTrgtRelationship>

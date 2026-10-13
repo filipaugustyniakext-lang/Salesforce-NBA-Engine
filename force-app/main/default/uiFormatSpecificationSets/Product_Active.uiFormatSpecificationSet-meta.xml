@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<UiFormatSpecificationSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <field>Product2.RecordTypeId</field>
+    <formatType>ICON</formatType>
+    <masterLabel>Product Active</masterLabel>
+    <sobjectType>Product2</sobjectType>
+    <uiFormatSpecifications>
+        <formatProperties>{&quot;icon&quot;:&quot;circle_with_check&quot;,&quot;iconColor&quot;:&quot;green&quot;}</formatProperties>
+        <formatType>ICON</formatType>
+        <order>1</order>
+        <visibilityRule>
+            <criteria>
+                <leftValue>{!Record.IsActive}</leftValue>
+                <operator>EQUAL</operator>
+                <rightValue>true</rightValue>
+            </criteria>
+        </visibilityRule>
+    </uiFormatSpecifications>
+    <uiFormatSpecifications>
+        <formatProperties>{&quot;icon&quot;:&quot;circle_with_x&quot;,&quot;iconColor&quot;:&quot;gray&quot;}</formatProperties>
+        <formatType>ICON</formatType>
+        <order>2</order>
+        <visibilityRule>
+            <criteria>
+                <leftValue>{!Record.IsActive}</leftValue>
+                <operator>EQUAL</operator>
+                <rightValue>false</rightValue>
+            </criteria>
+        </visibilityRule>
+    </uiFormatSpecifications>
+</UiFormatSpecificationSet>

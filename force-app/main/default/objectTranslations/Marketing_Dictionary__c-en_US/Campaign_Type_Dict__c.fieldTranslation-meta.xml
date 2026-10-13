@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomFieldTranslation xmlns="http://soap.sforce.com/2006/04/metadata">
+    <help><!-- Select the Campaign Type this Campaign Group belongs to. Only Campaign Type dictionary entries are selectable. --></help>
+    <label><!-- Campaign Type (Dictionary) --></label>
+    <lookupFilter>
+        <errorMessage><!-- Only Campaign Type dictionary entries are allowed. --></errorMessage>
+    </lookupFilter>
+    <name>Campaign_Type_Dict__c</name>
+    <relationshipLabel><!-- Campaign Groups --></relationshipLabel>
+</CustomFieldTranslation>

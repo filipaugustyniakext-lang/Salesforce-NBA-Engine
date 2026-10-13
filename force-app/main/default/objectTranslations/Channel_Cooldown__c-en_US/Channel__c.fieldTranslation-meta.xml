@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomFieldTranslation xmlns="http://soap.sforce.com/2006/04/metadata">
+    <help><!-- Select the channel dictionary entry this cooldown period belongs to. --></help>
+    <label><!-- Channel --></label>
+    <name>Channel__c</name>
+    <relationshipLabel><!-- Channel Cooldowns --></relationshipLabel>
+</CustomFieldTranslation>

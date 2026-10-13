@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Ext_gcp_SMSMarketingConsent__c</fullName>
+    <defaultValue>false</defaultValue>
+    <label>SMS Marketing Consent</label>
+    <mktDataModelFieldAttributes>
+        <definitionCreationType>Transform</definitionCreationType>
+        <isDynamicLookup>false</isDynamicLookup>
+        <labelOverride>SMS Marketing Consent</labelOverride>
+        <masterLabel>SMS Marketing Consent</masterLabel>
+        <refAttrDeveloperName>Ext_gcp_SMSMarketingConsent_Transform</refAttrDeveloperName>
+        <usageTag>None</usageTag>
+    </mktDataModelFieldAttributes>
+    <type>Checkbox</type>
+</CustomField>

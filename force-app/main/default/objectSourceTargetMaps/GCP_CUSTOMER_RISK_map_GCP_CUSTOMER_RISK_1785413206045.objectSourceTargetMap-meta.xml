@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ObjectSourceTargetMap xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <creationType>Custom</creationType>
+    <fieldSourceTargetMaps>
+        <creationType>System</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <targetField>GCP_CUSTOMER_RISK__dll.InternalOrganization__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>System</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>UAT_GCP_Big_Query</sourceFormula>
+        <targetField>GCP_CUSTOMER_RISK__dll.DataSource__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>GCP_CUSTOMER_RISK.drkia_cl_flg__c</sourceField>
+        <sourceFormula>DRKIA_CL_FLG</sourceFormula>
+        <targetField>GCP_CUSTOMER_RISK__dll.drkia_cl_flg__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>GCP_CUSTOMER_RISK.cstmr_id__c</sourceField>
+        <sourceFormula>CSTMR_ID</sourceFormula>
+        <targetField>GCP_CUSTOMER_RISK__dll.cstmr_id__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>System</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>uat-0001wk3s90-sale-jst729_0001wk3s90_dl_layer2_cdp_crm</sourceFormula>
+        <targetField>GCP_CUSTOMER_RISK__dll.DataSourceObject__c</targetField>
+    </fieldSourceTargetMaps>
+    <masterLabel>GCP_CUSTOMER_RISK_map_GCP_CUSTOMER_RISK_1785413206045</masterLabel>
+    <sourceObjectName>GCP_CUSTOMER_RISK</sourceObjectName>
+    <targetObjectName>GCP_CUSTOMER_RISK__dll</targetObjectName>
+</ObjectSourceTargetMap>

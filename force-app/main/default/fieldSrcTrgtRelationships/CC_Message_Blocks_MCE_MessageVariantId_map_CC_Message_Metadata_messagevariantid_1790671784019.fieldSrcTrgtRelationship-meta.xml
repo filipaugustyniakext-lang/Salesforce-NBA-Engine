@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FieldSrcTrgtRelationship xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <definitionCreationType>Custom</definitionCreationType>
+    <lookupFieldName>CC_Message_Blocks_MCE__dlm.rel_1790671784019_end__c</lookupFieldName>
+    <masterLabel>CC_Message_Blocks_MCE_MessageVariantId_map_CC_Message_Metadata_messagevariantid_1790671784019</masterLabel>
+    <owner>DataCloud</owner>
+    <relationshipCardinality>ManyToOne</relationshipCardinality>
+    <sourceFieldName>CC_Message_Blocks_MCE__dlm.MessageVariantId__c</sourceFieldName>
+    <targetEntity xsi:nil="true"/>
+    <targetFieldName>CC_Message_Metadata__dlm.messagevariantid__c</targetFieldName>
+</FieldSrcTrgtRelationship>

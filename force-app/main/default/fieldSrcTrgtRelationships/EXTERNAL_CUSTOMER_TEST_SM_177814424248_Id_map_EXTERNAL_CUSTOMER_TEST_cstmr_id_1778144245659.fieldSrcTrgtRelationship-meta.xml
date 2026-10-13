@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FieldSrcTrgtRelationship xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <definitionCreationType>Segment_Membership</definitionCreationType>
+    <lookupFieldName>EXTERNAL_CUSTOMER_TEST_SM_177814424248__dlm.rel_1778144245659_end__c</lookupFieldName>
+    <masterLabel>EXTERNAL_CUSTOMER_TEST_SM_177814424248_Id_map_EXTERNAL_CUSTOMER_TEST_cstmr_id_1778144245659</masterLabel>
+    <owner>DataCloud</owner>
+    <relationshipCardinality>ManyToOne</relationshipCardinality>
+    <sourceFieldName>EXTERNAL_CUSTOMER_TEST_SM_177814424248__dlm.Id__c</sourceFieldName>
+    <targetEntity xsi:nil="true"/>
+    <targetFieldName>EXTERNAL_CUSTOMER_TEST__dlm.cstmr_id__c</targetFieldName>
+</FieldSrcTrgtRelationship>

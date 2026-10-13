@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>AdditionalNotes</fullName>
+    <inlineHelpText>Add information here that&apos;s helpful to create your campaign that isn&apos;t represented in the other fields.</inlineHelpText>
+</CustomField>

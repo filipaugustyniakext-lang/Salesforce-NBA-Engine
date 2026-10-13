@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DataSrcDataModelFieldMap xmlns="http://soap.sforce.com/2006/04/metadata">
+    <filterApplied>false</filterApplied>
+    <filterOperationType>Equal</filterOperationType>
+    <masterLabel>Snapshot_D360_Sandbox_12052026UAT_GCP_Big_Queryadr_pstl_cdContactPointAddressPostalCodeIdotScYXmQKJvkVGO</masterLabel>
+    <sourceField>GCP_CUSTOMER_DSO1.adr_pstl_cd__c</sourceField>
+    <targetField>ssot__ContactPointAddress__dlm.ssot__PostalCodeId__c</targetField>
+    <templateVersion>1</templateVersion>
+    <versionNumber>1.0</versionNumber>
+</DataSrcDataModelFieldMap>

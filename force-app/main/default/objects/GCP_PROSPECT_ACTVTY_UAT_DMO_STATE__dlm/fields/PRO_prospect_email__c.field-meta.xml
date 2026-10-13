@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>PRO_prospect_email__c</fullName>
+    <label>EmailAddress</label>
+    <mktDataModelFieldAttributes>
+        <definitionCreationType>Transform</definitionCreationType>
+        <isDynamicLookup>false</isDynamicLookup>
+        <labelOverride>EmailAddress</labelOverride>
+        <masterLabel>EmailAddress</masterLabel>
+        <refAttrDeveloperName>PRO_prospect_email_Transform</refAttrDeveloperName>
+        <usageTag>None</usageTag>
+    </mktDataModelFieldAttributes>
+    <required>false</required>
+    <type>Email</type>
+</CustomField>

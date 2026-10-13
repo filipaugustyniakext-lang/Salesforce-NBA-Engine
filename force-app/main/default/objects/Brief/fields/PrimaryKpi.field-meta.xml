@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>PrimaryKpi</fullName>
+    <inlineHelpText>This KPI makes the goal measurable. It tells the agent how to judge success, and helps it understand the relative value of different outcomes. Example: Number of demos booked using the agent&apos;s unique scheduling link.</inlineHelpText>
+</CustomField>

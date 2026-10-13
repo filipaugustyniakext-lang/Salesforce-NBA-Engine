@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FieldSrcTrgtRelationship xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <definitionCreationType>Segment_Membership</definitionCreationType>
+    <lookupFieldName>PubSub_RT_PoC_PubSub_RT_PoC_CEB3C4E1_S__dlm.rel_1783004206724_end__c</lookupFieldName>
+    <masterLabel>PubSub_RT_PoC_PubSub_RT_PoC_CEB3C4E1_S_Id_map_PubSub_RT_PoC_PubSub_RT_PoC_CEB3C4E1_event_id_1783004206724</masterLabel>
+    <owner>DataCloud</owner>
+    <relationshipCardinality>ManyToOne</relationshipCardinality>
+    <sourceFieldName>PubSub_RT_PoC_PubSub_RT_PoC_CEB3C4E1_S__dlm.Id__c</sourceFieldName>
+    <targetEntity xsi:nil="true"/>
+    <targetFieldName>PubSub_RT_PoC_PubSub_RT_PoC_CEB3C4E1__dlm.event_id__c</targetFieldName>
+</FieldSrcTrgtRelationship>

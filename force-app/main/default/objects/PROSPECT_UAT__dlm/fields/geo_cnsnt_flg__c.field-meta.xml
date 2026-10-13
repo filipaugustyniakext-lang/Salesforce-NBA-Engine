@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>geo_cnsnt_flg__c</fullName>
+    <defaultValue>false</defaultValue>
+    <label>GEO_CNSNT_FLG</label>
+    <mktDataModelFieldAttributes>
+        <definitionCreationType>Custom</definitionCreationType>
+        <isDynamicLookup>false</isDynamicLookup>
+        <labelOverride>GEO_CNSNT_FLG</labelOverride>
+        <masterLabel>GEO_CNSNT_FLG</masterLabel>
+        <usageTag>None</usageTag>
+    </mktDataModelFieldAttributes>
+    <type>Checkbox</type>
+</CustomField>

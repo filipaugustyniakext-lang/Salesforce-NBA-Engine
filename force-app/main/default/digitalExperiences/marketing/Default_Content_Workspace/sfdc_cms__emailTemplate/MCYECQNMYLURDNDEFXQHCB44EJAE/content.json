@@ -1,0 +1,213 @@
+{
+  "type" : "sfdc_cms__emailTemplate",
+  "title" : "CC_Email_Template",
+  "contentBody" : {
+    "backgroundColor" : "#f3f3f3",
+    "lightning:backgroundImage" : {
+      "position" : "center center",
+      "repeat" : "no-repeat",
+      "size" : "cover"
+    },
+    "lightning:brandSource" : {
+      "defaultBrandOption" : "sfdcBrand"
+    },
+    "lightning:colorScheme" : "{!$brand.colorScheme}",
+    "lightning:dataProviders" : [ {
+      "attributes" : {
+        "objectApiName" : "UnifiedIndividual__dlm"
+      },
+      "definition" : "sfdc_cms__unifiedIndividualDataProvider",
+      "sfdcExpressionKey" : "$unifiedIndividual"
+    } ],
+    "lightning:padding" : "{!$brand.spacing.none}",
+    "messagePurpose" : "promotional",
+    "preheader" : "{Your Preheader Goes Here}",
+    "sfdc_cms:block" : {
+      "definition" : "sfdc_cms/rootContentBlock",
+      "id" : "ab73495e-5769-4610-b1c7-037ce3f55a39",
+      "type" : "block",
+      "children" : [ {
+        "attributes" : {
+          "lightning:borderRadius" : "{!$brand.borderRadius.square}",
+          "lightning:borderWidth" : "{!$brand.borderWeight.none}",
+          "lightning:colorScheme" : "{!$brand.colorScheme}",
+          "lightning:margin" : "{!$brand.spacing.none}",
+          "lightning:padding" : "{!$brand.spacing.none}",
+          "sfdc_cms:schema" : {
+            "readOnly" : false
+          },
+          "stackOnMobile" : true,
+          "reverseOrderOnMobile" : false,
+          "lightning:backgroundImage" : {
+            "repeat" : "no-repeat",
+            "position" : "center center",
+            "size" : "cover"
+          }
+        },
+        "definition" : "lightning/section",
+        "id" : "348b0b9d-8956-4fb4-a195-b0534f9f3994",
+        "type" : "block",
+        "children" : [ {
+          "attributes" : {
+            "columnWidth" : 12.0,
+            "lightning:borderRadius" : "{!$brand.borderRadius.square}",
+            "lightning:borderWidth" : "{!$brand.borderWeight.none}",
+            "lightning:colorScheme" : "{!$brand.colorScheme}",
+            "lightning:margin" : "{!$brand.spacing.none}",
+            "lightning:padding" : "{!$brand.spacing.none}",
+            "lightning:verticalAlignment" : "top",
+            "sfdc_cms:schema" : {
+              "readOnly" : false
+            },
+            "lightning:backgroundImage" : {
+              "repeat" : "no-repeat",
+              "position" : "center center",
+              "size" : "cover"
+            }
+          },
+          "definition" : "lightning/column",
+          "id" : "a926f7fd-0fba-400d-ae43-1baf438d3c4c",
+          "type" : "block",
+          "children" : [ {
+            "attributes" : {
+              "lightning:borderRadius" : "{!$brand.borderRadius.square}",
+              "lightning:borderWidth" : "{!$brand.borderWeight.none}",
+              "lightning:colorGroup" : {
+                "backgroundColor" : "{!$brand.colorScheme.root}",
+                "borderColor" : "{!$brand.colorScheme.neutral}",
+                "linkColor" : "{!$brand.colorScheme.primaryAccent}",
+                "textColor" : "{!$brand.colorScheme.contrast}"
+              },
+              "lightning:margin" : "{!$brand.spacing.none}",
+              "lightning:padding" : "{!$brand.spacing.none}",
+              "rawHtml" : "<!--2. HEADER -->\n<!--2.1 View Online Link - WHITE BG -->\n<!--[if mso | IE]><table align=\"center\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" class=\"padding-mobile-outlook dark-mode-background-outlook\" role=\"presentation\" style=\"width:600px;\" width=\"600\" ><tr><td style=\"line-height:0px;font-size:0px;mso-line-height-rule:exactly;\"><![endif]-->\n<div class=\"dark-mode-background\" style=\"margin:0px auto;max-width:600px;\">\n  <table align=\"center\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" role=\"presentation\" style=\"width:100%;\"><tbody><tr><td class=\"padding-mobile\" style=\"direction:ltr;font-size:0px;padding:5px 40px;text-align:center;\">\n          <!--[if mso | IE]><table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\"><tr><td class=\"\" style=\"vertical-align:top;width:520px;\" ><![endif]-->\n          <div class=\"mj-column-per-100 mj-outlook-group-fix\" style=\"font-size:0px;text-align:center;direction:ltr;display:inline-block;vertical-align:top;width:100%;\">\n            <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" role=\"presentation\" style=\"vertical-align:top;\" width=\"100%\"><tbody><tr><td align=\"center\" style=\"font-size:0px;padding:0;word-break:break-word;\">\n                    <div style=\"font-family:Arial, Helvetica, Sans-serif;font-size:13px;line-height:1;text-align:center;color:#8c8c8c;\">\n                      <a href=\"%%view_email_url%%\" style=\"color:#8c8c8c;\">Jeśli email nie otwiera się poprawnie, otwórz w przeglądarce.</a>\n                    </div>\n                  </td></tr></tbody></table>\n          </div>\n          <!--[if mso | IE]></td></tr></table><![endif]-->\n        </td></tr></tbody></table>\n</div>\n<!--[if mso | IE]></td></tr></table><![endif]-->    \n<!--2.2 Header Bar - WHITE BG-->\n<!--[if mso | IE]><table align=\"center\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" class=\"padding-mobile-outlook dark-mode-background-outlook\" role=\"presentation\" style=\"width:600px;\" width=\"600\" ><tr><td style=\"line-height:0px;font-size:0px;mso-line-height-rule:exactly;\"><![endif]-->\n<div class=\"dark-mode-background\" style=\"margin:0px auto; max-width:600px;\">\n  <table role=\"presentation\" width=\"600\" cellspacing=\"0\" cellpadding=\"0\" border=\"0\" align=\"center\" class=\"mobile-full\" style=\"width:600px; b\"><tbody><tr><td align=\"center\" style=\"margin: 0; padding:0;\">\n        <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" border=\"0\"><tbody><tr><td align=\"center\">\n              <div class=\"desktop-img\">\n                <img src=\"https://image.sfnonprod.vodeno.net/lib/fe3011737364057d741c77/m/1/Header.png\" width=\"600\" alt=\"Desktop Image\" style=\"display:block; width:100%; max-width:600px; height:auto; border:0;\" />\n              </div>\n              <div class=\"mobile-img\" style=\"display:none; max-height:0; overflow:hidden; mso-hide:all;\">\n                <img src=\"https://image.sfnonprod.vodeno.net/lib/fe3011737364057d741c77/m/1/V2_Header_Mobile1.png\" width=\"480\" alt=\"Mobile Image\" style=\"display:block; width:100%; height:auto; border:0;\" />\n              </div>\n            </td></tr></tbody></table>\n      </td></tr></tbody></table>\n</div>\n<!--[if mso | IE]></td></tr></table><![endif]-->   ",
+              "sfdc_cms:schema" : {
+                "readOnly" : false
+              }
+            },
+            "definition" : "lightning/html",
+            "id" : "c69c0a96-a445-4eba-ac39-f881305633e8",
+            "type" : "block"
+          } ]
+        } ]
+      }, {
+        "attributes" : {
+          "lightning:borderRadius" : "{!$brand.borderRadius.square}",
+          "lightning:borderWidth" : "{!$brand.borderWeight.none}",
+          "lightning:colorScheme" : "{!$brand.colorScheme}",
+          "lightning:margin" : "{!$brand.spacing.none}",
+          "lightning:padding" : "{!$brand.spacing.none}",
+          "reverseOrderOnMobile" : false,
+          "sfdc_cms:schema" : {
+            "readOnly" : false
+          },
+          "stackOnMobile" : true,
+          "lightning:backgroundImage" : {
+            "repeat" : "no-repeat",
+            "position" : "center center",
+            "size" : "cover"
+          }
+        },
+        "definition" : "lightning/section",
+        "id" : "8a02ccb4-bc44-4a6d-ba1a-690411306d08",
+        "type" : "block",
+        "children" : [ {
+          "attributes" : {
+            "columnWidth" : 12.0,
+            "lightning:borderRadius" : "{!$brand.borderRadius.square}",
+            "lightning:borderWidth" : "{!$brand.borderWeight.none}",
+            "lightning:colorScheme" : "{!$brand.colorScheme}",
+            "lightning:margin" : "{!$brand.spacing.none}",
+            "lightning:padding" : "{!$brand.spacing.xSmall}",
+            "lightning:verticalAlignment" : "top",
+            "sfdc_cms:schema" : {
+              "readOnly" : false
+            },
+            "lightning:backgroundImage" : {
+              "repeat" : "no-repeat",
+              "position" : "center center",
+              "size" : "cover"
+            }
+          },
+          "definition" : "lightning/column",
+          "id" : "a771a26a-5792-4f25-a2ab-41dac60fd83a",
+          "type" : "block",
+          "children" : [ ]
+        } ]
+      }, {
+        "attributes" : {
+          "lightning:borderRadius" : "{!$brand.borderRadius.square}",
+          "lightning:borderWidth" : "{!$brand.borderWeight.none}",
+          "lightning:colorScheme" : "{!$brand.colorScheme}",
+          "lightning:margin" : "{!$brand.spacing.none}",
+          "lightning:padding" : "{!$brand.spacing.none}",
+          "reverseOrderOnMobile" : false,
+          "sfdc_cms:schema" : {
+            "readOnly" : false
+          },
+          "stackOnMobile" : true,
+          "lightning:backgroundImage" : {
+            "repeat" : "no-repeat",
+            "position" : "center center",
+            "size" : "cover"
+          }
+        },
+        "definition" : "lightning/section",
+        "id" : "0f622212-72a5-48d0-8ded-bccbe6d1646c",
+        "type" : "block",
+        "children" : [ {
+          "attributes" : {
+            "columnWidth" : 12.0,
+            "lightning:borderRadius" : "{!$brand.borderRadius.square}",
+            "lightning:borderWidth" : "{!$brand.borderWeight.none}",
+            "lightning:colorScheme" : "{!$brand.colorScheme}",
+            "lightning:margin" : "{!$brand.spacing.none}",
+            "lightning:padding" : "{!$brand.spacing.none}",
+            "lightning:verticalAlignment" : "top",
+            "sfdc_cms:schema" : {
+              "readOnly" : false
+            },
+            "lightning:backgroundImage" : {
+              "repeat" : "no-repeat",
+              "position" : "center center",
+              "size" : "cover"
+            }
+          },
+          "definition" : "lightning/column",
+          "id" : "b1c190aa-d060-44c9-bcb6-db199ec6227e",
+          "type" : "block",
+          "children" : [ {
+            "attributes" : {
+              "lightning:borderRadius" : "{!$brand.borderRadius.square}",
+              "lightning:borderWidth" : "{!$brand.borderWeight.none}",
+              "lightning:colorGroup" : {
+                "backgroundColor" : "{!$brand.colorScheme.root}",
+                "borderColor" : "{!$brand.colorScheme.neutral}",
+                "linkColor" : "{!$brand.colorScheme.primaryAccent}",
+                "textColor" : "{!$brand.colorScheme.contrast}"
+              },
+              "lightning:margin" : "{!$brand.spacing.none}",
+              "lightning:padding" : "{!$brand.spacing.none}",
+              "rawHtml" : "<!--Footer Legal Note-->\n<!--[if mso | IE]><table align=\"center\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" class=\"\" role=\"presentation\" style=\"width:600px;\" width=\"600\" bgcolor=\"#262626\" ><tr><td style=\"line-height:0px;font-size:0px;mso-line-height-rule:exactly;\"><![endif]-->\n<div style=\"background-color:#262626;margin:0px auto;max-width:600px;\">\n  <table align=\"center\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" role=\"presentation\" style=\"background:#010101;background-color:#010101;width:100%;background: linear-gradient(#262626, #262626); background-color: #262626;\"><tbody><tr><td style=\"direction:ltr;font-size:0px;padding:10px 40px;text-align:center;\">\n        <!--[if mso | IE]><table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\"><tr><td class=\"\" style=\"vertical-align:top;width:520px;\" ><![endif]-->\n        <div class=\"mj-column-per-100 mj-outlook-group-fix\" style=\"font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:top;width:100%;\">\n          <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" role=\"presentation\" style=\"vertical-align:top;\" width=\"100%\"><tbody><tr><td align=\"center\" style=\"font-size:0px;padding:0;word-break:break-word;\">\n                <div style=\"font-family:Arial, Helvetica, Sans-serif;font-size:13px;line-height:1;text-align:center;color:#CCCCCC;\">\n                  <p style=\"line-height:22px;font-size:14px !important; font-weight: light !important\"> \n                    UniCredit S.A. Spółka Akcyjna Oddział w Polsce, ul. Dobra 40, 00-344 Warszawa, wpisany do rejestru przedsiębiorców prowadzonego przez Sąd Rejonowy dla m. st. Warszawy w Warszawie, XII Wydział Gospodarczy, pod numerem KRS: 0000807333, NIP: 1080023480\n                  </p>\n                </div>\n              </td></tr></tbody></table>\n        </div>\n        <!--[if mso | IE]></td></tr></table><![endif]-->\n      </td></tr></tbody></table>\n</div>\n<!--[if mso | IE]></td></tr></table><![endif]-->\n<!--Footer Copyrights-->\n<!--[if mso | IE]><table align=\"center\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" class=\"\" role=\"presentation\" style=\"width:600px;\" width=\"600\" bgcolor=\"#262626\" ><tr><td style=\"line-height:0px;font-size:0px;mso-line-height-rule:exactly;\"><![endif]-->\n<div style=\"background-color:#262626;margin:0px auto;max-width:600px;\">\n  <table align=\"center\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" role=\"presentation\" style=\"background:#010101;background-color:#010101;width:100%;background: linear-gradient(#262626, #262626); background-color: #262626;\"><tbody><tr><td style=\"direction:ltr;font-size:0px;padding:10px 40px;text-align:center;\">\n        <!--[if mso | IE]><table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\"><tr><td class=\"\" style=\"vertical-align:top;width:520px;\" ><![endif]-->\n        <div class=\"mj-column-per-100 mj-outlook-group-fix\" style=\"font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:top;width:100%;\">\n          <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" role=\"presentation\" width=\"100%\"><tbody><tr><td style=\"vertical-align:top;padding:0;\">\n                <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" role=\"presentation\" style=\"\" width=\"100%\"><tbody><tr><td align=\"center\" style=\"font-size:0px;padding:0;word-break:break-word;\">\n                      <div style=\"font-family:Arial, Helvetica, Sans-serif;font-size:13px;line-height:1;text-align:center;color:#cccccc;\">\n                        <p style=\"font-size:14px !important; font-weight: light !important;\"> © %%xtyear%% UniCredit S.A. - All rights reserved \n                        </p>\n                      </div>\n                    </td></tr><tr><td align=\"center\" style=\"font-size:0px;padding:0;word-break:break-word;\">\n                      <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" role=\"presentation\" style=\"border-collapse:collapse;border-spacing:0px;\"><tbody><tr><td style=\"width:107px;\">\n                            <img alt=\"\" src=\"https://image.s51.sfmc-content.com/lib/fe3011737364057d741c77/m/1/Logo_white.png\" style=\"border:0;display:block;outline:none;text-decoration:none;height:auto;width:100%;font-size:13px;\" width=\"107\" height=\"auto\" />\n                          </td></tr></tbody></table>\n                    </td></tr></tbody></table>\n              </td></tr></tbody></table>\n        </div>\n        <!--[if mso | IE]></td></tr></table><![endif]-->\n      </td></tr></tbody></table>\n</div>\n<!--[if mso | IE]></td></tr></table><![endif]-->",
+              "sfdc_cms:schema" : {
+                "readOnly" : false
+              }
+            },
+            "definition" : "lightning/html",
+            "id" : "ff7c0ff0-e7a0-4108-8c2e-86fc20902535",
+            "type" : "block"
+          } ]
+        } ]
+      } ]
+    },
+    "sfdc_cms:schema" : {
+      "readOnly" : false
+    },
+    "sfdc_cms:title" : "CC_Email_Template",
+    "subjectLine" : "{Your SubjectLine Goes Here}",
+    "lightning:expressions" : [ ],
+    "sfdc_cms:attachments" : [ ],
+    "sfdc_cms:variants" : [ ]
+  },
+  "urlName" : "cc-email-template"
+}

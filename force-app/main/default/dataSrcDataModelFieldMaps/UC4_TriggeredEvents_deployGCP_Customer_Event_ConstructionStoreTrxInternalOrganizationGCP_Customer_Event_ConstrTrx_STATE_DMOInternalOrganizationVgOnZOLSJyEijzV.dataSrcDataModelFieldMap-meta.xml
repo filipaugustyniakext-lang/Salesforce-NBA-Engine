@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DataSrcDataModelFieldMap xmlns="http://soap.sforce.com/2006/04/metadata">
+    <filterApplied>false</filterApplied>
+    <filterOperationType>Equal</filterOperationType>
+    <masterLabel>UC4_TriggeredEvents_deployGCP_Customer_Event_ConstructionStoreTrxInternalOrganizationGCP_Customer_Event_ConstrTrx_STATE_DMOInternalOrganizationVgOnZOLSJyEijzV</masterLabel>
+    <sourceField>GCP_Customer_Event_ConstructionStoreTrx.InternalOrganization__c</sourceField>
+    <targetField>GCP_Customer_Event_ConstrTrx_STATE_DMO__dlm.InternalOrganization__c</targetField>
+    <templateVersion>1</templateVersion>
+    <versionNumber>1.0</versionNumber>
+</DataSrcDataModelFieldMap>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FieldSrcTrgtRelationship xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <definitionCreationType>Custom</definitionCreationType>
+    <lookupFieldName>Blacklist_General_Client_CRM_DMO__dlm.rel_1789652808417_end__c</lookupFieldName>
+    <masterLabel>Blacklist_General_Client_CRM_DMO_ExternalCustomerId_map_GCP_EXTERNAL_CUSTOMER_DMO_cstmr_id_1789652808417</masterLabel>
+    <owner>DataCloud</owner>
+    <relationshipCardinality>OneToOne</relationshipCardinality>
+    <sourceFieldName>Blacklist_General_Client_CRM_DMO__dlm.ExternalCustomerId__c</sourceFieldName>
+    <targetEntity xsi:nil="true"/>
+    <targetFieldName>GCP_EXTERNAL_CUSTOMER_DMO__dlm.cstmr_id__c</targetFieldName>
+</FieldSrcTrgtRelationship>

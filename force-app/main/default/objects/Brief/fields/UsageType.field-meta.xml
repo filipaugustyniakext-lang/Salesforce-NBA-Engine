@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>UsageType</fullName>
+    <inlineHelpText>The usage of the brief, such as an offer, a promotion, or a campaign.</inlineHelpText>
+</CustomField>

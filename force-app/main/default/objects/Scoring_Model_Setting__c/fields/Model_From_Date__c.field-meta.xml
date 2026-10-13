@@ -4,5 +4,6 @@
     <description>First date this model configuration is in effect. Entered by the user, not read from a DMO column.</description>
     <label>Model From Date</label>
     <required>true</required>
+    <trackTrending>false</trackTrending>
     <type>Date</type>
 </CustomField>

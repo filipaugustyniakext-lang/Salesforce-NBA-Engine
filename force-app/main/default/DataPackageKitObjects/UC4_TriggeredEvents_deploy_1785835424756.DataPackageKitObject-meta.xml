@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DataPackageKitObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <masterLabel>UC4_TriggeredEvents_deploy</masterLabel>
+    <parentDataPackageKitDefinitionName>UC4_TriggeredEvents_deploy</parentDataPackageKitDefinitionName>
+    <referenceObjectName>ACT_PL_CONSENT_EQUIPMENT_FLAGS_TO_MCE1784890948203</referenceObjectName>
+    <referenceObjectType>DataKitObjectTemplate</referenceObjectType>
+</DataPackageKitObject>

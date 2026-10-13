@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DataSrcDataModelFieldMap xmlns="http://soap.sforce.com/2006/04/metadata">
+    <filterApplied>false</filterApplied>
+    <masterLabel>Snapshot_D360_Sandbox_12052026UAT_GCP_Big_Querylst_act_dtPROSPECT_UATlst_act_dtkJVmjYPcHESoMib</masterLabel>
+    <sourceField>PROSPECT_UAT1.lst_act_dt__c</sourceField>
+    <targetField>PROSPECT_UAT__dlm.lst_act_dt__c</targetField>
+    <templateVersion>1</templateVersion>
+    <versionNumber>1.0</versionNumber>
+</DataSrcDataModelFieldMap>

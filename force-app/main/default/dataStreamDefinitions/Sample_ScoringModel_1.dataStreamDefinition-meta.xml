@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DataStreamDefinition xmlns="http://soap.sforce.com/2006/04/metadata">
+    <areHeadersIncludedInFile>false</areHeadersIncludedInFile>
+    <bulkIngest>false</bulkIngest>
+    <creationType>Custom</creationType>
+    <dataConnector>UploadedFiles</dataConnector>
+    <dataConnectorType>UploadedFiles</dataConnectorType>
+    <dataPlatformDataSetItemName>CONNECTORSFRAMEWORK</dataPlatformDataSetItemName>
+    <dataSource>UploadedFiles</dataSource>
+    <isLimitedToNewFiles>false</isLimitedToNewFiles>
+    <isMissingFileFailure>false</isMissingFileFailure>
+    <masterLabel>Sample_ScoringModel_1</masterLabel>
+    <mktDataLakeObject>Sample_ScoringModel_1__dll</mktDataLakeObject>
+    <mktDataTranObject>Sample_ScoringModel_1</mktDataTranObject>
+    <parameters>
+        <fullName>Sample_ScoringModel_1_delimiter</fullName>
+        <paramName>delimiter</paramName>
+        <value>,</value>
+    </parameters>
+    <parameters>
+        <fullName>Sample_ScoringModel_1_fileName</fullName>
+        <paramName>fileName</paramName>
+        <value>Template Models - Model1.csv</value>
+    </parameters>
+    <parameters>
+        <fullName>Sample_ScoringModel_1_fileType</fullName>
+        <paramName>fileType</paramName>
+        <value>CSV</value>
+    </parameters>
+    <parameters>
+        <fullName>Sample_ScoringModel_1_importDirectory</fullName>
+        <paramName>importDirectory</paramName>
+        <value>005ds000007qfBLAAY/2026-09-29T12:46:40:230Z</value>
+    </parameters>
+    <parameters>
+        <fullName>Sample_ScoringModel_1_isDataStreamConfigValid</fullName>
+        <paramName>isDataStreamConfigValid</paramName>
+        <value>true</value>
+    </parameters>
+    <parameters>
+        <fullName>Sample_ScoringModel_1_parentDirectory</fullName>
+        <paramName>parentDirectory</paramName>
+        <value>s3://aws-prod16-eunorth1-cdp1-lakehouse-1/sfdrive/a360-prod16-17f693fe68d84ecaad1888a5d48dfb03/a1fdaf74-17b1-4c64-8123-0a628cbfa5d0__uuid/flup-fileUploads/dc_file_upload</value>
+    </parameters>
+</DataStreamDefinition>

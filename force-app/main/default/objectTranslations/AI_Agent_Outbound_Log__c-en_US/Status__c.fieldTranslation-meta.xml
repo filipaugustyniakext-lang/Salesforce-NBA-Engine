@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomFieldTranslation xmlns="http://soap.sforce.com/2006/04/metadata">
+    <label><!-- Status --></label>
+    <name>Status__c</name>
+    <picklistValues>
+        <masterLabel>ACTIVE</masterLabel>
+        <translation><!-- ACTIVE --></translation>
+    </picklistValues>
+    <picklistValues>
+        <masterLabel>COMPLETED</masterLabel>
+        <translation><!-- COMPLETED --></translation>
+    </picklistValues>
+    <picklistValues>
+        <masterLabel>DELETED</masterLabel>
+        <translation><!-- DELETED --></translation>
+    </picklistValues>
+    <picklistValues>
+        <masterLabel>EXPIRED</masterLabel>
+        <translation><!-- EXPIRED --></translation>
+    </picklistValues>
+</CustomFieldTranslation>

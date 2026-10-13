@@ -7,6 +7,7 @@
     <label>Model Definition Key</label>
     <length>18</length>
     <required>true</required>
+    <trackTrending>false</trackTrending>
     <type>Text</type>
     <unique>true</unique>
 </CustomField>

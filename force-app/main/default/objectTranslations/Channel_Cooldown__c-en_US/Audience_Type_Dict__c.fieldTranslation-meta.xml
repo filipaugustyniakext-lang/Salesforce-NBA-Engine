@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomFieldTranslation xmlns="http://soap.sforce.com/2006/04/metadata">
+    <help><!-- Select the audience group this cooldown period applies to (a Marketing Dictionary Audience Type entry, e.g. Customer or Prospect). --></help>
+    <label><!-- Audience Type --></label>
+    <name>Audience_Type_Dict__c</name>
+    <relationshipLabel><!-- Audience Cooldowns --></relationshipLabel>
+</CustomFieldTranslation>

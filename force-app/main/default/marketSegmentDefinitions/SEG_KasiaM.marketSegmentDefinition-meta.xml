@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MarketSegmentDefinition xmlns="http://soap.sforce.com/2006/04/metadata">
+    <includeCriteria>{&quot;type&quot;:&quot;TextComparison&quot;,&quot;path&quot;:null,&quot;joinPath&quot;:null,&quot;subject&quot;:{&quot;objectApiName&quot;:&quot;GCP_EXTERNAL_CUSTOMER_DMO__dlm&quot;,&quot;fieldApiName&quot;:&quot;cstmr_id__c&quot;},&quot;selfReference&quot;:false,&quot;operator&quot;:&quot;equal&quot;,&quot;subjectFieldDataType&quot;:&quot;TEXT&quot;,&quot;subjectFieldBusinessType&quot;:&quot;TEXT&quot;,&quot;subjectFieldSourceType&quot;:&quot;DIRECT&quot;,&quot;values&quot;:[&quot;a2e0d44a-a8d8-4ba5-b785-4c433a84db84&quot;]}</includeCriteria>
+    <masterLabel>SEG_KasiaM</masterLabel>
+    <segmentOn>GCP_EXTERNAL_CUSTOMER_DMO__dlm</segmentOn>
+    <segmentType>UI</segmentType>
+</MarketSegmentDefinition>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomFieldTranslation xmlns="http://soap.sforce.com/2006/04/metadata">
+    <help><!-- Check if the exclusion is active - Valid To date is in the past or empty --></help>
+    <label><!-- Is Currently Active --></label>
+    <name>Is_Currently_Active__c</name>
+</CustomFieldTranslation>

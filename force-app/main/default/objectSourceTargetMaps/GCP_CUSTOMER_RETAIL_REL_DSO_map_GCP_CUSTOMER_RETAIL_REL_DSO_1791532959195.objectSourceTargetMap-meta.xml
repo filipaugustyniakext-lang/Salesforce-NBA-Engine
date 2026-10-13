@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ObjectSourceTargetMap xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <creationType>Custom</creationType>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>GCP_CUSTOMER_RETAIL_REL_DSO.external_relation_id__c</sourceField>
+        <sourceFormula>external_relation_id</sourceFormula>
+        <targetField>GCP_CUSTOMER_RETAIL_REL_DSO__dll.external_relation_id__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>GCP_CUSTOMER_RETAIL_REL_DSO.external_customer_id_from__c</sourceField>
+        <sourceFormula>external_customer_id_from</sourceFormula>
+        <targetField>GCP_CUSTOMER_RETAIL_REL_DSO__dll.external_customer_id_from__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>GCP_CUSTOMER_RETAIL_REL_DSO.external_customer_id_to__c</sourceField>
+        <sourceFormula>external_customer_id_to</sourceFormula>
+        <targetField>GCP_CUSTOMER_RETAIL_REL_DSO__dll.external_customer_id_to__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>GCP_CUSTOMER_RETAIL_REL_DSO.status__c</sourceField>
+        <sourceFormula>status</sourceFormula>
+        <targetField>GCP_CUSTOMER_RETAIL_REL_DSO__dll.status__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>System</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>UAT_GCP_Big_Query</sourceFormula>
+        <targetField>GCP_CUSTOMER_RETAIL_REL_DSO__dll.DataSource__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>GCP_CUSTOMER_RETAIL_REL_DSO.type__c</sourceField>
+        <sourceFormula>type</sourceFormula>
+        <targetField>GCP_CUSTOMER_RETAIL_REL_DSO__dll.type__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>System</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <targetField>GCP_CUSTOMER_RETAIL_REL_DSO__dll.InternalOrganization__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>System</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>uat-0001wk3s90-sale-jst729_0001wk3s90_dl_layer2_cdp_crm</sourceFormula>
+        <targetField>GCP_CUSTOMER_RETAIL_REL_DSO__dll.DataSourceObject__c</targetField>
+    </fieldSourceTargetMaps>
+    <masterLabel>GCP_CUSTOMER_RETAIL_REL_DSO_map_GCP_CUSTOMER_RETAIL_REL_DSO_1791532959195</masterLabel>
+    <sourceObjectName>GCP_CUSTOMER_RETAIL_REL_DSO</sourceObjectName>
+    <targetObjectName>GCP_CUSTOMER_RETAIL_REL_DSO__dll</targetObjectName>
+</ObjectSourceTargetMap>

@@ -4,7 +4,7 @@
     <description>Human-readable package validation errors and warnings.</description>
     <label>Validation Message</label>
     <length>32768</length>
-    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
     <type>LongTextArea</type>
     <visibleLines>6</visibleLines>
 </CustomField>

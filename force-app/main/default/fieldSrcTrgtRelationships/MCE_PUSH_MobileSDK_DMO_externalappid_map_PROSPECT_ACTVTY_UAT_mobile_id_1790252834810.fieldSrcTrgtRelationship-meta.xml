@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FieldSrcTrgtRelationship xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <definitionCreationType>Custom</definitionCreationType>
+    <lookupFieldName>MCE_PUSH_MobileSDK_DMO__dlm.rel_1790252834810_end__c</lookupFieldName>
+    <masterLabel>MCE_PUSH_MobileSDK_DMO_externalappid_map_PROSPECT_ACTVTY_UAT_mobile_id_1790252834810</masterLabel>
+    <owner>DataCloud</owner>
+    <relationshipCardinality>OneToOne</relationshipCardinality>
+    <sourceFieldName>MCE_PUSH_MobileSDK_DMO__dlm.externalappid__c</sourceFieldName>
+    <targetEntity xsi:nil="true"/>
+    <targetFieldName>PROSPECT_ACTVTY_UAT__dlm.mobile_id__c</targetFieldName>
+</FieldSrcTrgtRelationship>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>rel_1784642602117_end__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <label>GCP_Customer_Event_RejectedTrx_STATE_rel</label>
+    <referenceTo>GCP_EXTERNAL_CUSTOMER_DMO__dlm</referenceTo>
+    <relationshipLabel>GCP_Customer_Event_RejectedTrx_STATE_rel</relationshipLabel>
+    <relationshipName>rel_1784642602117_end</relationshipName>
+    <required>false</required>
+    <type>Lookup</type>
+</CustomField>

@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ObjectSourceTargetMap xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <creationType>Custom</creationType>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>LOWER(sourceField[&apos;tgt_SendClassification&apos;])</sourceFormula>
+        <targetField>sfmc_email_complaint_536010170__dll.SendClassification__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_email_complaint_536010170.tgt_EmailFromName__c</sourceField>
+        <sourceFormula>tgt_EmailFromName</sourceFormula>
+        <targetField>sfmc_email_complaint_536010170__dll.EmailFromName__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_email_complaint_536010170.tgt_IsUnique__c</sourceField>
+        <sourceFormula>tgt_IsUnique</sourceFormula>
+        <targetField>sfmc_email_complaint_536010170__dll.IsUnique__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>IF(sourceField[&apos;tgt_TestJobTypeID&apos;] == &apos;0&apos;, &apos;false&apos;, &apos;true&apos;)</sourceFormula>
+        <targetField>sfmc_email_complaint_536010170__dll.IsTestSend__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_email_complaint_536010170.tgt_OYBMemberID__c</sourceField>
+        <sourceFormula>tgt_OYBMemberID</sourceFormula>
+        <targetField>sfmc_email_complaint_536010170__dll.OYBMemberID__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_email_complaint_536010170.tgt_EngagementChannelAction__c</sourceField>
+        <sourceFormula>tgt_EngagementChannelAction</sourceFormula>
+        <targetField>sfmc_email_complaint_536010170__dll.EngagementChannelAction__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_email_complaint_536010170.tgt_EmailFromAddress__c</sourceField>
+        <sourceFormula>tgt_EmailFromAddress</sourceFormula>
+        <targetField>sfmc_email_complaint_536010170__dll.EmailFromAddress__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_email_complaint_536010170.tgt_BatchID__c</sourceField>
+        <sourceFormula>tgt_BatchID</sourceFormula>
+        <targetField>sfmc_email_complaint_536010170__dll.BatchID__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_email_complaint_536010170.tgt_EngagementChannel__c</sourceField>
+        <sourceFormula>tgt_EngagementChannel</sourceFormula>
+        <targetField>sfmc_email_complaint_536010170__dll.EngagementChannel__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_email_complaint_536010170.tgt_EID__c</sourceField>
+        <sourceFormula>tgt_EID</sourceFormula>
+        <targetField>sfmc_email_complaint_536010170__dll.EID__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>System</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>IF(sourceField[&apos;tgt_ExtractSource&apos;] == &apos;DFU&apos;, CONCAT(sourceField[&apos;tgt_DataSource&apos;], &apos;_EmailComplaintStatistic_Day0&apos;), CONCAT(sourceField[&apos;tgt_DataSource&apos;], &apos;_EmailComplaintStatistic_Hourly&apos;))</sourceFormula>
+        <targetField>sfmc_email_complaint_536010170__dll.DataSourceObject__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>CONCAT(&apos;536010170_&apos;, sourceField[&apos;tgt_PublicationID&apos;])</sourceFormula>
+        <targetField>sfmc_email_complaint_536010170__dll.PublicationID__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>if(ISEMPTY(sourceField[&apos;tgt_LastModifiedDate&apos;])) { null; } else { DATEADD(&apos;h&apos;, 6, sourceField[&apos;tgt_LastModifiedDate&apos;]); }</sourceFormula>
+        <targetField>sfmc_email_complaint_536010170__dll.LastModifiedDate__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_email_complaint_536010170.tgt_SubjectLine__c</sourceField>
+        <sourceFormula>tgt_SubjectLine</sourceFormula>
+        <targetField>sfmc_email_complaint_536010170__dll.SubjectLine__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>CONCAT(sourceField[&apos;tgt_DataSource&apos;], &apos;_Email_&apos;, sourceField[&apos;tgt_PublicationID&apos;])</sourceFormula>
+        <targetField>sfmc_email_complaint_536010170__dll.BulkEmailMessageId__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>IF(sourceField[&apos;tgt_JourneyActivityID&apos;] == &apos;00000000-0000-0000-0000-000000000000&apos;, null, LOWER(sourceField[&apos;tgt_JourneyActivityID&apos;]))</sourceFormula>
+        <targetField>sfmc_email_complaint_536010170__dll.JourneyActivityID__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>System</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_email_complaint_536010170.tgt_MID__c</sourceField>
+        <sourceFormula>tgt_MID</sourceFormula>
+        <targetField>sfmc_email_complaint_536010170__dll.InternalOrganization__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>if(ISEMPTY(sourceField[&apos;tgt_CampaignID&apos;])) { null; } else { IF(sourceField[&apos;tgt_CampaignID&apos;] == &apos;&apos;, &apos;&apos;, CONCAT(&apos;536010170_&apos;, sourceField[&apos;tgt_CampaignID&apos;])); }</sourceFormula>
+        <targetField>sfmc_email_complaint_536010170__dll.CampaignID__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_email_complaint_536010170.tgt_EmailName__c</sourceField>
+        <sourceFormula>tgt_EmailName</sourceFormula>
+        <targetField>sfmc_email_complaint_536010170__dll.EmailName__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>System</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_email_complaint_536010170.tgt_DataSource__c</sourceField>
+        <sourceFormula>tgt_DataSource</sourceFormula>
+        <targetField>sfmc_email_complaint_536010170__dll.DataSource__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_email_complaint_536010170.tgt_EmailDomain__c</sourceField>
+        <sourceFormula>tgt_EmailDomain</sourceFormula>
+        <targetField>sfmc_email_complaint_536010170__dll.EmailDomain__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>CONCAT(&apos;536010170_&apos;, sourceField[&apos;tgt_ID&apos;])</sourceFormula>
+        <targetField>sfmc_email_complaint_536010170__dll.ID__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>System</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>if(ISEMPTY(formulaField[&apos;EngagementDateTime&apos;])) { null; } else { DAYPRECISION(formulaField[&apos;EngagementDateTime&apos;]); }</sourceFormula>
+        <targetField>sfmc_email_complaint_536010170__dll.cdp_sys_PartitionDate__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_email_complaint_536010170.tgt_ListID__c</sourceField>
+        <sourceFormula>tgt_ListID</sourceFormula>
+        <targetField>sfmc_email_complaint_536010170__dll.ListID__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_email_complaint_536010170.tgt_SubscriberKey__c</sourceField>
+        <sourceFormula>tgt_SubscriberKey</sourceFormula>
+        <targetField>sfmc_email_complaint_536010170__dll.SubscriberKey__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_email_complaint_536010170.tgt_SubscriberID__c</sourceField>
+        <sourceFormula>tgt_SubscriberID</sourceFormula>
+        <targetField>sfmc_email_complaint_536010170__dll.SubscriberID__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_email_complaint_536010170.tgt_SendtimeEmailAddress__c</sourceField>
+        <sourceFormula>tgt_SendtimeEmailAddress</sourceFormula>
+        <targetField>sfmc_email_complaint_536010170__dll.SendtimeEmailAddress__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_email_complaint_536010170.tgt_EmailID__c</sourceField>
+        <sourceFormula>tgt_EmailID</sourceFormula>
+        <targetField>sfmc_email_complaint_536010170__dll.EmailID__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>if(ISEMPTY(sourceField[&apos;tgt_EngagementDateTime&apos;])) { null; } else { DATEADD(&apos;h&apos;, 6, sourceField[&apos;tgt_EngagementDateTime&apos;]); }</sourceFormula>
+        <targetField>sfmc_email_complaint_536010170__dll.EngagementDateTime__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>IF(sourceField[&apos;tgt_JourneyID&apos;] == &apos;00000000-0000-0000-0000-000000000000&apos;, null, LOWER(sourceField[&apos;tgt_JourneyID&apos;]))</sourceFormula>
+        <targetField>sfmc_email_complaint_536010170__dll.JourneyID__c</targetField>
+    </fieldSourceTargetMaps>
+    <masterLabel>sfmc_email_complaint_536010170_map_sfmc_email_complaint_536010170_1774009987680</masterLabel>
+    <sourceObjectName>sfmc_email_complaint_536010170</sourceObjectName>
+    <targetObjectName>sfmc_email_complaint_536010170__dll</targetObjectName>
+</ObjectSourceTargetMap>

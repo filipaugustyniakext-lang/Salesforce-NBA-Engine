@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>AgentGuardrails</fullName>
+    <inlineHelpText>Critical guardrails prevent brand damage and ensure safety and compliance. Explicitly telling an agent what not to do is just as important as telling it what to do. Examples: Don&apos;t discuss specific pricing. Don&apos;t mention competitors by name. Don&apos;t offer discounts or promotions.</inlineHelpText>
+</CustomField>

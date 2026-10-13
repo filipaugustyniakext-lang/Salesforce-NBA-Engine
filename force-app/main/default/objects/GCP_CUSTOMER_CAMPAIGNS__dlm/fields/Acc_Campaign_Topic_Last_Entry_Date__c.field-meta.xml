@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Acc_Campaign_Topic_Last_Entry_Date__c</fullName>
+    <label>Campaign Topic Last Entry Date</label>
+    <mktDataModelFieldAttributes>
+        <definitionCreationType>Transform</definitionCreationType>
+        <isDynamicLookup>false</isDynamicLookup>
+        <labelOverride>Campaign Topic Last Entry Date</labelOverride>
+        <masterLabel>Campaign Topic Last Entry Date</masterLabel>
+        <refAttrDeveloperName>Acc_Campaign_Topic_Last_Entry_Date_Transform</refAttrDeveloperName>
+        <usageTag>None</usageTag>
+    </mktDataModelFieldAttributes>
+    <required>false</required>
+    <type>DateTime</type>
+</CustomField>

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>PrimaryCtas</fullName>
+    <inlineHelpText>Provides the agent with a menu of specific, approved actions to prompt the user to take. It ensures the agent is driving users toward sanctioned next steps and resources. Example: Book a meeting here: [scheduling_link], or Download the whitepaper: [asset_link].</inlineHelpText>
+</CustomField>

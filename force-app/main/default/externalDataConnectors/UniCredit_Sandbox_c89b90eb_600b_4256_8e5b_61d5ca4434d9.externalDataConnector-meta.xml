@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ExternalDataConnector xmlns="http://soap.sforce.com/2006/04/metadata">
+    <dataConnectionStatus>Connected</dataConnectionStatus>
+    <dataConnectorConfiguration>UniCredit_Sandbox_c89b90eb_600b_4256_8e5b_61d5ca4434d9</dataConnectorConfiguration>
+    <dataConnectorType>StreamingApp</dataConnectorType>
+    <dataPlatform>Streaming_App</dataPlatform>
+    <externalDataTranObjects>
+        <fullName>ApplicationForm_State</fullName>
+        <availabilityStatus>Available</availabilityStatus>
+        <creationType>Custom</creationType>
+        <masterLabel>ApplicationForm_State</masterLabel>
+        <objectCategory>Salesforce_SFDCReferenceModel_0_93.Related</objectCategory>
+    </externalDataTranObjects>
+    <masterLabel>UniCredit Sandbox</masterLabel>
+</ExternalDataConnector>

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>PrimaryGoal</fullName>
+    <inlineHelpText>Foundational and most critical piece of information for the agent. Every decision it makes should serve this goal. Example: Book a demo with a qualified lead.</inlineHelpText>
+</CustomField>

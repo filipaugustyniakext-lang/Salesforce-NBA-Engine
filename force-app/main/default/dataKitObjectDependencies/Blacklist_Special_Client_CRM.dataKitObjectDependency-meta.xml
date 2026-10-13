@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DataKitObjectDependency xmlns="http://soap.sforce.com/2006/04/metadata">
+    <dataPackageKitDef>D360_BlackList</dataPackageKitDef>
+    <developerName>Blacklist_Special_Client_CRM</developerName>
+    <masterLabel>Blacklist_Special_Client_CRM__dll</masterLabel>
+    <sourceObject>Blacklist_Special_Client_CRM1</sourceObject>
+    <sourceObjectType>DataSourceObject</sourceObjectType>
+    <targetObject>Blacklist_Special_Client_CRM</targetObject>
+</DataKitObjectDependency>

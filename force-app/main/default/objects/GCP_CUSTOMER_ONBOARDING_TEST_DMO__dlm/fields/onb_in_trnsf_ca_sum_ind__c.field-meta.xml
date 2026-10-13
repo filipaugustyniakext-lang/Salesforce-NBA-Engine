@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>onb_in_trnsf_ca_sum_ind__c</fullName>
+    <defaultValue>false</defaultValue>
+    <label>ONB_IN_TRNSF_CA_SUM_IND</label>
+    <mktDataModelFieldAttributes>
+        <definitionCreationType>Custom</definitionCreationType>
+        <isDynamicLookup>false</isDynamicLookup>
+        <labelOverride>ONB_IN_TRNSF_CA_SUM_IND</labelOverride>
+        <masterLabel>ONB_IN_TRNSF_CA_SUM_IND</masterLabel>
+        <usageTag>None</usageTag>
+    </mktDataModelFieldAttributes>
+    <type>Checkbox</type>
+</CustomField>

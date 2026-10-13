@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>rel_1783004206724_end__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <label>PubSub_RT_PoC_PubSub_RT_PoC_CEB3C4E1_rel</label>
+    <referenceTo>PubSub_RT_PoC_PubSub_RT_PoC_CEB3C4E1__dlm</referenceTo>
+    <relationshipLabel>PubSub_RT_PoC_PubSub_RT_PoC_CEB3C4E1_rel</relationshipLabel>
+    <relationshipName>rel_1783004206724_end</relationshipName>
+    <required>false</required>
+    <type>Lookup</type>
+</CustomField>

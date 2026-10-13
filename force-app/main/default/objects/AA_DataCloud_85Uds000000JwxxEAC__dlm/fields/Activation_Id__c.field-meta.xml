@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Activation_Id__c</fullName>
+    <label>Activation Id</label>
+    <length>60</length>
+    <mktDataModelFieldAttributes>
+        <definitionCreationType>Activation_Audience</definitionCreationType>
+        <isDynamicLookup>false</isDynamicLookup>
+        <labelOverride>Activation Id</labelOverride>
+        <masterLabel>Activation Id</masterLabel>
+        <refAttrDeveloperName>Activation_Id</refAttrDeveloperName>
+        <usageTag>None</usageTag>
+    </mktDataModelFieldAttributes>
+    <required>false</required>
+    <type>Text</type>
+</CustomField>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>onb_chld_bnf_prgm_ind__c</fullName>
+    <defaultValue>false</defaultValue>
+    <label>ONB_CHLD_BNF_PRGM_IND</label>
+    <mktDataModelFieldAttributes>
+        <definitionCreationType>Custom</definitionCreationType>
+        <isDynamicLookup>false</isDynamicLookup>
+        <labelOverride>OnbGovernmentProgramTransfers</labelOverride>
+        <masterLabel>ONB_CHLD_BNF_PRGM_IND</masterLabel>
+        <usageTag>None</usageTag>
+    </mktDataModelFieldAttributes>
+    <type>Checkbox</type>
+</CustomField>

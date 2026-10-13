@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ObjectSourceTargetMap xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <creationType>Custom</creationType>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_email_bulk_message_536010170.tgt_PreHeader__c</sourceField>
+        <sourceFormula>tgt_PreHeader</sourceFormula>
+        <targetField>sfmc_email_bulk_message_536010170__dll.PreHeader__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_email_bulk_message_536010170.tgt_Subject__c</sourceField>
+        <sourceFormula>tgt_Subject</sourceFormula>
+        <targetField>sfmc_email_bulk_message_536010170__dll.Subject__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_email_bulk_message_536010170.tgt_CampaignId__c</sourceField>
+        <sourceFormula>tgt_CampaignId</sourceFormula>
+        <targetField>sfmc_email_bulk_message_536010170__dll.CampaignId__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>IF(sourceField[&apos;tgt_SuppressTracking&apos;] == &apos;0&apos;, false, true)</sourceFormula>
+        <targetField>sfmc_email_bulk_message_536010170__dll.SuppressTracking__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_email_bulk_message_536010170.tgt_JobId__c</sourceField>
+        <sourceFormula>tgt_JobId</sourceFormula>
+        <targetField>sfmc_email_bulk_message_536010170__dll.JobId__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>System</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_email_bulk_message_536010170.tgt_DataSourceObject__c</sourceField>
+        <sourceFormula>tgt_DataSourceObject</sourceFormula>
+        <targetField>sfmc_email_bulk_message_536010170__dll.DataSourceObject__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_email_bulk_message_536010170.tgt_FromName__c</sourceField>
+        <sourceFormula>tgt_FromName</sourceFormula>
+        <targetField>sfmc_email_bulk_message_536010170__dll.FromName__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>IF(sourceField[&apos;tgt_JobTypeID&apos;] == &apos;3&apos;, &apos;Triggered&apos;, &apos;Standard&apos;)</sourceFormula>
+        <targetField>sfmc_email_bulk_message_536010170__dll.SendMethodType__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_email_bulk_message_536010170.tgt_Segment_Id__c</sourceField>
+        <sourceFormula>tgt_Segment_Id</sourceFormula>
+        <targetField>sfmc_email_bulk_message_536010170__dll.MarketSegmentId__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>CONCAT(sourceField[&apos;tgt_DataSource&apos;], &apos;_Email_&apos;, sourceField[&apos;tgt_BulkMessageId&apos;])</sourceFormula>
+        <targetField>sfmc_email_bulk_message_536010170__dll.ID__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>CONCAT(sourceField[&apos;tgt_DataSource&apos;], &apos;_Email_&apos;, sourceField[&apos;tgt_DigitalContentId&apos;])</sourceFormula>
+        <targetField>sfmc_email_bulk_message_536010170__dll.DigitalContentId__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>System</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_email_bulk_message_536010170.tgt_DataSource__c</sourceField>
+        <sourceFormula>tgt_DataSource</sourceFormula>
+        <targetField>sfmc_email_bulk_message_536010170__dll.DataSource__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>LOWER(sourceField[&apos;tgt_ActivityId&apos;])</sourceFormula>
+        <targetField>sfmc_email_bulk_message_536010170__dll.ActivityId__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_email_bulk_message_536010170.tgt_FromAddress__c</sourceField>
+        <sourceFormula>tgt_FromAddress</sourceFormula>
+        <targetField>sfmc_email_bulk_message_536010170__dll.FromAddress__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_email_bulk_message_536010170.tgt_BulkMessageName__c</sourceField>
+        <sourceFormula>tgt_BulkMessageName</sourceFormula>
+        <targetField>sfmc_email_bulk_message_536010170__dll.Name__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>if(ISEMPTY(sourceField[&apos;tgt_ModifiedDate&apos;])) { null; } else { DATEADD(&apos;h&apos;, 6, sourceField[&apos;tgt_ModifiedDate&apos;]); }</sourceFormula>
+        <targetField>sfmc_email_bulk_message_536010170__dll.ModifiedDate__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>System</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_email_bulk_message_536010170.tgt_MemberId__c</sourceField>
+        <sourceFormula>tgt_MemberId</sourceFormula>
+        <targetField>sfmc_email_bulk_message_536010170__dll.InternalOrganization__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_email_bulk_message_536010170.tgt_Flow_Element_Id__c</sourceField>
+        <sourceFormula>tgt_Flow_Element_Id</sourceFormula>
+        <targetField>sfmc_email_bulk_message_536010170__dll.FlowElementId__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>IF(sourceField[&apos;tgt_MessagePurpose&apos;] == &apos;Operational&apos;, &apos;Transactional&apos;, IF(sourceField[&apos;tgt_MessagePurpose&apos;] == &apos;Marketing&apos;, &apos;Promotional&apos;, &apos;&apos;))</sourceFormula>
+        <targetField>sfmc_email_bulk_message_536010170__dll.MessagePurpose__c</targetField>
+    </fieldSourceTargetMaps>
+    <masterLabel>sfmc_email_bulk_message_536010170_map_sfmc_email_bulk_message_536010170_1774009987662</masterLabel>
+    <sourceObjectName>sfmc_email_bulk_message_536010170</sourceObjectName>
+    <targetObjectName>sfmc_email_bulk_message_536010170__dll</targetObjectName>
+</ObjectSourceTargetMap>

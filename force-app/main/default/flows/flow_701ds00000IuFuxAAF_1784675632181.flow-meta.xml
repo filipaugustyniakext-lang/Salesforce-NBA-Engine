@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>67.0</apiVersion>
+    <areMetricsLoggedToDataCloud>true</areMetricsLoggedToDataCloud>
+    <dataSpace>default</dataSpace>
+    <environments>Default</environments>
+    <interviewLabel>CMP_AO_SoniTest_ServedContent Flow {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>CMP_AO_SoniTest_ServedContent Flow</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>CanvasMode</name>
+        <value>
+            <stringValue>AUTO_LAYOUT_CANVAS</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>OriginBuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processType>AutoLaunchedFlow</processType>
+    <start>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <object>UnifiedIndividual__dlm</object>
+        <publishSegment>true</publishSegment>
+        <schedule>
+            <frequency>Once</frequency>
+            <startDate>2026-07-23</startDate>
+            <startTime>08:00:00.225Z</startTime>
+        </schedule>
+        <segment>1sgds0000000Ax3AAE</segment>
+        <triggerType>Segment</triggerType>
+    </start>
+    <status>InvalidDraft</status>
+    <timeZoneSidKey>Europe/Warsaw</timeZoneSidKey>
+</Flow>

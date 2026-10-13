@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FieldSrcTrgtRelationship xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <definitionCreationType>Calculated_Insight</definitionCreationType>
+    <masterLabel>Cg_Monthly_Count_dimension_1_id_map_CG_Audience_Qualified_Dimension_1_Id_1780413729461</masterLabel>
+    <owner>DataCloud</owner>
+    <relationshipCardinality>ManyToOne</relationshipCardinality>
+    <sourceFieldName>Cg_Monthly_Count__cio.dimension_1_id__c</sourceFieldName>
+    <targetEntity xsi:nil="true"/>
+    <targetFieldName>CG_Audience_Qualified__dlm.Dimension_1_Id__c</targetFieldName>
+</FieldSrcTrgtRelationship>

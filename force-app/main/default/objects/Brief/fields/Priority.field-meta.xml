@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Priority</fullName>
+    <inlineHelpText>Tells the agent what to do if a customer is in multiple events at once. This field lets the agent make intelligent decisions when contexts collide, ensuring it prioritizes actions related to the more important or timely event. Example: High (for a time-sensitive webinar campaign) vs. Low (for a general newsletter nurture).</inlineHelpText>
+</CustomField>

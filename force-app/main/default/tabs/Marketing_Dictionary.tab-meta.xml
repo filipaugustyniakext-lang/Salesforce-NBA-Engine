@@ -2,6 +2,6 @@
 <CustomTab xmlns="http://soap.sforce.com/2006/04/metadata">
     <description>Marketing Dictionary Management — manage Product Families, Channels, Campaign values, and Offer Attributes</description>
     <flexiPage>Marketing_Dictionaries</flexiPage>
-    <label>Marketing Dictionary</label>
-    <motif>Custom84: Book</motif>
+    <label>Marketing Dictionaries</label>
+    <motif>Custom84: Presenter</motif>
 </CustomTab>

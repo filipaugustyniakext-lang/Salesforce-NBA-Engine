@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <mktDataModelAttributes>
+        <creationType>Transform</creationType>
+        <dataModelTaxonomy>Salesforce_SFDCReferenceModel_0_93</dataModelTaxonomy>
+        <dataSpaceName>default</dataSpaceName>
+        <isEnabled>true</isEnabled>
+        <isSegmentable>false</isSegmentable>
+        <isUsedForMetrics>false</isUsedForMetrics>
+        <labelOverride>DMO_AccountCreated60DaysAgo_TEST</labelOverride>
+        <masterLabel>DMO_AccountCreated60DaysAgo_TEST</masterLabel>
+        <objectCategory>Salesforce_SFDCReferenceModel_0_93.Related</objectCategory>
+        <referenceEntityName>DMO_AccountCreated60DaysAgo_TEST_Transform</referenceEntityName>
+    </mktDataModelAttributes>
+</CustomObject>

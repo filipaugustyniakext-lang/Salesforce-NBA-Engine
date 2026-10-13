@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DataStreamDefinition xmlns="http://soap.sforce.com/2006/04/metadata">
+    <areHeadersIncludedInFile>false</areHeadersIncludedInFile>
+    <bulkIngest>false</bulkIngest>
+    <creationType>Custom</creationType>
+    <dataConnector>UAT_GCP_Big_Query</dataConnector>
+    <dataConnectorType>BIGQUERY</dataConnectorType>
+    <dataPlatformDataSetItemName>EXTERNAL</dataPlatformDataSetItemName>
+    <dataSource>UAT_GCP_Big_Query</dataSource>
+    <isLimitedToNewFiles>false</isLimitedToNewFiles>
+    <isMissingFileFailure>false</isMissingFileFailure>
+    <masterLabel>GCP_IDENTITY_MAP_DSO</masterLabel>
+    <mktDataLakeObject>GCP_IDENTITY_MAP_DSO__dll</mktDataLakeObject>
+    <mktDataTranObject>GCP_IDENTITY_MAP_DSO</mktDataTranObject>
+</DataStreamDefinition>

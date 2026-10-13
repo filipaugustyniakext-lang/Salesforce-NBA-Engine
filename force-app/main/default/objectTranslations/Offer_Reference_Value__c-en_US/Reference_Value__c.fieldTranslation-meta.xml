@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomFieldTranslation xmlns="http://soap.sforce.com/2006/04/metadata">
+    <help><!-- Enter the benchmark value (e.g. 3.75 for 3.75% interest rate, 1000 for minimum amount). --></help>
+    <label><!-- Reference Value --></label>
+    <name>Reference_Value__c</name>
+</CustomFieldTranslation>

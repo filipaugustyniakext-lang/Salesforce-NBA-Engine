@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DataStreamDefinition xmlns="http://soap.sforce.com/2006/04/metadata">
+    <areHeadersIncludedInFile>false</areHeadersIncludedInFile>
+    <bulkIngest>false</bulkIngest>
+    <creationType>Custom</creationType>
+    <dataConnector>UniCredit_S_A_Sandbox</dataConnector>
+    <dataConnectorType>SalesforceMarketingCloud</dataConnectorType>
+    <dataExtensionIdentifier>71647d3c-4ba1-f111-ba7f-f40343e980b0</dataExtensionIdentifier>
+    <dataExtractMethods>FULL_REFRESH</dataExtractMethods>
+    <dataPlatformDataSetItemName>MCDE</dataPlatformDataSetItemName>
+    <dataSource>SFMC536010170</dataSource>
+    <fileNameWildcard>CC_Message_Metadata</fileNameWildcard>
+    <internalOrganization>sfmc_536010187</internalOrganization>
+    <isLimitedToNewFiles>false</isLimitedToNewFiles>
+    <isMissingFileFailure>false</isMissingFileFailure>
+    <masterLabel>CC_Message_Metadata</masterLabel>
+    <mktDataLakeObject>CC_Message_Metadata__dll</mktDataLakeObject>
+    <mktDataTranObject>CC_Message_Metadata</mktDataTranObject>
+</DataStreamDefinition>

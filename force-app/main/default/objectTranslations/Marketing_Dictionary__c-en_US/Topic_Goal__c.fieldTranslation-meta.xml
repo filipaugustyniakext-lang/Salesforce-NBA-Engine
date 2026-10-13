@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomFieldTranslation xmlns="http://soap.sforce.com/2006/04/metadata">
+    <label><!-- Topic (Goal) --></label>
+    <name>Topic_Goal__c</name>
+    <picklistValues>
+        <masterLabel>Activation</masterLabel>
+        <translation><!-- Activation --></translation>
+    </picklistValues>
+    <picklistValues>
+        <masterLabel>Anti-churn</masterLabel>
+        <translation><!-- Anti-churn --></translation>
+    </picklistValues>
+    <picklistValues>
+        <masterLabel>Balance Growth</masterLabel>
+        <translation><!-- Balance Growth --></translation>
+    </picklistValues>
+    <picklistValues>
+        <masterLabel>Credit Limit Increase</masterLabel>
+        <translation><!-- Credit Limit Increase --></translation>
+    </picklistValues>
+    <picklistValues>
+        <masterLabel>Engagement / Activation</masterLabel>
+        <translation><!-- Engagement / Activation --></translation>
+    </picklistValues>
+    <picklistValues>
+        <masterLabel>Formal / Administrative</masterLabel>
+        <translation><!-- Formal / Administrative --></translation>
+    </picklistValues>
+    <picklistValues>
+        <masterLabel>Informational</masterLabel>
+        <translation><!-- Informational --></translation>
+    </picklistValues>
+    <picklistValues>
+        <masterLabel>Relationship</masterLabel>
+        <translation><!-- Relationship --></translation>
+    </picklistValues>
+    <picklistValues>
+        <masterLabel>Retention</masterLabel>
+        <translation><!-- Retention --></translation>
+    </picklistValues>
+    <picklistValues>
+        <masterLabel>Sales</masterLabel>
+        <translation><!-- Sales --></translation>
+    </picklistValues>
+    <picklistValues>
+        <masterLabel>Savings Retention</masterLabel>
+        <translation><!-- Savings Retention --></translation>
+    </picklistValues>
+    <picklistValues>
+        <masterLabel>Security</masterLabel>
+        <translation><!-- Security --></translation>
+    </picklistValues>
+</CustomFieldTranslation>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DataStreamDefinition xmlns="http://soap.sforce.com/2006/04/metadata">
+    <areHeadersIncludedInFile>false</areHeadersIncludedInFile>
+    <bulkIngest>false</bulkIngest>
+    <creationType>Custom</creationType>
+    <dataConnector>PersnlRcmdItemLog_a9e6bf7a_a547_41b5_94b8_07637a7efa30</dataConnector>
+    <dataConnectorType>IngestApi</dataConnectorType>
+    <dataExtractMethods>FULL_REFRESH</dataExtractMethods>
+    <dataPlatformDataSetItemName>INGESTAPI</dataPlatformDataSetItemName>
+    <dataSource>PersnlRcmdItemLog_a9e6bf7a_a547_41b5_94b8_07637a7efa30</dataSource>
+    <isLimitedToNewFiles>false</isLimitedToNewFiles>
+    <isMissingFileFailure>false</isMissingFileFailure>
+    <masterLabel>PersnlRcmdItemLog-recommendationItemLog</masterLabel>
+    <mktDataLakeObject>PersnlRcmdItemLog_recommendatio_7DD848A9__dll</mktDataLakeObject>
+    <mktDataTranObject>PersnlRcmdItemLog_recommendatio_7DD848A9</mktDataTranObject>
+</DataStreamDefinition>

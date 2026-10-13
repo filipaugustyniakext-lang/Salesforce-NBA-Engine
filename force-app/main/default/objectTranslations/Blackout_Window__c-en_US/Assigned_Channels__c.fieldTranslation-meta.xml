@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomFieldTranslation xmlns="http://soap.sforce.com/2006/04/metadata">
+    <help><!-- Select which channels should pause marketing communications on this blackout date. Leave intrusive channels selected and omit softer ones (e.g. banners) when they may stay live. --></help>
+    <label><!-- Assigned Channels --></label>
+    <name>Assigned_Channels__c</name>
+</CustomFieldTranslation>

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DataSourceObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <dataSource>MobileAppMessagingV2_mobileProf_D88D8F56</dataSource>
+    <externalRecordIdentifier>MobileAppMessagingV2_mobileProfileEvents_D88D8F56</externalRecordIdentifier>
+    <masterLabel>MobileAppMessagingV2_mobileProfileEvents_D88D8F56</masterLabel>
+    <storageType>LOCAL</storageType>
+    <templateVersion>1</templateVersion>
+</DataSourceObject>

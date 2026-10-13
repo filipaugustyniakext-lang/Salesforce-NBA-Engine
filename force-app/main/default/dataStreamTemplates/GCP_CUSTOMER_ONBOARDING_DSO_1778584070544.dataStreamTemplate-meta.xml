@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DataStreamTemplate xmlns="http://soap.sforce.com/2006/04/metadata">
+    <dataSourceBundleDefinition>GCP</dataSourceBundleDefinition>
+    <dataSourceObject>GCP_CUSTOMER_ONBOARDING_DSO1</dataSourceObject>
+    <masterLabel>GCP_CUSTOMER_ONBOARDING_DSO</masterLabel>
+    <objectCategory>Salesforce_SFDCReferenceModel_0_93.Related</objectCategory>
+    <refreshFrequency>MINUTES_15</refreshFrequency>
+    <refreshMode>FULL_REFRESH</refreshMode>
+    <sourceObjectName>GCP_CUSTOMER_ONBOARDING_DSO</sourceObjectName>
+    <streamType>DIRECT_ACCESS_ACCELERATED</streamType>
+    <templateVersion>1</templateVersion>
+</DataStreamTemplate>

@@ -1,0 +1,19 @@
+/* Keeps action dropdown menus visible over table row borders */
+.table-container-fixed,
+:host .slds-table_header-fixed_container,
+:host .slds-table_edit_container,
+:host .slds-scrollable_y {
+    overflow: visible !important;
+}
+
+/* Forces dropdown containers to pop outside native framework shadow DOM clips */
+:host .slds-dropdown-trigger_click.slds-is-open .slds-dropdown {
+    position: absolute !important;
+    z-index: 9999 !important;
+}
+
+/* NEW: Controls the overall structural height of your table panel grid canvas */
+.table-container-fixed {
+    min-height: 400px; /* Forces a spacious 400px height background even with 1 row */
+    background: white;
+}

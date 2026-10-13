@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ObjectSourceTargetMap xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <creationType>Custom</creationType>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>LOWER(sourceField[&apos;tgt_ID&apos;])</sourceFormula>
+        <targetField>sfmc_journey_536010170__dll.ID__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_journey_536010170.tgt_Description__c</sourceField>
+        <sourceFormula>tgt_Description</sourceFormula>
+        <targetField>sfmc_journey_536010170__dll.Description__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>System</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_journey_536010170.tgt_DataSourceObject__c</sourceField>
+        <sourceFormula>tgt_DataSourceObject</sourceFormula>
+        <targetField>sfmc_journey_536010170__dll.DataSourceObject__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>IF(sourceField[&apos;tgt_ContactEntryMode&apos;] == &apos;1&apos;, &apos;Re-entry Only After Exiting&apos;, IF(sourceField[&apos;tgt_ContactEntryMode&apos;] == &apos;2&apos;, &apos;Re-entry At Any Time&apos;, IF(sourceField[&apos;tgt_ContactEntryMode&apos;] == &apos;3&apos;, &apos;No Re-entry&apos;, &apos;Unset&apos;)))</sourceFormula>
+        <targetField>sfmc_journey_536010170__dll.ContactEntryMode__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_journey_536010170.tgt_Status__c</sourceField>
+        <sourceFormula>tgt_Status</sourceFormula>
+        <targetField>sfmc_journey_536010170__dll.Status__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_journey_536010170.tgt_Name__c</sourceField>
+        <sourceFormula>tgt_Name</sourceFormula>
+        <targetField>sfmc_journey_536010170__dll.Name__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>System</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_journey_536010170.tgt_DataSource__c</sourceField>
+        <sourceFormula>tgt_DataSource</sourceFormula>
+        <targetField>sfmc_journey_536010170__dll.DataSource__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>if(ISEMPTY(sourceField[&apos;tgt_LastPublishedDate&apos;])) { null; } else { DATEADD(&apos;h&apos;, 6, sourceField[&apos;tgt_LastPublishedDate&apos;]); }</sourceFormula>
+        <targetField>sfmc_journey_536010170__dll.LastPublishedDate__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>if(ISEMPTY(sourceField[&apos;tgt_CreatedDate&apos;])) { null; } else { DATEADD(&apos;h&apos;, 6, sourceField[&apos;tgt_CreatedDate&apos;]); }</sourceFormula>
+        <targetField>sfmc_journey_536010170__dll.CreatedDate__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_journey_536010170.tgt_VersionNumber__c</sourceField>
+        <sourceFormula>tgt_VersionNumber</sourceFormula>
+        <targetField>sfmc_journey_536010170__dll.VersionNumber__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>System</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_journey_536010170.tgt_MID__c</sourceField>
+        <sourceFormula>tgt_MID</sourceFormula>
+        <targetField>sfmc_journey_536010170__dll.InternalOrganization__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>LOWER(sourceField[&apos;tgt_OriginalDefinitionId&apos;])</sourceFormula>
+        <targetField>sfmc_journey_536010170__dll.OriginalDefinitionId__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>IF(sourceField[&apos;tgt_Status&apos;] == &apos;0&apos;, &apos;Draft&apos;, IF(sourceField[&apos;tgt_Status&apos;] == &apos;1&apos;, &apos;Running&apos;, IF(sourceField[&apos;tgt_Status&apos;] == &apos;2&apos;, &apos;ScheduledToPublish&apos;, IF(sourceField[&apos;tgt_Status&apos;] == &apos;3&apos;, &apos;Stopped&apos;, IF(sourceField[&apos;tgt_Status&apos;] == &apos;4&apos;, &apos;Paused&apos;, IF(sourceField[&apos;tgt_Status&apos;] == &apos;5&apos;, &apos;None&apos;, IF(sourceField[&apos;tgt_Status&apos;] == &apos;6&apos;, &apos;Finishing&apos;, IF(sourceField[&apos;tgt_Status&apos;] == &apos;7&apos;, &apos;Deleted&apos;, &apos;Unknown&apos;))))))))</sourceFormula>
+        <targetField>sfmc_journey_536010170__dll.StatusDescription__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>if(ISEMPTY(sourceField[&apos;tgt_ModifiedDate&apos;])) { null; } else { DATEADD(&apos;h&apos;, 6, sourceField[&apos;tgt_ModifiedDate&apos;]); }</sourceFormula>
+        <targetField>sfmc_journey_536010170__dll.ModifiedDate__c</targetField>
+    </fieldSourceTargetMaps>
+    <masterLabel>sfmc_journey_536010170_map_sfmc_journey_536010170_1774010880353</masterLabel>
+    <sourceObjectName>sfmc_journey_536010170</sourceObjectName>
+    <targetObjectName>sfmc_journey_536010170__dll</targetObjectName>
+</ObjectSourceTargetMap>

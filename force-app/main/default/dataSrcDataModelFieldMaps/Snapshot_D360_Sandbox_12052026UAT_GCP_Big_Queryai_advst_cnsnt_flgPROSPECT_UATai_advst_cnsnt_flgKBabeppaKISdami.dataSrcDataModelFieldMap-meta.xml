@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DataSrcDataModelFieldMap xmlns="http://soap.sforce.com/2006/04/metadata">
+    <filterApplied>false</filterApplied>
+    <masterLabel>Snapshot_D360_Sandbox_12052026UAT_GCP_Big_Queryai_advst_cnsnt_flgPROSPECT_UATai_advst_cnsnt_flgKBabeppaKISdami</masterLabel>
+    <sourceField>PROSPECT_UAT1.ai_advst_cnsnt_flg__c</sourceField>
+    <targetField>PROSPECT_UAT__dlm.ai_advst_cnsnt_flg__c</targetField>
+    <templateVersion>1</templateVersion>
+    <versionNumber>1.0</versionNumber>
+</DataSrcDataModelFieldMap>

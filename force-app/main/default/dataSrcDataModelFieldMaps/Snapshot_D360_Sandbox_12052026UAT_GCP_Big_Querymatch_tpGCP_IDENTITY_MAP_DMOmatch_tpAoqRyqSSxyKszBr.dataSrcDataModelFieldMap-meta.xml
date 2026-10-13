@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DataSrcDataModelFieldMap xmlns="http://soap.sforce.com/2006/04/metadata">
+    <filterApplied>false</filterApplied>
+    <masterLabel>Snapshot_D360_Sandbox_12052026UAT_GCP_Big_Querymatch_tpGCP_IDENTITY_MAP_DMOmatch_tpAoqRyqSSxyKszBr</masterLabel>
+    <sourceField>GCP_IDENTITY_MAP_DSO1.match_tp__c</sourceField>
+    <targetField>GCP_IDENTITY_MAP_DMO__dlm.match_tp__c</targetField>
+    <templateVersion>1</templateVersion>
+    <versionNumber>1.0</versionNumber>
+</DataSrcDataModelFieldMap>

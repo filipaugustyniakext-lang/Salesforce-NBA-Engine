@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ExternalDataConnector xmlns="http://soap.sforce.com/2006/04/metadata">
+    <dataConnectionStatus>Connected</dataConnectionStatus>
+    <dataConnectorConfiguration>GCP_StreamingEvents</dataConnectorConfiguration>
+    <dataConnectorType>IngestApi</dataConnectorType>
+    <dataPlatform>Ingest_Api</dataPlatform>
+    <externalDataTranObjects>
+        <fullName>ApplicationForm_State</fullName>
+        <availabilityStatus>Available</availabilityStatus>
+        <creationType>Custom</creationType>
+        <masterLabel>ApplicationForm_State</masterLabel>
+        <objectCategory>Salesforce_SFDCReferenceModel_0_93.Related</objectCategory>
+    </externalDataTranObjects>
+    <masterLabel>GCP_StreamingEvents</masterLabel>
+</ExternalDataConnector>

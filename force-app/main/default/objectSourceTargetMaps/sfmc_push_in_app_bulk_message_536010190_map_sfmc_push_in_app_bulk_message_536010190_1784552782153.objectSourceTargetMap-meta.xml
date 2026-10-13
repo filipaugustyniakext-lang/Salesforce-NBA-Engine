@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ObjectSourceTargetMap xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <creationType>Custom</creationType>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>if(ISEMPTY(sourceField[&apos;tgt_ModifiedDate&apos;])) { null; } else { DATEADD(&apos;h&apos;, 6, sourceField[&apos;tgt_ModifiedDate&apos;]); }</sourceFormula>
+        <targetField>sfmc_push_in_app_bulk_message_536010190__dll.ModifiedDate__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_push_in_app_bulk_message_536010190.tgt_BulkMessageName__c</sourceField>
+        <sourceFormula>tgt_BulkMessageName</sourceFormula>
+        <targetField>sfmc_push_in_app_bulk_message_536010190__dll.Name__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>LOWER(sourceField[&apos;tgt_BulkMessageId&apos;])</sourceFormula>
+        <targetField>sfmc_push_in_app_bulk_message_536010190__dll.ID__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>System</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_push_in_app_bulk_message_536010190.tgt_DataSource__c</sourceField>
+        <sourceFormula>tgt_DataSource</sourceFormula>
+        <targetField>sfmc_push_in_app_bulk_message_536010190__dll.DataSource__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>System</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_push_in_app_bulk_message_536010190.tgt_DataSourceObject__c</sourceField>
+        <sourceFormula>tgt_DataSourceObject</sourceFormula>
+        <targetField>sfmc_push_in_app_bulk_message_536010190__dll.DataSourceObject__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>System</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_push_in_app_bulk_message_536010190.tgt_MID__c</sourceField>
+        <sourceFormula>tgt_MID</sourceFormula>
+        <targetField>sfmc_push_in_app_bulk_message_536010190__dll.InternalOrganization__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_push_in_app_bulk_message_536010190.tgt_SendType__c</sourceField>
+        <sourceFormula>tgt_SendType</sourceFormula>
+        <targetField>sfmc_push_in_app_bulk_message_536010190__dll.SendMethodType__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>CONCAT(sourceField[&apos;tgt_DataSource&apos;], &apos;_&apos;, sourceField[&apos;tgt_MID&apos;], &apos;_Push_In_App&apos;, sourceField[&apos;tgt_DigitalContentId&apos;])</sourceFormula>
+        <targetField>sfmc_push_in_app_bulk_message_536010190__dll.DigitalContentId__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>LOWER(sourceField[&apos;tgt_ActivityId&apos;])</sourceFormula>
+        <targetField>sfmc_push_in_app_bulk_message_536010190__dll.ActivityId__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_push_in_app_bulk_message_536010190.tgt_CampaignId__c</sourceField>
+        <sourceFormula>tgt_CampaignId</sourceFormula>
+        <targetField>sfmc_push_in_app_bulk_message_536010190__dll.CampaignId__c</targetField>
+    </fieldSourceTargetMaps>
+    <masterLabel>sfmc_push_in_app_bulk_message_536010190_map_sfmc_push_in_app_bulk_message_536010190_1784552782153</masterLabel>
+    <sourceObjectName>sfmc_push_in_app_bulk_message_536010190</sourceObjectName>
+    <targetObjectName>sfmc_push_in_app_bulk_message_536010190__dll</targetObjectName>
+</ObjectSourceTargetMap>

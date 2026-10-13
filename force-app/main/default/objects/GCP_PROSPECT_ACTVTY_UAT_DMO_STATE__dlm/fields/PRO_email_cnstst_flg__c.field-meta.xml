@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>PRO_email_cnstst_flg__c</fullName>
+    <defaultValue>false</defaultValue>
+    <label>EmailConsent</label>
+    <mktDataModelFieldAttributes>
+        <definitionCreationType>Transform</definitionCreationType>
+        <isDynamicLookup>false</isDynamicLookup>
+        <labelOverride>EmailConsent</labelOverride>
+        <masterLabel>EmailConsent</masterLabel>
+        <refAttrDeveloperName>PRO_email_cnstst_flg_Transform</refAttrDeveloperName>
+        <usageTag>None</usageTag>
+    </mktDataModelFieldAttributes>
+    <type>Checkbox</type>
+</CustomField>

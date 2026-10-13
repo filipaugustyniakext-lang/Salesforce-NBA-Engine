@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Ext_gcp_ElectronicMarketingConsent__c</fullName>
+    <defaultValue>false</defaultValue>
+    <label>Electronic Marketing Consent</label>
+    <mktDataModelFieldAttributes>
+        <definitionCreationType>Transform</definitionCreationType>
+        <isDynamicLookup>false</isDynamicLookup>
+        <labelOverride>Electronic Marketing Consent</labelOverride>
+        <masterLabel>Electronic Marketing Consent</masterLabel>
+        <refAttrDeveloperName>Ext_gcp_ElectronicMarketingConsent_Transform</refAttrDeveloperName>
+        <usageTag>None</usageTag>
+    </mktDataModelFieldAttributes>
+    <type>Checkbox</type>
+</CustomField>

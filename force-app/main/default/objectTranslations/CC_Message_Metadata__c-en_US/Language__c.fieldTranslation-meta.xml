@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomFieldTranslation xmlns="http://soap.sforce.com/2006/04/metadata">
+    <help><!-- Select the language for this copy variant (e.g. PL, EN). --></help>
+    <label><!-- Language --></label>
+    <name>Language__c</name>
+    <picklistValues>
+        <masterLabel>EN</masterLabel>
+        <translation><!-- EN --></translation>
+    </picklistValues>
+    <picklistValues>
+        <masterLabel>ES</masterLabel>
+        <translation><!-- ES --></translation>
+    </picklistValues>
+    <picklistValues>
+        <masterLabel>PL</masterLabel>
+        <translation><!-- PL --></translation>
+    </picklistValues>
+</CustomFieldTranslation>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomFieldTranslation xmlns="http://soap.sforce.com/2006/04/metadata">
+    <help><!-- Choose Product Family or Family of Needs, then select at least one value. --></help>
+    <label><!-- Offering Type --></label>
+    <name>Offering_Type__c</name>
+    <picklistValues>
+        <masterLabel>Family of Needs</masterLabel>
+        <translation><!-- Family of Needs --></translation>
+    </picklistValues>
+    <picklistValues>
+        <masterLabel>Product Family</masterLabel>
+        <translation><!-- Product Family --></translation>
+    </picklistValues>
+</CustomFieldTranslation>

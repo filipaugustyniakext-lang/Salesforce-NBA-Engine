@@ -4,6 +4,7 @@
     <description>How the Calibrated Base Score formula uses the source column: as-is, multiply by a factor, or divide by a factor.</description>
     <label>Calibrated Score Formula Mode</label>
     <required>true</required>
+    <trackTrending>false</trackTrending>
     <type>Picklist</type>
     <valueSet>
         <restricted>true</restricted>

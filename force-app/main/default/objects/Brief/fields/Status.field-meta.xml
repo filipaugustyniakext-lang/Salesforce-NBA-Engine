@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Status</fullName>
+    <inlineHelpText>The status of the brief that signifies the phase of the brief creation process. A brief can be in Draft state during ideation; once a campaign, offer, or promotion has been created from it, the status changes to Converted.</inlineHelpText>
+</CustomField>

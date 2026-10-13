@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>PRO_mrkt_rstn_any__c</fullName>
+    <defaultValue>false</defaultValue>
+    <label>mrkt_rstn_any</label>
+    <mktDataModelFieldAttributes>
+        <definitionCreationType>Transform</definitionCreationType>
+        <isDynamicLookup>false</isDynamicLookup>
+        <labelOverride>mrkt_rstn_any</labelOverride>
+        <masterLabel>mrkt_rstn_any</masterLabel>
+        <refAttrDeveloperName>PRO_mrkt_rstn_any_Transform</refAttrDeveloperName>
+        <usageTag>None</usageTag>
+    </mktDataModelFieldAttributes>
+    <type>Checkbox</type>
+</CustomField>

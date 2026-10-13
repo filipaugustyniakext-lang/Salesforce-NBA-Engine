@@ -1,0 +1,123 @@
+<template>
+    <lightning-card title="Communication Cooldown Configurations" icon-name="custom:custom95">
+        <div class="slds-var-p-around_medium">
+            
+            <div class="slds-grid slds-wrap slds-gutters_small slds-var-m-bottom_medium">
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_2-of-3">
+                    <lightning-input 
+                        name="searchKey" 
+                        type="search" 
+                        variant="label-hidden" 
+                        placeholder="Search configurations by name, category, or audience type..." 
+                        onchange={handleSearchChange}>
+                    </lightning-input>
+                </div>
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3 slds-text-align_right slds-p-top_none">
+                    <lightning-button 
+                        label="Add New Cooldown Setting" 
+                        variant="brand" 
+                        onclick={openCreationModal}>
+                    </lightning-button>
+                </div>
+            </div>
+
+            <template if:true={isLoading}>
+                <div class="slds-align_absolute-center slds-var-m-around_large">
+                    <lightning-spinner alt-name="Fetching Master Matrix Data..." size="medium"></lightning-spinner>
+                </div>
+            </template>
+
+            <template if:false={isLoading}>
+                <div class="slds-border_top slds-border_bottom slds-border_left slds-border_right table-container-fixed" 
+                     style="border-radius: 4px; min-height: 400px;background: white;">
+                    <!-- sldsValidatorIgnoreNextLine -->
+                    <lightning-datatable
+                        key-field="Id"
+                        data={filteredData}
+                        columns={tableColumns}
+                        hide-checkbox-column
+                        onrowaction={handleRowAction}>
+                    </lightning-datatable>
+                </div>
+            </template>
+        </div>
+    </lightning-card>
+
+    <template if:true={isModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header">
+                    <!-- sldsValidatorIgnoreNextLine -->
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse" title="Close Workspace" onclick={closeCreationModal}>
+                        <lightning-icon icon-name="utility:close" alternative-text="close" size="small"></lightning-icon>
+                    </button>
+                    <h2 class="slds-text-heading_medium slds-hyphenate">{modalTitle}</h2>
+                </header>
+                
+                <div class="slds-modal__content slds-var-p-around_medium">
+                    <div class="slds-grid slds-wrap slds-gutters_small">
+                        <div class="slds-col slds-size_1-of-1 slds-var-m-bottom_small">
+                            <lightning-combobox 
+                                label="Cooldown Category" 
+                                value={formCategory} 
+                                options={categoryOptions} 
+                                onchange={handleFormCategoryChange}
+                                required
+                                disabled={isEditMode}
+                                class="modal-input">
+                            </lightning-combobox>
+                        </div>
+                        <div class="slds-col slds-size_1-of-1 slds-var-m-bottom_small">
+                            <lightning-input 
+                                label="Name" 
+                                value={formNameValue} 
+                                onchange={handleFormNameChange}
+                                placeholder="e.g., Email, Push, Credits, Loans..."
+                                required 
+                                class="modal-input">
+                            </lightning-input>
+                        </div>
+                        <div class="slds-col slds-size_1-of-1 slds-var-m-bottom_small">
+                            <lightning-combobox 
+                                label="Audience Type" 
+                                value={formAudience} 
+                                options={audienceOptions} 
+                                onchange={handleFormAudienceChange}
+                                required
+                                class="modal-input">
+                            </lightning-combobox>
+                        </div>
+                        <div class="slds-col slds-size_1-of-1 slds-var-m-bottom_small">
+                            <lightning-input 
+                                label="Cooldown Period (Days)" 
+                                type="number" 
+                                min="0" 
+                                step="1"
+                                value={formDays} 
+                                onchange={handleFormDaysChange}
+                                required
+                                class="modal-input">
+                            </lightning-input>
+                        </div>
+                        <div class="slds-col slds-size_1-of-1 slds-var-p-top_small">
+                            <lightning-input 
+                                label="Rule Active Status" 
+                                type="toggle" 
+                                checked={formIsActive} 
+                                onchange={handleFormActiveChange}
+                                message-toggle-active="Active" 
+                                message-toggle-inactive="Inactive">
+                            </lightning-input>
+                        </div>
+                    </div>
+                </div>
+
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" variant="neutral" onclick={closeCreationModal} class="slds-var-m-right_x-small"></lightning-button>
+                    <lightning-button label="Save Matrix Rule" variant="brand" onclick={handleFormSave}></lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open" role="presentation"></div>
+    </template>
+</template>

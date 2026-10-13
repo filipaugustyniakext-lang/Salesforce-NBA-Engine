@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomFieldTranslation xmlns="http://soap.sforce.com/2006/04/metadata">
+    <label><!-- Additional VAS --></label>
+    <name>Additional_VAS__c</name>
+    <picklistValues>
+        <masterLabel>excellent</masterLabel>
+        <translation><!-- excellent --></translation>
+    </picklistValues>
+    <picklistValues>
+        <masterLabel>fair</masterLabel>
+        <translation><!-- fair --></translation>
+    </picklistValues>
+    <picklistValues>
+        <masterLabel>good</masterLabel>
+        <translation><!-- good --></translation>
+    </picklistValues>
+    <picklistValues>
+        <masterLabel>none</masterLabel>
+        <translation><!-- none --></translation>
+    </picklistValues>
+    <picklistValues>
+        <masterLabel>outstanding</masterLabel>
+        <translation><!-- outstanding --></translation>
+    </picklistValues>
+    <picklistValues>
+        <masterLabel>poor</masterLabel>
+        <translation><!-- poor --></translation>
+    </picklistValues>
+</CustomFieldTranslation>

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ExtlClntAppConfigurablePolicies xmlns="http://soap.sforce.com/2006/04/metadata">
+    <externalClientApplication>Data_Cloud_Postman_IngestionAPI</externalClientApplication>
+    <isEnabled>false</isEnabled>
+    <isOauthPluginEnabled>true</isOauthPluginEnabled>
+    <label>Data_Cloud_Postman_IngestionAPI_plcy</label>
+    <startPage>None</startPage>
+</ExtlClntAppConfigurablePolicies>

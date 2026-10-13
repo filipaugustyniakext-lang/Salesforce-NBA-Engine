@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ObjectSourceTargetMap xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <creationType>Custom</creationType>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>PubSub_RT_PoC_PubSub_RT_PoC_CEB3C4E1.event_id__c</sourceField>
+        <sourceFormula>event_id</sourceFormula>
+        <targetField>PubSub_RT_PoC_PubSub_RT_PoC_CEB3C4E1__dll.event_id__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>PubSub_RT_PoC_PubSub_RT_PoC_CEB3C4E1.key_qualifier__c</sourceField>
+        <sourceFormula>key_qualifier</sourceFormula>
+        <targetField>PubSub_RT_PoC_PubSub_RT_PoC_CEB3C4E1__dll.key_qualifier__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>PubSub_RT_PoC_PubSub_RT_PoC_CEB3C4E1.rejection_status__c</sourceField>
+        <sourceFormula>rejection_status</sourceFormula>
+        <targetField>PubSub_RT_PoC_PubSub_RT_PoC_CEB3C4E1__dll.rejection_status__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>PubSub_RT_PoC_PubSub_RT_PoC_CEB3C4E1.customer_id__c</sourceField>
+        <sourceFormula>customer_id</sourceFormula>
+        <targetField>PubSub_RT_PoC_PubSub_RT_PoC_CEB3C4E1__dll.customer_id__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>PubSub_RT_PoC_PubSub_RT_PoC_CEB3C4E1.event_date_time__c</sourceField>
+        <sourceFormula>event_date_time</sourceFormula>
+        <targetField>PubSub_RT_PoC_PubSub_RT_PoC_CEB3C4E1__dll.event_date_time__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>System</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>if(ISEMPTY(formulaField[&apos;event_date_time&apos;])) { null; } else { DAYPRECISION(formulaField[&apos;event_date_time&apos;]); }</sourceFormula>
+        <targetField>PubSub_RT_PoC_PubSub_RT_PoC_CEB3C4E1__dll.cdp_sys_PartitionDate__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>System</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>&quot;PubSub_RT_PoC_PubSub_RT_PoC_CEB3C4E1&quot;</sourceFormula>
+        <targetField>PubSub_RT_PoC_PubSub_RT_PoC_CEB3C4E1__dll.DataSourceObject__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>System</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>&quot;PubSub_RT_PoC_e6a48476_5ee1_4aa0_80cd_1b5766eba359&quot;</sourceFormula>
+        <targetField>PubSub_RT_PoC_PubSub_RT_PoC_CEB3C4E1__dll.DataSource__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>PubSub_RT_PoC_PubSub_RT_PoC_CEB3C4E1.phone_number__c</sourceField>
+        <sourceFormula>phone_number</sourceFormula>
+        <targetField>PubSub_RT_PoC_PubSub_RT_PoC_CEB3C4E1__dll.phone_number__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>PubSub_RT_PoC_PubSub_RT_PoC_CEB3C4E1.email_address__c</sourceField>
+        <sourceFormula>email_address</sourceFormula>
+        <targetField>PubSub_RT_PoC_PubSub_RT_PoC_CEB3C4E1__dll.email_address__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>DATEADD(&apos;h&apos;, -6, NOW())</sourceFormula>
+        <targetField>PubSub_RT_PoC_PubSub_RT_PoC_CEB3C4E1__dll.TimestampUTC__c</targetField>
+    </fieldSourceTargetMaps>
+    <masterLabel>PubSub_RT_PoC_PubSub_RT_PoC_CEB3C4E1_map_PubSub_RT_PoC_PubSub_RT_PoC_CEB3C4E1_1781616611005</masterLabel>
+    <sourceObjectName>PubSub_RT_PoC_PubSub_RT_PoC_CEB3C4E1</sourceObjectName>
+    <targetObjectName>PubSub_RT_PoC_PubSub_RT_PoC_CEB3C4E1__dll</targetObjectName>
+</ObjectSourceTargetMap>

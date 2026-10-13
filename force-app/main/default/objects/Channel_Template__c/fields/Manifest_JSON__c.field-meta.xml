@@ -4,7 +4,7 @@
     <description>Validated template.manifest.json content used by Copy Center package resolution.</description>
     <label>Manifest JSON</label>
     <length>131072</length>
-    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
     <type>LongTextArea</type>
     <visibleLines>10</visibleLines>
 </CustomField>

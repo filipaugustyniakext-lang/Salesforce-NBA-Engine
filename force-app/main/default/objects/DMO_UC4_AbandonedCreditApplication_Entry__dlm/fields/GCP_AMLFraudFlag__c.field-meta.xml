@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>GCP_AMLFraudFlag__c</fullName>
+    <defaultValue>false</defaultValue>
+    <label>AMLFraudFlag</label>
+    <mktDataModelFieldAttributes>
+        <definitionCreationType>Transform</definitionCreationType>
+        <isDynamicLookup>false</isDynamicLookup>
+        <labelOverride>AMLFraudFlag</labelOverride>
+        <masterLabel>AMLFraudFlag</masterLabel>
+        <refAttrDeveloperName>GCP_AMLFraudFlag_Transform</refAttrDeveloperName>
+        <usageTag>None</usageTag>
+    </mktDataModelFieldAttributes>
+    <type>Checkbox</type>
+</CustomField>

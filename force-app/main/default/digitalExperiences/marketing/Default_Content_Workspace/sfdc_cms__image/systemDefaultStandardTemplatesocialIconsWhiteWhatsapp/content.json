@@ -1,0 +1,15 @@
+{
+  "type" : "sfdc_cms__image",
+  "title" : "[SYSTEM_DEFAULT] Standard Template socialIconsWhiteWhatsapp",
+  "contentBody" : {
+    "sfdc_cms:media" : {
+      "source" : {
+        "mimeType" : "image/png",
+        "type" : "file",
+        "size" : 1242,
+        "ref" : "0sNds000000MAU5"
+      }
+    }
+  },
+  "urlName" : "system-default-standard-template-socialiconswhitewhatsapp"
+}

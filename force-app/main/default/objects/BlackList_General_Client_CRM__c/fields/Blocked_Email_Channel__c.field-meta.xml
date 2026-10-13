@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Blocked_Email_Channel__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>Email channel is blocked if checked</description>
+    <inlineHelpText>Blocks email channel if checked</inlineHelpText>
+    <label>Blocked Email Channel</label>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>

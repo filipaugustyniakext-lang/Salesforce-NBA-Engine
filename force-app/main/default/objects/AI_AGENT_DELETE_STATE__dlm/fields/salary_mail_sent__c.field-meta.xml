@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>salary_mail_sent__c</fullName>
+    <defaultValue>false</defaultValue>
+    <label>salary_mail_sent</label>
+    <mktDataModelFieldAttributes>
+        <definitionCreationType>Transform</definitionCreationType>
+        <isDynamicLookup>false</isDynamicLookup>
+        <labelOverride>salary_mail_sent</labelOverride>
+        <masterLabel>salary_mail_sent</masterLabel>
+        <refAttrDeveloperName>salary_mail_sent_Transform</refAttrDeveloperName>
+        <usageTag>None</usageTag>
+    </mktDataModelFieldAttributes>
+    <type>Checkbox</type>
+</CustomField>

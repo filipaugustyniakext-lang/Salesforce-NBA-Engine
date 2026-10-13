@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<BotVersion xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>v1</fullName>
+    <articleAnswersGPTEnabled>false</articleAnswersGPTEnabled>
+    <botDialogs>
+        <botSteps>
+            <botMessages>
+                <message>Hi, I’m your Agentforce AI agent! I can draft flows, summarize flows, and modify existing flows. How can I help you today?</message>
+                <messageIdentifier>985a2230-70ac-4228-8ab1-f58421549a69</messageIdentifier>
+            </botMessages>
+            <stepIdentifier>cfcff625-1a11-48c0-a5b6-9aab976c3f59</stepIdentifier>
+            <type>Message</type>
+        </botSteps>
+        <botSteps>
+            <stepIdentifier>43619047-8939-4ab7-b325-06be01be3d99</stepIdentifier>
+            <type>Wait</type>
+        </botSteps>
+        <developerName>Welcome</developerName>
+        <isPlaceholderDialog>false</isPlaceholderDialog>
+        <label>Hi! I&apos;m your helpful bot.</label>
+        <showInFooterMenu>false</showInFooterMenu>
+    </botDialogs>
+    <botDialogs>
+        <botSteps>
+            <botMessages>
+                <message>Something went wrong. Try again.</message>
+                <messageIdentifier>45e88bcd-219b-4dc1-b771-e2728a3fedbb</messageIdentifier>
+            </botMessages>
+            <stepIdentifier>08053311-29f6-4eae-9b11-e97c201549c9</stepIdentifier>
+            <type>Message</type>
+        </botSteps>
+        <botSteps>
+            <stepIdentifier>e018a33f-f4ad-4d8f-bf50-bc056b2453d2</stepIdentifier>
+            <type>Wait</type>
+        </botSteps>
+        <developerName>Error_Handling</developerName>
+        <isPlaceholderDialog>false</isPlaceholderDialog>
+        <label>Unfortunately, a system error occurred. Let us start again.</label>
+        <showInFooterMenu>false</showInFooterMenu>
+    </botDialogs>
+    <citationsEnabled>false</citationsEnabled>
+    <company>Salesforce</company>
+    <conversationDefinitionPlanners>
+        <genAiPlannerName>Flow_Automation_Agent</genAiPlannerName>
+    </conversationDefinitionPlanners>
+    <conversationVariables>
+        <dataType>Text</dataType>
+        <description>This variable may also be referred to as VerifiedCustomerId</description>
+        <developerName>VerifiedCustomerId</developerName>
+        <includeInPrompt>false</includeInPrompt>
+        <label>VerifiedCustomerId</label>
+        <visibility>Internal</visibility>
+    </conversationVariables>
+    <conversationVariables>
+        <dataType>Text</dataType>
+        <description>The Flow Version ID to analyze at design time. Used together with debugData for design-time analysis.</description>
+        <developerName>flowVersionId</developerName>
+        <includeInPrompt>true</includeInPrompt>
+        <label>flowVersionId</label>
+        <visibility>External</visibility>
+    </conversationVariables>
+    <conversationVariables>
+        <dataType>Text</dataType>
+        <description>The user&apos;s message describing what changes to make to the flow. This should be extracted from the conversation.</description>
+        <developerName>userPrompt</developerName>
+        <includeInPrompt>true</includeInPrompt>
+        <label>userPrompt</label>
+        <visibility>Internal</visibility>
+    </conversationVariables>
+    <conversationVariables>
+        <dataType>Text</dataType>
+        <description>The GUID of a specific flow interview to debug. If provided, queries FlowInterview directly by GUID.</description>
+        <developerName>guid</developerName>
+        <includeInPrompt>true</includeInPrompt>
+        <label>guid</label>
+        <visibility>External</visibility>
+    </conversationVariables>
+    <conversationVariables>
+        <dataType>Text</dataType>
+        <description>The JSON-serialized debug data from an already-executed debug interview, containing debug trace, errors, and current element information. Used for design-time analysis with flowVersionId.</description>
+        <developerName>debugData</developerName>
+        <includeInPrompt>true</includeInPrompt>
+        <label>debugData</label>
+        <visibility>External</visibility>
+    </conversationVariables>
+    <conversationVariables>
+        <dataType>Text</dataType>
+        <description>The updated Flow Metadata returned from the EvolveFlow action.</description>
+        <developerName>evolvedFlow</developerName>
+        <includeInPrompt>false</includeInPrompt>
+        <label>evolvedFlow</label>
+        <visibility>External</visibility>
+    </conversationVariables>
+    <conversationVariables>
+        <dataType>Text</dataType>
+        <description>The Flow Metadata you want to summarize or modify.</description>
+        <developerName>flowMetadata</developerName>
+        <includeInPrompt>true</includeInPrompt>
+        <label>flowMetadata</label>
+        <visibility>External</visibility>
+    </conversationVariables>
+    <defaultStdObjForContactIdFltrEnabled>false</defaultStdObjForContactIdFltrEnabled>
+    <entryDialog>Welcome</entryDialog>
+    <intentDisambiguationEnabled>false</intentDisambiguationEnabled>
+    <intentV3Enabled>false</intentV3Enabled>
+    <isScriptCompatibleAgent>false</isScriptCompatibleAgent>
+    <knowledgeActionEnabled>false</knowledgeActionEnabled>
+    <knowledgeFallbackEnabled>false</knowledgeFallbackEnabled>
+    <role>You are a flow AI assistant that helps users draft, summarize, modify and debug their Salesforce flow automations using natural language.</role>
+    <smallTalkEnabled>false</smallTalkEnabled>
+    <staticPromptsEnabled>false</staticPromptsEnabled>
+    <stopRecPrompts>false</stopRecPrompts>
+    <stopWelcomePrompts>false</stopWelcomePrompts>
+    <surfacesEnabled>false</surfacesEnabled>
+    <toneType>Casual</toneType>
+</BotVersion>

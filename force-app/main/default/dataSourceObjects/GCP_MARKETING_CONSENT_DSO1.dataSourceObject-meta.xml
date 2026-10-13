@@ -1,0 +1,387 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DataSourceObject xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <accelerationEnabled>YES</accelerationEnabled>
+    <dataSource>UAT_GCP_Big_Query</dataSource>
+    <dataSourceFields>
+        <fullName>ai_advst_cntst_flg</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>AI_ADVST_CNTST_FLG</externalName>
+        <fieldFormula>sourceField[&apos;AI_ADVST_CNTST_FLG&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_ai_advst_cntst_flg</keyQualifierName>
+        <masterLabel>AI_ADVST_CNTST_FLG</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>app_cntst_flg</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>APP_CNTST_FLG</externalName>
+        <fieldFormula>sourceField[&apos;APP_CNTST_FLG&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_app_cntst_flg</keyQualifierName>
+        <masterLabel>APP_CNTST_FLG</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>bailiff_seizure_flg</fullName>
+        <datatype>S</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>STRING</externalDataType>
+        <externalName>BAILIFF_SEIZURE_FLG</externalName>
+        <fieldFormula>sourceField[&apos;BAILIFF_SEIZURE_FLG&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_bailiff_seizure_flg</keyQualifierName>
+        <masterLabel>BAILIFF_SEIZURE_FLG</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>bncassrnc_cntst_flg</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>BNCASSRNC_CNTST_FLG</externalName>
+        <fieldFormula>sourceField[&apos;BNCASSRNC_CNTST_FLG&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_bncassrnc_cntst_flg</keyQualifierName>
+        <masterLabel>BNCASSRNC_CNTST_FLG</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>client_id</fullName>
+        <datatype>S</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>STRING</externalDataType>
+        <externalName>CLIENT_ID</externalName>
+        <fieldFormula>sourceField[&apos;CLIENT_ID&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_client_id</keyQualifierName>
+        <masterLabel>CLIENT_ID</masterLabel>
+        <primaryIndexOrder>1</primaryIndexOrder>
+        <sequence xsi:nil="true"/>
+        <srcKeyQualifier>UAT</srcKeyQualifier>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>comunicationlanguage</fullName>
+        <datatype>S</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>STRING</externalDataType>
+        <externalName>ComunicationLanguage</externalName>
+        <fieldFormula>sourceField[&apos;ComunicationLanguage&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_comunicationlanguage</keyQualifierName>
+        <masterLabel>ComunicationLanguage</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>cstmr_org_id</fullName>
+        <datatype>S</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>STRING</externalDataType>
+        <externalName>CSTMR_ORG_ID</externalName>
+        <fieldFormula>sourceField[&apos;CSTMR_ORG_ID&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_cstmr_org_id</keyQualifierName>
+        <masterLabel>CSTMR_ORG_ID</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>DataSource</fullName>
+        <datatype>S</datatype>
+        <definitionCreationType>System</definitionCreationType>
+        <externalName>DataSource</externalName>
+        <fieldFormula>UAT_GCP_Big_Query</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>true</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_DataSource</keyQualifierName>
+        <masterLabel>Data Source</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>DataSourceObject</fullName>
+        <datatype>S</datatype>
+        <definitionCreationType>System</definitionCreationType>
+        <externalName>DataSourceObject</externalName>
+        <fieldFormula>uat-0001wk3s90-sale-jst729_0001wk3s90_dl_layer2_cdp_crm</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>true</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_DataSourceObject</keyQualifierName>
+        <masterLabel>Data Source Object</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>dt_prc_aftr_trmnt_cntst_flg</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>DT_PRC_AFTR_TRMNT_CNTST_FLG</externalName>
+        <fieldFormula>sourceField[&apos;DT_PRC_AFTR_TRMNT_CNTST_FLG&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_dt_prc_aftr_trmnt_cntst_flg</keyQualifierName>
+        <masterLabel>DT_PRC_AFTR_TRMNT_CNTST_FLG</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>electr_cntst_flg</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>ELECTR_CNTST_FLG</externalName>
+        <fieldFormula>sourceField[&apos;ELECTR_CNTST_FLG&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_electr_cntst_flg</keyQualifierName>
+        <masterLabel>ELECTR_CNTST_FLG</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>email_cnstst_flg</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>EMAIL_CNSTST_FLG</externalName>
+        <fieldFormula>sourceField[&apos;EMAIL_CNSTST_FLG&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_email_cnstst_flg</keyQualifierName>
+        <masterLabel>EMAIL_CNSTST_FLG</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>geo_cntst_flg</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>GEO_CNTST_FLG</externalName>
+        <fieldFormula>sourceField[&apos;GEO_CNTST_FLG&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_geo_cntst_flg</keyQualifierName>
+        <masterLabel>GEO_CNTST_FLG</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>globalholdout</fullName>
+        <datatype>S</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>STRING</externalDataType>
+        <externalName>GlobalHoldOut</externalName>
+        <fieldFormula>sourceField[&apos;GlobalHoldOut&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_globalholdout</keyQualifierName>
+        <masterLabel>GlobalHoldOut</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>instnt_msg_cntst_flg</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>INSTNT_MSG_CNTST_FLG</externalName>
+        <fieldFormula>sourceField[&apos;INSTNT_MSG_CNTST_FLG&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_instnt_msg_cntst_flg</keyQualifierName>
+        <masterLabel>INSTNT_MSG_CNTST_FLG</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>InternalOrganization</fullName>
+        <datatype>S</datatype>
+        <definitionCreationType>System</definitionCreationType>
+        <externalName>InternalOrganization</externalName>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>true</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_InternalOrganization</keyQualifierName>
+        <masterLabel>Internal Organization</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>mrkt_rstn_any</fullName>
+        <datatype>S</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>STRING</externalDataType>
+        <externalName>MRKT_RSTN_ANY</externalName>
+        <fieldFormula>sourceField[&apos;MRKT_RSTN_ANY&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_mrkt_rstn_any</keyQualifierName>
+        <masterLabel>MRKT_RSTN_ANY</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>mrkt_rstn_any_dt</fullName>
+        <datatype>F</datatype>
+        <dateFormat>MM/dd/yyyy HH:mm:ss.SSS</dateFormat>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>DATETIME</externalDataType>
+        <externalName>MRKT_RSTN_ANY_DT</externalName>
+        <fieldFormula>sourceField[&apos;MRKT_RSTN_ANY_DT&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_mrkt_rstn_any_dt</keyQualifierName>
+        <masterLabel>MRKT_RSTN_ANY_DT</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber>1.0</versionNumber>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>rstrctd_clnt_flg</fullName>
+        <datatype>N</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>INT64</externalDataType>
+        <externalName>RSTRCTD_CLNT_FLG</externalName>
+        <fieldFormula>sourceField[&apos;RSTRCTD_CLNT_FLG&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_rstrctd_clnt_flg</keyQualifierName>
+        <masterLabel>RSTRCTD_CLNT_FLG</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>sms_cntst_flg</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>SMS_CNTST_FLG</externalName>
+        <fieldFormula>sourceField[&apos;SMS_CNTST_FLG&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_sms_cntst_flg</keyQualifierName>
+        <masterLabel>SMS_CNTST_FLG</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>tel_mktg_cntst_flg</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>TEL_MKTG_CNTST_FLG</externalName>
+        <fieldFormula>sourceField[&apos;TEL_MKTG_CNTST_FLG&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_tel_mktg_cntst_flg</keyQualifierName>
+        <masterLabel>TEL_MKTG_CNTST_FLG</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>thrd_pty_cntst_flg</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>THRD_PTY_CNTST_FLG</externalName>
+        <fieldFormula>sourceField[&apos;THRD_PTY_CNTST_FLG&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_thrd_pty_cntst_flg</keyQualifierName>
+        <masterLabel>THRD_PTY_CNTST_FLG</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <externalDatabaseName>uat-0001wk3s90-sale-jst729</externalDatabaseName>
+    <externalObjectName>MARKETING_CONSENT</externalObjectName>
+    <externalRecordIdentifier>MARKETING_CONSENT</externalRecordIdentifier>
+    <externalSchemaName>0001wk3s90_dl_layer2_cdp_crm</externalSchemaName>
+    <masterLabel>GCP_MARKETING_CONSENT_DSO</masterLabel>
+    <objectType>Object</objectType>
+    <sourceObject>GCP_MARKETING_CONSENT_DSO__dll</sourceObject>
+    <storageType>EXTERNAL</storageType>
+    <templateVersion>1</templateVersion>
+</DataSourceObject>

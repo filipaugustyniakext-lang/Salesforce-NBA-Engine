@@ -71,8 +71,17 @@ if [[ "$RETRIEVE_STATUS" -ne 0 ]]; then
   exit "$RETRIEVE_STATUS"
 fi
 
-SECRET="$ROOT/force-app/main/default/customMetadata/MCE_Settings__mdt.Default.md-meta.xml"
-if [[ -f "$SECRET" ]]; then
+# Org retrieve naming varies (MCE_Settings vs MCE_Settings__mdt).
+SECRET=""
+for candidate in \
+  "$ROOT/force-app/main/default/customMetadata/MCE_Settings__mdt.Default.md-meta.xml" \
+  "$ROOT/force-app/main/default/customMetadata/MCE_Settings.Default.md-meta.xml"; do
+  if [[ -f "$candidate" ]]; then
+    SECRET="$candidate"
+    break
+  fi
+done
+if [[ -n "$SECRET" && -f "$SECRET" ]]; then
   python3 - "$SECRET" << 'PY'
 import pathlib, sys
 path = pathlib.Path(sys.argv[1])

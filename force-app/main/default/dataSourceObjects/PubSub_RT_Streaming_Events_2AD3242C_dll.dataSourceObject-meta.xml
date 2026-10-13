@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DataSourceObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <dataSource>PubSub_RT_Streaming_bd8b950a_6c1f_42c4_b280_abbb9d9af0da</dataSource>
+    <externalRecordIdentifier>PubSub_RT_Streaming_Events_2AD3242C</externalRecordIdentifier>
+    <masterLabel>PubSub_RT_Streaming_Events_2AD3242C</masterLabel>
+    <storageType>LOCAL</storageType>
+    <templateVersion>1</templateVersion>
+</DataSourceObject>

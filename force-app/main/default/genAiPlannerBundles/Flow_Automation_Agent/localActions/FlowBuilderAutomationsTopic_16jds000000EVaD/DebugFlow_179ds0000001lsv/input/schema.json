@@ -1,0 +1,42 @@
+{
+  "properties" : {
+    "userPrompt" : {
+      "title" : "User Prompt",
+      "description" : "The user prompt describing the debug request. Extract the prompt from the user's last message in the conversation.",
+      "lightning:type" : "lightning__textType",
+      "einstein:description" : "This is the value for the userPrompt parameter. Extract the EXACT text of what the user just said from the conversation (their latest message). Set the userPrompt parameter to this extracted text. DO NOT modify or paraphrase the user's message - pass it exactly as they said it.",
+      "lightning:isPII" : false,
+      "copilotAction:isUserInput" : true
+    },
+    "guid" : {
+      "title" : "Interview GUID",
+      "description" : "The GUID of a specific flow interview to debug. If provided, performs runtime analysis by querying FlowInterview directly by GUID.",
+      "lightning:type" : "lightning__textType",
+      "lightning:isPII" : false,
+      "copilotAction:isUserInput" : false
+    },
+    "flowVersionId" : {
+      "title" : "Flow Version ID",
+      "description" : "The Flow Version ID to analyze at design time. Used together with debugData for design-time analysis.",
+      "lightning:type" : "lightning__textType",
+      "lightning:isPII" : false,
+      "copilotAction:isUserInput" : false
+    },
+    "debugData" : {
+      "title" : "Debug Data",
+      "description" : "The JSON-serialized debug data from an already-executed debug interview, containing debug trace, errors, and current element information. Used for design-time analysis (with flowVersionId).",
+      "lightning:type" : "lightning__textType",
+      "lightning:isPII" : true,
+      "copilotAction:isUserInput" : false
+    },
+    "flowMetadata" : {
+      "title" : "Flow Metadata",
+      "description" : "The flow metadata for the flow being debugged.",
+      "lightning:type" : "lightning__textType",
+      "lightning:isPII" : false,
+      "copilotAction:isUserInput" : false
+    }
+  },
+  "lightning:type" : "lightning__objectType",
+  "lightning:textIndexed" : true
+}

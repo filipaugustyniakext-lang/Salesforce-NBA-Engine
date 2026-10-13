@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObjectTranslation xmlns="http://soap.sforce.com/2006/04/metadata">
+    <caseValues>
+        <plural>false</plural>
+        <value>Flow_AIAgent_ErrorLog</value>
+    </caseValues>
+    <caseValues>
+        <plural>true</plural>
+        <value>Flow_AIAgent_ErrorLogs</value>
+    </caseValues>
+    <startsWith>Consonant</startsWith>
+</CustomObjectTranslation>

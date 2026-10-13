@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<StreamingAppDataConnector xmlns="http://soap.sforce.com/2006/04/metadata">
+    <appIdentifier>daf81644-95fd-4eb4-b963-30ef3d84e16c</appIdentifier>
+    <connectorParameters>
+        <paramName>moduleConfig</paramName>
+        <paramValue>[{&quot;moduleName&quot;:&quot;personalization&quot;,&quot;path&quot;:&quot;&quot;,&quot;enabled&quot;:true,&quot;moduleConfiguration&quot;:&quot;&quot;}]</paramValue>
+    </connectorParameters>
+    <dataConnectorType>StreamingApp</dataConnectorType>
+    <masterLabel>MobileAppEventsV2</masterLabel>
+    <streamingAppDataConnectorType>MobileApp</streamingAppDataConnectorType>
+</StreamingAppDataConnector>

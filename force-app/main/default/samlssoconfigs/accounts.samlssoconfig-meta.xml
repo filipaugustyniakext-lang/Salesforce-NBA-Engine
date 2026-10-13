@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SamlSsoConfig xmlns="http://soap.sforce.com/2006/04/metadata">
+    <identityLocation>SubjectNameId</identityLocation>
+    <identityMapping>FederationId</identityMapping>
+    <issuer>https://accounts.google.com/o/saml2?idpid=C03voai5j</issuer>
+    <loginUrl>https://accounts.google.com/o/saml2/idp?idpid=C03voai5j</loginUrl>
+    <name>Google Workspace</name>
+    <oauthTokenEndpoint>https://unicredit-sandbox--nonprod.sandbox.my.salesforce.com/services/oauth2/token</oauthTokenEndpoint>
+    <redirectBinding>true</redirectBinding>
+    <requestSignatureMethod>1</requestSignatureMethod>
+    <requestSigningCertId>0P1ds0000000SIr</requestSigningCertId>
+    <salesforceLoginUrl>https://unicredit-sandbox--nonprod.sandbox.my.salesforce.com</salesforceLoginUrl>
+    <samlEntityId>https://unicredit-sandbox--nonprod.sandbox.my.salesforce.com</samlEntityId>
+    <samlVersion>SAML2_0</samlVersion>
+    <useConfigRequestMethod>true</useConfigRequestMethod>
+    <useSameDigestAlgoForSigning>true</useSameDigestAlgoForSigning>
+    <userProvisioning>true</userProvisioning>
+    <validationCert>MIIDdDCCAlygAwIBAgIGAYejUE6IMA0GCSqGSIb3DQEBCwUAMHsxFDASBgNVBAoTC0dvb2dsZSBJ
+bmMuMRYwFAYDVQQHEw1Nb3VudGFpbiBWaWV3MQ8wDQYDVQQDEwZHb29nbGUxGDAWBgNVBAsTD0dv
+b2dsZSBGb3IgV29yazELMAkGA1UEBhMCVVMxEzARBgNVBAgTCkNhbGlmb3JuaWEwHhcNMjMwNDIx
+MTAxNjAxWhcNMjgwNDE5MTAxNjAxWjB7MRQwEgYDVQQKEwtHb29nbGUgSW5jLjEWMBQGA1UEBxMN
+TW91bnRhaW4gVmlldzEPMA0GA1UEAxMGR29vZ2xlMRgwFgYDVQQLEw9Hb29nbGUgRm9yIFdvcmsx
+CzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpDYWxpZm9ybmlhMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A
+MIIBCgKCAQEAhVWG83H5wbseu7HQUPVnfVbNx5UvjlauOc2iQEerGsgBhcdLHWke6Cn09zgFmviR
+AYq/fGEwemQABSAjqCXgKN2fke0c1ofHLjp6O/sIUldupT/1lajwLPtpLqGHmGaWjR/EP9eSldPE
+gUzgaVeHE1uss4UMdVHVnU+AVrSPPdaveFYNA55ekR7YN2tDmv7gdzxSGYD7m1g7UHBpm4CgAFq5
+SWx+9kxc0CZsp66Ym2TIODjnlWgrdi2hl2qXqet9bgiMRuAY22VTCKcjrdkKMNJ9PbGI14/SL3hr
+ok6KfAAx9GPHUg2nLaRFpwk0EXgAsmwhVpgHlgmp3Mw95H0qMwIDAQABMA0GCSqGSIb3DQEBCwUA
+A4IBAQBUDk8dYi96iIwv3ByclA3CHWw9LoFCry9d72nlzeHj/lHgQRGMgmaIrDpUYQwP4KLZbETn
++1EFMid2Eex89CZK2zI+8hOvJoWtKXySvKEv5KTQU76eV+TR5MyYEvqn+DMpIP7eaYZ12D6RB2zd
+nBeRU3hg2Np4T263mz7whCH16eSwMjGSuvI9mOyK7olsq5agt50/Om6nlZg+CjBqRCelPJi0mjrR
+rh0cTwVARAeA7/9mQqOslYZ5Z+uB6GTNyBKcgnXXWlyMRemgIKYLClRHnNTLLDRczia3gZUKLc3m
+qj4YaJV+sfIMbfl7Vr0jNsfOirCwmocpXTI6tYKeVXWE</validationCert>
+</SamlSsoConfig>

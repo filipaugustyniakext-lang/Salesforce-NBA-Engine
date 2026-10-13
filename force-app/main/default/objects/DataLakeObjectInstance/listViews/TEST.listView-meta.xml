@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>TEST</fullName>
+    <columns>Name</columns>
+    <columns>DataLakeObjectStatus</columns>
+    <columns>LastRefreshDate</columns>
+    <columns>TotalRecords</columns>
+    <columns>Storage</columns>
+    <columns>Billable</columns>
+    <columns>TotalNumberOfFields</columns>
+    <columns>Category</columns>
+    <filterScope>Mine</filterScope>
+    <filters>
+        <field>Name</field>
+        <operation>contains</operation>
+        <value>TEST</value>
+    </filters>
+    <label>TEST</label>
+</ListView>

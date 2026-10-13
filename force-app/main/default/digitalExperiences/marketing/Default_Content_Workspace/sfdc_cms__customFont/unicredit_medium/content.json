@@ -1,0 +1,16 @@
+{
+  "type" : "sfdc_cms__customFont",
+  "title" : "unicredit-medium.woff",
+  "contentBody" : {
+    "sfdc_cms:media" : {
+      "source" : {
+        "fileSize" : 32464.0,
+        "mimeType" : "font/woff",
+        "ref" : "0sNds000000SrPZEA0",
+        "type" : "file",
+        "size" : 32464
+      }
+    }
+  },
+  "urlName" : "unicredit-medium-woff"
+}

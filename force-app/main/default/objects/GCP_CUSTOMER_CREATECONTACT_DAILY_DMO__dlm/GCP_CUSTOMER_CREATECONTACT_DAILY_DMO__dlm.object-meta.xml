@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <mktDataModelAttributes>
+        <creationType>Transform</creationType>
+        <dataModelTaxonomy>Salesforce_SFDCReferenceModel_0_93</dataModelTaxonomy>
+        <dataSpaceName>default</dataSpaceName>
+        <isEnabled>true</isEnabled>
+        <isSegmentable>true</isSegmentable>
+        <isUsedForMetrics>false</isUsedForMetrics>
+        <labelOverride>GCP_CUSTOMER_CREATECONTACT_DAILY_DMO</labelOverride>
+        <masterLabel>GCP_CUSTOMER_CREATECONTACT_DAILY_DMO</masterLabel>
+        <objectCategory>Salesforce_SFDCReferenceModel_0_93.Profile</objectCategory>
+        <referenceEntityName>GCP_CUSTOMER_CREATECONTACT_DAILY_DMO_Transform</referenceEntityName>
+    </mktDataModelAttributes>
+</CustomObject>

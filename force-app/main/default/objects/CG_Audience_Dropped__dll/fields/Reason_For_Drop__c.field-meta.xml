@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Reason_For_Drop__c</fullName>
+    <label>Reason_For_Drop</label>
+    <length>60</length>
+    <mktDataLakeFieldAttributes>
+        <definitionCreationType>CG_Audience</definitionCreationType>
+        <externalName>Reason_For_Drop</externalName>
+        <isEventDate>false</isEventDate>
+        <isInternalOrganization>true</isInternalOrganization>
+        <isRecordModified>true</isRecordModified>
+        <usageTag>NONE</usageTag>
+    </mktDataLakeFieldAttributes>
+    <required>false</required>
+    <type>Text</type>
+</CustomField>

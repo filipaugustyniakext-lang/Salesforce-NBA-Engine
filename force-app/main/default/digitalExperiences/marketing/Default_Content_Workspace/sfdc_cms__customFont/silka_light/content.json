@@ -1,0 +1,16 @@
+{
+  "type" : "sfdc_cms__customFont",
+  "title" : "silka_light.woff",
+  "contentBody" : {
+    "sfdc_cms:media" : {
+      "source" : {
+        "fileSize" : 32408.0,
+        "mimeType" : "font/woff",
+        "ref" : "0sNds000000SqWjEAK",
+        "type" : "file",
+        "size" : 32408
+      }
+    }
+  },
+  "urlName" : "silka-light-woff"
+}

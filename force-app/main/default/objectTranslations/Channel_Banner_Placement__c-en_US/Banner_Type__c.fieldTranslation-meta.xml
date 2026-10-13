@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomFieldTranslation xmlns="http://soap.sforce.com/2006/04/metadata">
+    <help><!-- Select the banner type that this placeholder supports. --></help>
+    <label><!-- Banner Type --></label>
+    <name>Banner_Type__c</name>
+    <relationshipLabel><!-- Banner Placements --></relationshipLabel>
+</CustomFieldTranslation>

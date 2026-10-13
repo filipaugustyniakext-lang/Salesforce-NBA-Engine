@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ReportFolder xmlns="http://soap.sforce.com/2006/04/metadata">
+    <folderShares>
+        <accessLevel>Manage</accessLevel>
+        <sharedTo>joanna.najmajer@unicredit.pl</sharedTo>
+        <sharedToType>User</sharedToType>
+    </folderShares>
+    <folderShares>
+        <accessLevel>Manage</accessLevel>
+        <sharedTo>robert.rozycki@unicredit.pl</sharedTo>
+        <sharedToType>User</sharedToType>
+    </folderShares>
+    <name>Consumption Insights by Tags</name>
+</ReportFolder>

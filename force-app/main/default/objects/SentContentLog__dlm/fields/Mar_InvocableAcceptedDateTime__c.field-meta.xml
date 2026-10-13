@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Mar_InvocableAcceptedDateTime__c</fullName>
+    <label>Invocable Accepted Date Time</label>
+    <mktDataModelFieldAttributes>
+        <definitionCreationType>Transform</definitionCreationType>
+        <isDynamicLookup>false</isDynamicLookup>
+        <labelOverride>Invocable Accepted Date Time</labelOverride>
+        <masterLabel>Invocable Accepted Date Time</masterLabel>
+        <refAttrDeveloperName>Mar_InvocableAcceptedDateTime_Transform</refAttrDeveloperName>
+        <usageTag>None</usageTag>
+    </mktDataModelFieldAttributes>
+    <required>false</required>
+    <type>DateTime</type>
+</CustomField>

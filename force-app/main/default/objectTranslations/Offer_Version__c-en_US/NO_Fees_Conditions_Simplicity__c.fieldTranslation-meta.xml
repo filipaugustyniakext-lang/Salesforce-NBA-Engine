@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomFieldTranslation xmlns="http://soap.sforce.com/2006/04/metadata">
+    <label><!-- No Fees Conditions Simplicity --></label>
+    <name>NO_Fees_Conditions_Simplicity__c</name>
+    <picklistValues>
+        <masterLabel>Difficult</masterLabel>
+        <translation><!-- Difficult --></translation>
+    </picklistValues>
+    <picklistValues>
+        <masterLabel>Easy</masterLabel>
+        <translation><!-- Easy --></translation>
+    </picklistValues>
+    <picklistValues>
+        <masterLabel>Medium</masterLabel>
+        <translation><!-- Medium --></translation>
+    </picklistValues>
+    <picklistValues>
+        <masterLabel>No Fee</masterLabel>
+        <translation><!-- No Fee --></translation>
+    </picklistValues>
+    <picklistValues>
+        <masterLabel>Not Possible</masterLabel>
+        <translation><!-- Not Possible --></translation>
+    </picklistValues>
+</CustomFieldTranslation>

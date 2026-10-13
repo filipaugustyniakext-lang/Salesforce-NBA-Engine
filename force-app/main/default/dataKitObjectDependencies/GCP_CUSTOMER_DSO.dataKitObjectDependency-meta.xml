@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DataKitObjectDependency xmlns="http://soap.sforce.com/2006/04/metadata">
+    <dataPackageKitDef>Snapshot_D360_Sandbox_12052026</dataPackageKitDef>
+    <developerName>GCP_CUSTOMER_DSO</developerName>
+    <masterLabel>GCP_CUSTOMER_DSO__dll</masterLabel>
+    <sourceObject>GCP_CUSTOMER_DSO1</sourceObject>
+    <sourceObjectType>DataSourceObject</sourceObjectType>
+    <targetObject>GCP_CUSTOMER_DSO</targetObject>
+</DataKitObjectDependency>

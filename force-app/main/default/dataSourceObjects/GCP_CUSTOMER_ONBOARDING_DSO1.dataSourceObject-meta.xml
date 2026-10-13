@@ -1,0 +1,696 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DataSourceObject xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <accelerationEnabled>YES</accelerationEnabled>
+    <dataSource>UAT_GCP_Big_Query</dataSource>
+    <dataSourceFields>
+        <fullName>cstmr_id</fullName>
+        <datatype>S</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>STRING</externalDataType>
+        <externalName>CSTMR_ID</externalName>
+        <fieldFormula>sourceField[&apos;CSTMR_ID&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_cstmr_id</keyQualifierName>
+        <masterLabel>CSTMR_ID</masterLabel>
+        <primaryIndexOrder>1</primaryIndexOrder>
+        <sequence xsi:nil="true"/>
+        <srcKeyQualifier>UAT</srcKeyQualifier>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>DataSource</fullName>
+        <datatype>S</datatype>
+        <definitionCreationType>System</definitionCreationType>
+        <externalName>DataSource</externalName>
+        <fieldFormula>UAT_GCP_Big_Query</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>true</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_DataSource</keyQualifierName>
+        <masterLabel>Data Source</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>DataSourceObject</fullName>
+        <datatype>S</datatype>
+        <definitionCreationType>System</definitionCreationType>
+        <externalName>DataSourceObject</externalName>
+        <fieldFormula>uat-0001wk3s90-sale-jst729_0001wk3s90_dl_layer2_cdp_crm</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>true</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_DataSourceObject</keyQualifierName>
+        <masterLabel>Data Source Object</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>insert_job_id</fullName>
+        <datatype>S</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>STRING</externalDataType>
+        <externalName>insert_job_id</externalName>
+        <fieldFormula>sourceField[&apos;insert_job_id&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_insert_job_id</keyQualifierName>
+        <masterLabel>insert_job_id</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>InternalOrganization</fullName>
+        <datatype>S</datatype>
+        <definitionCreationType>System</definitionCreationType>
+        <externalName>InternalOrganization</externalName>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>true</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_InternalOrganization</keyQualifierName>
+        <masterLabel>Internal Organization</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>onb_1_in_trnsf_ca_ind</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>ONB_1_IN_TRNSF_CA_IND</externalName>
+        <fieldFormula>sourceField[&apos;ONB_1_IN_TRNSF_CA_IND&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_onb_1_in_trnsf_ca_ind</keyQualifierName>
+        <masterLabel>ONB_1_IN_TRNSF_CA_IND</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>onb_1_in_trnsf_fx_ind</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>ONB_1_IN_TRNSF_FX_IND</externalName>
+        <fieldFormula>sourceField[&apos;ONB_1_IN_TRNSF_FX_IND&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_onb_1_in_trnsf_fx_ind</keyQualifierName>
+        <masterLabel>ONB_1_IN_TRNSF_FX_IND</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>onb_1_trnsf_ca_ind</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>ONB_1_TRNSF_CA_IND</externalName>
+        <fieldFormula>sourceField[&apos;ONB_1_TRNSF_CA_IND&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_onb_1_trnsf_ca_ind</keyQualifierName>
+        <masterLabel>ONB_1_TRNSF_CA_IND</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>onb_1_trx_card_ind</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>ONB_1_TRX_CARD_IND</externalName>
+        <fieldFormula>sourceField[&apos;ONB_1_TRX_CARD_IND&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_onb_1_trx_card_ind</keyQualifierName>
+        <masterLabel>ONB_1_TRX_CARD_IND</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>onb_acc_cls_dt</fullName>
+        <datatype>D</datatype>
+        <dateFormat>MM/dd/yyyy</dateFormat>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>DATE</externalDataType>
+        <externalName>ONB_ACC_CLS_DT</externalName>
+        <fieldFormula>sourceField[&apos;ONB_ACC_CLS_DT&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_onb_acc_cls_dt</keyQualifierName>
+        <masterLabel>ONB_ACC_CLS_DT</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber>1.0</versionNumber>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>onb_acc_opn_dt</fullName>
+        <datatype>D</datatype>
+        <dateFormat>MM/dd/yyyy</dateFormat>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>DATE</externalDataType>
+        <externalName>ONB_ACC_OPN_DT</externalName>
+        <fieldFormula>sourceField[&apos;ONB_ACC_OPN_DT&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_onb_acc_opn_dt</keyQualifierName>
+        <masterLabel>ONB_ACC_OPN_DT</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber>1.0</versionNumber>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>onb_blik_actv_ind</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>ONB_BLIK_ACTV_IND</externalName>
+        <fieldFormula>sourceField[&apos;ONB_BLIK_ACTV_IND&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_onb_blik_actv_ind</keyQualifierName>
+        <masterLabel>ONB_BLIK_ACTV_IND</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>onb_blik_main_actv_ind</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>ONB_BLIK_MAIN_ACTV_IND</externalName>
+        <fieldFormula>sourceField[&apos;ONB_BLIK_MAIN_ACTV_IND&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_onb_blik_main_actv_ind</keyQualifierName>
+        <masterLabel>ONB_BLIK_MAIN_ACTV_IND</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>onb_blik_p2p_actv_ind</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>ONB_BLIK_P2P_ACTV_IND</externalName>
+        <fieldFormula>sourceField[&apos;ONB_BLIK_P2P_ACTV_IND&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_onb_blik_p2p_actv_ind</keyQualifierName>
+        <masterLabel>ONB_BLIK_P2P_ACTV_IND</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>onb_blik_t6_actv_ind</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>ONB_BLIK_T6_ACTV_IND</externalName>
+        <fieldFormula>sourceField[&apos;ONB_BLIK_T6_ACTV_IND&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_onb_blik_t6_actv_ind</keyQualifierName>
+        <masterLabel>ONB_BLIK_T6_ACTV_IND</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>onb_cca_ind</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>ONB_CCA_IND</externalName>
+        <fieldFormula>sourceField[&apos;ONB_CCA_IND&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_onb_cca_ind</keyQualifierName>
+        <masterLabel>ONB_CCA_IND</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>onb_ccy_acc_ind</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>ONB_CCY_ACC_IND</externalName>
+        <fieldFormula>sourceField[&apos;ONB_CCY_ACC_IND&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_onb_ccy_acc_ind</keyQualifierName>
+        <masterLabel>ONB_CCY_ACC_IND</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>onb_chld_bnf_prgm_ind</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>ONB_CHLD_BNF_PRGM_IND</externalName>
+        <fieldFormula>sourceField[&apos;ONB_CHLD_BNF_PRGM_IND&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_onb_chld_bnf_prgm_ind</keyQualifierName>
+        <masterLabel>ONB_CHLD_BNF_PRGM_IND</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>onb_cl_ccl_ind</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>ONB_CL_CCL_IND</externalName>
+        <fieldFormula>sourceField[&apos;ONB_CL_CCL_IND&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_onb_cl_ccl_ind</keyQualifierName>
+        <masterLabel>ONB_CL_CCL_IND</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>onb_depo_opn_ind</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>ONB_DEPO_OPN_IND</externalName>
+        <fieldFormula>sourceField[&apos;ONB_DEPO_OPN_IND&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_onb_depo_opn_ind</keyQualifierName>
+        <masterLabel>ONB_DEPO_OPN_IND</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>onb_depo_transf_ind</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>ONB_DEPO_TRANSF_IND</externalName>
+        <fieldFormula>sourceField[&apos;ONB_DEPO_TRANSF_IND&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_onb_depo_transf_ind</keyQualifierName>
+        <masterLabel>ONB_DEPO_TRANSF_IND</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>onb_drct_dbt_ind</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>ONB_DRCT_DBT_IND</externalName>
+        <fieldFormula>sourceField[&apos;ONB_DRCT_DBT_IND&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_onb_drct_dbt_ind</keyQualifierName>
+        <masterLabel>ONB_DRCT_DBT_IND</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>onb_ewallet_actv_ind</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>ONB_EWALLET_ACTV_IND</externalName>
+        <fieldFormula>sourceField[&apos;ONB_EWALLET_ACTV_IND&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_onb_ewallet_actv_ind</keyQualifierName>
+        <masterLabel>ONB_EWALLET_ACTV_IND</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>onb_in_trnsf_ca_sum_ind</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>ONB_IN_TRNSF_CA_SUM_IND</externalName>
+        <fieldFormula>sourceField[&apos;ONB_IN_TRNSF_CA_SUM_IND&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_onb_in_trnsf_ca_sum_ind</keyQualifierName>
+        <masterLabel>ONB_IN_TRNSF_CA_SUM_IND</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>onb_inv_transf_ind</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>ONB_INV_TRANSF_IND</externalName>
+        <fieldFormula>sourceField[&apos;ONB_INV_TRANSF_IND&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_onb_inv_transf_ind</keyQualifierName>
+        <masterLabel>ONB_INV_TRANSF_IND</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>onb_limit</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>ONB_LIMIT</externalName>
+        <fieldFormula>sourceField[&apos;ONB_LIMIT&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_onb_limit</keyQualifierName>
+        <masterLabel>ONB_LIMIT</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>onb_m2m_ind</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>ONB_M2M_IND</externalName>
+        <fieldFormula>sourceField[&apos;ONB_M2M_IND&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_onb_m2m_ind</keyQualifierName>
+        <masterLabel>ONB_M2M_IND</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>onb_mifid</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>ONB_MIFID</externalName>
+        <fieldFormula>sourceField[&apos;ONB_MIFID&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_onb_mifid</keyQualifierName>
+        <masterLabel>ONB_MIFID</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>onb_phsc_card</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>ONB_PHSC_CARD</externalName>
+        <fieldFormula>sourceField[&apos;ONB_PHSC_CARD&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_onb_phsc_card</keyQualifierName>
+        <masterLabel>ONB_PHSC_CARD</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>onb_schdl_trnsf_ind</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>ONB_SCHDL_TRNSF_IND</externalName>
+        <fieldFormula>sourceField[&apos;ONB_SCHDL_TRNSF_IND&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_onb_schdl_trnsf_ind</keyQualifierName>
+        <masterLabel>ONB_SCHDL_TRNSF_IND</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>onb_slry_dclrt_ind</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>ONB_SLRY_DCLRT_IND</externalName>
+        <fieldFormula>sourceField[&apos;ONB_SLRY_DCLRT_IND&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_onb_slry_dclrt_ind</keyQualifierName>
+        <masterLabel>ONB_SLRY_DCLRT_IND</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>onb_slry_ind</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>ONB_SLRY_IND</externalName>
+        <fieldFormula>sourceField[&apos;ONB_SLRY_IND&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_onb_slry_ind</keyQualifierName>
+        <masterLabel>ONB_SLRY_IND</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>onb_stsfd_ind</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>ONB_STSFD_IND</externalName>
+        <fieldFormula>sourceField[&apos;ONB_STSFD_IND&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_onb_stsfd_ind</keyQualifierName>
+        <masterLabel>ONB_STSFD_IND</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>onb_stsfd_nb</fullName>
+        <datatype>N</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>INT64</externalDataType>
+        <externalName>ONB_STSFD_NB</externalName>
+        <fieldFormula>sourceField[&apos;ONB_STSFD_NB&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_onb_stsfd_nb</keyQualifierName>
+        <masterLabel>ONB_STSFD_NB</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>onb_sub_actv_ind</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>ONB_SUB_ACTV_IND</externalName>
+        <fieldFormula>sourceField[&apos;ONB_SUB_ACTV_IND&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_onb_sub_actv_ind</keyQualifierName>
+        <masterLabel>ONB_SUB_ACTV_IND</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>onb_svg_opn_ind</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>ONB_SVG_OPN_IND</externalName>
+        <fieldFormula>sourceField[&apos;ONB_SVG_OPN_IND&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_onb_svg_opn_ind</keyQualifierName>
+        <masterLabel>ONB_SVG_OPN_IND</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>onb_svg_transf_ind</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>ONB_SVG_TRANSF_IND</externalName>
+        <fieldFormula>sourceField[&apos;ONB_SVG_TRANSF_IND&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_onb_svg_transf_ind</keyQualifierName>
+        <masterLabel>ONB_SVG_TRANSF_IND</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>onb_vrtl_card</fullName>
+        <datatype>B</datatype>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>BOOLEAN</externalDataType>
+        <externalName>ONB_VRTL_CARD</externalName>
+        <fieldFormula>sourceField[&apos;ONB_VRTL_CARD&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_onb_vrtl_card</keyQualifierName>
+        <masterLabel>ONB_VRTL_CARD</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber xsi:nil="true"/>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>record_creation_date</fullName>
+        <datatype>F</datatype>
+        <dateFormat>MM/dd/yyyy HH:mm:ss.SSS</dateFormat>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>TIMESTAMP</externalDataType>
+        <externalName>record_creation_date</externalName>
+        <fieldFormula>sourceField[&apos;record_creation_date&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_record_creation_date</keyQualifierName>
+        <masterLabel>record_creation_date</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber>1.0</versionNumber>
+    </dataSourceFields>
+    <dataSourceFields>
+        <fullName>record_modification_date</fullName>
+        <datatype>F</datatype>
+        <dateFormat>MM/dd/yyyy HH:mm:ss.SSS</dateFormat>
+        <definitionCreationType>Custom</definitionCreationType>
+        <externalDataType>TIMESTAMP</externalDataType>
+        <externalName>record_modification_date</externalName>
+        <fieldFormula>sourceField[&apos;record_modification_date&apos;]</fieldFormula>
+        <isDataRequired>false</isDataRequired>
+        <isEventDate>false</isEventDate>
+        <isFormula>false</isFormula>
+        <isRecordModified>false</isRecordModified>
+        <keyQualifierName>KQ_record_modification_date</keyQualifierName>
+        <masterLabel>record_modification_date</masterLabel>
+        <sequence xsi:nil="true"/>
+        <usageTag>NONE</usageTag>
+        <versionNumber>1.0</versionNumber>
+    </dataSourceFields>
+    <externalDatabaseName>uat-0001wk3s90-sale-jst729</externalDatabaseName>
+    <externalObjectName>CUSTOMER_ONBOARDING</externalObjectName>
+    <externalRecordIdentifier>CUSTOMER_ONBOARDING</externalRecordIdentifier>
+    <externalSchemaName>0001wk3s90_dl_layer2_cdp_crm</externalSchemaName>
+    <masterLabel>GCP_CUSTOMER_ONBOARDING_DSO</masterLabel>
+    <objectType>Object</objectType>
+    <sourceObject>GCP_CUSTOMER_ONBOARDING_DSO__dll</sourceObject>
+    <storageType>EXTERNAL</storageType>
+    <templateVersion>1</templateVersion>
+</DataSourceObject>

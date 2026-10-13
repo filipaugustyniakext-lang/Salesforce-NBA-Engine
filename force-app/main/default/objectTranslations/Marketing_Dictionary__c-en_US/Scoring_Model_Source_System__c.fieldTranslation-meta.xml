@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomFieldTranslation xmlns="http://soap.sforce.com/2006/04/metadata">
+    <help><!-- Where this scoring model is executed and scored. --></help>
+    <label><!-- Scoring Model Source System --></label>
+    <name>Scoring_Model_Source_System__c</name>
+    <picklistValues>
+        <masterLabel>GCP</masterLabel>
+        <translation><!-- GCP --></translation>
+    </picklistValues>
+    <picklistValues>
+        <masterLabel>Salesforce (Einstein)</masterLabel>
+        <translation><!-- Salesforce (Einstein) --></translation>
+    </picklistValues>
+</CustomFieldTranslation>

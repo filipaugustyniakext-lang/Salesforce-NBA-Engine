@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ObjectSourceTargetMap xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <creationType>Custom</creationType>
+    <fieldSourceTargetMaps>
+        <creationType>System</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>if(ISEMPTY(formulaField[&apos;TransactionTime&apos;])) { null; } else { DAYPRECISION(formulaField[&apos;TransactionTime&apos;]); }</sourceFormula>
+        <targetField>sfmc_journey_activity_run_536010191__dll.cdp_sys_PartitionDate__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_journey_activity_run_536010191.tgt_ActivityType__c</sourceField>
+        <sourceFormula>tgt_ActivityType</sourceFormula>
+        <targetField>sfmc_journey_activity_run_536010191__dll.ActivityType__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_journey_activity_run_536010191.tgt_DocumentId__c</sourceField>
+        <sourceFormula>tgt_DocumentId</sourceFormula>
+        <targetField>sfmc_journey_activity_run_536010191__dll.DocumentId__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>PARSEDATE(sourceField[&apos;tgt_TransactionTime&apos;], &quot;yyyy-MM-dd&apos;T&apos;HH:mm:ss.SSS&quot;)</sourceFormula>
+        <targetField>sfmc_journey_activity_run_536010191__dll.TransactionTime__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>System</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_journey_activity_run_536010191.tgt_DataSource__c</sourceField>
+        <sourceFormula>tgt_DataSource</sourceFormula>
+        <targetField>sfmc_journey_activity_run_536010191__dll.DataSource__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>LOWER(sourceField[&apos;tgt_ActivityId&apos;])</sourceFormula>
+        <targetField>sfmc_journey_activity_run_536010191__dll.ActivityId__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>PARSEDATE(sourceField[&apos;tgt_CreatedDate&apos;], &quot;yyyy-MM-dd&apos;T&apos;HH:mm:ss.SSS&quot;)</sourceFormula>
+        <targetField>sfmc_journey_activity_run_536010191__dll.CreatedDate__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>PARSEDATE(sourceField[&apos;tgt_StartDate&apos;], &quot;yyyy-MM-dd&apos;T&apos;HH:mm:ss.SSS&quot;)</sourceFormula>
+        <targetField>sfmc_journey_activity_run_536010191__dll.StartDate__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>System</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_journey_activity_run_536010191.tgt_DataSourceObject__c</sourceField>
+        <sourceFormula>tgt_DataSourceObject</sourceFormula>
+        <targetField>sfmc_journey_activity_run_536010191__dll.DataSourceObject__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_journey_activity_run_536010191.tgt_ContactKey__c</sourceField>
+        <sourceFormula>tgt_ContactKey</sourceFormula>
+        <targetField>sfmc_journey_activity_run_536010191__dll.ContactKey__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_journey_activity_run_536010191.tgt_Status__c</sourceField>
+        <sourceFormula>tgt_Status</sourceFormula>
+        <targetField>sfmc_journey_activity_run_536010191__dll.Status__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>System</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_journey_activity_run_536010191.tgt_MemberId__c</sourceField>
+        <sourceFormula>tgt_MemberId</sourceFormula>
+        <targetField>sfmc_journey_activity_run_536010191__dll.InternalOrganization__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>PARSEDATE(sourceField[&apos;tgt_EndDate&apos;], &quot;yyyy-MM-dd&apos;T&apos;HH:mm:ss.SSS&quot;)</sourceFormula>
+        <targetField>sfmc_journey_activity_run_536010191__dll.EndDate__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>false</isSourceFormula>
+        <sourceField>sfmc_journey_activity_run_536010191.tgt_ActivityName__c</sourceField>
+        <sourceFormula>tgt_ActivityName</sourceFormula>
+        <targetField>sfmc_journey_activity_run_536010191__dll.ActivityName__c</targetField>
+    </fieldSourceTargetMaps>
+    <fieldSourceTargetMaps>
+        <creationType>Custom</creationType>
+        <filterApplied>false</filterApplied>
+        <isSourceFormula>true</isSourceFormula>
+        <sourceField xsi:nil="true"/>
+        <sourceFormula>LOWER(sourceField[&apos;tgt_JourneyId&apos;])</sourceFormula>
+        <targetField>sfmc_journey_activity_run_536010191__dll.JourneyId__c</targetField>
+    </fieldSourceTargetMaps>
+    <masterLabel>sfmc_journey_activity_run_536010191_map_sfmc_journey_activity_run_536010191_1774010880329</masterLabel>
+    <sourceObjectName>sfmc_journey_activity_run_536010191</sourceObjectName>
+    <targetObjectName>sfmc_journey_activity_run_536010191__dll</targetObjectName>
+</ObjectSourceTargetMap>

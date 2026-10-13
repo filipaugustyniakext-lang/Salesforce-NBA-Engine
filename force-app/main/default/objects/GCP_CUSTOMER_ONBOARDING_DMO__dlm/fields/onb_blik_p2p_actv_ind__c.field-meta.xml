@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>onb_blik_p2p_actv_ind__c</fullName>
+    <defaultValue>false</defaultValue>
+    <label>ONB_BLIK_P2P_ACTV_IND</label>
+    <mktDataModelFieldAttributes>
+        <definitionCreationType>Custom</definitionCreationType>
+        <isDynamicLookup>false</isDynamicLookup>
+        <labelOverride>OnbBlikP2PTransaction</labelOverride>
+        <masterLabel>ONB_BLIK_P2P_ACTV_IND</masterLabel>
+        <usageTag>None</usageTag>
+    </mktDataModelFieldAttributes>
+    <type>Checkbox</type>
+</CustomField>

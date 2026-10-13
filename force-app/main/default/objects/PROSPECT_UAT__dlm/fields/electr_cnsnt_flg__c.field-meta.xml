@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>electr_cnsnt_flg__c</fullName>
+    <defaultValue>false</defaultValue>
+    <label>ELECTR_CNSNT_FLG</label>
+    <mktDataModelFieldAttributes>
+        <definitionCreationType>Custom</definitionCreationType>
+        <isDynamicLookup>false</isDynamicLookup>
+        <labelOverride>ELECTR_CNSNT_FLG</labelOverride>
+        <masterLabel>ELECTR_CNSNT_FLG</masterLabel>
+        <usageTag>None</usageTag>
+    </mktDataModelFieldAttributes>
+    <type>Checkbox</type>
+</CustomField>

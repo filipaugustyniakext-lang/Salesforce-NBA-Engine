@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Source_Timestamp__c</fullName>
+    <label>Source_Timestamp</label>
+    <mktDataLakeFieldAttributes>
+        <definitionCreationType>CG_Audience</definitionCreationType>
+        <externalName>Source_Timestamp</externalName>
+        <isEventDate>false</isEventDate>
+        <isInternalOrganization>true</isInternalOrganization>
+        <isRecordModified>true</isRecordModified>
+        <usageTag>NONE</usageTag>
+    </mktDataLakeFieldAttributes>
+    <required>false</required>
+    <type>DateTime</type>
+</CustomField>

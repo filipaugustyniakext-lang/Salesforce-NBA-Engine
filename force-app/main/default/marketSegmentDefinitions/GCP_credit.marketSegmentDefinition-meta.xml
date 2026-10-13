@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MarketSegmentDefinition xmlns="http://soap.sforce.com/2006/04/metadata">
+    <includeCriteria>{&quot;type&quot;:&quot;LogicalComparison&quot;,&quot;operator&quot;:&quot;and&quot;,&quot;filters&quot;:[{&quot;type&quot;:&quot;TextComparison&quot;,&quot;path&quot;:null,&quot;joinPath&quot;:null,&quot;subject&quot;:{&quot;objectApiName&quot;:&quot;GCP_EXTERNAL_CUSTOMER_DMO__dlm&quot;,&quot;fieldApiName&quot;:&quot;cstmr_email__c&quot;},&quot;selfReference&quot;:false,&quot;operator&quot;:&quot;has value&quot;,&quot;subjectFieldDataType&quot;:&quot;TEXT&quot;,&quot;subjectFieldBusinessType&quot;:&quot;TEXT&quot;,&quot;subjectFieldSourceType&quot;:&quot;DIRECT&quot;},{&quot;type&quot;:&quot;TextComparison&quot;,&quot;path&quot;:null,&quot;joinPath&quot;:null,&quot;subject&quot;:{&quot;objectApiName&quot;:&quot;GCP_EXTERNAL_CUSTOMER_DMO__dlm&quot;,&quot;fieldApiName&quot;:&quot;cstmr_nm__c&quot;},&quot;selfReference&quot;:false,&quot;operator&quot;:&quot;has value&quot;,&quot;subjectFieldDataType&quot;:&quot;TEXT&quot;,&quot;subjectFieldBusinessType&quot;:&quot;TEXT&quot;,&quot;subjectFieldSourceType&quot;:&quot;DIRECT&quot;}]}</includeCriteria>
+    <masterLabel>GCP_credit</masterLabel>
+    <segmentOn>GCP_EXTERNAL_CUSTOMER_DMO__dlm</segmentOn>
+    <segmentType>UI</segmentType>
+</MarketSegmentDefinition>

@@ -132,6 +132,17 @@
         </values>
     </picklistValues>
     <picklistValues>
+        <picklist>Offering_Type__c</picklist>
+        <values>
+            <fullName>Family of Needs</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Product Family</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
         <picklist>Parameter_Type__c</picklist>
         <values>
             <fullName>Checkbox</fullName>
@@ -174,6 +185,17 @@
         </values>
         <values>
             <fullName>Remote</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Scoring_Model_Source_System__c</picklist>
+        <values>
+            <fullName>GCP</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Salesforce %28Einstein%29</fullName>
             <default>false</default>
         </values>
     </picklistValues>

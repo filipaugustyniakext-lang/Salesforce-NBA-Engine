@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MarketSegmentDefinition xmlns="http://soap.sforce.com/2006/04/metadata">
+    <includeCriteria>{&quot;type&quot;:&quot;RelativeToNowDateComparison&quot;,&quot;path&quot;:[[{&quot;objectApiName&quot;:&quot;EXTERNAL_CUSTOMER_TEST__dlm&quot;,&quot;fieldApiName&quot;:&quot;cstmr_id__c&quot;},{&quot;objectApiName&quot;:&quot;GCP_CUSTOMER_ONBOARDING_TEST_DMO__dlm&quot;,&quot;fieldApiName&quot;:&quot;cstmr_id__c&quot;}]],&quot;joinPath&quot;:[[{&quot;objectApiName&quot;:&quot;EXTERNAL_CUSTOMER_TEST__dlm&quot;,&quot;fieldApiName&quot;:&quot;cstmr_id__c&quot;},{&quot;objectApiName&quot;:&quot;GCP_CUSTOMER_ONBOARDING_TEST_DMO__dlm&quot;,&quot;fieldApiName&quot;:&quot;cstmr_id__c&quot;}]],&quot;subject&quot;:{&quot;objectApiName&quot;:&quot;GCP_CUSTOMER_ONBOARDING_TEST_DMO__dlm&quot;,&quot;fieldApiName&quot;:&quot;onb_acc_opn_dt__c&quot;},&quot;selfReference&quot;:false,&quot;operator&quot;:&quot;in the last number of months&quot;,&quot;subjectFieldDataType&quot;:&quot;DATE_ONLY&quot;,&quot;subjectFieldBusinessType&quot;:&quot;DATE_ONLY&quot;,&quot;subjectFieldSourceType&quot;:&quot;DIRECT&quot;,&quot;value&quot;:2}</includeCriteria>
+    <masterLabel>SEG_PL_UC2_CLIENT-ONBOARDING-FLAGS_8a38a</masterLabel>
+    <segmentOn>EXTERNAL_CUSTOMER_TEST__dlm</segmentOn>
+    <segmentType>UI</segmentType>
+</MarketSegmentDefinition>
