@@ -18,6 +18,7 @@
                 <!-- STANDARD ACTIVATION CAMPAIGN WORKSPACE (MULTI-STEP) -->
                     <!-- https://developer.salesforce.com/docs/platform/lightning-component-reference/guide/lightning-progress-step.html -->
                     <lightning-progress-indicator
+                        type="path"
                         class="wizard-progress-indicator"
                         current-step={wizardCurrentStepValue}
                         aria-label="Campaign wizard progress">
@@ -800,12 +801,26 @@
                         <template lwc:if={isStep5}>
                             <div class="form-module-card slds-m-bottom_large">
                                 <span class="module-header-title">Campaign Summary</span>
-                                <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">Review all settings before saving.</p>
+                                <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">Review all settings before activating. Use Save &amp; Close anytime to keep a draft.</p>
+
+                                <template lwc:if={showSummaryActivationBlocker}>
+                                    <div class="summary-activation-banner slds-m-top_small" role="alert">
+                                        <lightning-icon icon-name="utility:warning" size="x-small" class="slds-m-right_x-small"></lightning-icon>
+                                        <span>Activation is blocked until every section below is complete. Fix the items called out in red tiles.</span>
+                                    </div>
+                                </template>
 
                                 <div class="summary-grid slds-m-top_medium">
                                     <!-- Campaign Properties -->
-                                    <div class="summary-section">
+                                    <div class={basicPropertiesSummaryState.sectionClass}>
                                         <h4 class="summary-section-title">Basic Properties</h4>
+                                        <template lwc:if={basicPropertiesSummaryState.issues.length}>
+                                            <ul class="summary-validation-list">
+                                                <template for:each={basicPropertiesSummaryState.issues} for:item="issue">
+                                                    <li key={issue.id}>{issue.message}</li>
+                                                </template>
+                                            </ul>
+                                        </template>
                                         <div class="summary-row">
                                             <span class="summary-label">Campaign Name</span>
                                             <span class="summary-value">{modalTitle}</span>
@@ -843,8 +858,15 @@
                                     </div>
 
                                     <!-- Priority & Exclusions -->
-                                    <div class="summary-section">
+                                    <div class={prioritySummaryState.sectionClass}>
                                         <h4 class="summary-section-title">Priority &amp; Exclusions</h4>
+                                        <template lwc:if={prioritySummaryState.issues.length}>
+                                            <ul class="summary-validation-list">
+                                                <template for:each={prioritySummaryState.issues} for:item="issue">
+                                                    <li key={issue.id}>{issue.message}</li>
+                                                </template>
+                                            </ul>
+                                        </template>
                                         <div class="summary-row">
                                             <span class="summary-label">Priority Tier</span>
                                             <span class="summary-value">{selectedPriorityTier}</span>
@@ -862,8 +884,15 @@
                                     </div>
 
                                     <!-- Campaign Channels -->
-                                    <div class="summary-section">
+                                    <div class={channelsSummaryState.sectionClass}>
                                         <h4 class="summary-section-title">Campaign Channels</h4>
+                                        <template lwc:if={channelsSummaryState.issues.length}>
+                                            <ul class="summary-validation-list">
+                                                <template for:each={channelsSummaryState.issues} for:item="issue">
+                                                    <li key={issue.id}>{issue.message}</li>
+                                                </template>
+                                            </ul>
+                                        </template>
                                         <div class="summary-row">
                                             <span class="summary-label">Channels</span>
                                             <span class="summary-value">{summaryChannels}</span>
@@ -871,8 +900,15 @@
                                     </div>
 
                                     <!-- Topic & Offering -->
-                                    <div class="summary-section">
+                                    <div class={topicOfferingSummaryState.sectionClass}>
                                         <h4 class="summary-section-title">Topic & Offering</h4>
+                                        <template lwc:if={topicOfferingSummaryState.issues.length}>
+                                            <ul class="summary-validation-list">
+                                                <template for:each={topicOfferingSummaryState.issues} for:item="issue">
+                                                    <li key={issue.id}>{issue.message}</li>
+                                                </template>
+                                            </ul>
+                                        </template>
                                         <div class="summary-row">
                                             <span class="summary-label">Topic Name</span>
                                             <span class="summary-value">{topicName}</span>
@@ -888,8 +924,15 @@
                                     </div>
 
                                     <!-- Copy Assignment -->
-                                    <div class="summary-section">
+                                    <div class={copyAssignmentSummaryState.sectionClass}>
                                         <h4 class="summary-section-title">Copy Assignment</h4>
+                                        <template lwc:if={copyAssignmentSummaryState.issues.length}>
+                                            <ul class="summary-validation-list">
+                                                <template for:each={copyAssignmentSummaryState.issues} for:item="issue">
+                                                    <li key={issue.id}>{issue.message}</li>
+                                                </template>
+                                            </ul>
+                                        </template>
                                         <div class="summary-row">
                                             <span class="summary-label">Assigned Copy</span>
                                             <span class="summary-value">{summaryCopyAssignment}</span>
@@ -897,8 +940,15 @@
                                     </div>
 
                                     <!-- Scoring -->
-                                    <div class="summary-section">
+                                    <div class={scoringSummaryState.sectionClass}>
                                         <h4 class="summary-section-title">Scoring</h4>
+                                        <template lwc:if={scoringSummaryState.issues.length}>
+                                            <ul class="summary-validation-list">
+                                                <template for:each={scoringSummaryState.issues} for:item="issue">
+                                                    <li key={issue.id}>{issue.message}</li>
+                                                </template>
+                                            </ul>
+                                        </template>
                                         <div class="summary-row">
                                             <span class="summary-label">Scoring Model</span>
                                             <span class="summary-value">{summaryScoringModel}</span>
@@ -977,12 +1027,11 @@
                     </template>
                     <button class="pill-action-btn secondary-pill slds-m-right_small"
                             onclick={handleSaveDraft}
-                            disabled={isDraftSaveInvalid}
-                            title="Save campaign as draft (Planned). Activation requires all wizard validations.">
+                            title="Save progress as a draft campaign. You can return and activate later.">
                         {saveButtonLabel}
                     </button>
                     <template lwc:if={showNextButton}>
-                        <button class="pill-action-btn primary-pill" onclick={handleNextStep} disabled={isCurrentStepInvalid}>Next</button>
+                        <button class="pill-action-btn primary-pill" onclick={handleNextStep}>Next</button>
                     </template>
                     <template lwc:if={isLastStep}>
                         <button class="pill-action-btn primary-pill"

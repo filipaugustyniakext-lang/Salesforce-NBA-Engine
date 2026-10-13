@@ -1130,27 +1130,128 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         return toMs >= fromMs;
     }
 
-    get isStep1Valid() {
-        if (!this.parentActivationType) return false;
-        if (!this.campaignName || this.campaignName.trim() === '') return false;
-        if (!this.activeFrom || !this.activeTo || !this.hasValidActiveWindow) return false;
+    _issue(id, message) {
+        return { id, message };
+    }
+
+    get basicPropertiesActivationIssues() {
+        const issues = [];
+        if (!this.parentActivationType) {
+            issues.push(this._issue('activation-type', 'Select an activation type.'));
+        }
+        if (!this.campaignName || this.campaignName.trim() === '') {
+            issues.push(this._issue('campaign-name', 'Enter a campaign name.'));
+        }
+        if (!this.activeFrom) {
+            issues.push(this._issue('active-from', 'Set Active From.'));
+        }
+        if (!this.activeTo) {
+            issues.push(this._issue('active-to', 'Set Active To.'));
+        }
+        if (this.activeFrom && this.activeTo && !this.hasValidActiveWindow) {
+            issues.push(this._issue('active-window', 'Active To must be on or after Active From.'));
+        }
         if (this.isAlwaysOnActivation) {
             const days = Number(this.campaignDurationDays);
             if (!this.campaignDurationDays || !Number.isInteger(days) || days < 1) {
-                return false;
+                issues.push(this._issue('duration', 'Enter Campaign Duration (Days) for Always-on campaigns.'));
             }
         }
-        if (this.showCampaignGroup && !this.selectedCampaignGroupId) return false;
-        if (!this.selectedPriorityTier) return false;
-        if (!this.hasSelectedChannel) return false;
-        return true;
+        if (this.showCampaignGroup && !this.selectedCampaignGroupId) {
+            issues.push(this._issue('campaign-group', 'Select a campaign group.'));
+        }
+        return issues;
+    }
+
+    get priorityActivationIssues() {
+        const issues = [];
+        if (!this.selectedPriorityTier) {
+            issues.push(this._issue('priority-tier', 'Assign a priority tier.'));
+        }
+        return issues;
+    }
+
+    get channelsActivationIssues() {
+        const issues = [];
+        if (!this.hasSelectedChannel) {
+            issues.push(this._issue('channels', 'Select at least one campaign channel.'));
+        }
+        return issues;
+    }
+
+    get topicOfferingActivationIssues() {
+        const issues = [];
+        if (!this.selectedTopicId && (!this.topicName || this.topicName.trim() === '')) {
+            issues.push(this._issue('topic', 'Choose a topic name.'));
+        }
+        if (!this.selectedOfferingType) {
+            issues.push(this._issue('offering-type', 'Select an offering type.'));
+        }
+        return issues;
+    }
+
+    get copyAssignmentActivationIssues() {
+        const issues = [];
+        if (!this.selectedCopyVariantIds || this.selectedCopyVariantIds.length === 0) {
+            issues.push(this._issue('copy', 'Assign at least one message variant (any channel).'));
+        }
+        return issues;
+    }
+
+    get scoringActivationIssues() {
+        const issues = [];
+        if (!this.selectedScoringModelId) {
+            issues.push(this._issue('scoring-model', 'Select a scoring model.'));
+        }
+        if (!this.isValidScoreValue(this.fromObjectOverallScore)) {
+            issues.push(this._issue('fallback-score', 'Enter a valid fallback A-priori score (1–1000).'));
+        }
+        return issues;
+    }
+
+    _summarySectionState(issues) {
+        const isValid = !issues || issues.length === 0;
+        return {
+            isValid,
+            issues: issues || [],
+            sectionClass: isValid
+                ? 'summary-section summary-section--valid'
+                : 'summary-section summary-section--invalid'
+        };
+    }
+
+    get basicPropertiesSummaryState() {
+        return this._summarySectionState(this.basicPropertiesActivationIssues);
+    }
+
+    get prioritySummaryState() {
+        return this._summarySectionState(this.priorityActivationIssues);
+    }
+
+    get channelsSummaryState() {
+        return this._summarySectionState(this.channelsActivationIssues);
+    }
+
+    get topicOfferingSummaryState() {
+        return this._summarySectionState(this.topicOfferingActivationIssues);
+    }
+
+    get copyAssignmentSummaryState() {
+        return this._summarySectionState(this.copyAssignmentActivationIssues);
+    }
+
+    get scoringSummaryState() {
+        return this._summarySectionState(this.scoringActivationIssues);
+    }
+
+    get isStep1Valid() {
+        return this.basicPropertiesActivationIssues.length === 0
+            && this.priorityActivationIssues.length === 0
+            && this.channelsActivationIssues.length === 0;
     }
 
     get isStep2Valid() {
-        if (!this.selectedTopicId && (!this.topicName || this.topicName.trim() === '')) return false;
-        if (!this.selectedOfferingType) return false;
-        if (!this.hasOfferingSelection) return false;
-        return true;
+        return this.topicOfferingActivationIssues.length === 0;
     }
 
     get selectedChannelTypes() {
@@ -1167,33 +1268,24 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get isStep3Valid() {
-        const channelTypes = this.selectedChannelTypes;
-        if (channelTypes.length === 0) {
-            return false;
-        }
-        return channelTypes.every(type =>
-            this.copyVariantData.some(
-                v => v.channel === type && this.selectedCopyVariantIds.includes(v.id)
-            )
-        );
+        return this.copyAssignmentActivationIssues.length === 0;
     }
 
     get isStep4Valid() {
-        return !!this.selectedScoringModelId && this.isValidScoreValue(this.fromObjectOverallScore);
+        return this.scoringActivationIssues.length === 0;
     }
 
-    /** Draft save only needs a campaign name so a record can be persisted. */
-    get isDraftSaveInvalid() {
-        return !this.campaignName || this.campaignName.trim() === '';
-    }
-
-    /** Full activation gate across all configured wizard rules (Copy Center pending). */
+    /** Full activation gate — all wizard steps must pass validation. */
     get isActivationReady() {
         return this.isStep1Valid && this.isStep2Valid && this.isStep3Valid && this.isStep4Valid;
     }
 
     get isActivationDisabled() {
         return !this.isActivationReady;
+    }
+
+    get showSummaryActivationBlocker() {
+        return this.isStep5 && !this.isActivationReady;
     }
 
     // Only render the offer panel when a matching offer was selected during offering
@@ -1269,7 +1361,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     handleNextStep() {
-        if (this.isCurrentStepInvalid) return;
         if (this.currentStep < 5) {
             this.currentStep++;
             this._onStepChanged();
@@ -1292,8 +1383,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         if (stepNum < 1 || stepNum > this.wizardStepData.length) {
             return;
         }
-        // Only allow navigating back to completed or current steps (keyboard / focus).
-        if (stepNum <= this.currentStep && stepNum !== this.currentStep) {
+        if (stepNum !== this.currentStep) {
             this.currentStep = stepNum;
             this._onStepChanged();
         }
@@ -1538,7 +1628,16 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get activateButtonLabel() {
-        return 'Activate';
+        return 'Activate Campaign';
+    }
+
+    /** Campaign Name for persistence; draft save may auto-generate when empty. */
+    _resolveCampaignBaseNameForSave() {
+        const trimmed = (this.campaignName || '').trim();
+        if (trimmed) {
+            return trimmed;
+        }
+        return `Draft${Date.now()}`;
     }
 
     get offeringTypeOptions() {
@@ -1574,16 +1673,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         return this.isEditMode ? 'Edit Campaign' : `${prefix}{YourCampaignName}`;
     }
 
-    get isCurrentStepInvalid() {
-        switch (this.currentStep) {
-            case 1: return !this.isStep1Valid;
-            case 2: return !this.isStep2Valid;
-            case 3: return !this.isStep3Valid;
-            case 4: return !this.isStep4Valid;
-            case 5: return false;
-            default: return false;
-        }
-    }
 
     get filteredMatchingOffers() {
         const q = (this.offerSearchTerm || '').toLowerCase();
@@ -1958,7 +2047,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     handleSaveDraft() {
-        if (this.isDraftSaveInvalid) return;
         this.isLoading = true;
         this.executeSubCampaignSave({ activate: false });
     }
@@ -1978,8 +2066,10 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         const fields = {};
         const num = (v) => v === '' || v === null || v === undefined ? null : Number(v);
 
-        fields['Name'] = `${this.activationPrefix}${this.toCamelCase(this.campaignName)}`;
+        const baseName = this._resolveCampaignBaseNameForSave();
+        fields['Name'] = `${this.activationPrefix}${this.toCamelCase(baseName)}`;
         fields['Type'] = 'Standard';
+        // Org picklist uses Planned for draft campaigns (no separate Draft value).
         fields['Status'] = activate ? 'Active' : 'Planned';
         fields['IsActive'] = activate === true;
         fields['Campaign_Group_Dict__c'] = this.showCampaignGroup ? (this.selectedCampaignGroupId || null) : null;
@@ -2020,7 +2110,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
         const successMessage = activate
             ? 'Campaign activated successfully.'
-            : 'Campaign saved as draft (Planned).';
+            : 'Campaign saved as draft.';
 
         if (this.isEditMode) {
             fields['Id'] = this.recordId;
