@@ -138,8 +138,10 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
                 audienceName: cd.Audience_Type_Dict__r ? cd.Audience_Type_Dict__r.Name : '(Unassigned)'
             }));
             const weekDays = this._buildWeekDays(ch.Blackout_Day_Rules__r || [], ch.Id);
+            const tabMenuItems = this._buildTabMenuItems(ch, state.activeTab);
             return {
                 ...ch,
+                tabMenuItems,
                 Is_Active__c: ch.Is_Active__c !== false,
                 Channel_Cooldowns__r: cooldowns.length ? cooldowns : null,
                 weekDays,
@@ -164,6 +166,24 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
                 intentSortIconTarget: this._intentSortIcon(state, 'Intent_Target__r.Name')
             };
         });
+    }
+
+    _buildTabMenuItems(ch, activeTab) {
+        const items = [
+            { value: 'cooldown', label: 'Cooldown Rules' },
+            { value: 'weekly', label: 'Weekly Restrictions' },
+            { value: 'templates', label: `${ch.Name} Templates` }
+        ];
+        if (ch.Channel_Type__c === 'Banner') {
+            items.push(
+                { value: 'placements', label: 'Placeholders' },
+                { value: 'intents', label: 'Intents' }
+            );
+        }
+        return items.map(item => ({
+            ...item,
+            checked: item.value === activeTab
+        }));
     }
 
     _buildWeekDays(rules, channelId) {
@@ -343,6 +363,14 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
         const channelId = event.currentTarget.dataset.channelid;
         const tabValue = event.target.value;
         if (channelId) this._updateChState(channelId, { activeTab: tabValue });
+    }
+
+    handleTabMenuSelect(event) {
+        const tabValue = event.detail.value;
+        const channelId = this.activeChannel?.Id;
+        if (channelId && tabValue) {
+            this._updateChState(channelId, { activeTab: tabValue });
+        }
     }
 
     // ── Placement sort & search ──────────────────────────────────────────
