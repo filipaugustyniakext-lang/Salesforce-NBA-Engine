@@ -603,7 +603,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
 
     handleSyncPartialConfirm() {
         this.isSyncModalOpen = false;
-        this._executeMceSync(20); // Sync only last 20 mins
+        this._executeMceSync(15); // Sync only last 15 mins
     }
 
     handleSyncFullConfirm() {

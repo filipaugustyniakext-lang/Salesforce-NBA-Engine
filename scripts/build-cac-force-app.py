@@ -210,6 +210,10 @@ def main() -> None:
             keep.add(p)
 
     for p in head_files:
+        if p.startswith("force-app/main/default/flows/"):
+            keep.add(p)
+
+    for p in head_files:
         if not p.startswith("force-app/main/default/classes/"):
             continue
         if "/" in p.removeprefix("force-app/main/default/classes/"):

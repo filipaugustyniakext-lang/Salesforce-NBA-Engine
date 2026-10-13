@@ -496,14 +496,14 @@
                     <p><strong>Warning:</strong> Any unsynced edits made here in Salesforce for this channel might be overwritten by data coming from Marketing Cloud if matching variants are found.</p>
                     <p class="slds-m-top_medium">How much data do you want to sync?</p>
                     <ul class="slds-list_dotted slds-m-top_xx-small slds-m-bottom_small">
-                        <li><strong>Incremental (Last 20 Mins):</strong> Retrieves only recent changes for a faster update.</li>
+                        <li><strong>Incremental (Last 15 Mins):</strong> Retrieves only recent changes for a faster update.</li>
                         <li><strong>Full Sync:</strong> Retrieves the entire repository for this channel (may take longer).</li>
                     </ul>
                 </div>
                 <footer class="slds-modal__footer slds-grid slds-grid_align-spread">
                     <lightning-button label="Cancel" onclick={handleSyncCancel}></lightning-button>
                     <div>
-                        <lightning-button label="Incremental (Last 20 Mins)" onclick={handleSyncPartialConfirm} class="slds-m-right_x-small"></lightning-button>
+                        <lightning-button label="Incremental (Last 15 Mins)" onclick={handleSyncPartialConfirm} class="slds-m-right_x-small"></lightning-button>
                         <lightning-button label="Confirm Full Sync" variant="brand" onclick={handleSyncFullConfirm}></lightning-button>
                     </div>
                 </footer>

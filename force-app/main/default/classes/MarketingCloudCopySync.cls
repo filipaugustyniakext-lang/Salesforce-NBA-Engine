@@ -27,7 +27,7 @@ public with sharing class MarketingCloudCopySync {
 
     // Overload to fix deployment dependency
     public static SyncResult syncAllWithMCE() {
-        return syncAllWithMCE(20);
+        return syncAllWithMCE(15);
     }
 
     @AuraEnabled

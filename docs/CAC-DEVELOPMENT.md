@@ -32,11 +32,28 @@ sf project deploy start \
 
 Assign permission set **Client Activation Center** and set **MCE Settings** client secret in the org after deploy (secret is blank in git).
 
+## Copy Center: MCE and Data 360
+
+| Feature | Metadata |
+|---------|----------|
+| **Sync with MCE** (UI) | `copyCockpit`, `MarketingCloudCopySync.syncWithMCE` |
+| **Scheduled MCE sync** | `MCEContentCenterHourlySyncScheduler` → `MCEContentCenterHourlySyncQueueable` → `MarketingCloudCopySync.syncAllWithMCE()` (15-minute lookback) |
+| **Push to D360** | `FlowInit_TriggerDataSourceObjectRefresh`, flow `FL_Trigger_DataStreamObject_Refresh` |
+
+After deploy, schedule incremental MCE sync in the org (Scheduled Jobs) if it is not already present:
+
+```text
+Cron: 0 */15 * * * ?
+Class: MCEContentCenterHourlySyncScheduler
+```
+
+The Copy Center **Push to D360** action still uses a sandbox-specific Data Stream Object Id in `copyCockpit.js`; replace it per environment or wire channel → DSO mapping when that metadata is in git.
+
 ## Included scope (summary)
 
 | Area | Examples |
 |------|----------|
-| Copy Center | `copyCockpit*`, `CopyCockpitController`, `MarketingCloudCopySync`, `CC_Message_*` |
+| Copy Center | `copyCockpit*`, `CopyCockpitController`, `MarketingCloudCopySync`, `FlowInit_TriggerDataSourceObjectRefresh`, `FL_Trigger_DataStreamObject_Refresh`, `CC_Message_*` |
 | Marketing Dictionary | `marketingDictionary*`, `MarketingDictionary*Controller`, `Marketing_Dictionary__c` |
 | Campaign wizard | `agentforceCampaignWizard`, `CampaignOfferingLabelSync`, `Campaign` fields |
 | Offers & products | `offerManager`, `productManager`, `Offer__c`, `Product2` extensions |

@@ -160,6 +160,10 @@
         <name>FlexiPage</name>
     </types>
     <types>
+        <members>FL_Trigger_DataStreamObject_Refresh</members>
+        <name>Flow</name>
+    </types>
+    <types>
         <members>Blackout_Day_Rule__c-Blackout Day Rule Layout</members>
         <members>Blackout_Window__c-Blackout Window Layout</members>
         <members>CC_Message_Blocks_All__c-CC_Message_Blocks_All Layout</members>
