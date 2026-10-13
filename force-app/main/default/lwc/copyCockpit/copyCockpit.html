@@ -235,20 +235,9 @@
                                                         </template>
                                                     </span>
                                                 </div>
-                                                <!-- status summary badges on master row -->
+                                                <!-- Single status summary on master row (e.g. N Published) -->
                                                 <div class="cockpit-col-status">
-                                                    <template lwc:if={grp.hasPublished}>
-                                                        <span class="slds-badge slds-theme_success">Published</span>
-                                                    </template>
-                                                    <template lwc:if={grp.hasReady}>
-                                                        <span class="slds-badge slds-theme_info">Ready</span>
-                                                    </template>
-                                                    <template lwc:if={grp.hasDraft}>
-                                                        <span class="slds-badge slds-theme_lightest">Draft</span>
-                                                    </template>
-                                                    <template lwc:if={grp.hasArchived}>
-                                                        <span class="slds-badge slds-theme_shade">Archived</span>
-                                                    </template>
+                                                    <span class={grp.masterStatusSummaryClass}>{grp.masterStatusSummary}</span>
                                                 </div>
                                                 <div class="cockpit-col-weight"></div>
                                                 <div class="cockpit-col-schedule"></div>

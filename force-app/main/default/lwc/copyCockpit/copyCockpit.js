@@ -92,6 +92,43 @@ function statusBadgeClass(status) {
     return STATUS_BADGE_CLASS[(status || '').toLowerCase()] || 'slds-badge slds-theme_lightest';
 }
 
+function statusPickerClass(status) {
+    const key = (status || 'draft').toLowerCase();
+    const allowed = ['draft', 'ready', 'published', 'archived'];
+    const suffix = allowed.includes(key) ? key : 'draft';
+    return `cockpit-status-picker cockpit-status-picker--${suffix}`;
+}
+
+function buildMasterStatusSummary(variants) {
+    const publishedCount = variants.filter(v => (v.Status__c || '').toLowerCase() === 'published').length;
+    if (publishedCount > 0) {
+        return {
+            masterStatusSummary: publishedCount === 1 ? '1 Published' : `${publishedCount} Published`,
+            masterStatusSummaryClass: 'slds-badge slds-theme_success',
+        };
+    }
+    const readyCount = variants.filter(v => (v.Status__c || '').toLowerCase() === 'ready').length;
+    if (readyCount > 0) {
+        return {
+            masterStatusSummary: readyCount === 1 ? '1 Ready' : `${readyCount} Ready`,
+            masterStatusSummaryClass: 'slds-badge slds-theme_info',
+        };
+    }
+    const archivedCount = variants.filter(v => (v.Status__c || '').toLowerCase() === 'archived').length;
+    if (archivedCount === variants.length && archivedCount > 0) {
+        return {
+            masterStatusSummary: archivedCount === 1 ? '1 Archived' : `${archivedCount} Archived`,
+            masterStatusSummaryClass: 'slds-badge slds-theme_shade',
+        };
+    }
+    const draftCount = variants.filter(v => (v.Status__c || '').toLowerCase() === 'draft').length;
+    const count = draftCount || variants.length;
+    return {
+        masterStatusSummary: count === 1 ? '1 Draft' : `${count} Draft`,
+        masterStatusSummaryClass: 'slds-badge slds-theme_lightest',
+    };
+}
+
 function fmtWeight(prob, probManual) {
     // prefer manual override; fall back to computed probability
     const val = probManual != null ? probManual : prob;
@@ -167,7 +204,7 @@ function buildGroups(records, expandedSet, editingGroupName, selectedIds, versio
             return {
                 ...v,
                 statusClass:        statusBadgeClass(v.Status__c),
-                statusPickerClass:  `cockpit-status-picker ${statusBadgeClass(v.Status__c)}`,
+                statusPickerClass:  statusPickerClass(v.Status__c),
                 statusAriaLabel:    `Status for ${v.Name || 'variant'}`,
                 validFromFmt:       fmtDate(v.Valid_From__c),
                 validToFmt:         fmtDate(v.Valid_To__c),
@@ -190,6 +227,7 @@ function buildGroups(records, expandedSet, editingGroupName, selectedIds, versio
         const allSelected = enrichedVariants.length > 0 && enrichedVariants.every(v => selectedIds.has(v.Id));
         const language = parsed.language || variants[0]?.Language__c || null;
         const displayName = stem;
+        const masterStatus = buildMasterStatusSummary(variants);
 
         return {
             messageName:          stem,
@@ -214,6 +252,8 @@ function buildGroups(records, expandedSet, editingGroupName, selectedIds, versio
             language,
             allSelected,
             masterCheckboxLabel:  `Select all variants of ${displayName}`,
+            masterStatusSummary:      masterStatus.masterStatusSummary,
+            masterStatusSummaryClass: masterStatus.masterStatusSummaryClass,
             variants:             enrichedVariants,
         };
     });

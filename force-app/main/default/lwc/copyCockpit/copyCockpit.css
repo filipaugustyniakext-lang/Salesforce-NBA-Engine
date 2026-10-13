@@ -474,19 +474,55 @@
 .cockpit-status-picker {
     display: inline-flex;
     align-items: center;
-    border-radius: 0.25rem;
-    padding: 0 0.125rem;
+    border-radius: 15rem;
+    padding: 0 0.2rem 0 0.55rem;
     max-width: 100%;
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.25;
+    border: none;
+}
+
+.cockpit-status-picker--draft {
+    background-color: #f3f3f3;
+    color: #3e3e3c;
+}
+
+.cockpit-status-picker--ready {
+    background-color: #d8e6fe;
+    color: #0176d3;
+}
+
+.cockpit-status-picker--published {
+    background-color: #2e844a;
+    color: #ffffff;
+}
+
+.cockpit-status-picker--archived {
+    background-color: #ecebea;
+    color: #706e6b;
 }
 
 .cockpit-variant-status-combobox {
-    min-width: 6.75rem;
-    max-width: 7.5rem;
+    min-width: 5.5rem;
+    max-width: 7rem;
 }
 
 .cockpit-status-picker .cockpit-variant-status-combobox {
-    --slds-c-input-spacing-horizontal-start: 0.35rem;
+    --lwc-heightInput: 1.35rem;
+    --slds-c-input-color-border: transparent;
+    --slds-c-input-shadow: none;
+    --slds-c-input-shadow-focus: 0 0 0 1px rgba(255, 255, 255, 0.35);
+    --slds-c-input-color-background: transparent;
+    --slds-c-input-color-background-focus: transparent;
+    --slds-c-input-spacing-horizontal-start: 0;
     --slds-c-input-spacing-horizontal-end: 0.15rem;
+    --slds-c-input-spacing-block-start: 0;
+    --slds-c-input-spacing-block-end: 0;
+    --slds-c-input-font-size: 0.75rem;
+    --slds-c-input-font-weight: 700;
+    --slds-c-input-text-color: currentColor;
+    --slds-c-icon-color-foreground-default: currentColor;
 }
 
 /* ─── Last modified cell ──────────────────────────────────────────────────── */
