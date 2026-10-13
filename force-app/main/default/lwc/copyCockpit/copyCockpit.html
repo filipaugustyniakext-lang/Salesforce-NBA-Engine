@@ -238,16 +238,16 @@
                                                 <!-- status summary badges on master row -->
                                                 <div class="cockpit-col-status">
                                                     <template lwc:if={grp.hasPublished}>
-                                                        <span class="slds-badge cockpit-badge-published">Published</span>
+                                                        <span class="slds-badge slds-theme_success">Published</span>
                                                     </template>
                                                     <template lwc:if={grp.hasReady}>
-                                                        <span class="slds-badge cockpit-badge-ready">Ready</span>
+                                                        <span class="slds-badge slds-theme_info">Ready</span>
                                                     </template>
                                                     <template lwc:if={grp.hasDraft}>
-                                                        <span class="slds-badge slds-badge_lightest">Draft</span>
+                                                        <span class="slds-badge slds-theme_lightest">Draft</span>
                                                     </template>
                                                     <template lwc:if={grp.hasArchived}>
-                                                        <span class="slds-badge cockpit-badge-archived">Archived</span>
+                                                        <span class="slds-badge slds-theme_shade">Archived</span>
                                                     </template>
                                                 </div>
                                                 <div class="cockpit-col-weight"></div>
@@ -302,9 +302,20 @@
                                                             </template>
                                                         </div>
 
-                                                        <!-- Status -->
+                                                        <!-- Status (dropdown) -->
                                                         <div class="cockpit-col-status">
-                                                            <span class={v.statusClass}>{v.Status__c}</span>
+                                                            <div class={v.statusPickerClass} data-id={v.Id}>
+                                                                <lightning-combobox
+                                                                    value={v.Status__c}
+                                                                    options={variantStatusOptions}
+                                                                    variant="label-hidden"
+                                                                    dropdown-alignment="auto"
+                                                                    data-id={v.Id}
+                                                                    aria-label={v.statusAriaLabel}
+                                                                    class="cockpit-variant-status-combobox"
+                                                                    onchange={handleVariantStatusChange}>
+                                                                </lightning-combobox>
+                                                            </div>
                                                         </div>
 
                                                         <!-- Display weight -->

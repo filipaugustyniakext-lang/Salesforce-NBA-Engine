@@ -113,4 +113,19 @@ private class CopyCockpitSettingsTest {
         System.assertEquals(1, results.size(), 'Only published Email variant for offering should return');
         System.assertEquals(publishedMatch.Id, results[0].Id);
     }
+
+    @IsTest
+    static void updateMessageStatus_changesVariantStatus() {
+        CC_Message_Metadata__c row = new CC_Message_Metadata__c(
+            Name = 'EMA_PL_StatusTest_1',
+            Channel_Type__c = 'Email',
+            Status__c = 'Draft'
+        );
+        insert row;
+
+        CopyCockpitController.updateMessageStatus(row.Id, 'Published');
+
+        row = [SELECT Status__c FROM CC_Message_Metadata__c WHERE Id = :row.Id];
+        System.assertEquals('Published', row.Status__c);
+    }
 }

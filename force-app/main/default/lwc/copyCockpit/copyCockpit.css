@@ -469,11 +469,25 @@
     font-size: 0.875rem;
 }
 
-/* ─── Status badges ───────────────────────────────────────────────────────── */
+/* ─── Status badges / variant status picker ───────────────────────────────── */
 
-.cockpit-badge-published { background: #2e844a; color: #fff; }
-.cockpit-badge-ready     { background: #0176d3; color: #fff; }
-.cockpit-badge-archived  { background: #706e6b; color: #fff; }
+.cockpit-status-picker {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 0.25rem;
+    padding: 0 0.125rem;
+    max-width: 100%;
+}
+
+.cockpit-variant-status-combobox {
+    min-width: 6.75rem;
+    max-width: 7.5rem;
+}
+
+.cockpit-status-picker .cockpit-variant-status-combobox {
+    --slds-c-input-spacing-horizontal-start: 0.35rem;
+    --slds-c-input-spacing-horizontal-end: 0.15rem;
+}
 
 /* ─── Last modified cell ──────────────────────────────────────────────────── */
 

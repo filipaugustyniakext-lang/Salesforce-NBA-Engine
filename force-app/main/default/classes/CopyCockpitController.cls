@@ -300,6 +300,23 @@ public with sharing class CopyCockpitController {
         update rec;
     }
 
+    private static final Set<String> ALLOWED_MESSAGE_STATUSES = new Set<String>{
+        'Draft', 'Ready', 'Published', 'Archived'
+    };
+
+    @AuraEnabled
+    public static void updateMessageStatus(Id recordId, String status) {
+        if (recordId == null) {
+            throw new AuraHandledException('Message variant is required.');
+        }
+        if (String.isBlank(status) || !ALLOWED_MESSAGE_STATUSES.contains(status)) {
+            throw new AuraHandledException(
+                'Status must be one of: Draft, Ready, Published, or Archived.'
+            );
+        }
+        update new CC_Message_Metadata__c(Id = recordId, Status__c = status);
+    }
+
     @AuraEnabled
     public static Id cloneMessage(Id sourceId, Decimal newVersion) {
         try {

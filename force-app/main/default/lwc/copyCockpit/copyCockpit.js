@@ -12,6 +12,7 @@ import getProductFamilies from '@salesforce/apex/CopyCockpitController.getProduc
 import getActiveOffersByFamily from '@salesforce/apex/CopyCockpitController.getActiveOffersByFamily';
 import getProductFamilyForOffer from '@salesforce/apex/CopyCockpitController.getProductFamilyForOffer';
 import saveMasterRowSettings from '@salesforce/apex/CopyCockpitController.saveMasterRowSettings';
+import updateMessageStatus from '@salesforce/apex/CopyCockpitController.updateMessageStatus';
 import syncWithMCE from '@salesforce/apex/MarketingCloudCopySync.syncWithMCE';
 import deleteVariantsFromMCE from '@salesforce/apex/MarketingCloudCopySync.deleteVariantsFromMCE';
 import refreshStreamViaFlow from '@salesforce/apex/FlowInit_TriggerDataSourceObjectRefresh.refreshStreamViaFlow';
@@ -40,11 +41,18 @@ const ICON_MAP = {
 };
 
 const STATUS_BADGE_CLASS = {
-    draft:     'slds-badge slds-badge_lightest',
-    ready:     'slds-badge cockpit-badge-ready',
-    published: 'slds-badge cockpit-badge-published',
-    archived:  'slds-badge cockpit-badge-archived',
+    draft:     'slds-badge slds-theme_lightest',
+    ready:     'slds-badge slds-theme_info',
+    published: 'slds-badge slds-theme_success',
+    archived:  'slds-badge slds-theme_shade',
 };
+
+const VARIANT_STATUS_OPTIONS = [
+    { value: 'Draft', label: 'Draft' },
+    { value: 'Ready', label: 'Ready' },
+    { value: 'Published', label: 'Published' },
+    { value: 'Archived', label: 'Archived' },
+];
 
 const STATUS_FILTERS = [
     { value: 'All',       label: 'All' },
@@ -81,7 +89,7 @@ function fmtDateTime(dtStr) {
 }
 
 function statusBadgeClass(status) {
-    return STATUS_BADGE_CLASS[(status || '').toLowerCase()] || 'slds-badge slds-badge_lightest';
+    return STATUS_BADGE_CLASS[(status || '').toLowerCase()] || 'slds-badge slds-theme_lightest';
 }
 
 function fmtWeight(prob, probManual) {
@@ -159,6 +167,8 @@ function buildGroups(records, expandedSet, editingGroupName, selectedIds, versio
             return {
                 ...v,
                 statusClass:        statusBadgeClass(v.Status__c),
+                statusPickerClass:  `cockpit-status-picker ${statusBadgeClass(v.Status__c)}`,
+                statusAriaLabel:    `Status for ${v.Name || 'variant'}`,
                 validFromFmt:       fmtDate(v.Valid_From__c),
                 validToFmt:         fmtDate(v.Valid_To__c),
                 campaignName:       v.Campaign__r?.Name || null,
@@ -320,6 +330,10 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
 
     get searchTerm() { return this._searchTerm; }
 
+    get variantStatusOptions() {
+        return VARIANT_STATUS_OPTIONS;
+    }
+
     get statusFilterOptions() {
         return STATUS_FILTERS;
     }
@@ -464,6 +478,33 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
 
     handleStatusFilterChange(e) {
         this._statusFilter = e.detail.value;
+    }
+
+    handleVariantStatusChange(event) {
+        const recordId = event.currentTarget.dataset.id;
+        const newStatus = event.detail.value;
+        if (!recordId || !newStatus) {
+            return;
+        }
+        const prior = this._messages.find(m => m.Id === recordId);
+        if (!prior || prior.Status__c === newStatus) {
+            return;
+        }
+        const previousStatus = prior.Status__c;
+        this._messages = this._messages.map(m =>
+            m.Id === recordId ? { ...m, Status__c: newStatus } : m
+        );
+        updateMessageStatus({ recordId, status: newStatus })
+            .catch(err => {
+                this._messages = this._messages.map(m =>
+                    m.Id === recordId ? { ...m, Status__c: previousStatus } : m
+                );
+                this._showToast(
+                    'Status update failed',
+                    err?.body?.message || 'Could not update variant status.',
+                    'error'
+                );
+            });
     }
 
     handleToggleGroup(e) {
