@@ -57,14 +57,21 @@
     order: 2;
     position: relative;
     z-index: 3;
-    top: 0;
     flex-shrink: 0;
+}
+
+.wizard-progress .slds-progress__item.slds-is-active .slds-progress__marker {
+    top: 0.4rem;
+}
+
+.wizard-progress .slds-progress__item:not(.slds-is-active):not(.slds-is-completed) .slds-progress__marker {
+    top: 0.9rem;
 }
 
 .wizard-progress .slds-progress__marker_icon {
     position: relative;
     z-index: 3;
-    top: 0;
+    top: 0.4rem;
 }
 
 .step-check-icon {
