@@ -42,7 +42,7 @@ for obj in (root / "objects").iterdir():
         members["CustomObject"].append(obj.name)
 
 for cmd in (root / "customMetadata").glob("*.md-meta.xml"):
-    members["CustomMetadata"].append(cmd.stem)
+    members["CustomMetadata"].append(cmd.name.replace(".md-meta.xml", ""))
 
 for ps in (root / "permissionsets").glob("*.permissionset-meta.xml"):
     members["PermissionSet"].append(ps.name.replace(".permissionset-meta.xml", ""))

@@ -87,7 +87,7 @@
         <name>CustomApplication</name>
     </types>
     <types>
-        <members>MCE_Settings.Default.md-meta</members>
+        <members>MCE_Settings.Default</members>
         <name>CustomMetadata</name>
     </types>
     <types>
