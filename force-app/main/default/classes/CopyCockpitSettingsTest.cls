@@ -58,4 +58,59 @@ private class CopyCockpitSettingsTest {
         System.assertEquals(family.Id, listed[0].Product_Family__c);
         System.assertEquals('Cash Offer', listed[0].Offer__r.Name);
     }
+
+    @IsTest
+    static void getPublishedVariantsForWizard_filtersByChannelOfferingAndStatus() {
+        Id recordTypeId = [
+            SELECT Id
+            FROM RecordType
+            WHERE SObjectType = 'Marketing_Dictionary__c'
+            AND DeveloperName = 'Product'
+            LIMIT 1
+        ].Id;
+        Marketing_Dictionary__c family = new Marketing_Dictionary__c(
+            Name = 'Wizard PF',
+            RecordTypeId = recordTypeId,
+            Dictionary_Sub_Type__c = 'Product Family'
+        );
+        insert family;
+        Offer__c offer = new Offer__c(
+            Name = 'Wizard Offer',
+            Country_Code__c = 'PL',
+            Is_Active__c = true
+        );
+        insert offer;
+
+        CC_Message_Metadata__c publishedMatch = new CC_Message_Metadata__c(
+            Name = 'EMA_PL_Wiz_1',
+            Channel_Type__c = 'Email',
+            Status__c = 'Published',
+            Product_Family__c = family.Id,
+            Offer__c = offer.Id
+        );
+        CC_Message_Metadata__c draftSame = new CC_Message_Metadata__c(
+            Name = 'EMA_PL_Wiz_2',
+            Channel_Type__c = 'Email',
+            Status__c = 'Draft',
+            Product_Family__c = family.Id,
+            Offer__c = offer.Id
+        );
+        CC_Message_Metadata__c publishedOtherChannel = new CC_Message_Metadata__c(
+            Name = 'SMS_PL_Wiz_1',
+            Channel_Type__c = 'SMS',
+            Status__c = 'Published',
+            Product_Family__c = family.Id,
+            Offer__c = offer.Id
+        );
+        insert new List<CC_Message_Metadata__c>{ publishedMatch, draftSame, publishedOtherChannel };
+
+        List<CC_Message_Metadata__c> results = CopyCockpitController.getPublishedVariantsForWizard(
+            new List<String>{ 'Email' },
+            new List<String>{ 'Wizard PF' },
+            new List<String>{ offer.Id }
+        );
+
+        System.assertEquals(1, results.size(), 'Only published Email variant for offering should return');
+        System.assertEquals(publishedMatch.Id, results[0].Id);
+    }
 }

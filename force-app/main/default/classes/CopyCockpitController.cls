@@ -526,6 +526,73 @@ public with sharing class CopyCockpitController {
         return matched;
     }
 
+    /**
+     * Published Copy Center variants for the campaign wizard (step 3).
+     * Matches channel(s) from step 1 and product family name and/or offer from step 2.
+     */
+    @AuraEnabled(cacheable=false)
+    public static List<CC_Message_Metadata__c> getPublishedVariantsForWizard(
+        List<String> channelTypes,
+        List<String> productFamilyNames,
+        List<String> offerIds
+    ) {
+        List<String> channels = new List<String>();
+        if (channelTypes != null) {
+            for (String channelType : channelTypes) {
+                if (String.isNotBlank(channelType)) {
+                    channels.add(channelType.trim());
+                }
+            }
+        }
+        if (channels.isEmpty()) {
+            return new List<CC_Message_Metadata__c>();
+        }
+
+        Set<String> familyNames = new Set<String>();
+        if (productFamilyNames != null) {
+            for (String familyName : productFamilyNames) {
+                if (String.isNotBlank(familyName)) {
+                    familyNames.add(familyName.trim());
+                }
+            }
+        }
+
+        Set<Id> offerIdSet = new Set<Id>();
+        if (offerIds != null) {
+            for (String offerId : offerIds) {
+                if (String.isNotBlank(offerId)) {
+                    offerIdSet.add((Id) offerId);
+                }
+            }
+        }
+
+        if (familyNames.isEmpty() && offerIdSet.isEmpty()) {
+            return new List<CC_Message_Metadata__c>();
+        }
+
+        List<String> offeringFilters = new List<String>();
+        if (!familyNames.isEmpty()) {
+            offeringFilters.add('Product_Family__r.Name IN :familyNames');
+        }
+        if (!offerIdSet.isEmpty()) {
+            offeringFilters.add('Offer__c IN :offerIdSet');
+        }
+
+        String offeringClause = String.join(offeringFilters, ' OR ');
+        String soql =
+            'SELECT Id, Name, Channel_Type__c, Status__c, Language__c,' +
+            ' Offer__c, Offer__r.Name, Product_Family__c, Product_Family__r.Name,' +
+            ' Message_Variant_Id__c, Version__c' +
+            ' FROM CC_Message_Metadata__c' +
+            ' WHERE Status__c = \'Published\'' +
+            ' AND Channel_Type__c IN :channels' +
+            ' AND (' + offeringClause + ')' +
+            ' ORDER BY Name ASC, Version__c ASC NULLS LAST' +
+            ' LIMIT 2000';
+
+        return Database.query(soql);
+    }
+
     // ── Version History ───────────────────────────────────────────────────────
 
     public class MessageVersion {

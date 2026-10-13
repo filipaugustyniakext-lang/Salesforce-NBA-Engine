@@ -17,6 +17,7 @@ import getMatchingOffers from '@salesforce/apex/MarketingDictionaryController.ge
 import getCampaignOffers from '@salesforce/apex/MarketingDictionaryController.getCampaignOffers';
 import saveCampaignOffers from '@salesforce/apex/MarketingDictionaryController.saveCampaignOffers';
 import getOfferSummaries from '@salesforce/apex/MarketingDictionaryController.getOfferSummaries';
+import getPublishedVariantsForWizard from '@salesforce/apex/CopyCockpitController.getPublishedVariantsForWizard';
 import getCampaignTiers from '@salesforce/apex/MarketingDictionaryManagerController.getCampaignTiers';
 import getCampaignTypes from '@salesforce/apex/MarketingDictionaryController.getCampaignTypes';
 import getCampaignRecords from '@salesforce/apex/MarketingDictionaryManagerController.getCampaignRecords';
@@ -1057,8 +1058,15 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get isStep3Valid() {
-        // Copy Assignment — required “≥1 message variant per channel” once Copy Center is wired.
-        return true;
+        const activeChannels = this.channels.filter(c => c.checked && !c.disabled);
+        if (activeChannels.length === 0) {
+            return false;
+        }
+        return activeChannels.every(ch =>
+            this.copyVariantData.some(
+                v => v.channel === ch.value && this.selectedCopyVariantIds.includes(v.id)
+            )
+        );
     }
 
     get isStep4Valid() {
@@ -1192,6 +1200,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     _onStepChanged() {
         this.maybeLoadOfferSummaries();
+        if (this.currentStep === 3) {
+            this.fetchCopyVariantsForStep3();
+        }
         // Refresh Model Definitions when entering Scoring so dictionary edits are visible.
         if (this.currentStep === 4) {
             this.loadScoringModels();
@@ -1632,13 +1643,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     // --- STEP 3: COPY ASSIGNMENT LOGIC ---
 
     get copyChannelTabs() {
-        // Uses the existing channels state from Step 1
         const activeChannels = this.channels.filter(c => c.checked && !c.disabled);
-        
-        // Auto-select first tab if none selected
-        if (activeChannels.length > 0 && !this.activeCopyChannelValue) {
-            this.activeCopyChannelValue = activeChannels[0].value;
-        }
 
         return activeChannels.map(c => {
             const isActive = this.activeCopyChannelValue === c.value;
@@ -1657,6 +1662,12 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         return active ? active.label : '';
     }
 
+    get activeChannelSelectedCopyCount() {
+        return this.copyVariantData.filter(
+            v => v.channel === this.activeCopyChannelValue && this.selectedCopyVariantIds.includes(v.id)
+        ).length;
+    }
+
     get activeChannelCopyVariants() {
         return this.copyVariantData
             .filter(v => v.channel === this.activeCopyChannelValue)
@@ -1668,7 +1679,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                     rowClass: selected ? 'slds-hint-parent offer-row-selected' : 'slds-hint-parent',
                     toggleIcon: selected ? 'utility:check' : 'utility:add',
                     toggleTitle: selected ? 'Remove variant' : 'Add variant',
-                    statusClass: v.status === 'Published' ? 'slds-badge cockpit-badge-published' : 'slds-badge cockpit-badge-ready'
+                    toggleAssistive: selected ? `Remove ${v.name}` : `Add ${v.name}`,
+                    statusClass: 'slds-badge cockpit-badge-published'
                 };
             });
     }
@@ -1687,23 +1699,70 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     // Hook this into `_onStepChanged()` in your JS so it queries when Step 3 opens:
-    fetchCopyVariantsForStep3() {
-        this.isLoadingCopy = true;
-        const activeChannelNames = this.channels.filter(c => c.checked).map(c => c.value);
-        
-        // Derived from your Step 2 state
-        const productFamilies = this.productFamilyOptions.filter(o => o.checked).map(o => o.name);
-        const offerIds = this.selectedOfferIds;
+    _ensureActiveCopyChannel() {
+        const activeChannels = this.channels.filter(c => c.checked && !c.disabled);
+        if (activeChannels.length === 0) {
+            this.activeCopyChannelValue = '';
+            return;
+        }
+        const stillValid = activeChannels.some(c => c.value === this.activeCopyChannelValue);
+        if (!stillValid) {
+            this.activeCopyChannelValue = activeChannels[0].value;
+        }
+    }
 
-        // TODO: Wire to a new Apex method e.g., getCopyVariantsForWizard(channels, productFamilies, offers)
-        // Simulating the Apex response mapping below:
-        /*
-        getCopyVariantsForWizard({ channels: activeChannelNames, productFamilies, offerIds })
-            .then(data => {
-                this.copyVariantData = data; 
+    fetchCopyVariantsForStep3() {
+        this._ensureActiveCopyChannel();
+        const channelTypes = this.channels.filter(c => c.checked && !c.disabled).map(c => c.value);
+        const productFamilyNames = this.productFamilyOptions.filter(o => o.checked).map(o => o.name);
+        const offerIds = this.selectedOfferIds || [];
+
+        if (channelTypes.length === 0 || (productFamilyNames.length === 0 && offerIds.length === 0)) {
+            this.copyVariantData = [];
+            this.isLoadingCopy = false;
+            return;
+        }
+
+        this.isLoadingCopy = true;
+        getPublishedVariantsForWizard({ channelTypes, productFamilyNames, offerIds })
+            .then(rows => {
+                this.copyVariantData = (rows || []).map(row => ({
+                    id: row.Id,
+                    channel: row.Channel_Type__c,
+                    name: row.Name,
+                    language: row.Language__c || '—',
+                    status: row.Status__c
+                }));
+                const validIds = new Set(this.copyVariantData.map(v => v.id));
+                this.selectedCopyVariantIds = this.selectedCopyVariantIds.filter(id => validIds.has(id));
+            })
+            .catch(() => {
+                this.copyVariantData = [];
+                this.dispatchEvent(
+                    new ShowToastEvent({
+                        title: 'Copy Assignment',
+                        message: 'Could not load published message variants.',
+                        variant: 'error'
+                    })
+                );
+            })
+            .finally(() => {
                 this.isLoadingCopy = false;
             });
-        */
+    }
+
+    get summaryCopyAssignment() {
+        const activeChannels = this.channels.filter(c => c.checked && !c.disabled);
+        if (!this.selectedCopyVariantIds.length) {
+            return 'None selected';
+        }
+        const parts = activeChannels.map(ch => {
+            const count = this.copyVariantData.filter(
+                v => v.channel === ch.value && this.selectedCopyVariantIds.includes(v.id)
+            ).length;
+            return `${ch.label}: ${count}`;
+        });
+        return parts.join('; ');
     }
 
     handleSaveDraft() {
