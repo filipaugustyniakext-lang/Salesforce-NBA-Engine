@@ -326,17 +326,17 @@ public with sharing class CopyCockpitController {
 
     @TestVisible
     private static void assertAllowedStatusTransition(String fromStatus, String toStatus) {
-        String from = String.isBlank(fromStatus) ? 'Draft' : fromStatus.trim();
-        String to = toStatus.trim();
-        if (from == to) {
+        String currentStatus = String.isBlank(fromStatus) ? 'Draft' : fromStatus.trim();
+        String targetStatus = toStatus.trim();
+        if (currentStatus == targetStatus) {
             return;
         }
-        if (from == 'Published' && to != 'Archived') {
+        if (currentStatus == 'Published' && targetStatus != 'Archived') {
             throw new AuraHandledException(
                 'Published messages can only be changed to Archived.'
             );
         }
-        if (from == 'Archived' && to != 'Published') {
+        if (currentStatus == 'Archived' && targetStatus != 'Published') {
             throw new AuraHandledException(
                 'Archived messages can only be restored to Published.'
             );
