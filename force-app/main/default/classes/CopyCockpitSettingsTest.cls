@@ -161,11 +161,13 @@ private class CopyCockpitSettingsTest {
         CopyCockpitController.saveVariantDisplayWeight(row.Id, 78);
 
         row = [
-            SELECT Display_Probability_Manual__c
+            SELECT Display_Probability_Manual__c, MCE_Last_Modified_By__c, MCE_Updated_At__c
             FROM CC_Message_Metadata__c
             WHERE Id = :row.Id
         ];
         System.assertEquals(0.78, row.Display_Probability_Manual__c);
+        System.assertEquals(UserInfo.getName(), row.MCE_Last_Modified_By__c);
+        System.assertNotEquals(null, row.MCE_Updated_At__c);
     }
 
     @IsTest

@@ -346,14 +346,19 @@ export default class CopyCockpitEditor extends LightningElement {
     }
 
     get lastModifiedDisplay() {
-        const d = this._record?.LastModifiedDate;
-        if (!d) return '';
-        const date = new Date(d);
+        const by = this._record?.MCE_Last_Modified_By__c || this._record?.LastModifiedBy__c;
+        const raw = this._record?.MCE_Updated_At__c || this._record?.LastModifiedDate;
+        if (!raw) return by ? `Updated by ${by}` : '';
+        const date = new Date(raw);
         const diffSec = Math.floor((Date.now() - date.getTime()) / 1000);
         if (diffSec < 60)    return 'just now';
         if (diffSec < 3600)  return `${Math.floor(diffSec / 60)}m ago`;
-        if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
-        return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+        if (diffSec < 86400) {
+            const rel = `${Math.floor(diffSec / 3600)}h ago`;
+            return by ? `${rel} · ${by}` : rel;
+        }
+        const formatted = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+        return by ? `${formatted} · ${by}` : formatted;
     }
 
     get isSaving()            { return this._isSaving; }
@@ -776,8 +781,9 @@ export default class CopyCockpitEditor extends LightningElement {
             status: this._record?.Status__c,
             canvasJson,
         })
-            .then(() => {
-                this._record = { ...(this._record || {}), Canvas_Blocks_JSON__c: canvasJson };
+            .then(() => getMessageById({ recordId: this.recordId }))
+            .then(freshRecord => {
+                this._record = freshRecord || { ...(this._record || {}), Canvas_Blocks_JSON__c: canvasJson };
                 this._isDirty = false;
                 this.dispatchEvent(new ShowToastEvent({
                     title: 'Saved',

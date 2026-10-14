@@ -11,6 +11,15 @@ public with sharing class MarketingCloudCopySync {
     @TestVisible
     private static MCE_Settings__mdt settingsOverride;
 
+    @TestVisible
+    private static Boolean inboundSyncActive = false;
+
+    private static final String BLOCKS_DATA_EXTENSION_KEY = 'CC_Message_Blocks_All';
+
+    public static Boolean isInboundSyncActive() {
+        return inboundSyncActive == true;
+    }
+
     public class SyncResult {
         @AuraEnabled public String dataExtensionId;
         @AuraEnabled public String dataExtensionName;
@@ -571,8 +580,13 @@ public with sharing class MarketingCloudCopySync {
                 toUpdate.add(duplicate);
             }
         }
-        result.createdCount = applyDml(toInsert, true, result);
-        result.updatedCount = applyDml(toUpdate, false, result);
+        inboundSyncActive = true;
+        try {
+            result.createdCount = applyDml(toInsert, true, result);
+            result.updatedCount = applyDml(toUpdate, false, result);
+        } finally {
+            inboundSyncActive = false;
+        }
     }
 
     private static Map<String, List<Id>> findExistingIds(Set<String> keys) {
@@ -1069,8 +1083,17 @@ public with sharing class MarketingCloudCopySync {
             }
         }
         
-        if (!toInsert.isEmpty()) Database.insert(toInsert, false);
-        if (!toUpdate.isEmpty()) Database.update(toUpdate, false);
+        inboundSyncActive = true;
+        try {
+            if (!toInsert.isEmpty()) {
+                Database.insert(toInsert, false);
+            }
+            if (!toUpdate.isEmpty()) {
+                Database.update(toUpdate, false);
+            }
+        } finally {
+            inboundSyncActive = false;
+        }
     }
 
     private static Map<String, Id> findExistingBlockIds(Set<String> keys) {
@@ -1126,8 +1149,246 @@ public with sharing class MarketingCloudCopySync {
         putText(rec, 'ContentJson__c', row.get('contentjson'), 131072);
         putText(rec, 'ContentJsonPart2__c', row.get('contentjsonpart2'), 131072);
         putNumber(rec, 'MessageVariant__c', row.get('messagevariant'));
-        
+        putText(rec, 'UpdatedBy__c', row.get('updatedby'), 255);
+        putDatetime(rec, 'UpdatedAt__c', row.get('updatedat'));
+
         return rec;
+    }
+
+    public static void scheduleMetadataPush(Set<Id> metadataIds) {
+        if (metadataIds == null || metadataIds.isEmpty()) {
+            return;
+        }
+        if (System.isFuture() || System.isBatch()) {
+            pushMetadataToMce(new List<Id>(metadataIds));
+            return;
+        }
+        pushMetadataToMceFuture(JSON.serialize(new List<Id>(metadataIds)));
+    }
+
+    public static void scheduleBlockPush(Set<Id> blockIds) {
+        if (blockIds == null || blockIds.isEmpty()) {
+            return;
+        }
+        if (System.isFuture() || System.isBatch()) {
+            pushBlocksToMce(new List<Id>(blockIds));
+            return;
+        }
+        pushBlocksToMceFuture(JSON.serialize(new List<Id>(blockIds)));
+    }
+
+    @future(callout=true)
+    public static void pushMetadataToMceFuture(String metadataIdsJson) {
+        if (String.isBlank(metadataIdsJson)) {
+            return;
+        }
+        List<Object> rawIds = (List<Object>) JSON.deserializeUntyped(metadataIdsJson);
+        List<Id> metadataIds = new List<Id>();
+        for (Object rawId : rawIds) {
+            if (rawId != null) {
+                metadataIds.add((Id) String.valueOf(rawId));
+            }
+        }
+        pushMetadataToMce(metadataIds);
+    }
+
+    @future(callout=true)
+    public static void pushBlocksToMceFuture(String blockIdsJson) {
+        if (String.isBlank(blockIdsJson)) {
+            return;
+        }
+        List<Object> rawIds = (List<Object>) JSON.deserializeUntyped(blockIdsJson);
+        List<Id> blockIds = new List<Id>();
+        for (Object rawId : rawIds) {
+            if (rawId != null) {
+                blockIds.add((Id) String.valueOf(rawId));
+            }
+        }
+        pushBlocksToMce(blockIds);
+    }
+
+    @TestVisible
+    private static void pushMetadataToMce(List<Id> metadataIds) {
+        if (metadataIds == null || metadataIds.isEmpty()) {
+            return;
+        }
+        try {
+            MCE_Settings__mdt settings = loadSettings();
+            String token = requestToken(settings);
+            List<CC_Message_Metadata__c> rows = [
+                SELECT Id, MessageVariantId__c, Message_Variant_Id__c, MessageName__c,
+                       Message_Type__c, Channel_Type__c, Subject__c, Status__c, Language__c,
+                       Display_Probability_Manual__c, Block_Count__c, MessageVariant__c, Version__c,
+                       MCE_Last_Modified_By__c, MCE_Updated_At__c, LastModifiedAt__c, UpdatedAt__c,
+                       Canvas_Blocks_JSON__c
+                FROM CC_Message_Metadata__c
+                WHERE Id IN :metadataIds
+            ];
+            List<Object> items = new List<Object>();
+            for (CC_Message_Metadata__c row : rows) {
+                Map<String, Object> item = buildMetadataPushItem(row);
+                if (item != null) {
+                    items.add(item);
+                }
+            }
+            if (items.isEmpty()) {
+                return;
+            }
+            pushAsyncDataExtensionRows(settings, token, settings.Data_Extension_Key__c, items);
+        } catch (Exception ex) {
+            System.debug(LoggingLevel.WARN, 'MCE metadata push failed: ' + ex.getMessage());
+        }
+    }
+
+    @TestVisible
+    private static void pushBlocksToMce(List<Id> blockIds) {
+        if (blockIds == null || blockIds.isEmpty()) {
+            return;
+        }
+        try {
+            MCE_Settings__mdt settings = loadSettings();
+            String token = requestToken(settings);
+            List<CC_Message_Blocks_All__c> rows = [
+                SELECT Id, MessageVariantId__c, ContentBlockOrder__c, MessageName__c, MessageType__c,
+                       BlockType__c, ContentBlockPath__c, ContentBuilderAssetId__c,
+                       ContentJson__c, ContentJsonPart2__c, MessageVariant__c,
+                       UpdatedBy__c, UpdatedAt__c
+                FROM CC_Message_Blocks_All__c
+                WHERE Id IN :blockIds
+            ];
+            List<Object> items = new List<Object>();
+            for (CC_Message_Blocks_All__c row : rows) {
+                Map<String, Object> item = buildBlockPushItem(row);
+                if (item != null) {
+                    items.add(item);
+                }
+            }
+            if (items.isEmpty()) {
+                return;
+            }
+            pushAsyncDataExtensionRows(settings, token, BLOCKS_DATA_EXTENSION_KEY, items);
+        } catch (Exception ex) {
+            System.debug(LoggingLevel.WARN, 'MCE block push failed: ' + ex.getMessage());
+        }
+    }
+
+    private static Map<String, Object> buildMetadataPushItem(CC_Message_Metadata__c row) {
+        String variantId = String.isNotBlank(row.MessageVariantId__c)
+            ? row.MessageVariantId__c.trim()
+            : (String.isNotBlank(row.Message_Variant_Id__c) ? row.Message_Variant_Id__c.trim() : null);
+        if (String.isBlank(variantId)) {
+            return null;
+        }
+        Datetime modifiedAt = row.MCE_Updated_At__c != null
+            ? row.MCE_Updated_At__c
+            : (row.LastModifiedAt__c != null ? row.LastModifiedAt__c : row.UpdatedAt__c);
+        String modifiedBy = String.isNotBlank(row.MCE_Last_Modified_By__c)
+            ? row.MCE_Last_Modified_By__c
+            : UserInfo.getName();
+        String modifiedAtText = formatMceDatetime(modifiedAt);
+
+        Map<String, Object> item = new Map<String, Object>{
+            'MessageVariantId' => variantId,
+            'LastModifiedBy' => modifiedBy,
+            'UpdatedAt' => modifiedAtText
+        };
+        if (String.isNotBlank(modifiedAtText)) {
+            item.put('LastModifiedAt', modifiedAtText);
+        }
+        putPushText(item, 'MessageName', row.MessageName__c);
+        String messageType = String.isNotBlank(row.Message_Type__c)
+            ? row.Message_Type__c
+            : row.Channel_Type__c;
+        putPushText(item, 'MessageType', messageType);
+        putPushText(item, 'Subject', row.Subject__c);
+        putPushText(item, 'VariantStatus', row.Status__c);
+        putPushText(item, 'Language', row.Language__c);
+        if (row.Display_Probability_Manual__c != null) {
+            item.put('DisplayProbabilityManual', row.Display_Probability_Manual__c);
+        }
+        if (row.Block_Count__c != null) {
+            item.put('BlockCount', row.Block_Count__c.intValue());
+        }
+        Decimal variantNum = row.MessageVariant__c != null ? row.MessageVariant__c : row.Version__c;
+        if (variantNum != null) {
+            item.put('MessageVariant', variantNum.intValue());
+        }
+        if (String.isNotBlank(row.Canvas_Blocks_JSON__c)) {
+            putPushText(item, 'MessagePropertiesJSON', row.Canvas_Blocks_JSON__c);
+        }
+        return item;
+    }
+
+    private static Map<String, Object> buildBlockPushItem(CC_Message_Blocks_All__c row) {
+        if (String.isBlank(row.MessageVariantId__c) || row.ContentBlockOrder__c == null) {
+            return null;
+        }
+        Map<String, Object> item = new Map<String, Object>{
+            'MessageVariantId' => row.MessageVariantId__c.trim(),
+            'ContentBlockOrder' => row.ContentBlockOrder__c.intValue(),
+            'UpdatedBy' => row.UpdatedBy__c,
+            'UpdatedAt' => formatMceDatetime(row.UpdatedAt__c)
+        };
+        putPushText(item, 'MessageName', row.MessageName__c);
+        putPushText(item, 'MessageType', row.MessageType__c);
+        putPushText(item, 'BlockType', row.BlockType__c);
+        putPushText(item, 'ContentBlockPath', row.ContentBlockPath__c);
+        putPushText(item, 'ContentBuilderAssetId', row.ContentBuilderAssetId__c);
+        putPushText(item, 'ContentJson', row.ContentJson__c);
+        putPushText(item, 'ContentJsonPart2', row.ContentJsonPart2__c);
+        if (row.MessageVariant__c != null) {
+            item.put('MessageVariant', row.MessageVariant__c.intValue());
+        }
+        return item;
+    }
+
+    private static void putPushText(Map<String, Object> item, String key, String value) {
+        if (String.isNotBlank(value)) {
+            item.put(key, value);
+        }
+    }
+
+    private static String formatMceDatetime(Datetime value) {
+        if (value == null) {
+            return null;
+        }
+        return value.formatGmt('M/d/yyyy h:mm:ss a');
+    }
+
+    private static void pushAsyncDataExtensionRows(
+        MCE_Settings__mdt settings,
+        String token,
+        String dataExtensionKey,
+        List<Object> items
+    ) {
+        if (settings == null || String.isBlank(token) || String.isBlank(dataExtensionKey) || items == null || items.isEmpty()) {
+            return;
+        }
+        Integer chunkSize = 50;
+        for (Integer start = 0; start < items.size(); start += chunkSize) {
+            Integer endIndex = Math.min(start + chunkSize, items.size());
+            List<Object> chunk = new List<Object>();
+            for (Integer index = start; index < endIndex; index++) {
+                chunk.add(items[index]);
+            }
+            String endpoint = 'https://' + settings.Subdomain__c
+                + '.rest.marketingcloudapis.com/data/v1/async/dataextensions/key:'
+                + EncodingUtil.urlEncode(dataExtensionKey, 'UTF-8')
+                + '/rows';
+            HttpRequest req = new HttpRequest();
+            req.setMethod('PUT');
+            req.setEndpoint(endpoint);
+            req.setHeader('Authorization', 'Bearer ' + token);
+            req.setHeader('Content-Type', 'application/json');
+            req.setTimeout(120000);
+            req.setBody(JSON.serialize(new Map<String, Object>{ 'items' => chunk }));
+            HttpResponse res = new Http().send(req);
+            if (res.getStatusCode() < 200 || res.getStatusCode() >= 300) {
+                throw new CalloutException(
+                    'Async DE push failed (' + res.getStatusCode() + '): ' + res.getBody()
+                );
+            }
+        }
     }
 
 }

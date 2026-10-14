@@ -289,7 +289,7 @@ function buildGroups(records, expandedSet, editingGroupName, selectedIds, versio
         const enrichedVariants = variants.map(v => {
             const sched = buildScheduleBadge(v);
             const isSelected = selectedIds.has(v.Id);
-            const modBy = v.MCE_Last_Modified_By__c || null;
+            const modBy = v.MCE_Last_Modified_By__c || v.LastModifiedBy__c || null;
             const variantNum = variantNumberFromRecord(v);
             const weightPercent = weightPercentFromRecord(v.Display_Probability__c, v.Display_Probability_Manual__c);
             const mceVariantKey = v.MessageVariantId__c || v.Message_Variant_Id__c || null;

@@ -32,6 +32,9 @@ public with sharing class CopyCockpitController {
                    Published_At__c,
                    MCE_Updated_At__c,
                    MCE_Last_Modified_By__c,
+                   LastModifiedBy__c,
+                   LastModifiedAt__c,
+                   UpdatedAt__c,
                    CreatedDate, LastModifiedDate
             FROM CC_Message_Metadata__c
             WHERE Channel_Type__c = :channelType
@@ -178,7 +181,7 @@ public with sharing class CopyCockpitController {
                     }
                     assertCanAssignSourceTemplate(idsToValidate);
                 }
-                update toUpdate;
+                CopyCockpitModificationService.updateMetadata(toUpdate);
             }
         } catch (Exception e) {
             throw new AuraHandledException('Save failed: ' + e.getMessage());
@@ -213,7 +216,7 @@ public with sharing class CopyCockpitController {
         if (updates.isEmpty()) {
             throw new AuraHandledException('Select at least one message variant.');
         }
-        update updates;
+        CopyCockpitModificationService.updateMetadata(updates);
         return updates.size();
     }
 
@@ -266,10 +269,10 @@ public with sharing class CopyCockpitController {
             throw new AuraHandledException('Weight must be between 0 and 100.');
         }
         Decimal manual = (weightPercent / 100).setScale(4, System.RoundingMode.HALF_UP);
-        update new CC_Message_Metadata__c(
+        CopyCockpitModificationService.updateMetadata(new CC_Message_Metadata__c(
             Id = recordId,
             Display_Probability_Manual__c = manual
-        );
+        ));
     }
 
     /**
@@ -326,6 +329,8 @@ public with sharing class CopyCockpitController {
                    Campaign__c, Campaign__r.Name,
                    Source_Template__c, Source_Template__r.Name,
                    Canvas_Blocks_JSON__c,
+                   MCE_Last_Modified_By__c, MCE_Updated_At__c,
+                   LastModifiedBy__c, LastModifiedAt__c, UpdatedAt__c,
                    CreatedDate, LastModifiedDate
             FROM CC_Message_Metadata__c
             WHERE Id = :recordId
@@ -394,7 +399,7 @@ public with sharing class CopyCockpitController {
             if (data.get('messageSubtype') != null) {
                 rec.Subject__c = (String) data.get('messageSubtype');
             }
-            insert rec;
+            CopyCockpitModificationService.insertMetadata(rec);
             return rec.Id;
         } catch (AuraHandledException e) {
             throw e;
@@ -411,9 +416,19 @@ public with sharing class CopyCockpitController {
         CC_Message_Metadata__c rec = [
             SELECT Id FROM CC_Message_Metadata__c WHERE Id = :recordId LIMIT 1
         ];
-        if (String.isNotBlank(status)) rec.Status__c = status;
+        if (String.isNotBlank(status)) {
+            rec.Status__c = status;
+        }
         rec.Canvas_Blocks_JSON__c = canvasJson;
-        update rec;
+        if (String.isNotBlank(canvasJson)) {
+            try {
+                List<Object> blocks = (List<Object>) JSON.deserializeUntyped(canvasJson);
+                rec.Block_Count__c = blocks == null ? 0 : blocks.size();
+            } catch (Exception ignored) {
+                // Keep existing block count when canvas JSON is not a list.
+            }
+        }
+        CopyCockpitModificationService.updateMetadata(rec);
     }
 
     private static final Set<String> ALLOWED_MESSAGE_STATUSES = new Set<String>{
@@ -437,7 +452,9 @@ public with sharing class CopyCockpitController {
             LIMIT 1
         ];
         assertAllowedStatusTransition(existing.Status__c, status);
-        update new CC_Message_Metadata__c(Id = recordId, Status__c = status);
+        CopyCockpitModificationService.updateMetadata(
+            new CC_Message_Metadata__c(Id = recordId, Status__c = status)
+        );
     }
 
     @TestVisible
@@ -505,7 +522,7 @@ public with sharing class CopyCockpitController {
             copy.Name = stem + '_' + String.valueOf(newVersion.intValue());
             copy.Message_Variant__c = 'Variant ' + String.valueOf(newVersion.intValue());
             copy.Status__c  = 'Draft';
-            insert copy;
+            CopyCockpitModificationService.insertMetadata(copy);
             return copy.Id;
         } catch (AuraHandledException e) {
             throw e;
@@ -566,7 +583,7 @@ public with sharing class CopyCockpitController {
             r.Language__c = lang;
         }
         try {
-            update rows;
+            CopyCockpitModificationService.updateMetadata(rows);
         } catch (DmlException e) {
             throw new AuraHandledException('Update failed: ' + e.getDmlMessage(0));
         }
