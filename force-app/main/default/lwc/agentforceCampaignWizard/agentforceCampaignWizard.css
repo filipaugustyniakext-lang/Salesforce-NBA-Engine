@@ -604,17 +604,36 @@
     --slds-c-icon-color-foreground: #c23934;
 }
 
-/* Step 1 — Campaign Properties | Channel Selection */
-.wizard-step1-two-col {
+/* Step 1 — 2×2 tile grid */
+.wizard-step1-grid {
     align-items: stretch;
 }
 
-.wizard-step1-card {
-    height: 100%;
+.wizard-step1-grid > .slds-col {
+    display: flex;
+    margin-bottom: 1rem;
 }
 
-.wizard-step1-card--channels .wizard-section-box--fill {
-    min-height: 100%;
+.wizard-step1-tile {
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 12rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.wizard-step1-tile--channels .channel-groups-container {
+    flex: 1 1 auto;
+}
+
+.priority-tile-body,
+.exclusions-tile-body {
+    flex: 1 1 auto;
+}
+
+.exclusions-tile-empty {
+    line-height: 1.45;
+    max-width: 36rem;
 }
 
 .wizard-section-box {
@@ -631,21 +650,6 @@
     letter-spacing: 0.02em;
     text-transform: uppercase;
     color: #514f4d;
-}
-
-.priority-exclusions-layout {
-    align-items: stretch;
-    min-height: 20rem;
-}
-
-.priority-exclusions-left,
-.priority-exclusions-right {
-    display: flex;
-    flex-direction: column;
-}
-
-.priority-exclusions-right {
-    padding-left: 0.25rem;
 }
 
 /* SLDS vertical visual picker — Priority Tiers
@@ -1384,18 +1388,16 @@
     border: 1px solid #f5c6b8;
 }
 
-.exclusions-section {
-    border-top: 1px solid #dddbda;
-    padding-top: 12px;
-    margin-top: 4px;
-    flex: 1 1 auto;
-}
-
 .exclusion-definition-row {
     padding: 0.75rem;
     border: 1px solid #e5e5e5;
     border-radius: 0.375rem;
     background: #fafaf9;
+}
+
+.exclusion-lookup-col lightning-combobox,
+.exclusion-lookup-col lightning-input {
+    width: 100%;
 }
 
 .copy-assignment-channels-alert {

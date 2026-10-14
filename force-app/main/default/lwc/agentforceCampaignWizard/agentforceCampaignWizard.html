@@ -35,15 +35,13 @@
 
                     <div class="properties-vertical-stack animate-fade-in slds-m-top_large">
 
-                        <!-- STEP 1: Campaign Properties + Channel Selection -->
+                        <!-- STEP 1: four-tile grid (Basic | Channels / Priority | Exclusions) -->
                         <template lwc:if={isStep1}>
-                            <div class="slds-grid slds-gutters slds-wrap wizard-step1-two-col slds-m-bottom_large">
+                            <div class="slds-grid slds-gutters slds-wrap wizard-step1-grid slds-m-bottom_large">
 
-                                <div class="slds-col slds-size_1-of-1 slds-large-size_1-of-2">
-                            <div class="form-module-card wizard-step1-card" style="z-index: 99;">
-
-                                <!-- Section: Basic Properties -->
-                                <div class="slds-box wizard-section-box">
+                                <!-- Tile 1: Basic Properties -->
+                                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                                <div class="slds-box wizard-section-box wizard-step1-tile">
                                     <span class="module-header-title">Basic Properties</span>
 
                                     <!-- Activation Type + Emergency Toggle Row -->
@@ -141,14 +139,46 @@
                                         </div>
                                     </template>
                                 </div>
+                                </div>
 
-                                <!-- Section: Priority & Exclusions -->
-                                <div class="slds-box wizard-section-box slds-m-top_medium">
-                                    <span class="module-header-title">Priority &amp; Exclusions</span>
+                                <!-- Tile 2: Channel Selection -->
+                                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                                <div class="slds-box wizard-section-box wizard-step1-tile wizard-step1-tile--channels">
+                                    <span class="module-header-title">
+                                        Channel Selection
+                                        <abbr class="slds-required" title="required">*</abbr>
+                                    </span>
+                                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">Select at least one channel to continue.</p>
+                                    <div class="slds-m-top_small slds-p-bottom_small select-all-row-divider">
+                                        <lightning-input type="checkbox" label="Select All" checked={selectAllChecked} onchange={handleSelectAllChange} class="custom-master-checkbox"></lightning-input>
+                                    </div>
+                                    <div class="channel-groups-container slds-m-top_small">
+                                        <template for:each={channelGroups} for:item="group">
+                                            <div key={group.type} class="channel-type-row">
+                                                <div class="slds-button-group channel-button-group" role="group">
+                                                    <template for:each={group.items} for:item="chan">
+                                                        <button key={chan.value}
+                                                                class={chan.buttonClass}
+                                                                data-value={chan.value}
+                                                                title={chan.title}
+                                                                disabled={chan.disabled}
+                                                                onclick={handleChannelTileToggle}>
+                                                            <lightning-icon icon-name={chan.icon} size="xx-small" class={chan.iconClass}></lightning-icon>
+                                                            <span class="channel-btn-label">{chan.label}</span>
+                                                        </button>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                                </div>
 
-                                    <div class="slds-grid slds-gutters priority-exclusions-layout slds-m-top_medium">
-                                        <!-- Left: Tier visual picker (vertical) -->
-                                        <div class="slds-col slds-size_1-of-2 priority-exclusions-left">
+                                <!-- Tile 3: Priority -->
+                                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                                <div class="slds-box wizard-section-box wizard-step1-tile wizard-step1-tile--priority">
+                                    <span class="module-header-title">Priority</span>
+                                    <div class="slds-m-top_medium priority-tile-body">
                                             <fieldset class="slds-form-element priority-tier-fieldset" role="radiogroup">
                                                 <legend class="slds-form-element__legend slds-form-element__label">
                                                     Priority Tier
@@ -232,32 +262,31 @@
                                                     </template>
                                                 </div>
                                             </fieldset>
-                                        </div>
+                                    </div>
+                                </div>
+                                </div>
 
-                                        <!-- Right: Exclusions (manual suppression definitions) -->
-                                        <div class="slds-col slds-size_1-of-2 priority-exclusions-right">
-                                            <template lwc:if={showExclusionsSection}>
-                                                <div class="exclusions-section animate-fade-in">
-                                                    <span class="wizard-subsection-title">Exclusions</span>
-                                                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small slds-m-bottom_small">
-                                                        Define audience exclusions for this campaign tier.
-                                                    </p>
-
+                                <!-- Tile 4: Exclusions -->
+                                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                                <div class="slds-box wizard-section-box wizard-step1-tile wizard-step1-tile--exclusions">
+                                    <span class="module-header-title">Exclusions</span>
+                                    <template lwc:if={showExclusionsSection}>
+                                        <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small slds-m-bottom_small">
+                                            Define audience exclusions for this campaign tier.
+                                        </p>
+                                        <div class="exclusions-tile-body animate-fade-in">
                                                     <template for:each={exclusionDefinitionRows} for:item="row">
                                                         <div key={row.id} class="exclusion-definition-row slds-m-bottom_medium">
-                                                            <div class="slds-grid slds-gutters slds-grid_vertical-align-end">
-                                                                <div class="slds-col slds-size_1-of-2">
-                                                                    <lightning-combobox
-                                                                        label="Exclusion source"
-                                                                        value={row.source}
-                                                                        options={exclusionSourceOptions}
-                                                                        placeholder="Select source..."
-                                                                        data-row-id={row.id}
-                                                                        onchange={handleExclusionSourceChange}
-                                                                        class="custom-form-input">
-                                                                    </lightning-combobox>
-                                                                </div>
-                                                                <div class="slds-col slds-size_1-of-2 exclusion-lookup-col">
+                                                            <lightning-combobox
+                                                                label="Exclusion source"
+                                                                value={row.source}
+                                                                options={exclusionSourceOptions}
+                                                                placeholder="Select source..."
+                                                                data-row-id={row.id}
+                                                                onchange={handleExclusionSourceChange}
+                                                                class="custom-form-input">
+                                                            </lightning-combobox>
+                                                            <div class="exclusion-lookup-col slds-m-top_x-small">
                                                                     <template lwc:if={row.isCampaign}>
                                                                         <lightning-input
                                                                             type="search"
@@ -320,7 +349,6 @@
                                                                             class="custom-form-input">
                                                                         </lightning-combobox>
                                                                     </template>
-                                                                </div>
                                                             </div>
                                                             <template lwc:if={row.showRemove}>
                                                                 <div class="slds-text-align_right slds-m-top_x-small">
@@ -342,46 +370,14 @@
                                                         onclick={handleAddExclusionDefinition}
                                                         class="slds-m-top_x-small">
                                                     </lightning-button>
-                                                </div>
-                                            </template>
                                         </div>
-                                    </div>
+                                    </template>
+                                    <template lwc:else>
+                                        <p class="slds-text-body_small slds-text-color_weak slds-m-top_medium exclusions-tile-empty">
+                                            Manual exclusion definitions apply when the selected priority tier supports them. Choose a tier with manual suppressions to configure exclusions here.
+                                        </p>
+                                    </template>
                                 </div>
-                            </div>
-                                </div>
-
-                                <div class="slds-col slds-size_1-of-1 slds-large-size_1-of-2">
-                            <div class="form-module-card wizard-step1-card wizard-step1-card--channels" style="z-index: 98;">
-                                <div class="slds-box wizard-section-box wizard-section-box--fill">
-                                    <span class="module-header-title">
-                                        Channel Selection
-                                        <abbr class="slds-required" title="required">*</abbr>
-                                    </span>
-                                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">Select at least one channel to continue.</p>
-                                    <div class="slds-m-top_small slds-p-bottom_small select-all-row-divider">
-                                        <lightning-input type="checkbox" label="Select All" checked={selectAllChecked} onchange={handleSelectAllChange} class="custom-master-checkbox"></lightning-input>
-                                    </div>
-                                    <div class="channel-groups-container slds-m-top_small">
-                                        <template for:each={channelGroups} for:item="group">
-                                            <div key={group.type} class="channel-type-row">
-                                                <div class="slds-button-group channel-button-group" role="group">
-                                                    <template for:each={group.items} for:item="chan">
-                                                        <button key={chan.value}
-                                                                class={chan.buttonClass}
-                                                                data-value={chan.value}
-                                                                title={chan.title}
-                                                                disabled={chan.disabled}
-                                                                onclick={handleChannelTileToggle}>
-                                                            <lightning-icon icon-name={chan.icon} size="xx-small" class={chan.iconClass}></lightning-icon>
-                                                            <span class="channel-btn-label">{chan.label}</span>
-                                                        </button>
-                                                    </template>
-                                                </div>
-                                            </div>
-                                        </template>
-                                    </div>
-                                </div>
-                            </div>
                                 </div>
 
                             </div>
