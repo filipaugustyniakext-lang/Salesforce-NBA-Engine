@@ -494,6 +494,11 @@
     flex-shrink: 0;
 }
 
+.cockpit-template-action:disabled {
+    opacity: 0.2;
+    cursor: not-allowed;
+}
+
 /* ─── Stat chips ──────────────────────────────────────────────────────────── */
 
 .cockpit-stat-chip {
