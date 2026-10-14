@@ -209,7 +209,9 @@ export default class CopyCockpitEditor extends LightningElement {
     @wire(CurrentPageReference)
     _pageRef(ref) {
         this._isStandalonePage = ref?.type === 'standard__navItemPage';
-        const stateId = ref?.state?.c__recordId || ref?.state?.recordId;
+        const stateId = ref?.state?.c__recordId
+            || ref?.state?.c__RecordID
+            || ref?.state?.recordId;
         if (stateId && stateId !== this.recordId) {
             this.recordId = stateId;
             this._loadRecord();

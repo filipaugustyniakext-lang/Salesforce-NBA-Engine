@@ -675,7 +675,8 @@ public with sharing class CopyCockpitController {
         String soql =
             'SELECT Id, Name, Channel_Type__c, Status__c, Language__c,' +
             ' Offer__c, Offer__r.Name, Product_Family__c, Product_Family__r.Name,' +
-            ' Message_Variant_Id__c, Version__c,' +
+            ' MessageName__c, MessageVariant__c, MessageType__c,' +
+            ' Message_Variant_Id__c, Message_Variant__c, Message_Type__c, Version__c,' +
             ' Display_Probability__c, Display_Probability_Manual__c' +
             ' FROM CC_Message_Metadata__c' +
             ' WHERE Status__c = \'Published\'' +

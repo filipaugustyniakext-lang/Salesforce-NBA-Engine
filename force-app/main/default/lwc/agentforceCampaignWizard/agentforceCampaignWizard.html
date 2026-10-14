@@ -746,17 +746,17 @@
                                                         <div class="slds-scrollable_none">
                                                             <table
                                                                 aria-multiselectable="true"
-                                                                class="slds-table slds-table_header-hidden slds-no-row-hover slds-table_bordered"
+                                                                class="slds-table slds-table_cell-buffer slds-table_bordered copy-assignment-table"
                                                                 role="grid"
                                                                 aria-label={activeCopyChannelLabel}>
-                                                                <thead class="slds-assistive-text">
+                                                                <thead>
                                                                     <tr class="slds-line-height_reset">
-                                                                        <th scope="col" style="width:3.75rem"></th>
+                                                                        <th scope="col" class="copy-assignment-col-select" aria-label="Select"></th>
                                                                         <th scope="col"><div class="slds-truncate" title="Message Name">Message Name</div></th>
-                                                                        <th scope="col" style="width:5rem"><div class="slds-truncate" title="Variant Number">Variant #</div></th>
-                                                                        <th scope="col" style="width:5rem"><div class="slds-truncate" title="Weight">Weight</div></th>
-                                                                        <th scope="col" style="width:6.5rem"><div class="slds-truncate" title="Status">Status</div></th>
-                                                                        <th scope="col" style="width:3rem"></th>
+                                                                        <th scope="col" class="copy-assignment-col-variant"><div class="slds-truncate" title="Message Variant">Variant #</div></th>
+                                                                        <th scope="col" class="copy-assignment-col-weight"><div class="slds-truncate" title="Display Weight">Weight</div></th>
+                                                                        <th scope="col" class="copy-assignment-col-status"><div class="slds-truncate" title="Status">Status</div></th>
+                                                                        <th scope="col" class="copy-assignment-col-open" aria-label="Open in Copy Center"></th>
                                                                     </tr>
                                                                 </thead>
                                                                 <tbody>

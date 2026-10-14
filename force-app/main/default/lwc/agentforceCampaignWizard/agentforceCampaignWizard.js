@@ -64,6 +64,47 @@ function newExclusionRow(overrides = {}) {
     };
 }
 
+function wizardMessageNameFromRow(row) {
+    if (row.MessageName__c) {
+        return String(row.MessageName__c).trim();
+    }
+    const parsed = parseFullName(row.Name);
+    if (parsed.messageName) {
+        return parsed.messageName;
+    }
+    return row.Name || '—';
+}
+
+function wizardMessageVariantFromRow(row) {
+    if (row.MessageVariant__c != null && row.MessageVariant__c !== '') {
+        return String(row.MessageVariant__c);
+    }
+    if (row.Message_Variant__c != null && row.Message_Variant__c !== '') {
+        return String(row.Message_Variant__c);
+    }
+    if (row.Version__c != null) {
+        return String(row.Version__c);
+    }
+    const parsed = parseFullName(row.Name);
+    if (parsed.variant != null) {
+        return String(parsed.variant);
+    }
+    return '—';
+}
+
+function wizardMessageTypeFromRow(row) {
+    if (row.MessageType__c) {
+        return String(row.MessageType__c).trim();
+    }
+    if (row.Message_Type__c) {
+        return String(row.Message_Type__c).trim();
+    }
+    if (row.Channel_Type__c) {
+        return String(row.Channel_Type__c).trim();
+    }
+    return '';
+}
+
 function formatVariantWeight(manual, computed) {
     if (manual !== null && manual !== undefined && manual !== '') {
         return String(manual);
@@ -2069,7 +2110,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                     rowClass: selected ? 'slds-hint-parent offer-row-selected' : 'slds-hint-parent',
                     toggleIcon: selected ? 'utility:check' : 'utility:add',
                     toggleTitle: selected ? 'Remove variant' : 'Add variant',
-                    toggleAssistive: selected ? `Remove ${v.name}` : `Add ${v.name}`,
+                    toggleAssistive: selected ? `Remove ${v.messageName}` : `Add ${v.messageName}`,
                     statusClass: copyStatusBadgeClass(v.status)
                 };
             });
@@ -2080,14 +2121,20 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         if (!variantId) {
             return;
         }
+        const variant = this.copyVariantData.find(v => v.id === variantId);
+        const messageType = variant?.messageType || variant?.channel || '';
         const pageRef = {
             type: 'standard__navItemPage',
-            attributes: { apiName: 'Copy_Center' },
-            state: { c__editId: variantId }
+            attributes: { apiName: 'Copy_Cockpit_Editor' },
+            state: {
+                c__RecordID: variantId,
+                c__MessageType: messageType,
+                c__recordId: variantId
+            }
         };
         this[NavigationMixin.GenerateUrl](pageRef)
             .then(url => {
-                const opened = window.open(url, '_blank');
+                const opened = window.open(url, '_blank', 'noopener,noreferrer');
                 if (!opened) {
                     this[NavigationMixin.Navigate](pageRef);
                 }
@@ -2139,16 +2186,15 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         getPublishedVariantsForWizard({ channelTypes, productFamilyNames, offerIds })
             .then(rows => {
                 this.copyVariantData = (rows || []).map(row => {
-                    const parsed = parseFullName(row.Name);
-                    const variantNumber = row.Version__c != null
-                        ? String(row.Version__c)
-                        : (parsed.variant != null ? String(parsed.variant) : '—');
-                    const messageName = parsed.messageName || row.Name;
+                    const messageName = wizardMessageNameFromRow(row);
+                    const variantNumber = wizardMessageVariantFromRow(row);
+                    const messageType = wizardMessageTypeFromRow(row);
                     return {
                         id: row.Id,
                         channel: row.Channel_Type__c,
                         name: row.Name,
                         messageName,
+                        messageType,
                         variantNumber,
                         weight: formatVariantWeight(
                             row.Display_Probability_Manual__c,

@@ -1470,6 +1470,38 @@
     flex-shrink: 0;
 }
 
+.copy-assignment-table thead th {
+    background: #f3f3f3;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: #514f4d;
+    vertical-align: bottom;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+}
+
+.copy-assignment-col-select {
+    width: 3.75rem;
+}
+
+.copy-assignment-col-variant {
+    width: 5rem;
+}
+
+.copy-assignment-col-weight {
+    width: 5rem;
+}
+
+.copy-assignment-col-status {
+    width: 6.5rem;
+}
+
+.copy-assignment-col-open {
+    width: 3rem;
+}
+
 .copy-assignment-list-scroll {
     flex: 1 1 auto;
     min-height: 0;
