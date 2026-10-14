@@ -128,6 +128,39 @@ export function groupKeyFromName(fullName) {
     return parsed.stem || fullName || '(unnamed)';
 }
 
+/**
+ * Master row key for Copy Center grouping.
+ * MCE rows: MessageName__c (e.g. EMA_PL_Email_1, EMA_PL_Email_2) — not parsed Name suffix.
+ */
+export function masterGroupKey(record) {
+    if (record && record.MessageName__c && String(record.MessageName__c).trim()) {
+        return String(record.MessageName__c).trim();
+    }
+    return groupKeyFromName(record?.Name);
+}
+
+export function variantNumberFromRecord(record) {
+    if (!record) return 0;
+    if (record.MessageVariant__c != null && record.MessageVariant__c !== '') {
+        const fromMce = Number(record.MessageVariant__c);
+        if (!Number.isNaN(fromMce)) return fromMce;
+    }
+    if (record.Version__c != null && record.Version__c !== '') {
+        const fromVersion = Number(record.Version__c);
+        if (!Number.isNaN(fromVersion)) return fromVersion;
+    }
+    const parsed = parseFullName(record.Name);
+    return parsed.variant != null ? parsed.variant : 0;
+}
+
+export function recordBelongsToMasterGroup(record, stem) {
+    if (!stem || !record) return false;
+    if (record.MessageName__c && String(record.MessageName__c).trim() === stem) {
+        return true;
+    }
+    return nameBelongsToStem(record.Name, stem) || groupKeyFromName(record.Name) === stem;
+}
+
 export function nameBelongsToStem(fullName, stem) {
     if (!stem) return false;
     const name = String(fullName || '');

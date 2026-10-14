@@ -25,6 +25,9 @@ public with sharing class CopyCockpitController {
                    Scheduled_To_Status__c,
                    Message_Variant_Id__c,
                    Message_Variant__c,
+                   MessageVariantId__c,
+                   MessageName__c,
+                   MessageVariant__c,
                    Published_At__c,
                    MCE_Updated_At__c,
                    MCE_Last_Modified_By__c,
@@ -201,7 +204,7 @@ public with sharing class CopyCockpitController {
         List<Decimal> variants = new List<Decimal>();
         String language = null;
         for (CC_Message_Metadata__c r : rows) {
-            Decimal v = resolveVariantNumber(r.Name, r.Version__c, nameStem.trim());
+            Decimal v = resolveVariantNumber(r, nameStem.trim());
             if (v != null) variants.add(v);
             if (language == null && String.isNotBlank(r.Language__c)) {
                 language = r.Language__c;
@@ -273,7 +276,7 @@ public with sharing class CopyCockpitController {
             Set<Decimal> taken = new Set<Decimal>();
             String masterLanguage = null;
             for (CC_Message_Metadata__c r : existing) {
-                Decimal v = resolveVariantNumber(r.Name, r.Version__c, stem);
+                Decimal v = resolveVariantNumber(r, stem);
                 if (v != null) taken.add(v);
                 if (masterLanguage == null && String.isNotBlank(r.Language__c)) {
                     masterLanguage = r.Language__c;
@@ -394,7 +397,7 @@ public with sharing class CopyCockpitController {
             }
             List<CC_Message_Metadata__c> existing = queryByStem(stem, src.Channel_Type__c);
             for (CC_Message_Metadata__c r : existing) {
-                Decimal v = resolveVariantNumber(r.Name, r.Version__c, stem);
+                Decimal v = resolveVariantNumber(r, stem);
                 if (v == newVersion) {
                     throw new AuraHandledException(
                         'Variant ' + String.valueOf(newVersion.intValue()) + ' already exists for this message.'
@@ -460,7 +463,7 @@ public with sharing class CopyCockpitController {
         }
 
         for (CC_Message_Metadata__c r : rows) {
-            Decimal v = resolveVariantNumber(r.Name, r.Version__c, oldStem.trim());
+            Decimal v = resolveVariantNumber(r, oldStem.trim());
             if (v == null) v = 1;
             r.Name = newStem + '_' + String.valueOf(v.intValue());
             r.Version__c = v;
@@ -563,6 +566,9 @@ public with sharing class CopyCockpitController {
     }
 
     private static Decimal resolveVariantNumber(String fullName, Decimal versionField, String stem) {
+        if (versionField != null) {
+            return versionField;
+        }
         if (String.isNotBlank(fullName) && String.isNotBlank(stem) && fullName.startsWith(stem + '_')) {
             String suffix = fullName.substring(stem.length() + 1);
             if (suffix.isNumeric()) return Decimal.valueOf(suffix);
@@ -572,20 +578,35 @@ public with sharing class CopyCockpitController {
         return versionField;
     }
 
+    private static Decimal resolveVariantNumber(CC_Message_Metadata__c row, String stem) {
+        if (row == null) return null;
+        if (String.isNotBlank(row.MessageName__c) && String.isNotBlank(stem)
+            && row.MessageName__c.trim().equalsIgnoreCase(stem.trim())) {
+            if (row.MessageVariant__c != null) return row.MessageVariant__c;
+            if (row.Version__c != null) return row.Version__c;
+        }
+        return resolveVariantNumber(row.Name, row.Version__c, stem);
+    }
+
     private static List<CC_Message_Metadata__c> queryByStem(String stem, String channelType) {
         if (String.isBlank(stem) || String.isBlank(channelType)) {
             return new List<CC_Message_Metadata__c>();
         }
         String likePattern = stem + '_%';
         List<CC_Message_Metadata__c> candidates = [
-            SELECT Id, Name, Version__c, Language__c
+            SELECT Id, Name, Version__c, Language__c, MessageName__c, MessageVariant__c
             FROM CC_Message_Metadata__c
             WHERE Channel_Type__c = :channelType
-              AND (Name = :stem OR Name LIKE :likePattern)
+              AND (MessageName__c = :stem OR Name = :stem OR Name LIKE :likePattern)
             LIMIT 500
         ];
         List<CC_Message_Metadata__c> matched = new List<CC_Message_Metadata__c>();
+        String stemTrim = stem.trim();
         for (CC_Message_Metadata__c r : candidates) {
+            if (String.isNotBlank(r.MessageName__c) && r.MessageName__c.trim() == stemTrim) {
+                matched.add(r);
+                continue;
+            }
             if (r.Name == stem) {
                 matched.add(r);
                 continue;

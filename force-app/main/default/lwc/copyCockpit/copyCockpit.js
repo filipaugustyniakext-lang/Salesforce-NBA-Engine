@@ -22,6 +22,9 @@ import {
     channelPrefixForType,
     composeStem,
     groupKeyFromName,
+    masterGroupKey,
+    recordBelongsToMasterGroup,
+    variantNumberFromRecord,
     nameBelongsToStem,
     nextAvailableVariant,
     parseFullName
@@ -240,20 +243,16 @@ function buildScheduleBadge(record) {
 function buildGroups(records, expandedSet, editingGroupName, selectedIds, versionCounts, editingWeightId) {
     const map = new Map();
     for (const r of records) {
-        const key = groupKeyFromName(r.Name);
+        const key = masterGroupKey(r);
         if (!map.has(key)) map.set(key, []);
         map.get(key).push(r);
     }
 
     return Array.from(map.entries()).map(([stem, variants]) => {
         // Stable order by variant number
-        variants = [...variants].sort((a, b) => {
-            const va = Number(a.Version__c) || parseFullName(a.Name).variant || 0;
-            const vb = Number(b.Version__c) || parseFullName(b.Name).variant || 0;
-            return va - vb;
-        });
+        variants = [...variants].sort((a, b) => variantNumberFromRecord(a) - variantNumberFromRecord(b));
 
-        const parsed = parseFullName(variants[0]?.Name || stem);
+        const parsed = parseFullName(variants[0]?.MessageName__c || variants[0]?.Name || stem);
         const totalVariants  = variants.length;
         const publishedCount = variants.filter(v => (v.Status__c || '').toLowerCase() === 'published').length;
         const hasPublished   = publishedCount > 0;
@@ -267,8 +266,7 @@ function buildGroups(records, expandedSet, editingGroupName, selectedIds, versio
             const sched = buildScheduleBadge(v);
             const isSelected = selectedIds.has(v.Id);
             const modBy = v.MCE_Last_Modified_By__c || null;
-            const vParsed = parseFullName(v.Name);
-            const variantNum = v.Version__c != null ? v.Version__c : vParsed.variant;
+            const variantNum = variantNumberFromRecord(v);
             const weightPercent = weightPercentFromRecord(v.Display_Probability__c, v.Display_Probability_Manual__c);
             const mceVariantKey = v.MessageVariantId__c || v.Message_Variant_Id__c || null;
             return {
@@ -840,7 +838,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         const stem = e.target.dataset.name;
         const checked = e.target.checked;
         const groupIds = this._messages
-            .filter(m => nameBelongsToStem(m.Name, stem) || groupKeyFromName(m.Name) === stem)
+            .filter(m => recordBelongsToMasterGroup(m, stem))
             .map(m => m.Id);
         const next = new Set(this._selectedIds);
         if (checked) {
@@ -1235,7 +1233,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         e.stopPropagation();
         const stem = e.currentTarget.dataset.name;
         const groupRecords = this._messages.filter(
-            m => nameBelongsToStem(m.Name, stem) || groupKeyFromName(m.Name) === stem
+            m => recordBelongsToMasterGroup(m, stem)
         );
         const first = groupRecords[0] || {};
         const familySource = groupRecords.find(m => m.Product_Family__c) || first;
@@ -1470,16 +1468,15 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
 
     _messagesForStem(stem) {
         return this._messages.filter(
-            m => nameBelongsToStem(m.Name, stem) || groupKeyFromName(m.Name) === stem
+            m => recordBelongsToMasterGroup(m, stem)
         );
     }
 
     _nextVersionForName(fullOrStemName) {
         const stem = groupKeyFromName(fullOrStemName);
-        const taken = this._messagesForStem(stem).map(m => {
-            const parsed = parseFullName(m.Name);
-            return Number(m.Version__c != null ? m.Version__c : parsed.variant);
-        }).filter(n => !Number.isNaN(n) && n > 0);
+        const taken = this._messagesForStem(stem)
+            .map(m => variantNumberFromRecord(m))
+            .filter(n => !Number.isNaN(n) && n > 0);
         return nextAvailableVariant(taken);
     }
 

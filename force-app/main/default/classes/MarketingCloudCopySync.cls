@@ -626,12 +626,33 @@ public with sharing class MarketingCloudCopySync {
         return successCount;
     }
 
+    /** Unique SF Name: MCE MessageName + MessageVariant (e.g. EMA_PL_Email_1_2). */
+    private static String composeMceSyncedRecordName(String messageName, String messageVariant) {
+        if (String.isBlank(messageName)) {
+            return messageName;
+        }
+        String name = messageName.trim();
+        if (String.isNotBlank(messageVariant)) {
+            String variant = messageVariant.trim();
+            if (variant.isNumeric()) {
+                return name + '_' + variant;
+            }
+        }
+        return name;
+    }
+
     private static CC_Message_Metadata__c toRecord(Map<String, String> row, String variantId) {
         CC_Message_Metadata__c rec = new CC_Message_Metadata__c();
         rec.MessageVariantId__c = variantId;
         rec.Message_Variant_Id__c = variantId;
-        putText(rec, 'Name', firstFilled(row, new List<String>{ 'messagename', 'messagevariantid' }), 80);
-        putText(rec, 'MessageName__c', row.get('messagename'), 255);
+        String messageName = row.get('messagename');
+        String messageVariantNum = row.get('messagevariant');
+        if (String.isBlank(messageVariantNum)) {
+            messageVariantNum = row.get('version');
+        }
+        String syncedName = composeMceSyncedRecordName(messageName, messageVariantNum);
+        putText(rec, 'Name', firstFilled(row, new List<String>{ syncedName, 'messagevariantid' }), 80);
+        putText(rec, 'MessageName__c', messageName, 255);
         putText(rec, 'MessageType__c', row.get('messagetype'), 255);
         putText(rec, 'Message_Type__c', row.get('messagetype'), 100);
         putText(rec, 'Channel_Type__c', cockpitChannelType(row.get('messagetype')), 100);
@@ -681,8 +702,8 @@ public with sharing class MarketingCloudCopySync {
         putNumber(rec, 'BlockCount__c', row.get('blockcount'));
         putNumber(rec, 'Block_Count__c', row.get('blockcount'));
         putNumber(rec, 'ContentBuilderMessageId__c', row.get('contentbuildermessageid'));
-        putNumber(rec, 'MessageVariant__c', row.get('messagevariant'));
-        putNumber(rec, 'Version__c', row.get('version'));
+        putNumber(rec, 'MessageVariant__c', messageVariantNum);
+        putNumber(rec, 'Version__c', messageVariantNum);
         putProbability(rec, row.get('displayprobability'));
         putProbabilityManual(rec, row.get('displayprobabilitymanual'));
         putDatetime(rec, 'CancelledAt__c', row.get('cancelledat'));
