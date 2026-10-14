@@ -104,20 +104,25 @@
 
 .cockpit-toolbar {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 0.75rem;
     padding: 0.6rem 1rem;
     border-bottom: 1px solid #e0e5ee;
     flex-wrap: wrap;
 }
 
-.cockpit-search { flex: 1; min-width: 180px; }
-.cockpit-search label {display:none !important;}
+.cockpit-search {
+    flex: 1;
+    min-width: 180px;
+    --slds-c-input-spacing-block-start: 0;
+    --slds-c-input-spacing-block-end: 0;
+}
 
 .cockpit-toolbar__right {
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    flex-shrink: 0;
     flex-wrap: wrap;
 }
 
@@ -207,7 +212,21 @@
 
 .cockpit-col-check    { width: var(--col-check); display: flex; align-items: center; justify-content: center; }
 .cockpit-col-name     { min-width: 0; display:flex; align-items:center }
-.cockpit-col-status   { text-align: left; }
+.cockpit-col-status {
+    display: flex;
+    align-items: center;
+    text-align: left;
+    min-height: 1.25rem;
+}
+
+.cockpit-col-status .slds-badge {
+    display: inline-flex;
+    align-items: center;
+    line-height: 1.25;
+    max-height: 1.25rem;
+    padding-top: 0.125rem;
+    padding-bottom: 0.125rem;
+}
 .cockpit-col-weight   { text-align: center; }
 .cockpit-col-schedule { text-align: left; }
 .cockpit-col-blocks   { text-align: center; }
@@ -479,11 +498,6 @@
     white-space: nowrap;
 }
 
-.cockpit-stat-chip_live {
-    background: #cff4d2;
-    color: #2e6b34;
-}
-
 .cockpit-num-chip {
     display: inline-flex;
     align-items: center;
@@ -510,9 +524,15 @@
 /* ─── Status badges / variant status picker ───────────────────────────────── */
 
 .cockpit-status-picker {
-    font-size: var(--slds-c-badge-font-size, var(--slds-g-font-scale-neg-1));
-    font-weight: var(--slds-g-font-weight-4);
-    line-height: normal;
+    display: inline-flex;
+    align-items: center;
+    box-sizing: border-box;
+    max-height: 1.25rem;
+    min-height: 1.25rem;
+    padding: 0 0.35rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.25;
     white-space: nowrap;
     border-width: var(--slds-c-badge-sizing-border, var(--slds-g-sizing-border-1));
     border-style: solid;
@@ -521,7 +541,10 @@
 }
 
 .cockpit-status-picker .fix-slds-input_faux {
-    line-height: 1.2rem !important;
+    line-height: 1.25rem !important;
+    min-height: 1.25rem !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
 }
 
 .cockpit-status-picker--draft {
@@ -550,7 +573,7 @@
 }
 
 .cockpit-status-picker .cockpit-variant-status-combobox {
-    --lwc-heightInput: 1.35rem;
+    --lwc-heightInput: 1.25rem;
     --slds-c-input-color-border: transparent;
     --slds-c-input-shadow: none;
     --slds-c-input-shadow-focus: 0 0 0 1px rgba(255, 255, 255, 0.35);
