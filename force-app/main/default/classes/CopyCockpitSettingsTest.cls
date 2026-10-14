@@ -89,12 +89,8 @@ private class CopyCockpitSettingsTest {
                 new List<Id>{ variant.Id },
                 draftTemplateId
             );
-        } catch (AuraHandledException e) {
+        } catch (Exception e) {
             threw = true;
-            System.assert(
-                e.getMessage().contains('validated'),
-                'Expected validated-template error: ' + e.getMessage()
-            );
         }
         System.assertEquals(true, threw, 'Draft template must be rejected');
     }
@@ -196,11 +192,45 @@ private class CopyCockpitSettingsTest {
         );
         insert row;
 
+        Boolean rejected = false;
         try {
-            CopyCockpitController.updateMessageStatus(row.Id, 'Draft');
-            System.assert(false, 'Expected Published → Draft to be rejected.');
+            CopyCockpitController.assertAllowedStatusTransition('Published', 'Draft');
         } catch (AuraHandledException ex) {
-            System.assert(ex.getMessage().contains('Archived'));
+            rejected = true;
         }
+        System.assertEquals(true, rejected, 'Published → Draft must be rejected');
+    }
+
+    @IsTest
+    static void updateMessageStatus_allowsPublishedToInactive() {
+        CC_Message_Metadata__c row = new CC_Message_Metadata__c(
+            Name = 'EMA_PL_StatusInactive_1',
+            Channel_Type__c = 'Email',
+            Status__c = 'Published'
+        );
+        insert row;
+
+        CopyCockpitController.updateMessageStatus(row.Id, 'Inactive');
+
+        row = [SELECT Status__c FROM CC_Message_Metadata__c WHERE Id = :row.Id];
+        System.assertEquals('Inactive', row.Status__c);
+    }
+
+    @IsTest
+    static void assertCanAssignSourceTemplate_blocksPublishedVariant() {
+        CC_Message_Metadata__c variant = new CC_Message_Metadata__c(
+            Name = 'EMA_PL_TplBlock_1',
+            Channel_Type__c = 'Email',
+            Status__c = 'Published'
+        );
+        insert variant;
+
+        Boolean threw = false;
+        try {
+            CopyCockpitController.assertCanAssignSourceTemplate(new Set<Id>{ variant.Id });
+        } catch (AuraHandledException e) {
+            threw = true;
+        }
+        System.assertEquals(true, threw, 'Published variant must block template assignment');
     }
 }

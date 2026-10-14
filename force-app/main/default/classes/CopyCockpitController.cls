@@ -170,7 +170,16 @@ public with sharing class CopyCockpitController {
                 toUpdate.add(rec);
             }
 
-            if (!toUpdate.isEmpty()) update toUpdate;
+            if (!toUpdate.isEmpty()) {
+                if (validatedTemplateId != null) {
+                    Set<Id> idsToValidate = new Set<Id>();
+                    for (CC_Message_Metadata__c rec : toUpdate) {
+                        idsToValidate.add(rec.Id);
+                    }
+                    assertCanAssignSourceTemplate(idsToValidate);
+                }
+                update toUpdate;
+            }
         } catch (Exception e) {
             throw new AuraHandledException('Save failed: ' + e.getMessage());
         }
@@ -190,6 +199,7 @@ public with sharing class CopyCockpitController {
         }
 
         Set<Id> uniqueIds = new Set<Id>(messageIds);
+        assertCanAssignSourceTemplate(uniqueIds);
         List<CC_Message_Metadata__c> updates = new List<CC_Message_Metadata__c>();
         for (Id messageId : uniqueIds) {
             if (messageId == null) {
@@ -205,6 +215,25 @@ public with sharing class CopyCockpitController {
         }
         update updates;
         return updates.size();
+    }
+
+    @TestVisible
+    private static void assertCanAssignSourceTemplate(Set<Id> messageIds) {
+        if (messageIds == null || messageIds.isEmpty()) {
+            return;
+        }
+        for (CC_Message_Metadata__c msg : [
+            SELECT Id, Status__c
+            FROM CC_Message_Metadata__c
+            WHERE Id IN :messageIds
+        ]) {
+            if (msg.Status__c == 'Published') {
+                throw new AuraHandledException(
+                    'Cannot change source template for Published variants. ' +
+                    'Set the variant to Inactive first, change the template, then validate and publish again.'
+                );
+            }
+        }
     }
 
     private static Id resolveActiveValidatedTemplateId(String sourceTemplateId) {
@@ -388,7 +417,7 @@ public with sharing class CopyCockpitController {
     }
 
     private static final Set<String> ALLOWED_MESSAGE_STATUSES = new Set<String>{
-        'Draft', 'Ready', 'Published', 'Archived'
+        'Draft', 'Ready', 'Published', 'Inactive', 'Archived'
     };
 
     @AuraEnabled
@@ -398,7 +427,7 @@ public with sharing class CopyCockpitController {
         }
         if (String.isBlank(status) || !ALLOWED_MESSAGE_STATUSES.contains(status)) {
             throw new AuraHandledException(
-                'Status must be one of: Draft, Ready, Published, or Archived.'
+                'Status must be one of: Draft, Ready, Published, Inactive, or Archived.'
             );
         }
         CC_Message_Metadata__c existing = [
@@ -418,9 +447,20 @@ public with sharing class CopyCockpitController {
         if (currentStatus == targetStatus) {
             return;
         }
-        if (currentStatus == 'Published' && targetStatus != 'Archived') {
+        if (currentStatus == 'Published'
+            && targetStatus != 'Archived'
+            && targetStatus != 'Inactive') {
             throw new AuraHandledException(
-                'Published messages can only be changed to Archived.'
+                'Published messages can only be changed to Inactive or Archived.'
+            );
+        }
+        if (currentStatus == 'Inactive'
+            && targetStatus != 'Draft'
+            && targetStatus != 'Ready'
+            && targetStatus != 'Published'
+            && targetStatus != 'Inactive') {
+            throw new AuraHandledException(
+                'Inactive messages can be set to Draft, Ready, or Published.'
             );
         }
         if (currentStatus == 'Archived' && targetStatus != 'Published') {

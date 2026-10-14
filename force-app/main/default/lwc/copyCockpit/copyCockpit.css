@@ -390,9 +390,19 @@
 .cockpit-variant-name-cell {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 0.4rem;
     min-width: 0;
     padding-left: 1.5rem; /* indent under master name */
+}
+
+.cockpit-source-template-badge {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .cockpit-variant-num {

@@ -314,6 +314,12 @@
                                                         <!-- Indent + name / label -->
                                                         <div class="cockpit-variant-name-cell">
                                                             <span class="cockpit-variant-num">Variant {v.versionLabel}</span>
+                                                            <template lwc:if={v.sourceTemplateBadge}>
+                                                                <span
+                                                                    class="slds-badge slds-theme_lightest cockpit-source-template-badge"
+                                                                    title="Assigned source template"
+                                                                >{v.sourceTemplateBadge}</span>
+                                                            </template>
                                                             <template lwc:if={v.Subject__c}>
                                                                 <span class="cockpit-variant-subject">{v.Subject__c}</span>
                                                             </template>
@@ -431,8 +437,9 @@
                                                             <button
                                                                 type="button"
                                                                 class="slds-button slds-button_icon slds-button_icon-border slds-button_icon-small cockpit-quick-action"
-                                                                title="Change Source Template"
+                                                                title={v.sourceTemplateButtonTitle}
                                                                 data-id={v.Id}
+                                                                disabled={v.sourceTemplateButtonDisabled}
                                                                 onclick={handleVariantChangeSourceTemplate}
                                                             >
                                                                 <lightning-icon icon-name="utility:insert_template" size="xx-small" alternative-text="Change Source Template"></lightning-icon>
@@ -527,6 +534,26 @@
                 <footer class="slds-modal__footer">
                     <lightning-button label="Cancel" onclick={handleStatusConfirmCancel} class="slds-m-right_x-small"></lightning-button>
                     <lightning-button label={statusConfirmProceedLabel} variant="brand" onclick={handleStatusConfirmProceed}></lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+    <!-- Source template replace confirmation -->
+    <template lwc:if={isTemplateReplaceConfirmOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="template-replace-confirm-title" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header slds-theme_warning slds-theme_alert-texture">
+                    <lightning-icon icon-name="utility:warning" size="small" class="slds-m-right_x-small"></lightning-icon>
+                    <h2 id="template-replace-confirm-title" class="slds-modal__title">Change source template?</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <p>{templateReplaceConfirmMessage}</p>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={handleTemplateReplaceConfirmCancel} class="slds-m-right_x-small"></lightning-button>
+                    <lightning-button label="Change template" variant="brand" onclick={handleTemplateReplaceConfirmProceed}></lightning-button>
                 </footer>
             </div>
         </section>

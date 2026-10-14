@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Status__c</fullName>
-    <description>Lifecycle status of this message copy record: Draft (work in progress), Ready (approved for use), Published (live), or Archived (retired).</description>
+    <description>Lifecycle status of this message copy record: Draft, Ready, Published (live), Inactive (temporarily off live), or Archived (retired).</description>
     <inlineHelpText>Set to Draft while editing, Ready when approved, Published when live.</inlineHelpText>
     <label>Status</label>
     <required>false</required>
@@ -27,6 +27,11 @@
                 <fullName>Published</fullName>
                 <default>false</default>
                 <label>Published</label>
+            </value>
+            <value>
+                <fullName>Inactive</fullName>
+                <default>false</default>
+                <label>Inactive</label>
             </value>
             <value>
                 <fullName>Archived</fullName>

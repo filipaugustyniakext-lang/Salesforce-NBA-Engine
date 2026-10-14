@@ -51,6 +51,7 @@ const STATUS_BADGE_CLASS = {
     draft:     'slds-badge slds-theme_lightest',
     ready:     'slds-badge slds-theme_info',
     published: 'slds-badge slds-theme_success',
+    inactive:  'slds-badge slds-theme_warning',
     archived:  'slds-badge slds-theme_shade',
 };
 
@@ -58,13 +59,17 @@ const VARIANT_STATUS_OPTIONS = [
     { value: 'Draft', label: 'Draft' },
     { value: 'Ready', label: 'Ready' },
     { value: 'Published', label: 'Published' },
+    { value: 'Inactive', label: 'Inactive' },
     { value: 'Archived', label: 'Archived' },
 ];
 
 function allowedTargetStatuses(fromStatus) {
     const from = (fromStatus || 'Draft').toLowerCase();
     if (from === 'published') {
-        return ['Published', 'Archived'];
+        return ['Published', 'Inactive', 'Archived'];
+    }
+    if (from === 'inactive') {
+        return ['Inactive', 'Draft', 'Ready', 'Published'];
     }
     if (from === 'archived') {
         return ['Archived', 'Published'];
@@ -82,7 +87,7 @@ function statusChangeNeedsConfirm(fromStatus, toStatus) {
     if (from === to) {
         return false;
     }
-    return to === 'published' || to === 'archived';
+    return to === 'published' || to === 'archived' || (from === 'published' && to === 'inactive');
 }
 
 function buildStatusConfirmCopy(fromStatus, toStatus, variantName) {
@@ -104,6 +109,14 @@ function buildStatusConfirmCopy(fromStatus, toStatus, variantName) {
                 'and will not be selected for customer activation. Do you want to continue?',
         };
     }
+    if (to === 'inactive') {
+        return {
+            title: 'Inactivate message variant?',
+            message:
+                `"${label}" will be temporarily removed from live activation while you ` +
+                'change templates or copy. You can validate and publish again when ready.',
+        };
+    }
     return { title: 'Change status?', message: 'Do you want to continue?' };
 }
 
@@ -117,6 +130,7 @@ const STATUS_FILTERS = [
     { value: 'Draft',     label: 'Draft' },
     { value: 'Ready',     label: 'Ready' },
     { value: 'Published', label: 'Published' },
+    { value: 'Inactive',  label: 'Inactive' },
     { value: 'Archived',  label: 'Archived' },
 ];
 
@@ -152,12 +166,19 @@ function statusBadgeClass(status) {
 
 function statusPickerClass(status) {
     const key = (status || 'draft').toLowerCase();
-    const allowed = ['draft', 'ready', 'published', 'archived'];
+    const allowed = ['draft', 'ready', 'published', 'inactive', 'archived'];
     const suffix = allowed.includes(key) ? key : 'draft';
     return `cockpit-status-picker cockpit-status-picker--${suffix}`;
 }
 
 function buildMasterStatusSummary(variants) {
+    const inactiveCount = variants.filter(v => (v.Status__c || '').toLowerCase() === 'inactive').length;
+    if (inactiveCount > 0 && inactiveCount === variants.length) {
+        return {
+            masterStatusSummary: inactiveCount === 1 ? '1 Inactive' : `${inactiveCount} Inactive`,
+            masterStatusSummaryClass: 'slds-badge slds-theme_warning',
+        };
+    }
     const publishedCount = variants.filter(v => (v.Status__c || '').toLowerCase() === 'published').length;
     if (publishedCount > 0) {
         return {
@@ -261,6 +282,7 @@ function buildGroups(records, expandedSet, editingGroupName, selectedIds, versio
         const hasReady       = variants.some(v => (v.Status__c || '').toLowerCase() === 'ready');
         const hasDraft       = variants.some(v => (v.Status__c || '').toLowerCase() === 'draft');
         const hasArchived    = variants.some(v => (v.Status__c || '').toLowerCase() === 'archived');
+        const hasInactive    = variants.some(v => (v.Status__c || '').toLowerCase() === 'inactive');
         const isExpanded     = expandedSet.has(stem);
         const isEditing      = editingGroupName === stem;
 
@@ -297,6 +319,13 @@ function buildGroups(records, expandedSet, editingGroupName, selectedIds, versio
                 isSelected,
                 checkboxLabel:      `Select ${v.Name || 'variant'}`,
                 variantRowClass:    `cockpit-variant-row${isSelected ? ' cockpit-variant-row_selected' : ''}`,
+                sourceTemplateBadge: v.Source_Template__r?.Name || null,
+                canChangeSourceTemplate: (v.Status__c || '').toLowerCase() !== 'published',
+                sourceTemplateButtonDisabled: (v.Status__c || '').toLowerCase() === 'published',
+                sourceTemplateButtonTitle:
+                    (v.Status__c || '').toLowerCase() === 'published'
+                        ? 'Published variants must be set to Inactive before changing the source template'
+                        : 'Change Source Template',
             };
         });
 
@@ -319,6 +348,7 @@ function buildGroups(records, expandedSet, editingGroupName, selectedIds, versio
             hasReady,
             hasDraft,
             hasArchived,
+            hasInactive,
             isExpanded,
             isEditing,
             expandedStr:          isExpanded ? 'true' : 'false',
@@ -379,6 +409,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
 
     @track _masterEditModal = null;
     @track _sourceTemplateModal = null;
+    @track _templateReplaceConfirm = null;
 
     @track _editingWeightId = null;
     @track _weightEditValue = '';
@@ -545,6 +576,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
                 if (f === 'ready')     return g.hasReady;
                 if (f === 'draft')     return g.hasDraft;
                 if (f === 'archived')  return g.hasArchived;
+                if (f === 'inactive')  return g.hasInactive;
                 return true;
             });
         }
@@ -605,6 +637,20 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
 
     get sourceTemplateModal() {
         return this._sourceTemplateModal || {};
+    }
+
+    get isTemplateReplaceConfirmOpen() {
+        return !!this._templateReplaceConfirm;
+    }
+
+    get templateReplaceConfirmMessage() {
+        const names = this._templateReplaceConfirm?.messageNames || [];
+        const list = names.length ? names.join(', ') : 'selected messages';
+        return (
+            `Are you sure you want to change source templates for these messages: ${list}? ` +
+            'If message copy data is missing data expected by the template, messages might not ' +
+            'be rendered correctly or fail to send at all.'
+        );
     }
 
     // ── selection ──────────────────────────────────────────────────────────
@@ -980,16 +1026,82 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         this._executeMceVariantSync(ids);
     }
 
+    _messageRecordById(recordId) {
+        return this._messages.find(m => m.Id === recordId) || null;
+    }
+
+    _messageVariantLabel(record) {
+        if (!record) {
+            return 'Unknown message';
+        }
+        const name = record.MessageName__c || record.Name || 'Message';
+        const variantNum = record.Message_Variant__c || record.Version__c;
+        if (variantNum != null && variantNum !== '') {
+            return `${name} (variant ${variantNum})`;
+        }
+        return name;
+    }
+
+    _splitEligibleForTemplateChange(variantIds) {
+        const eligible = [];
+        const publishedLabels = [];
+        (variantIds || []).forEach(id => {
+            const row = this._messageRecordById(id);
+            if ((row?.Status__c || '').toLowerCase() === 'published') {
+                publishedLabels.push(this._messageVariantLabel(row));
+            } else if (id) {
+                eligible.push(id);
+            }
+        });
+        return { eligible, publishedLabels };
+    }
+
+    _toastPublishedTemplateBlock(publishedLabels) {
+        const sample = publishedLabels.slice(0, 3).join(', ');
+        const suffix = publishedLabels.length > 3 ? ` (+${publishedLabels.length - 3} more)` : '';
+        this._showToast(
+            'Cannot change source template',
+            `Published variants must be set to Inactive first: ${sample}${suffix}`,
+            'error'
+        );
+    }
+
+    _replaceTemplateMessageNames(variantIds, newTemplateId) {
+        return (variantIds || [])
+            .map(id => {
+                const row = this._messageRecordById(id);
+                if (!row?.Source_Template__c) {
+                    return null;
+                }
+                if (newTemplateId && row.Source_Template__c === newTemplateId) {
+                    return null;
+                }
+                return this._messageVariantLabel(row);
+            })
+            .filter(Boolean);
+    }
+
+    _needsTemplateReplaceConfirm(variantIds, newTemplateId) {
+        return this._replaceTemplateMessageNames(variantIds, newTemplateId).length > 0;
+    }
+
     handleBulkChangeSourceTemplate() {
         const ids = Array.from(this._selectedIds);
         if (!ids.length) {
             this._showToast('Change Source Template', 'Select at least one variant.', 'warning');
             return;
         }
+        const { eligible, publishedLabels } = this._splitEligibleForTemplateChange(ids);
+        if (publishedLabels.length) {
+            this._toastPublishedTemplateBlock(publishedLabels);
+        }
+        if (!eligible.length) {
+            return;
+        }
         this._openSourceTemplateModal({
             title: 'Change Source Template',
-            subtitle: `Assign a validated channel template to ${ids.length} selected variant(s).`,
-            variantIds: ids,
+            subtitle: `Assign a validated channel template to ${eligible.length} selected variant(s).`,
+            variantIds: eligible,
             selectedTemplateId: ''
         });
     }
@@ -1000,7 +1112,11 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         if (!recordId) {
             return;
         }
-        const row = this._messages.find(m => m.Id === recordId);
+        const row = this._messageRecordById(recordId);
+        if ((row?.Status__c || '').toLowerCase() === 'published') {
+            this._toastPublishedTemplateBlock([this._messageVariantLabel(row)]);
+            return;
+        }
         this._openSourceTemplateModal({
             title: 'Change Source Template',
             subtitle: 'Assign a validated channel template to this variant.',
@@ -1013,11 +1129,19 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         event.stopPropagation();
         const stem = event.currentTarget.dataset.name;
         const groupRecords = this._messages.filter(m => recordBelongsToMasterGroup(m, stem));
+        const ids = groupRecords.map(v => v.Id);
+        const { eligible, publishedLabels } = this._splitEligibleForTemplateChange(ids);
+        if (publishedLabels.length) {
+            this._toastPublishedTemplateBlock(publishedLabels);
+        }
+        if (!eligible.length) {
+            return;
+        }
         const templateSource = groupRecords.find(m => m.Source_Template__c) || groupRecords[0];
         this._openSourceTemplateModal({
             title: 'Change Source Template',
-            subtitle: `Assign a validated template to all ${groupRecords.length} variant(s) in this master row.`,
-            variantIds: groupRecords.map(v => v.Id),
+            subtitle: `Assign a validated template to ${eligible.length} eligible variant(s) in this master row.`,
+            variantIds: eligible,
             selectedTemplateId: templateSource?.Source_Template__c || ''
         });
     }
@@ -1028,7 +1152,8 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             subtitle,
             variantIds: variantIds || [],
             selectedTemplateId: selectedTemplateId || '',
-            isSaving: false
+            isSaving: false,
+            replaceConfirmed: false
         };
     }
 
@@ -1055,6 +1180,18 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             this._showToast('Change Source Template', 'No variants to update.', 'warning');
             return;
         }
+        if (!modal.replaceConfirmed && this._needsTemplateReplaceConfirm(ids, modal.selectedTemplateId)) {
+            this._templateReplaceConfirm = {
+                context: 'sourceModal',
+                messageNames: this._replaceTemplateMessageNames(ids, modal.selectedTemplateId)
+            };
+            return;
+        }
+        this._executeSourceTemplateUpdate(modal);
+    }
+
+    _executeSourceTemplateUpdate(modal) {
+        const ids = modal.variantIds || [];
         this._sourceTemplateModal = { ...modal, isSaving: true };
         updateMessageSourceTemplates({
             messageIds: ids,
@@ -1062,6 +1199,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         })
             .then(count => {
                 this._sourceTemplateModal = null;
+                this._templateReplaceConfirm = null;
                 this._showToast(
                     'Source template updated',
                     `Updated ${count} variant${count !== 1 ? 's' : ''}.`,
@@ -1074,6 +1212,26 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
                 this._sourceTemplateModal = { ...this._sourceTemplateModal, isSaving: false };
                 this._showToast('Error', err?.body?.message || 'Could not update source template.', 'error');
             });
+    }
+
+    handleTemplateReplaceConfirmCancel() {
+        this._templateReplaceConfirm = null;
+    }
+
+    handleTemplateReplaceConfirmProceed() {
+        const ctx = this._templateReplaceConfirm?.context;
+        this._templateReplaceConfirm = null;
+        if (ctx === 'sourceModal' && this._sourceTemplateModal) {
+            const modal = { ...this._sourceTemplateModal, replaceConfirmed: true };
+            this._sourceTemplateModal = modal;
+            this._executeSourceTemplateUpdate(modal);
+            return;
+        }
+        if (ctx === 'masterEdit' && this._masterEditModal) {
+            const modal = { ...this._masterEditModal, templateReplaceConfirmed: true };
+            this._masterEditModal = modal;
+            this._commitMasterEditSave(modal);
+        }
     }
 
     handleVariantSyncMCE(event) {
@@ -1536,6 +1694,31 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
 
     handleMasterEditSave() {
         const modal = this._masterEditModal;
+        if (!modal) {
+            return;
+        }
+        const variantIds = modal.variantIds || [];
+        if (modal.sourceTemplateId) {
+            const { publishedLabels } = this._splitEligibleForTemplateChange(variantIds);
+            if (publishedLabels.length) {
+                this._toastPublishedTemplateBlock(publishedLabels);
+                return;
+            }
+            if (
+                !modal.templateReplaceConfirmed
+                && this._needsTemplateReplaceConfirm(variantIds, modal.sourceTemplateId)
+            ) {
+                this._templateReplaceConfirm = {
+                    context: 'masterEdit',
+                    messageNames: this._replaceTemplateMessageNames(variantIds, modal.sourceTemplateId)
+                };
+                return;
+            }
+        }
+        this._commitMasterEditSave(modal);
+    }
+
+    _commitMasterEditSave(modal) {
         this._masterEditModal = { ...modal, isSaving: true };
         const settingsJson = JSON.stringify({
             offerId: modal.offerId || null,
@@ -1546,6 +1729,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         saveMasterRowSettings({ settingsJson })
             .then(() => {
                 this._masterEditModal = null;
+                this._templateReplaceConfirm = null;
                 this._showToast('Saved', `Settings for "${modal.messageName}" saved.`, 'success');
                 this._loadMessages(this.activeChannel?.Channel_Type__c);
             })
