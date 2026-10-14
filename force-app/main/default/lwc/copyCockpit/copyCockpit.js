@@ -47,6 +47,38 @@ const ICON_MAP = {
     whatsapp:  'utility:anywhere_chat',
 };
 
+const COLUMN_WIDTH_STORAGE_KEY = 'copyCockpit.columnWidths.v1';
+
+const COLUMN_WIDTH_DEFAULTS = {
+    name: 240,
+    status: 112,
+    weight: 72,
+    schedule: 140,
+    blocks: 56,
+    versions: 64,
+    modified: 168,
+};
+
+const COLUMN_WIDTH_MIN = {
+    name: 120,
+    status: 88,
+    weight: 56,
+    schedule: 96,
+    blocks: 44,
+    versions: 44,
+    modified: 108,
+};
+
+const COLUMN_WIDTH_MAX = {
+    name: 520,
+    status: 180,
+    weight: 120,
+    schedule: 260,
+    blocks: 96,
+    versions: 120,
+    modified: 320,
+};
+
 const STATUS_BADGE_CLASS = {
     draft:     'slds-badge slds-theme_lightest',
     ready:     'slds-badge slds-theme_info',
@@ -403,6 +435,12 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     @track isBulkDeleteSaving = false;
     @track isVariantDeleteSaving = false;
 
+    @track _columnWidths = { ...COLUMN_WIDTH_DEFAULTS };
+    @track _isColumnResizing = false;
+    _colResize = null;
+    _boundColResizeMove;
+    _boundColResizeEnd;
+
     @track isCloneModalOpen = false;
     @track isCloning = false;
     cloneSourceId = null;
@@ -706,7 +744,115 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         return `Select all ${masterCount} message${masterCount !== 1 ? 's' : ''} and ${variantCount} variant${variantCount !== 1 ? 's' : ''} shown`;
     }
 
+    get columnWidthStyle() {
+        const w = this._columnWidths || COLUMN_WIDTH_DEFAULTS;
+        return [
+            `--col-name: ${w.name}px`,
+            `--col-status: ${w.status}px`,
+            `--col-weight: ${w.weight}px`,
+            `--col-schedule: ${w.schedule}px`,
+            `--col-blocks: ${w.blocks}px`,
+            `--col-versions: ${w.versions}px`,
+            `--col-modified: ${w.modified}px`,
+        ].join('; ');
+    }
+
+    get listGridClass() {
+        return this._isColumnResizing ? 'cockpit-list cockpit-list_resizing' : 'cockpit-list';
+    }
+
     // ── lifecycle ──────────────────────────────────────────────────────────
+
+    connectedCallback() {
+        this._columnWidths = this._loadColumnWidths();
+        this._boundColResizeMove = this._handleColResizeMove.bind(this);
+        this._boundColResizeEnd = this._handleColResizeEnd.bind(this);
+    }
+
+    disconnectedCallback() {
+        this._teardownColResizeListeners();
+    }
+
+    _loadColumnWidths() {
+        try {
+            const raw = window.localStorage.getItem(COLUMN_WIDTH_STORAGE_KEY);
+            if (!raw) {
+                return { ...COLUMN_WIDTH_DEFAULTS };
+            }
+            const parsed = JSON.parse(raw);
+            const merged = { ...COLUMN_WIDTH_DEFAULTS };
+            Object.keys(COLUMN_WIDTH_DEFAULTS).forEach(key => {
+                const value = Number(parsed[key]);
+                if (!Number.isFinite(value)) {
+                    return;
+                }
+                const min = COLUMN_WIDTH_MIN[key];
+                const max = COLUMN_WIDTH_MAX[key];
+                merged[key] = Math.min(max, Math.max(min, Math.round(value)));
+            });
+            return merged;
+        } catch (e) {
+            return { ...COLUMN_WIDTH_DEFAULTS };
+        }
+    }
+
+    _saveColumnWidths() {
+        try {
+            window.localStorage.setItem(
+                COLUMN_WIDTH_STORAGE_KEY,
+                JSON.stringify(this._columnWidths || COLUMN_WIDTH_DEFAULTS)
+            );
+        } catch (e) {
+            // Ignore storage failures (private mode, quota, etc.).
+        }
+    }
+
+    _teardownColResizeListeners() {
+        window.removeEventListener('mousemove', this._boundColResizeMove);
+        window.removeEventListener('mouseup', this._boundColResizeEnd);
+    }
+
+    handleColResizeStart(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        const col = event.currentTarget.dataset.col;
+        if (!col || this._columnWidths[col] == null) {
+            return;
+        }
+        this._colResize = {
+            col,
+            startX: event.clientX,
+            startWidth: this._columnWidths[col],
+        };
+        this._isColumnResizing = true;
+        window.addEventListener('mousemove', this._boundColResizeMove);
+        window.addEventListener('mouseup', this._boundColResizeEnd);
+    }
+
+    _handleColResizeMove(event) {
+        if (!this._colResize) {
+            return;
+        }
+        const { col, startX, startWidth } = this._colResize;
+        const delta = event.clientX - startX;
+        const min = COLUMN_WIDTH_MIN[col];
+        const max = COLUMN_WIDTH_MAX[col];
+        const nextWidth = Math.min(max, Math.max(min, startWidth + delta));
+        this._columnWidths = {
+            ...this._columnWidths,
+            [col]: nextWidth,
+        };
+    }
+
+    _handleColResizeEnd() {
+        if (!this._colResize) {
+            return;
+        }
+        this._colResize = null;
+        this._isColumnResizing = false;
+        this._teardownColResizeListeners();
+        this._saveColumnWidths();
+    }
 
     renderedCallback() {
         if (!this._firstChannelSeeded && this._wiredChannels.data?.length > 0) {

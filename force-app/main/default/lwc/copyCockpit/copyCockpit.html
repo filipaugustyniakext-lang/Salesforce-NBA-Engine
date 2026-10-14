@@ -175,7 +175,7 @@
 
                         <!-- Message groups -->
                         <template lwc:elseif={hasGroups}>
-                            <div class="cockpit-list" role="list">
+                            <div class={listGridClass} style={columnWidthStyle} role="list">
 
                                 <!-- Column header -->
                                 <div class="cockpit-list-header">
@@ -189,13 +189,41 @@
                                             onchange={handleSelectAllVisible}
                                         />
                                     </span>
-                                    <span class="cockpit-col-name">Message / Variant</span>
-                                    <span class="cockpit-col-status">Status</span>
-                                    <span class="cockpit-col-weight">Weight</span>
-                                    <span class="cockpit-col-schedule">Schedule</span>
-                                    <span class="cockpit-col-blocks">Blocks</span>
-                                    <span class="cockpit-col-versions">Versions</span>
-                                    <span class="cockpit-col-modified">Last Modified</span>
+                                    <span class="cockpit-col-name cockpit-col-header-cell">
+                                        <span class="cockpit-col-header-label">Message / Variant</span>
+                                        <span
+                                            class="cockpit-col-resizer"
+                                            data-col="name"
+                                            role="separator"
+                                            aria-orientation="vertical"
+                                            aria-label="Resize Message / Variant column"
+                                            onmousedown={handleColResizeStart}
+                                        ></span>
+                                    </span>
+                                    <span class="cockpit-col-status cockpit-col-header-cell">
+                                        <span class="cockpit-col-header-label">Status</span>
+                                        <span class="cockpit-col-resizer" data-col="status" role="separator" aria-orientation="vertical" aria-label="Resize Status column" onmousedown={handleColResizeStart}></span>
+                                    </span>
+                                    <span class="cockpit-col-weight cockpit-col-header-cell">
+                                        <span class="cockpit-col-header-label">Weight</span>
+                                        <span class="cockpit-col-resizer" data-col="weight" role="separator" aria-orientation="vertical" aria-label="Resize Weight column" onmousedown={handleColResizeStart}></span>
+                                    </span>
+                                    <span class="cockpit-col-schedule cockpit-col-header-cell">
+                                        <span class="cockpit-col-header-label">Schedule</span>
+                                        <span class="cockpit-col-resizer" data-col="schedule" role="separator" aria-orientation="vertical" aria-label="Resize Schedule column" onmousedown={handleColResizeStart}></span>
+                                    </span>
+                                    <span class="cockpit-col-blocks cockpit-col-header-cell">
+                                        <span class="cockpit-col-header-label">Blocks</span>
+                                        <span class="cockpit-col-resizer" data-col="blocks" role="separator" aria-orientation="vertical" aria-label="Resize Blocks column" onmousedown={handleColResizeStart}></span>
+                                    </span>
+                                    <span class="cockpit-col-versions cockpit-col-header-cell">
+                                        <span class="cockpit-col-header-label">Versions</span>
+                                        <span class="cockpit-col-resizer" data-col="versions" role="separator" aria-orientation="vertical" aria-label="Resize Versions column" onmousedown={handleColResizeStart}></span>
+                                    </span>
+                                    <span class="cockpit-col-modified cockpit-col-header-cell">
+                                        <span class="cockpit-col-header-label">Last Modified</span>
+                                        <span class="cockpit-col-resizer" data-col="modified" role="separator" aria-orientation="vertical" aria-label="Resize Last Modified column" onmousedown={handleColResizeStart}></span>
+                                    </span>
                                     <span class="cockpit-col-actions">
                                         <lightning-button-icon 
                                             onclick={handleToggleAll}

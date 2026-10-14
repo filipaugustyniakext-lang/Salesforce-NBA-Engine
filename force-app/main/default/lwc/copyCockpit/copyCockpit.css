@@ -177,14 +177,25 @@
 
 :host {
     --col-check:    32px;
-    --col-name:     1fr;
-    --col-status:   110px;
-    --col-weight:   76px;
-    --col-schedule: 156px;
-    --col-blocks:   60px;
-    --col-versions: 68px;
-    --col-modified: 130px;
+    --col-name:     240px;
+    --col-status:   112px;
+    --col-weight:   72px;
+    --col-schedule: 140px;
+    --col-blocks:   56px;
+    --col-versions: 64px;
+    --col-modified: 168px;
     --col-actions:  128px;
+}
+
+.cockpit-list {
+    overflow-x: auto;
+    --col-name: 240px;
+    --col-status: 112px;
+    --col-weight: 72px;
+    --col-schedule: 140px;
+    --col-blocks: 56px;
+    --col-versions: 64px;
+    --col-modified: 168px;
 }
 
 .cockpit-list-header {
@@ -211,7 +222,7 @@
 }
 
 .cockpit-col-check    { width: var(--col-check); display: flex; align-items: center; justify-content: center; }
-.cockpit-col-name     { min-width: 0; display:flex; align-items:center }
+.cockpit-col-name     { min-width: 0; max-width: var(--col-name); display: flex; align-items: center; overflow: hidden; }
 .cockpit-col-status {
     display: flex;
     align-items: center;
@@ -231,8 +242,44 @@
 .cockpit-col-schedule { text-align: left; }
 .cockpit-col-blocks   { text-align: center; }
 .cockpit-col-versions { text-align: center; }
-.cockpit-col-modified { min-width: 0; }
-.cockpit-col-actions  { display: flex; justify-content: flex-end; gap: 0.2rem; }
+.cockpit-col-modified { min-width: 0; max-width: var(--col-modified); overflow: hidden; }
+.cockpit-col-actions  { display: flex; justify-content: flex-end; gap: 0.2rem; min-width: var(--col-actions); }
+
+.cockpit-col-header-cell {
+    position: relative;
+    min-width: 0;
+    padding-right: 0.35rem;
+}
+
+.cockpit-col-header-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cockpit-col-resizer {
+    position: absolute;
+    top: -0.35rem;
+    right: -0.2rem;
+    bottom: -0.35rem;
+    width: 8px;
+    cursor: col-resize;
+    z-index: 2;
+    touch-action: none;
+}
+
+.cockpit-col-resizer:hover {
+    background: rgba(1, 118, 211, 0.18);
+}
+
+.cockpit-list_resizing {
+    cursor: col-resize;
+    user-select: none;
+}
+
+.cockpit-list_resizing .cockpit-col-resizer {
+    background: rgba(1, 118, 211, 0.28);
+}
 
 /* ─── Group / master row ──────────────────────────────────────────────────── */
 
@@ -393,7 +440,9 @@
     flex-wrap: wrap;
     gap: 0.4rem;
     min-width: 0;
+    max-width: var(--col-name);
     padding-left: 1.5rem; /* indent under master name */
+    overflow: hidden;
 }
 
 .cockpit-source-template-badge {
@@ -494,9 +543,14 @@
     flex-shrink: 0;
 }
 
-.cockpit-template-action:disabled {
-    opacity: 0.2;
+button.cockpit-template-action:disabled {
+    opacity: 0.2 !important;
     cursor: not-allowed;
+    pointer-events: none;
+}
+
+button.cockpit-template-action:disabled lightning-icon {
+    opacity: 0.2 !important;
 }
 
 /* ─── Stat chips ──────────────────────────────────────────────────────────── */
