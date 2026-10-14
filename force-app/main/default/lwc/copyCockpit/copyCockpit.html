@@ -224,7 +224,8 @@
                                         <span class="cockpit-col-header-label">Last Modified</span>
                                         <span class="cockpit-col-resizer" data-col="modified" role="separator" aria-orientation="vertical" aria-label="Resize Last Modified column" onmousedown={handleColResizeStart}></span>
                                     </span>
-                                    <span class="cockpit-col-actions">
+                                    <span class="cockpit-col-spacer" aria-hidden="true"></span>
+                                    <span class="cockpit-col-actions cockpit-col-actions_sticky">
                                         <lightning-button-icon 
                                             onclick={handleToggleAll}
                                             icon-name={expandAllIcon}
@@ -291,7 +292,8 @@
                                                 <div class="cockpit-col-blocks"></div>
                                                 <div class="cockpit-col-versions"></div>
                                                 <div class="cockpit-col-modified"></div>
-                                                <div class="cockpit-col-actions">
+                                                <div class="cockpit-col-spacer" aria-hidden="true"></div>
+                                                <div class="cockpit-col-actions cockpit-col-actions_sticky">
                                                     <lightning-button-icon 
                                                         icon-name="utility:insert_template" 
                                                         variant="border-filled" 
@@ -448,8 +450,10 @@
                                                             </template>
                                                         </div>
 
+                                                        <div class="cockpit-col-spacer" aria-hidden="true"></div>
+
                                                         <!-- Always-visible quick actions -->
-                                                        <div class="cockpit-variant-actions">
+                                                        <div class="cockpit-col-actions cockpit-col-actions_sticky cockpit-variant-actions">
                                                             <template lwc:if={v.canSyncFromMCE}>
                                                                 <button
                                                                     type="button"

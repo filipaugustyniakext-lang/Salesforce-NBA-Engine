@@ -184,10 +184,11 @@
     --col-blocks:   56px;
     --col-versions: 64px;
     --col-modified: 168px;
-    --col-actions:  128px;
+    --col-actions:  152px;
 }
 
 .cockpit-list {
+    width: 100%;
     overflow-x: auto;
     --col-name: 240px;
     --col-status: 112px;
@@ -209,11 +210,14 @@
         var(--col-blocks)
         var(--col-versions)
         var(--col-modified)
+        minmax(0, 1fr)
         var(--col-actions);
     align-items: center;
-    padding: 0.35rem 1rem 0.35rem 0.5rem;
+    padding: 0.35rem 0 0.35rem 0.5rem;
     background: #f3f2f2;
     border-bottom: 1px solid #e0e5ee;
+    width: 100%;
+    min-width: max-content;
     font-size: 0.7rem;
     font-weight: 600;
     color: #706e6b;
@@ -243,12 +247,47 @@
 .cockpit-col-blocks   { text-align: center; }
 .cockpit-col-versions { text-align: center; }
 .cockpit-col-modified { min-width: 0; max-width: var(--col-modified); overflow: hidden; }
-.cockpit-col-actions  { display: flex; justify-content: flex-end; gap: 0.2rem; min-width: var(--col-actions); }
+.cockpit-col-spacer { min-width: 0; }
+.cockpit-col-actions  {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.2rem;
+    min-width: var(--col-actions);
+    width: var(--col-actions);
+    padding-right: 1rem;
+    box-sizing: border-box;
+}
+
+.cockpit-col-actions_sticky {
+    position: sticky;
+    right: 0;
+    z-index: 5;
+    background: #fff;
+    box-shadow: -6px 0 10px -8px rgba(24, 24, 24, 0.45);
+}
+
+.cockpit-list-header .cockpit-col-actions_sticky {
+    background: #f3f2f2;
+    z-index: 6;
+}
+
+.cockpit-list-header .cockpit-col-check {
+    border-right: 1px solid #d4d9e2;
+}
+
+.cockpit-list-header .cockpit-col-header-cell {
+    border-right: 1px solid #d4d9e2;
+}
+
+.cockpit-list-header .cockpit-col-actions_sticky {
+    border-left: 1px solid #d4d9e2;
+}
 
 .cockpit-col-header-cell {
     position: relative;
     min-width: 0;
     padding-right: 0.35rem;
+    padding-left: 0.15rem;
 }
 
 .cockpit-col-header-label {
@@ -268,8 +307,23 @@
     touch-action: none;
 }
 
+.cockpit-col-resizer::before {
+    content: '';
+    position: absolute;
+    top: 15%;
+    bottom: 15%;
+    right: 3px;
+    width: 1px;
+    background: #c4c9d4;
+    pointer-events: none;
+}
+
 .cockpit-col-resizer:hover {
-    background: rgba(1, 118, 211, 0.18);
+    background: rgba(1, 118, 211, 0.12);
+}
+
+.cockpit-col-resizer:hover::before {
+    background: #0176d3;
 }
 
 .cockpit-list_resizing {
@@ -289,8 +343,11 @@
 .cockpit-master-row {
     display: flex;
     align-items: center;
-    padding: 0 1rem 0 0.5rem;
+    padding: 0 0 0 0.5rem;
     min-height: 44px;
+    width: 100%;
+    min-width: max-content;
+    box-sizing: border-box;
     transition: background 0.1s;
     cursor: pointer;
 }
@@ -335,9 +392,26 @@
         var(--col-blocks)
         var(--col-versions)
         var(--col-modified)
+        minmax(0, 1fr)
         var(--col-actions);
     align-items: center;
     min-width: 0;
+}
+
+.cockpit-master-row .cockpit-col-actions_sticky {
+    background: #fff;
+}
+
+.cockpit-master-row:hover .cockpit-col-actions_sticky {
+    background: #f8f9fb;
+}
+
+.cockpit-master-row_expanded .cockpit-col-actions_sticky {
+    background: #f0f5fb;
+}
+
+.cockpit-master-row_expanded:hover .cockpit-col-actions_sticky {
+    background: #e8f0fa;
 }
 
 .cockpit-msg-name {
@@ -384,23 +458,43 @@
         var(--col-blocks)
         var(--col-versions)
         var(--col-modified)
+        minmax(0, 1fr)
         var(--col-actions);
     align-items: center;
-    padding: 0 1rem 0 0.5rem;
+    padding: 0 0 0 0.5rem;
     border-bottom: 1px solid #f3f2f2;
     min-height: 38px;
+    width: 100%;
+    min-width: max-content;
+    box-sizing: border-box;
     transition: background 0.1s;
 }
 
 .cockpit-variant-row:last-child { border-bottom: none; }
 .cockpit-variant-row:hover { background: #f0f5fb; }
 
+.cockpit-variant-row:hover .cockpit-col-actions_sticky {
+    background: #f0f5fb;
+}
+
 .cockpit-variant-row_selected {
+    background: #e8f0fa;
+}
+
+.cockpit-variant-row_selected .cockpit-col-actions_sticky {
     background: #e8f0fa;
 }
 
 .cockpit-variant-row_selected:hover {
     background: #dceefa;
+}
+
+.cockpit-variant-row_selected:hover .cockpit-col-actions_sticky {
+    background: #dceefa;
+}
+
+.cockpit-variants .cockpit-col-actions_sticky {
+    background: #fafbfc;
 }
 
 /* checkbox */
