@@ -174,7 +174,7 @@
     --col-check:    32px;
     --col-name:     1fr;
     --col-status:   110px;
-    --col-weight:   68px;
+    --col-weight:   76px;
     --col-schedule: 156px;
     --col-blocks:   60px;
     --col-versions: 68px;
@@ -405,13 +405,18 @@
         margin-left: 0.5rem;
 }
 
-/* weight */
-.cockpit-weight {
+/* weight — inline 0–100 input on variant rows */
+.cockpit-weight-input {
+    --slds-c-input-spacing-horizontal-start: 0.35rem;
+    --slds-c-input-spacing-horizontal-end: 0.35rem;
+    max-width: 4.25rem;
+    margin: 0 auto;
+}
+
+.cockpit-col-weight .cockpit-weight-input input {
+    text-align: center;
     font-size: 0.75rem;
     font-weight: 600;
-    color: #181818;
-    display: block;
-    text-align: center;
 }
 
 /* always-visible round quick actions */

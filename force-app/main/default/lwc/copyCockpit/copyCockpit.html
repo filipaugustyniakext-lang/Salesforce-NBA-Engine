@@ -307,14 +307,22 @@
                                                             </div>
                                                         </div>
 
-                                                        <!-- Display weight -->
-                                                        <div class="cockpit-col-weight">
-                                                            <template lwc:if={v.weightDisplay}>
-                                                                <span class="cockpit-weight">{v.weightDisplay}</span>
-                                                            </template>
-                                                            <template lwc:else>
-                                                                <span class="cockpit-stat-none">—</span>
-                                                            </template>
+                                                        <!-- Display weight (0–100, saved per variant) -->
+                                                        <div class="cockpit-col-weight" onclick={handleCheckboxClick}>
+                                                            <lightning-input
+                                                                type="number"
+                                                                variant="label-hidden"
+                                                                min="0"
+                                                                max="100"
+                                                                step="1"
+                                                                value={v.weightPercent}
+                                                                placeholder="—"
+                                                                data-id={v.Id}
+                                                                aria-label={v.weightAriaLabel}
+                                                                class="cockpit-weight-input"
+                                                                onchange={handleVariantWeightChange}
+                                                                onclick={handleCheckboxClick}>
+                                                            </lightning-input>
                                                         </div>
 
                                                         <!-- Schedule badge -->
@@ -675,37 +683,6 @@
                                         <p class="master-edit-no-offers">No active offers found for this product family.</p>
                                     </template>
                                 </template>
-                            </div>
-                        </template>
-                    </div>
-
-                    <!-- Display Probability per variant -->
-                    <div class="master-edit-section">
-                        <h3 class="master-edit-section__title">Display Probability</h3>
-                        <p class="master-edit-section__desc">Set the display probability for each variant (0 = never shown, 1 = full weight).</p>
-                        <template for:each={masterEditModal.variants} for:item="mv">
-                            <div key={mv.id} class="master-edit-variant-row">
-                                <div class="master-edit-variant-info">
-                                    <span class="master-edit-variant-label">{mv.label}</span>
-                                    <span class={mv.statusClass}>{mv.status}</span>
-                                </div>
-                                <div class="master-edit-slider-wrap">
-                                    <input
-                                        type="range"
-                                        min="0"
-                                        max="1"
-                                        step="0.01"
-                                        value={mv.probability}
-                                        class="master-edit-slider"
-                                        data-var-id={mv.id}
-                                        oninput={handleMasterEditSlider}
-                                    />
-                                    <span class="master-edit-prob-pct">{mv.pctDisplay}</span>
-                                    <span class="master-edit-prob-dec">{mv.decDisplay}</span>
-                                    <button type="button" class="master-edit-reset-btn" data-var-id={mv.id} onclick={handleMasterEditReset}>
-                                        Reset to 1
-                                    </button>
-                                </div>
                             </div>
                         </template>
                     </div>

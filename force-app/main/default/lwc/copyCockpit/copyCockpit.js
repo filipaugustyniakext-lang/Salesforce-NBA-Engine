@@ -12,6 +12,7 @@ import getProductFamilies from '@salesforce/apex/CopyCockpitController.getProduc
 import getActiveOffersByFamily from '@salesforce/apex/CopyCockpitController.getActiveOffersByFamily';
 import getProductFamilyForOffer from '@salesforce/apex/CopyCockpitController.getProductFamilyForOffer';
 import saveMasterRowSettings from '@salesforce/apex/CopyCockpitController.saveMasterRowSettings';
+import saveVariantDisplayWeight from '@salesforce/apex/CopyCockpitController.saveVariantDisplayWeight';
 import updateMessageStatus from '@salesforce/apex/CopyCockpitController.updateMessageStatus';
 import syncWithMCE from '@salesforce/apex/MarketingCloudCopySync.syncWithMCE';
 import deleteVariantsFromMCE from '@salesforce/apex/MarketingCloudCopySync.deleteVariantsFromMCE';
@@ -180,13 +181,11 @@ function buildMasterStatusSummary(variants) {
     };
 }
 
-function fmtWeight(prob, probManual) {
-    // prefer manual override; fall back to computed probability
+function weightPercentFromRecord(prob, probManual) {
     const val = probManual != null ? probManual : prob;
     if (val == null) return null;
-    // express as percentage rounded to 1 decimal, strip trailing zero
-    const pct = (val * 100);
-    return pct % 1 === 0 ? `${pct}%` : `${pct.toFixed(1)}%`;
+    const pct = Number(val) * 100;
+    return Math.round(pct);
 }
 
 function buildScheduleBadge(record) {
@@ -262,7 +261,8 @@ function buildGroups(records, expandedSet, editingGroupName, selectedIds, versio
                 validToFmt:         fmtDate(v.Valid_To__c),
                 campaignName:       v.Campaign__r?.Name || null,
                 versionLabel:       v.Message_Variant__c || (variantNum != null ? `Variant ${variantNum}` : '—'),
-                weightDisplay:      fmtWeight(v.Display_Probability__c, v.Display_Probability_Manual__c),
+                weightPercent:      weightPercentFromRecord(v.Display_Probability__c, v.Display_Probability_Manual__c),
+                weightAriaLabel:    `Weight (0–100) for ${v.Name || 'variant'}`,
                 scheduleBadge:      sched?.label || null,
                 scheduleBadgeClass: sched?.cssClass || null,
                 scheduleBadgeIcon:  sched?.icon || null,
@@ -587,6 +587,38 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         this._statusFilter = e.detail.value;
     }
 
+    handleVariantWeightChange(event) {
+        event.stopPropagation();
+        const recordId = event.currentTarget.dataset.id;
+        const raw = event.detail.value;
+        if (!recordId || raw === '' || raw == null) {
+            return;
+        }
+        const weightPercent = Math.round(Number(raw));
+        if (Number.isNaN(weightPercent) || weightPercent < 0 || weightPercent > 100) {
+            this._showToast('Invalid weight', 'Enter a whole number from 0 to 100.', 'warning');
+            return;
+        }
+        const prior = this._messages.find(m => m.Id === recordId);
+        const priorPct = prior
+            ? weightPercentFromRecord(prior.Display_Probability__c, prior.Display_Probability_Manual__c)
+            : null;
+        if (priorPct === weightPercent) {
+            return;
+        }
+
+        saveVariantDisplayWeight({ recordId, weightPercent })
+            .then(() => {
+                this._setMessageWeight(recordId, weightPercent / 100);
+            })
+            .catch(err => {
+                this._showToast('Error', err?.body?.message || 'Could not save weight.', 'error');
+                if (prior) {
+                    this._messages = this._messages.map(m => (m.Id === recordId ? { ...prior } : m));
+                }
+            });
+    }
+
     handleVariantStatusChange(event) {
         const recordId = event.currentTarget.dataset.id;
         const newStatus = event.detail.value;
@@ -648,6 +680,16 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             return 'Archived messages can only be restored to Published.';
         }
         return 'That status change is not allowed for this variant.';
+    }
+
+    _setMessageWeight(recordId, manualOrComputedDecimal) {
+        this._messages = this._messages.map(m => {
+            if (m.Id !== recordId) return m;
+            return {
+                ...m,
+                Display_Probability_Manual__c: manualOrComputedDecimal,
+            };
+        });
     }
 
     _setMessageStatus(recordId, status) {
@@ -1071,7 +1113,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             isLoadingFamilies: true,
             isLoadingOffers: false,
             isSaving: false,
-            variants: groupRecords.map(v => this._buildModalVariant(v)),
+            variantIds: groupRecords.map(v => v.Id),
         };
 
         getProductFamilies()
@@ -1110,19 +1152,6 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
                 if (!this._masterEditModal) return;
                 this._masterEditModal = { ...this._masterEditModal, isLoadingFamilies: false };
             });
-    }
-
-    _buildModalVariant(v) {
-        const prob = v.Display_Probability_Manual__c != null ? Number(v.Display_Probability_Manual__c) : 1;
-        return {
-            id:         v.Id,
-            label:      v.Message_Variant__c || (v.Version__c != null ? `Variant ${v.Version__c}` : '—'),
-            status:     v.Status__c,
-            statusClass: statusBadgeClass(v.Status__c),
-            probability: prob,
-            pctDisplay:  `${Math.round(prob * 100)}%`,
-            decDisplay:  prob.toFixed(2),
-        };
     }
 
     _loadModalOffers(familyName) {
@@ -1166,33 +1195,6 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         this._masterEditModal = { ...this._masterEditModal, offerId: e.detail.value };
     }
 
-    handleMasterEditSlider(e) {
-        e.stopPropagation();
-        const varId = e.currentTarget.dataset.varId;
-        const value = Math.min(1, Math.max(0, parseFloat(e.target.value)));
-        this._masterEditModal = {
-            ...this._masterEditModal,
-            variants: this._masterEditModal.variants.map(v =>
-                v.id === varId
-                    ? { ...v, probability: value, pctDisplay: `${Math.round(value * 100)}%`, decDisplay: value.toFixed(2) }
-                    : v
-            ),
-        };
-    }
-
-    handleMasterEditReset(e) {
-        e.stopPropagation();
-        const varId = e.currentTarget.dataset.varId;
-        this._masterEditModal = {
-            ...this._masterEditModal,
-            variants: this._masterEditModal.variants.map(v =>
-                v.id === varId
-                    ? { ...v, probability: 1, pctDisplay: '100%', decDisplay: '1.00' }
-                    : v
-            ),
-        };
-    }
-
     handleMasterEditCancel() {
         this._masterEditModal = null;
     }
@@ -1203,7 +1205,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         const settingsJson = JSON.stringify({
             offerId: modal.offerId || null,
             productFamilyId: modal.productFamilyId || null,
-            variants: modal.variants.map(v => ({ id: v.id, probability: v.probability })),
+            variantIds: modal.variantIds || [],
         });
         saveMasterRowSettings({ settingsJson })
             .then(() => {

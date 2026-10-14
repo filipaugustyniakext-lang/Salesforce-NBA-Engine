@@ -134,19 +134,27 @@ public with sharing class CopyCockpitController {
             Map<String, Object> data = (Map<String, Object>) JSON.deserializeUntyped(settingsJson);
             String offerId = (String) data.get('offerId');
             String familyId = (String) data.get('productFamilyId');
-            List<Object> variantsList = (List<Object>) data.get('variants');
+            List<Object> variantIds = (List<Object>) data.get('variantIds');
+            if (variantIds == null) {
+                List<Object> variantsList = (List<Object>) data.get('variants');
+                variantIds = new List<Object>();
+                if (variantsList != null) {
+                    for (Object varObj : variantsList) {
+                        Map<String, Object> varData = (Map<String, Object>) varObj;
+                        variantIds.add(varData.get('id'));
+                    }
+                }
+            }
 
             List<CC_Message_Metadata__c> toUpdate = new List<CC_Message_Metadata__c>();
-            for (Object varObj : variantsList) {
-                Map<String, Object> varData = (Map<String, Object>) varObj;
+            for (Object idObj : variantIds) {
+                if (idObj == null) {
+                    continue;
+                }
                 CC_Message_Metadata__c rec = new CC_Message_Metadata__c();
-                rec.Id = (Id) varData.get('id');
+                rec.Id = (Id) idObj;
                 rec.Product_Family__c = String.isNotBlank(familyId) ? (Id) familyId : null;
                 rec.Offer__c = String.isNotBlank(offerId) ? (Id) offerId : null;
-                Object prob = varData.get('probability');
-                rec.Display_Probability_Manual__c = prob != null
-                    ? Decimal.valueOf(String.valueOf(prob))
-                    : null;
                 toUpdate.add(rec);
             }
 
@@ -154,6 +162,27 @@ public with sharing class CopyCockpitController {
         } catch (Exception e) {
             throw new AuraHandledException('Save failed: ' + e.getMessage());
         }
+    }
+
+    /**
+     * Persists manual display weight for a single variant (0–100 → Display_Probability_Manual__c).
+     */
+    @AuraEnabled(cacheable=false)
+    public static void saveVariantDisplayWeight(Id recordId, Decimal weightPercent) {
+        if (recordId == null) {
+            throw new AuraHandledException('Variant Id is required.');
+        }
+        if (weightPercent == null) {
+            throw new AuraHandledException('Weight is required.');
+        }
+        if (weightPercent < 0 || weightPercent > 100) {
+            throw new AuraHandledException('Weight must be between 0 and 100.');
+        }
+        Decimal manual = (weightPercent / 100).setScale(4, System.RoundingMode.HALF_UP);
+        update new CC_Message_Metadata__c(
+            Id = recordId,
+            Display_Probability_Manual__c = manual
+        );
     }
 
     /**

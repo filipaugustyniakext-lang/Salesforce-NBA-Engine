@@ -34,10 +34,7 @@ private class CopyCockpitSettingsTest {
         CopyCockpitController.saveMasterRowSettings(JSON.serialize(new Map<String, Object>{
             'productFamilyId' => family.Id,
             'offerId' => offer.Id,
-            'variants' => new List<Object>{
-                new Map<String, Object>{ 'id' => firstVariant.Id, 'probability' => 0.4 },
-                new Map<String, Object>{ 'id' => secondVariant.Id, 'probability' => 0.6 }
-            }
+            'variantIds' => new List<Object>{ firstVariant.Id, secondVariant.Id }
         }));
 
         Map<Id, CC_Message_Metadata__c> saved = new Map<Id, CC_Message_Metadata__c>([
@@ -51,8 +48,6 @@ private class CopyCockpitSettingsTest {
         System.assertEquals(offer.Id, saved.get(firstVariant.Id).Offer__c);
         System.assertEquals(offer.Id, saved.get(secondVariant.Id).Offer__c);
         System.assertEquals(family.Id, saved.get(secondVariant.Id).Product_Family__c);
-        System.assert(saved.get(firstVariant.Id).Display_Probability_Manual__c == 0.4);
-
         List<CC_Message_Metadata__c> listed = CopyCockpitController.getMessagesByChannelType('Email');
         System.assertEquals(2, listed.size());
         System.assertEquals(family.Id, listed[0].Product_Family__c);
@@ -112,6 +107,24 @@ private class CopyCockpitSettingsTest {
 
         System.assertEquals(1, results.size(), 'Only published Email variant for offering should return');
         System.assertEquals(publishedMatch.Id, results[0].Id);
+    }
+
+    @IsTest
+    static void saveVariantDisplayWeight_persistsManualProbability() {
+        CC_Message_Metadata__c row = new CC_Message_Metadata__c(
+            Name = 'EMA_PL_Weight_1',
+            Channel_Type__c = 'Email'
+        );
+        insert row;
+
+        CopyCockpitController.saveVariantDisplayWeight(row.Id, 78);
+
+        row = [
+            SELECT Display_Probability_Manual__c
+            FROM CC_Message_Metadata__c
+            WHERE Id = :row.Id
+        ];
+        System.assertEquals(0.78, row.Display_Probability_Manual__c);
     }
 
     @IsTest
