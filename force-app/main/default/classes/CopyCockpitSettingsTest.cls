@@ -217,6 +217,62 @@ private class CopyCockpitSettingsTest {
     }
 
     @IsTest
+    static void deleteMessageVariants_removesMetadataAndBlocks() {
+        CC_Message_Metadata__c variant = new CC_Message_Metadata__c(
+            Name = 'EMA_PL_Del_1',
+            Channel_Type__c = 'Email',
+            MessageName__c = 'EMA_PL_Del',
+            MessageVariantId__c = '00000000-0000-0000-0000-000000000099',
+            MessageVariant__c = 1,
+            Version__c = 1
+        );
+        insert variant;
+        CC_Message_Blocks_All__c block = new CC_Message_Blocks_All__c(
+            Name = 'block-del-1',
+            MessageName__c = 'EMA_PL_Del',
+            MessageVariantId__c = '00000000-0000-0000-0000-000000000099',
+            MessageVariant__c = 1,
+            ContentBlockOrder__c = 1,
+            BlockType__c = 'Content'
+        );
+        insert block;
+
+        Integer deleted = CopyCockpitController.deleteMessageVariants(new List<Id>{ variant.Id });
+
+        System.assertEquals(1, deleted);
+        System.assertEquals(0, [SELECT COUNT() FROM CC_Message_Metadata__c WHERE Id = :variant.Id]);
+        System.assertEquals(0, [SELECT COUNT() FROM CC_Message_Blocks_All__c WHERE Id = :block.Id]);
+    }
+
+    @IsTest
+    static void deleteMasterMessageGroup_removesAllVariantsInStem() {
+        CC_Message_Metadata__c first = new CC_Message_Metadata__c(
+            Name = 'EMA_PL_MasterDel_1',
+            Channel_Type__c = 'Email',
+            MessageName__c = 'EMA_PL_MasterDel',
+            MessageVariant__c = 1,
+            Version__c = 1
+        );
+        CC_Message_Metadata__c second = new CC_Message_Metadata__c(
+            Name = 'EMA_PL_MasterDel_2',
+            Channel_Type__c = 'Email',
+            MessageName__c = 'EMA_PL_MasterDel',
+            MessageVariant__c = 2,
+            Version__c = 2
+        );
+        insert new List<CC_Message_Metadata__c>{ first, second };
+
+        Integer deleted = CopyCockpitController.deleteMasterMessageGroup('EMA_PL_MasterDel', 'Email');
+
+        System.assertEquals(2, deleted);
+        System.assertEquals(0, [
+            SELECT COUNT()
+            FROM CC_Message_Metadata__c
+            WHERE MessageName__c = 'EMA_PL_MasterDel'
+        ]);
+    }
+
+    @IsTest
     static void assertCanAssignSourceTemplate_blocksPublishedVariant() {
         CC_Message_Metadata__c variant = new CC_Message_Metadata__c(
             Name = 'EMA_PL_TplBlock_1',

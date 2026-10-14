@@ -591,13 +591,128 @@ public with sharing class CopyCockpitController {
         updateMessageMaster(stemOld, cc, mn, lang, channelType);
     }
 
+    /**
+     * Deletes Copy Center variants and their CC_Message_Blocks_All__c rows.
+     */
     @AuraEnabled
-    public static void deleteMessage(Id recordId) {
+    public static Integer deleteMessageVariants(List<Id> metadataIds) {
+        if (metadataIds == null || metadataIds.isEmpty()) {
+            throw new AuraHandledException('Select at least one message variant.');
+        }
+        Set<Id> idSet = new Set<Id>();
+        for (Id metadataId : metadataIds) {
+            if (metadataId != null) {
+                idSet.add(metadataId);
+            }
+        }
+        if (idSet.isEmpty()) {
+            throw new AuraHandledException('Select at least one message variant.');
+        }
+
+        List<CC_Message_Metadata__c> rows = [
+            SELECT Id, MessageVariantId__c, Message_Variant_Id__c,
+                   MessageName__c, MessageVariant__c, Version__c
+            FROM CC_Message_Metadata__c
+            WHERE Id IN :idSet
+        ];
+        if (rows.isEmpty()) {
+            throw new AuraHandledException('Message variant(s) not found.');
+        }
+
         try {
-            delete new CC_Message_Metadata__c(Id = recordId);
+            deleteBlocksForMetadataRows(rows);
+            delete rows;
         } catch (DmlException e) {
             throw new AuraHandledException('Delete failed: ' + e.getDmlMessage(0));
         }
+        return rows.size();
+    }
+
+    /** Deletes every variant in a master message group for the given channel. */
+    @AuraEnabled
+    public static Integer deleteMasterMessageGroup(String masterStem, String channelType) {
+        if (String.isBlank(masterStem)) {
+            throw new AuraHandledException('Message name is required.');
+        }
+        if (String.isBlank(channelType)) {
+            throw new AuraHandledException('Channel type is required.');
+        }
+        List<CC_Message_Metadata__c> rows = queryByStem(masterStem.trim(), channelType);
+        if (rows.isEmpty()) {
+            throw new AuraHandledException('No variants found for this message.');
+        }
+        List<Id> ids = new List<Id>();
+        for (CC_Message_Metadata__c row : rows) {
+            ids.add(row.Id);
+        }
+        return deleteMessageVariants(ids);
+    }
+
+    /** @deprecated Prefer deleteMessageVariants — kept for older clients. */
+    @AuraEnabled
+    public static void deleteMessage(Id recordId) {
+        deleteMessageVariants(new List<Id>{ recordId });
+    }
+
+    private static void deleteBlocksForMetadataRows(List<CC_Message_Metadata__c> rows) {
+        if (rows == null || rows.isEmpty()) {
+            return;
+        }
+        Set<String> variantKeys = new Set<String>();
+        Set<Decimal> variantNumbers = new Set<Decimal>();
+        Set<String> messageNames = new Set<String>();
+
+        for (CC_Message_Metadata__c row : rows) {
+            String variantKey = resolveExternalVariantId(row);
+            if (String.isNotBlank(variantKey)) {
+                variantKeys.add(variantKey.trim());
+            }
+            Decimal variantNum = row.MessageVariant__c != null ? row.MessageVariant__c : row.Version__c;
+            if (variantNum != null) {
+                variantNumbers.add(variantNum);
+            }
+            if (String.isNotBlank(row.MessageName__c)) {
+                messageNames.add(row.MessageName__c.trim());
+            }
+        }
+
+        Set<Id> blockIds = new Set<Id>();
+        if (!variantKeys.isEmpty()) {
+            for (CC_Message_Blocks_All__c block : [
+                SELECT Id
+                FROM CC_Message_Blocks_All__c
+                WHERE MessageVariantId__c IN :variantKeys
+            ]) {
+                blockIds.add(block.Id);
+            }
+        }
+        if (!messageNames.isEmpty() && !variantNumbers.isEmpty()) {
+            for (CC_Message_Blocks_All__c block : [
+                SELECT Id
+                FROM CC_Message_Blocks_All__c
+                WHERE MessageName__c IN :messageNames
+                  AND MessageVariant__c IN :variantNumbers
+            ]) {
+                blockIds.add(block.Id);
+            }
+        }
+        if (blockIds.isEmpty()) {
+            return;
+        }
+        delete [SELECT Id FROM CC_Message_Blocks_All__c WHERE Id IN :blockIds];
+    }
+
+    private static String resolveExternalVariantId(CC_Message_Metadata__c row) {
+        if (row == null) {
+            return null;
+        }
+        if (String.isNotBlank(row.MessageVariantId__c)) {
+            return row.MessageVariantId__c.trim();
+        }
+        if (String.isNotBlank(row.Message_Variant_Id__c)) {
+            return row.Message_Variant_Id__c.trim();
+        }
+        return null;
     }
 
     // ── Naming helpers ────────────────────────────────────────────────────────
@@ -689,7 +804,8 @@ public with sharing class CopyCockpitController {
         }
         String likePattern = stem + '_%';
         List<CC_Message_Metadata__c> candidates = [
-            SELECT Id, Name, Version__c, Language__c, MessageName__c, MessageVariant__c
+            SELECT Id, Name, Version__c, Language__c, MessageName__c, MessageVariant__c,
+                   MessageVariantId__c, Message_Variant_Id__c
             FROM CC_Message_Metadata__c
             WHERE Channel_Type__c = :channelType
               AND (MessageName__c = :stem OR Name = :stem OR Name LIKE :likePattern)

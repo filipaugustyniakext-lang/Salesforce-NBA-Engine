@@ -1,7 +1,6 @@
 import { LightningElement, track, wire } from 'lwc';
 import { CurrentPageReference, NavigationMixin } from 'lightning/navigation';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
-import { deleteRecord } from 'lightning/uiRecordApi';
 import getChannelRecords from '@salesforce/apex/MarketingDictionaryManagerController.getChannelRecords';
 import getMessagesByChannelType from '@salesforce/apex/CopyCockpitController.getMessagesByChannelType';
 import getVersionCountsByMessageIds from '@salesforce/apex/CopyCockpitController.getVersionCountsByMessageIds';
@@ -18,7 +17,8 @@ import getSelectableTemplates from '@salesforce/apex/ChannelTemplateController.g
 import updateMessageStatus from '@salesforce/apex/CopyCockpitController.updateMessageStatus';
 import syncWithMCE from '@salesforce/apex/MarketingCloudCopySync.syncWithMCE';
 import syncVariantsWithMCE from '@salesforce/apex/MarketingCloudCopySync.syncVariantsWithMCE';
-import deleteVariantsFromMCE from '@salesforce/apex/MarketingCloudCopySync.deleteVariantsFromMCE';
+import deleteMessageVariants from '@salesforce/apex/CopyCockpitController.deleteMessageVariants';
+import deleteMasterMessageGroup from '@salesforce/apex/CopyCockpitController.deleteMasterMessageGroup';
 import refreshStreamViaFlow from '@salesforce/apex/FlowInit_TriggerDataSourceObjectRefresh.refreshStreamViaFlow';
 import {
     channelPrefixForType,
@@ -388,11 +388,20 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     @track deleteTargetId = null;
     @track deleteTargetName = '';
     @track deleteTargetVersion = null;
+    @track deleteTargetVariantLabel = '';
+
+    @track isMasterDeleteModalOpen = false;
+    @track masterDeleteStem = '';
+    @track masterDeleteDisplayName = '';
+    @track masterDeleteVariantCount = 0;
+    @track isMasterDeleteSaving = false;
 
     /** Pending status change when confirmation modal is open. */
     @track _statusConfirmModal = null;
 
     @track isBulkDeleteModalOpen = false;
+    @track isBulkDeleteSaving = false;
+    @track isVariantDeleteSaving = false;
 
     @track isCloneModalOpen = false;
     @track isCloning = false;
@@ -1379,57 +1388,6 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             });
     }
 
-    handleDeleteConfirm() {
-        const id = this.deleteTargetId;
-        const variantId = this.deleteTargetVersion; // Ensure this maps to the actual MessageVariantId string
-
-        // 1. Delete from MCE first
-        deleteVariantsFromMCE({ variantIds: [variantId] })
-            .then(() => {
-                // 2. Delete from Salesforce
-                return deleteRecord(id);
-            })
-            .then(() => {
-                this._messages = this._messages.filter(m => m.Id !== id);
-                this._selectedIds = new Set([...this._selectedIds].filter(sid => sid !== id));
-                this._showToast('Deleted', 'Variant deleted from Salesforce and MCE.', 'success');
-            })
-            .catch(err => {
-                this._showToast('Error', err?.body?.message || 'Delete failed.', 'error');
-            })
-            .finally(() => {
-                this.isDeleteModalOpen = false;
-                this.deleteTargetId = null;
-                this.deleteTargetName = '';
-                this.deleteTargetVersion = null;
-            });
-    }
-
-    handleBulkDeleteConfirm() {
-        const ids = Array.from(this._selectedIds);
-        
-        // Map Salesforce Ids to their corresponding MessageVariantIds
-        const variantIdsToDelete = this._messages
-            .filter(m => ids.includes(m.Id))
-            .map(m => m.MessageVariantId__c || m.Message_Variant_Id__c)
-            .filter(Boolean);
-
-        this.isBulkDeleteModalOpen = false;
-
-        deleteVariantsFromMCE({ variantIds: variantIdsToDelete })
-            .then(() => {
-                return Promise.all(ids.map(id => deleteRecord(id)));
-            })
-            .then(() => {
-                this._messages = this._messages.filter(m => !ids.includes(m.Id));
-                this._selectedIds = new Set();
-                this._showToast('Deleted', `${ids.length} variant(s) deleted from Salesforce and MCE.`, 'success');
-            })
-            .catch(err => {
-                this._showToast('Error', err?.body?.message || 'Bulk delete failed.', 'error');
-            });
-    }
-
     handleSyncWithD360() {
         if (this.isSyncingD360) {
             return;
@@ -1536,9 +1494,12 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
 
     handleDeletePrompt(e) {
         e.stopPropagation();
-        this.deleteTargetId = e.currentTarget.dataset.id;
-        this.deleteTargetName = e.currentTarget.dataset.name;
-        this.deleteTargetVersion = e.currentTarget.dataset.version;
+        const id = e.currentTarget.dataset.id;
+        const row = this._messageRecordById(id);
+        this.deleteTargetId = id;
+        this.deleteTargetName = row?.MessageName__c || row?.Name || e.currentTarget.dataset.name || 'Message';
+        this.deleteTargetVariantLabel = row?.Message_Variant__c
+            || (row?.Version__c != null ? String(row.Version__c) : e.currentTarget.dataset.version || '—');
         this.isDeleteModalOpen = true;
     }
 
@@ -1547,16 +1508,26 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         this.deleteTargetId = null;
         this.deleteTargetName = '';
         this.deleteTargetVersion = null;
+        this.deleteTargetVariantLabel = '';
+        this.isVariantDeleteSaving = false;
     }
 
     handleDeleteConfirm() {
         const id = this.deleteTargetId;
-        
-        deleteRecord(id)
+        if (!id || this.isVariantDeleteSaving) {
+            return;
+        }
+        this.isVariantDeleteSaving = true;
+        deleteMessageVariants({ metadataIds: [id] })
             .then(() => {
                 this._messages = this._messages.filter(m => m.Id !== id);
                 this._selectedIds = new Set([...this._selectedIds].filter(sid => sid !== id));
-                this._showToast('Deleted', 'Variant deleted successfully.', 'success');
+                this._showToast(
+                    'Deleted',
+                    'Variant and its block data were permanently removed.',
+                    'success'
+                );
+                this._loadMessages(this.activeChannel?.Channel_Type__c);
             })
             .catch(err => {
                 this._showToast('Error', err?.body?.message || 'Delete failed.', 'error');
@@ -1566,6 +1537,87 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
                 this.deleteTargetId = null;
                 this.deleteTargetName = '';
                 this.deleteTargetVersion = null;
+                this.deleteTargetVariantLabel = '';
+                this.isVariantDeleteSaving = false;
+            });
+    }
+
+    handleBulkDeleteConfirm() {
+        const ids = Array.from(this._selectedIds);
+        if (!ids.length || this.isBulkDeleteSaving) {
+            return;
+        }
+        this.isBulkDeleteSaving = true;
+        deleteMessageVariants({ metadataIds: ids })
+            .then(count => {
+                this._messages = this._messages.filter(m => !ids.includes(m.Id));
+                this._selectedIds = new Set();
+                this._showToast(
+                    'Deleted',
+                    `${count} variant(s) and related block data were permanently removed.`,
+                    'success'
+                );
+                this._loadMessages(this.activeChannel?.Channel_Type__c);
+            })
+            .catch(err => {
+                this._showToast('Error', err?.body?.message || 'Bulk delete failed.', 'error');
+            })
+            .finally(() => {
+                this.isBulkDeleteModalOpen = false;
+                this.isBulkDeleteSaving = false;
+            });
+    }
+
+    handleMasterDelete(e) {
+        e.stopPropagation();
+        const stem = e.currentTarget.dataset.name;
+        if (!stem) {
+            return;
+        }
+        const groupRecords = this._messages.filter(m => recordBelongsToMasterGroup(m, stem));
+        if (!groupRecords.length) {
+            this._showToast('Delete', 'No variants found for this message.', 'warning');
+            return;
+        }
+        this.masterDeleteStem = stem;
+        this.masterDeleteDisplayName = groupRecords[0]?.MessageName__c || stem;
+        this.masterDeleteVariantCount = groupRecords.length;
+        this.isMasterDeleteModalOpen = true;
+    }
+
+    handleMasterDeleteCancel() {
+        this.isMasterDeleteModalOpen = false;
+        this.masterDeleteStem = '';
+        this.masterDeleteDisplayName = '';
+        this.masterDeleteVariantCount = 0;
+        this.isMasterDeleteSaving = false;
+    }
+
+    handleMasterDeleteConfirm() {
+        const stem = this.masterDeleteStem;
+        const channelType = this.activeChannel?.Channel_Type__c;
+        if (!stem || !channelType || this.isMasterDeleteSaving) {
+            return;
+        }
+        this.isMasterDeleteSaving = true;
+        deleteMasterMessageGroup({ masterStem: stem, channelType })
+            .then(count => {
+                this._messages = this._messages.filter(m => !recordBelongsToMasterGroup(m, stem));
+                this._selectedIds = new Set(
+                    [...this._selectedIds].filter(id => this._messages.some(m => m.Id === id))
+                );
+                this._showToast(
+                    'Deleted',
+                    `Message "${this.masterDeleteDisplayName}" and ${count} variant(s) with block data were removed.`,
+                    'success'
+                );
+                this._loadMessages(channelType);
+            })
+            .catch(err => {
+                this._showToast('Error', err?.body?.message || 'Delete failed.', 'error');
+            })
+            .finally(() => {
+                this.handleMasterDeleteCancel();
             });
     }
 

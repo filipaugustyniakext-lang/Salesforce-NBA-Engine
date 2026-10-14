@@ -569,12 +569,18 @@
                     <h2 id="delete-modal-title" class="slds-modal__title">Delete Variant</h2>
                 </header>
                 <div class="slds-modal__content slds-p-around_medium">
-                    <p>Permanently delete <strong>{deleteTargetName}</strong> – variant {deleteTargetVersion}?</p>
-                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">This cannot be undone.</p>
+                    <p>
+                        Permanently delete variant <strong>{deleteTargetVariantLabel}</strong> of
+                        <strong> {deleteTargetName}</strong>?
+                    </p>
+                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">
+                        This removes the variant from Copy Center and deletes its rows in
+                        CC_Message_Metadata__c and CC_Message_Blocks_All__c. This cannot be undone.
+                    </p>
                 </div>
                 <footer class="slds-modal__footer">
-                    <lightning-button label="Cancel" onclick={handleDeleteCancel} class="slds-m-right_x-small"></lightning-button>
-                    <lightning-button label="Delete" variant="destructive" onclick={handleDeleteConfirm}></lightning-button>
+                    <lightning-button label="Cancel" onclick={handleDeleteCancel} class="slds-m-right_x-small" disabled={isVariantDeleteSaving}></lightning-button>
+                    <lightning-button label="Delete" variant="destructive" onclick={handleDeleteConfirm} disabled={isVariantDeleteSaving}></lightning-button>
                 </footer>
             </div>
         </section>
@@ -590,11 +596,42 @@
                     <h2 id="bulk-delete-modal-title" class="slds-modal__title">Delete {selectionCountLabel}</h2>
                 </header>
                 <div class="slds-modal__content slds-p-around_medium">
-                    <p>Permanently delete {selectionCountLabel}? This cannot be undone.</p>
+                    <p>Permanently delete {selectionCountLabel}?</p>
+                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">
+                        Selected variants and their block data will be removed from
+                        CC_Message_Metadata__c and CC_Message_Blocks_All__c. This cannot be undone.
+                    </p>
                 </div>
                 <footer class="slds-modal__footer">
-                    <lightning-button label="Cancel" onclick={handleBulkDeleteCancel} class="slds-m-right_x-small"></lightning-button>
-                    <lightning-button label="Delete All" variant="destructive" onclick={handleBulkDeleteConfirm}></lightning-button>
+                    <lightning-button label="Cancel" onclick={handleBulkDeleteCancel} class="slds-m-right_x-small" disabled={isBulkDeleteSaving}></lightning-button>
+                    <lightning-button label="Delete All" variant="destructive" onclick={handleBulkDeleteConfirm} disabled={isBulkDeleteSaving}></lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+    <!-- Master message delete confirmation -->
+    <template lwc:if={isMasterDeleteModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="master-delete-modal-title" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header slds-theme_error">
+                    <lightning-icon icon-name="utility:warning" size="small" class="slds-m-right_x-small"></lightning-icon>
+                    <h2 id="master-delete-modal-title" class="slds-modal__title">Delete message and all variants</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <p>
+                        Permanently delete <strong>{masterDeleteDisplayName}</strong> and all
+                        <strong> {masterDeleteVariantCount}</strong> variant(s)?
+                    </p>
+                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">
+                        This removes every variant under this message from Copy Center and deletes related rows in
+                        CC_Message_Metadata__c and CC_Message_Blocks_All__c. This cannot be undone.
+                    </p>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={handleMasterDeleteCancel} class="slds-m-right_x-small" disabled={isMasterDeleteSaving}></lightning-button>
+                    <lightning-button label="Delete message" variant="destructive" onclick={handleMasterDeleteConfirm} disabled={isMasterDeleteSaving}></lightning-button>
                 </footer>
             </div>
         </section>
