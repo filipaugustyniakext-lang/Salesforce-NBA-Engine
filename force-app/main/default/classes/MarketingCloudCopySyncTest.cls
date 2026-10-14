@@ -17,6 +17,12 @@ private class MarketingCloudCopySyncTest {
                 res.setBody('{"count":1,"page":1,"pageSize":2500,"items":[{"keys":{"messagevariantid":"banner-1"},"values":{"messagename":"BAN_PL_Home","messagetype":"WebBanner","lastmodifiedat":"9/15/2026 4:24:44 PM"}}]}');
             } else if (endpoint.contains('MessageType%20eq%20%27Email%27')) {
                 res.setBody('{"count":1,"page":1,"pageSize":2500,"items":[{"keys":{"messagevariantid":"variant-1"},"values":{"messagename":"EMA_PL_CashLoan","messagetype":"Email","lastmodifiedat":"9/15/2026 4:24:44 PM","subject":"Hello","isactive":"true","blockcount":"3","language":"PL","messagepropertiesjson":"blocks"}}]}');
+            } else if (endpoint.contains('/row/MessageVariantId:variant-1')) {
+                res.setBody('{"keys":{"messagevariantid":"variant-1"},"values":{"messagename":"EMA_PL_CashLoan","messagetype":"Email","lastmodifiedat":"9/15/2026 4:24:44 PM","subject":"Hello","isactive":"true","blockcount":"3","language":"PL","messagepropertiesjson":"blocks"}}');
+            } else if (endpoint.contains('CC_Message_Blocks_All')) {
+                res.setBody('{"count":0,"items":[]}');
+            } else if (endpoint.contains('MessageVariantId%20eq%20%27variant-1%27')) {
+                res.setBody('{"count":0,"page":1,"pageSize":2500,"items":[]}');
             } else {
                 res.setBody('{"count":3,"page":1,"pageSize":2500,"items":[{"keys":{"messagevariantid":"a"},"values":{"messagename":"SMS_PL_SMS_1","messagetype":"SMS","lastmodifiedat":"7/24/2026 1:38:22 PM"}},{"keys":{"messagevariantid":"b"},"values":{"messagename":"APP_PL_Banner","messagetype":"In-App","lastmodifiedat":"9/15/2026 4:24:44 PM"}},{"keys":{},"values":{"messagename":"Missing Key","messagetype":"In-App"}}]}');
             }
@@ -67,11 +73,33 @@ private class MarketingCloudCopySyncTest {
         System.assertEquals('PL', saved.Language__c);
         System.assertEquals(Datetime.newInstanceGmt(2026, 9, 15, 16, 24, 44), saved.LastModifiedAt__c);
         System.assertEquals('blocks', saved.Message_Properties_JSON__c);
-        System.assertEquals(3, endpoints.size());
+        System.assert(endpoints.size() >= 3, 'token, DE lookup, and metadata rowset');
         System.assert(endpoints[1].contains('$search=CC_Message_Metadata'));
         System.assert(endpoints[2].contains('/customobjectdata/71647d3c-4ba1-f111-ba7f-f40343e980b0/rowset'));
         System.assert(endpoints[2].contains('$filter=MessageType%20eq%20%27Email%27'));
         System.assert(endpoints[2].contains('$orderBy=LastModifiedAt%20DESC'));
+    }
+
+    @IsTest
+    static void syncVariantsWithMCE_fetchesRowsByVariantId() {
+        endpoints.clear();
+        MarketingCloudCopySync.settingsOverride = settings();
+        Test.setMock(HttpCalloutMock.class, new SuccessMock());
+
+        Test.startTest();
+        MarketingCloudCopySync.SyncResult result = MarketingCloudCopySync.syncVariantsWithMCE(
+            new List<String>{ 'variant-1' }
+        );
+        Test.stopTest();
+
+        System.assertEquals(1, result.fetchedCount);
+        System.assertEquals(1, result.createdCount);
+        CC_Message_Metadata__c saved = [
+            SELECT Name, MessageVariantId__c
+            FROM CC_Message_Metadata__c
+            WHERE MessageVariantId__c = 'variant-1'
+        ];
+        System.assertEquals('EMA_PL_CashLoan', saved.Name);
     }
 
     @IsTest

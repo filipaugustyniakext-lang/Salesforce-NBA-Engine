@@ -15,6 +15,7 @@ import saveMasterRowSettings from '@salesforce/apex/CopyCockpitController.saveMa
 import saveVariantDisplayWeight from '@salesforce/apex/CopyCockpitController.saveVariantDisplayWeight';
 import updateMessageStatus from '@salesforce/apex/CopyCockpitController.updateMessageStatus';
 import syncWithMCE from '@salesforce/apex/MarketingCloudCopySync.syncWithMCE';
+import syncVariantsWithMCE from '@salesforce/apex/MarketingCloudCopySync.syncVariantsWithMCE';
 import deleteVariantsFromMCE from '@salesforce/apex/MarketingCloudCopySync.deleteVariantsFromMCE';
 import refreshStreamViaFlow from '@salesforce/apex/FlowInit_TriggerDataSourceObjectRefresh.refreshStreamViaFlow';
 import {
@@ -269,6 +270,7 @@ function buildGroups(records, expandedSet, editingGroupName, selectedIds, versio
             const vParsed = parseFullName(v.Name);
             const variantNum = v.Version__c != null ? v.Version__c : vParsed.variant;
             const weightPercent = weightPercentFromRecord(v.Display_Probability__c, v.Display_Probability_Manual__c);
+            const mceVariantKey = v.MessageVariantId__c || v.Message_Variant_Id__c || null;
             return {
                 ...v,
                 statusClass:        statusBadgeClass(v.Status__c),
@@ -283,6 +285,8 @@ function buildGroups(records, expandedSet, editingGroupName, selectedIds, versio
                 weightDisplayText:  weightPercent != null ? String(weightPercent) : '—',
                 weightIsEditing:    editingWeightId === v.Id,
                 weightAriaLabel:    `Weight (0–100) for ${v.Name || 'variant'}`,
+                mceVariantKey,
+                canSyncFromMCE:     !!mceVariantKey,
                 scheduleBadge:      sched?.label || null,
                 scheduleBadgeClass: sched?.cssClass || null,
                 scheduleBadgeIcon:  sched?.icon || null,
@@ -881,19 +885,22 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         this.isBulkDeleteModalOpen = false;
     }
 
-    handleBulkDeleteConfirm() {
+    handleBulkSyncMCE() {
         const ids = Array.from(this._selectedIds);
-        this.isBulkDeleteModalOpen = false;
-        
-        Promise.all(ids.map(id => deleteRecord(id)))
-            .then(() => {
-                this._messages = this._messages.filter(m => !ids.includes(m.Id));
-                this._selectedIds = new Set();
-                this._showToast('Deleted', `${ids.length} variant(s) deleted.`, 'success');
-            })
-            .catch(err => {
-                this._showToast('Error', err?.body?.message || 'Bulk delete failed.', 'error');
-            });
+        if (!ids.length) {
+            this._showToast('Sync with MCE', 'Select at least one variant to sync.', 'warning');
+            return;
+        }
+        this._executeMceVariantSync(ids);
+    }
+
+    handleVariantSyncMCE(event) {
+        event.stopPropagation();
+        const recordId = event.currentTarget.dataset.id;
+        if (!recordId) {
+            return;
+        }
+        this._executeMceVariantSync([recordId]);
     }
 
     // ── handlers: channel header ──────────────────────────────────────────
@@ -937,6 +944,75 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         this._executeMceSync(null); // Sync all
     }
 
+    _mceVariantKeysForRecordIds(recordIds) {
+        return (recordIds || [])
+            .map(id => {
+                const row = this._messages.find(m => m.Id === id);
+                return row?.MessageVariantId__c || row?.Message_Variant_Id__c || null;
+            })
+            .filter(key => !!key);
+    }
+
+    _showMceSyncResult(result, titlePrefix) {
+        const created = result?.createdCount ?? 0;
+        const updated = result?.updatedCount ?? 0;
+        const failed = result?.failedCount ?? 0;
+        const skipped = result?.skippedCount ?? 0;
+        const saved = created + updated;
+        const detail = [`Saved ${saved} row(s) (${created} new, ${updated} updated).`];
+        if (skipped > 0) {
+            detail.push(`${skipped} not found in MCE.`);
+        }
+        if (failed > 0) {
+            detail.push(`${failed} could not be saved.`);
+            if (result?.errorMessage) {
+                detail.push(result.errorMessage);
+            }
+        }
+        this._showToast(
+            titlePrefix,
+            detail.join(' '),
+            failed > 0 && saved === 0 ? 'error' : (failed > 0 || skipped > 0 ? 'warning' : 'success')
+        );
+    }
+
+    _executeMceVariantSync(recordIds) {
+        if (this.isSyncingMCE) {
+            return;
+        }
+        const channel = this.activeChannel?.Channel_Type__c;
+        if (!channel) {
+            this._showToast('Sync with MCE', 'Select a channel before syncing.', 'error');
+            return;
+        }
+        const variantKeys = this._mceVariantKeysForRecordIds(recordIds);
+        if (!variantKeys.length) {
+            this._showToast(
+                'Sync with MCE',
+                'Selected variant(s) have no Marketing Cloud variant id to sync.',
+                'warning'
+            );
+            return;
+        }
+
+        this.isSyncingMCE = true;
+        syncVariantsWithMCE({ messageVariantIds: variantKeys })
+            .then(result => {
+                this._showMceSyncResult(result, `Sync ${variantKeys.length} variant(s) with MCE`);
+                this._loadMessages(channel);
+            })
+            .catch(err => {
+                this._showToast(
+                    'Sync with MCE',
+                    err?.body?.message || err?.message || 'Marketing Cloud Engagement sync failed.',
+                    'error'
+                );
+            })
+            .finally(() => {
+                this.isSyncingMCE = false;
+            });
+    }
+
     _executeMceSync(minutesBack) {
         if (this.isSyncingMCE) return;
         
@@ -948,22 +1024,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         // Pass both channel and minutesBack to the updated Apex method
         syncWithMCE({ channel: channel, minutesBack: minutesBack })
             .then(result => {
-                const created = result?.createdCount ?? 0;
-                const updated = result?.updatedCount ?? 0;
-                const failed = result?.failedCount ?? 0;
-                const saved = created + updated;
-                const detail = [`Saved ${saved} ${channel} rows (${created} new, ${updated} updated).`];
-                if (failed > 0) {
-                    detail.push(`${failed} could not be saved.`);
-                    if (result?.errorMessage) {
-                        detail.push(result.errorMessage);
-                    }
-                }
-                this._showToast(
-                    `Sync ${channel} with MCE`,
-                    detail.join(' '),
-                    failed > 0 && saved === 0 ? 'error' : (failed > 0 ? 'warning' : 'success')
-                );
+                this._showMceSyncResult(result, `Sync ${channel} with MCE`);
                 this._loadMessages(channel);
             })
             .catch(err => {
@@ -1010,7 +1071,8 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         // Map Salesforce Ids to their corresponding MessageVariantIds
         const variantIdsToDelete = this._messages
             .filter(m => ids.includes(m.Id))
-            .map(m => m.Message_Variant_Id__c); // Replace with your exact API name for variant id
+            .map(m => m.MessageVariantId__c || m.Message_Variant_Id__c)
+            .filter(Boolean);
 
         this.isBulkDeleteModalOpen = false;
 

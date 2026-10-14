@@ -51,6 +51,58 @@ public with sharing class MarketingCloudCopySync {
         }
     }
 
+    /**
+     * Pulls CC_Message_Metadata rows from MCE for specific MessageVariantId values only.
+     */
+    @AuraEnabled
+    public static SyncResult syncVariantsWithMCE(List<String> messageVariantIds) {
+        try {
+            List<String> variantIds = normalizeVariantIds(messageVariantIds);
+            if (variantIds.isEmpty()) {
+                throw auraError('Select at least one variant with a Marketing Cloud variant id.');
+            }
+            if (variantIds.size() > 100) {
+                throw auraError('Sync at most 100 variants at a time.');
+            }
+
+            MCE_Settings__mdt settings = loadSettings();
+            String token = requestToken(settings);
+            Map<String, Object> dataExtension = findDataExtension(settings, token);
+
+            SyncResult result = new SyncResult();
+            result.dataExtensionId = (String) dataExtension.get('id');
+            result.dataExtensionName = (String) dataExtension.get('name');
+            result.fetchedCount = 0;
+            result.createdCount = 0;
+            result.updatedCount = 0;
+            result.failedCount = 0;
+            result.skippedCount = 0;
+
+            List<Map<String, String>> rows = new List<Map<String, String>>();
+            for (String variantId : variantIds) {
+                Map<String, String> row = fetchVariantRow(settings, token, variantId);
+                if (row == null || row.isEmpty()) {
+                    result.skippedCount++;
+                    continue;
+                }
+                rows.add(row);
+                result.fetchedCount++;
+                if (result.latestMessageName == null) {
+                    result.latestMessageName = row.get('messagename');
+                    result.latestModifiedAt = row.get('lastmodifiedat');
+                }
+            }
+
+            upsertRows(rows, result);
+            syncBlocksForVariantsAsync(variantIds);
+            return result;
+        } catch (AuraHandledException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw auraError(ex.getMessage());
+        }
+    }
+
     @AuraEnabled
     public static SyncResult syncWithMCE(String channel, Integer minutesBack) {
         try {
@@ -113,6 +165,40 @@ public with sharing class MarketingCloudCopySync {
             throw ex;
         } catch (Exception ex) {
             throw auraError(ex.getMessage());
+        }
+    }
+
+    @future(callout=true)
+    public static void syncBlocksForVariantsAsync(List<String> variantIds) {
+        try {
+            List<String> ids = normalizeVariantIds(variantIds);
+            if (ids.isEmpty()) {
+                return;
+            }
+            MCE_Settings__mdt settings = loadSettings();
+            String token = requestToken(settings);
+
+            String endpoint = 'https://' + settings.Subdomain__c
+                + '.rest.marketingcloudapis.com/data/v1/customobjects?$search=CC_Message_Blocks_All';
+            Map<String, Object> body = send(authorizedGet(endpoint, token));
+
+            List<Object> items = (List<Object>) body.get('items');
+            if (items == null || items.isEmpty()) {
+                return;
+            }
+            Map<String, Object> first = (Map<String, Object>) items[0];
+            String deId = (String) first.get('id');
+            if (String.isBlank(deId)) {
+                return;
+            }
+
+            List<Map<String, String>> blockRows = new List<Map<String, String>>();
+            for (String variantId : ids) {
+                blockRows.addAll(fetchBlockRowsForVariant(settings, token, deId, variantId));
+            }
+            upsertBlockRows(blockRows);
+        } catch (Exception ex) {
+            System.debug('Error in syncBlocksForVariantsAsync: ' + ex.getMessage());
         }
     }
 
@@ -211,6 +297,91 @@ public with sharing class MarketingCloudCopySync {
             throw auraError('Data extension ' + settings.Data_Extension_Key__c + ' did not include an id.');
         }
         return first;
+    }
+
+    private static List<String> normalizeVariantIds(List<String> messageVariantIds) {
+        List<String> cleaned = new List<String>();
+        Set<String> seen = new Set<String>();
+        if (messageVariantIds == null) {
+            return cleaned;
+        }
+        for (String raw : messageVariantIds) {
+            if (String.isBlank(raw)) {
+                continue;
+            }
+            String id = raw.trim();
+            String key = id.toLowerCase();
+            if (seen.contains(key)) {
+                continue;
+            }
+            seen.add(key);
+            cleaned.add(id);
+        }
+        return cleaned;
+    }
+
+    private static Map<String, String> fetchVariantRow(
+        MCE_Settings__mdt settings,
+        String token,
+        String variantId
+    ) {
+        String endpoint = 'https://' + settings.Subdomain__c
+            + '.rest.marketingcloudapis.com/data/v1/customobjectdata/key/'
+            + EncodingUtil.urlEncode(settings.Data_Extension_Key__c, 'UTF-8')
+            + '/row/MessageVariantId:' + EncodingUtil.urlEncode(variantId, 'UTF-8');
+
+        HttpResponse res = new Http().send(authorizedGet(endpoint, token));
+        if (res.getStatusCode() == 404) {
+            return null;
+        }
+        if (res.getStatusCode() < 200 || res.getStatusCode() >= 300) {
+            throw auraError(
+                'Failed to load variant ' + variantId + ' from MCE (' + res.getStatusCode() + ').'
+            );
+        }
+        Object parsed = JSON.deserializeUntyped(res.getBody());
+        if (!(parsed instanceof Map<String, Object>)) {
+            return null;
+        }
+        return flattenRow((Map<String, Object>) parsed);
+    }
+
+    private static List<Map<String, String>> fetchBlockRowsForVariant(
+        MCE_Settings__mdt settings,
+        String token,
+        String dataExtensionId,
+        String variantId
+    ) {
+        List<Map<String, String>> rows = new List<Map<String, String>>();
+        Integer page = 1;
+        while (page <= MAX_PAGES) {
+            String endpoint = 'https://' + settings.Subdomain__c
+                + '.rest.marketingcloudapis.com/data/v1/customobjectdata/'
+                + dataExtensionId
+                + '/rowset?$page=' + page
+                + '&$pageSize=' + PAGE_SIZE
+                + '&$orderBy=updatedat%20DESC'
+                + '&$filter=' + messageVariantIdFilter(variantId);
+
+            Map<String, Object> body = send(authorizedGet(endpoint, token));
+            List<Object> items = (List<Object>) body.get('items');
+            List<Object> pageItems = items == null ? new List<Object>() : items;
+            for (Object itemValue : pageItems) {
+                rows.add(flattenRow((Map<String, Object>) itemValue));
+            }
+            if (pageItems.size() < PAGE_SIZE) {
+                break;
+            }
+            page++;
+        }
+        return rows;
+    }
+
+    private static String messageVariantIdFilter(String variantId) {
+        String value = variantId.replace('\'', '\'\'');
+        return 'MessageVariantId%20eq%20%27'
+            + EncodingUtil.urlEncode(value, 'UTF-8').replace('+', '%20')
+            + '%27';
     }
 
     private static SyncResult fetchRows(

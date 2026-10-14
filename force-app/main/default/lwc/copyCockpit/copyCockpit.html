@@ -131,6 +131,12 @@
                                 <span class="cockpit-bulk-count">{selectionCountLabel}</span>
                                 <div class="cockpit-bulk-actions">
                                     <lightning-button
+                                        label="Sync with MCE"
+                                        icon-name="utility:sync"
+                                        onclick={handleBulkSyncMCE}
+                                        disabled={isSyncingMCE}
+                                    ></lightning-button>
+                                    <lightning-button
                                         label="Publish"
                                         icon-name="utility:upload"
                                         onclick={handleBulkPublish}
@@ -388,6 +394,18 @@
 
                                                         <!-- Always-visible quick actions -->
                                                         <div class="cockpit-variant-actions">
+                                                            <template lwc:if={v.canSyncFromMCE}>
+                                                                <button
+                                                                    type="button"
+                                                                    class="slds-button slds-button_icon slds-button_icon-border slds-button_icon-small cockpit-quick-action"
+                                                                    title="Sync this variant from MCE"
+                                                                    data-id={v.Id}
+                                                                    disabled={isSyncingMCE}
+                                                                    onclick={handleVariantSyncMCE}
+                                                                >
+                                                                    <lightning-icon icon-name="utility:sync" size="xx-small" alternative-text="Sync from MCE"></lightning-icon>
+                                                                </button>
+                                                            </template>
                                                             <button
                                                                 type="button"
                                                                 class="slds-button slds-button_icon slds-button_icon-border slds-button_icon-small cockpit-quick-action"
