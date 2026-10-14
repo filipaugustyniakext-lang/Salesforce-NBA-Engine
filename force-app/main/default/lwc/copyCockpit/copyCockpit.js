@@ -12,7 +12,9 @@ import getProductFamilies from '@salesforce/apex/CopyCockpitController.getProduc
 import getActiveOffersByFamily from '@salesforce/apex/CopyCockpitController.getActiveOffersByFamily';
 import getProductFamilyForOffer from '@salesforce/apex/CopyCockpitController.getProductFamilyForOffer';
 import saveMasterRowSettings from '@salesforce/apex/CopyCockpitController.saveMasterRowSettings';
+import updateMessageSourceTemplates from '@salesforce/apex/CopyCockpitController.updateMessageSourceTemplates';
 import saveVariantDisplayWeight from '@salesforce/apex/CopyCockpitController.saveVariantDisplayWeight';
+import getSelectableTemplates from '@salesforce/apex/ChannelTemplateController.getSelectableTemplates';
 import updateMessageStatus from '@salesforce/apex/CopyCockpitController.updateMessageStatus';
 import syncWithMCE from '@salesforce/apex/MarketingCloudCopySync.syncWithMCE';
 import syncVariantsWithMCE from '@salesforce/apex/MarketingCloudCopySync.syncVariantsWithMCE';
@@ -376,6 +378,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     @track _renameError = '';
 
     @track _masterEditModal = null;
+    @track _sourceTemplateModal = null;
 
     @track _editingWeightId = null;
     @track _weightEditValue = '';
@@ -399,6 +402,9 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
 
     @wire(getChannelRecords)
     _wiredChannels;
+
+    @wire(getSelectableTemplates, { channelName: '$activeChannelName', channelType: '$activeChannelType' })
+    _wiredSelectableTemplates;
 
     // ── channel state ──────────────────────────────────────────────────────
 
@@ -435,6 +441,25 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         const found = this._wiredChannels.data.find(ch => ch.Id === id);
         if (!found) return null;
         return { ...found, safeIcon: resolveIcon(found) };
+    }
+
+    get activeChannelName() {
+        return this.activeChannel?.Name || '';
+    }
+
+    get activeChannelType() {
+        return this.activeChannel?.Channel_Type__c || '';
+    }
+
+    get selectableTemplateOptions() {
+        return (this._wiredSelectableTemplates?.data || []).map(template => ({
+            value: template.id,
+            label: template.packageLabel ? `${template.name} (${template.packageLabel})` : template.name
+        }));
+    }
+
+    get selectableTemplatesLoading() {
+        return !this._wiredSelectableTemplates?.data && !this._wiredSelectableTemplates?.error;
     }
 
     get addChannelName() { return this._addChannelName; }
@@ -572,6 +597,14 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     get masterEditNoOffers() {
         const m = this._masterEditModal;
         return m?.productFamilyId && !m?.isLoadingOffers && (!m?.offers || m.offers.length === 0);
+    }
+
+    get isSourceTemplateModalOpen() {
+        return !!this._sourceTemplateModal;
+    }
+
+    get sourceTemplateModal() {
+        return this._sourceTemplateModal || {};
     }
 
     // ── selection ──────────────────────────────────────────────────────────
@@ -890,6 +923,102 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             return;
         }
         this._executeMceVariantSync(ids);
+    }
+
+    handleBulkChangeSourceTemplate() {
+        const ids = Array.from(this._selectedIds);
+        if (!ids.length) {
+            this._showToast('Change Source Template', 'Select at least one variant.', 'warning');
+            return;
+        }
+        this._openSourceTemplateModal({
+            title: 'Change Source Template',
+            subtitle: `Assign a validated channel template to ${ids.length} selected variant(s).`,
+            variantIds: ids,
+            selectedTemplateId: ''
+        });
+    }
+
+    handleVariantChangeSourceTemplate(event) {
+        event.stopPropagation();
+        const recordId = event.currentTarget.dataset.id;
+        if (!recordId) {
+            return;
+        }
+        const row = this._messages.find(m => m.Id === recordId);
+        this._openSourceTemplateModal({
+            title: 'Change Source Template',
+            subtitle: 'Assign a validated channel template to this variant.',
+            variantIds: [recordId],
+            selectedTemplateId: row?.Source_Template__c || ''
+        });
+    }
+
+    handleMasterChangeSourceTemplate(event) {
+        event.stopPropagation();
+        const stem = event.currentTarget.dataset.name;
+        const groupRecords = this._messages.filter(m => recordBelongsToMasterGroup(m, stem));
+        const templateSource = groupRecords.find(m => m.Source_Template__c) || groupRecords[0];
+        this._openSourceTemplateModal({
+            title: 'Change Source Template',
+            subtitle: `Assign a validated template to all ${groupRecords.length} variant(s) in this master row.`,
+            variantIds: groupRecords.map(v => v.Id),
+            selectedTemplateId: templateSource?.Source_Template__c || ''
+        });
+    }
+
+    _openSourceTemplateModal({ title, subtitle, variantIds, selectedTemplateId }) {
+        this._sourceTemplateModal = {
+            title,
+            subtitle,
+            variantIds: variantIds || [],
+            selectedTemplateId: selectedTemplateId || '',
+            isSaving: false
+        };
+    }
+
+    handleSourceTemplateModalChange(event) {
+        if (!this._sourceTemplateModal) return;
+        this._sourceTemplateModal = {
+            ...this._sourceTemplateModal,
+            selectedTemplateId: event.detail.value || ''
+        };
+    }
+
+    handleSourceTemplateModalCancel() {
+        this._sourceTemplateModal = null;
+    }
+
+    handleSourceTemplateModalSave() {
+        const modal = this._sourceTemplateModal;
+        if (!modal?.selectedTemplateId) {
+            this._showToast('Change Source Template', 'Select a source template.', 'warning');
+            return;
+        }
+        const ids = modal.variantIds || [];
+        if (!ids.length) {
+            this._showToast('Change Source Template', 'No variants to update.', 'warning');
+            return;
+        }
+        this._sourceTemplateModal = { ...modal, isSaving: true };
+        updateMessageSourceTemplates({
+            messageIds: ids,
+            sourceTemplateId: modal.selectedTemplateId
+        })
+            .then(count => {
+                this._sourceTemplateModal = null;
+                this._showToast(
+                    'Source template updated',
+                    `Updated ${count} variant${count !== 1 ? 's' : ''}.`,
+                    'success'
+                );
+                this._loadMessages(this.activeChannel?.Channel_Type__c);
+            })
+            .catch(err => {
+                if (!this._sourceTemplateModal) return;
+                this._sourceTemplateModal = { ...this._sourceTemplateModal, isSaving: false };
+                this._showToast('Error', err?.body?.message || 'Could not update source template.', 'error');
+            });
     }
 
     handleVariantSyncMCE(event) {
@@ -1242,6 +1371,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         const familyName = familySource.Product_Family__r?.Name || null;
         const currentOfferId = offerSource.Offer__c || null;
         const currentOfferName = offerSource.Offer__r?.Name || null;
+        const templateSource = groupRecords.find(m => m.Source_Template__c) || first;
 
         this._masterEditModal = {
             messageName: stem,
@@ -1249,6 +1379,8 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             productFamilyName: familyName,
             offerId: currentOfferId,
             currentOfferName,
+            sourceTemplateId: templateSource?.Source_Template__c || '',
+            currentSourceTemplateName: templateSource?.Source_Template__r?.Name || '',
             families: [],
             offers: [],
             isLoadingFamilies: true,
@@ -1336,6 +1468,13 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         this._masterEditModal = { ...this._masterEditModal, offerId: e.detail.value };
     }
 
+    handleMasterEditSourceTemplateChange(e) {
+        this._masterEditModal = {
+            ...this._masterEditModal,
+            sourceTemplateId: e.detail.value || ''
+        };
+    }
+
     handleMasterEditCancel() {
         this._masterEditModal = null;
     }
@@ -1346,6 +1485,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         const settingsJson = JSON.stringify({
             offerId: modal.offerId || null,
             productFamilyId: modal.productFamilyId || null,
+            sourceTemplateId: modal.sourceTemplateId || null,
             variantIds: modal.variantIds || [],
         });
         saveMasterRowSettings({ settingsJson })

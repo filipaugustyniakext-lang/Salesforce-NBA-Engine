@@ -55,6 +55,63 @@ private class CopyCockpitSettingsTest {
     }
 
     @IsTest
+    static void updateMessageSourceTemplates_assignsValidatedTemplate() {
+        Id productRt = [
+            SELECT Id FROM RecordType
+            WHERE SObjectType = 'Marketing_Dictionary__c' AND DeveloperName = 'Product'
+            LIMIT 1
+        ].Id;
+        Id channelRt = [
+            SELECT Id FROM RecordType
+            WHERE SObjectType = 'Marketing_Dictionary__c' AND DeveloperName = 'Channel'
+            LIMIT 1
+        ].Id;
+        Marketing_Dictionary__c channel = new Marketing_Dictionary__c(
+            Name = 'Wizard Email Channel',
+            RecordTypeId = channelRt,
+            Channel_Type__c = 'Email',
+            Is_Active__c = true
+        );
+        insert channel;
+        Channel_Template__c template = new Channel_Template__c(
+            Name = 'Validated Shell',
+            Channel__c = channel.Id,
+            Status__c = 'Active',
+            Validation_Status__c = 'Valid',
+            Version__c = 1
+        );
+        insert template;
+        CC_Message_Metadata__c firstVariant = new CC_Message_Metadata__c(
+            Name = 'EMA_PL_Tpl_1',
+            Channel_Type__c = 'Email'
+        );
+        CC_Message_Metadata__c secondVariant = new CC_Message_Metadata__c(
+            Name = 'EMA_PL_Tpl_2',
+            Channel_Type__c = 'Email'
+        );
+        insert new List<CC_Message_Metadata__c>{ firstVariant, secondVariant };
+
+        Test.startTest();
+        Integer updated = CopyCockpitController.updateMessageSourceTemplates(
+            new List<Id>{ firstVariant.Id, secondVariant.Id },
+            template.Id
+        );
+        CopyCockpitController.saveMasterRowSettings(JSON.serialize(new Map<String, Object>{
+            'sourceTemplateId' => template.Id,
+            'variantIds' => new List<Object>{ firstVariant.Id }
+        }));
+        Test.stopTest();
+
+        System.assertEquals(2, updated);
+        Map<Id, CC_Message_Metadata__c> rows = new Map<Id, CC_Message_Metadata__c>([
+            SELECT Source_Template__c FROM CC_Message_Metadata__c
+            WHERE Id IN :new Set<Id>{ firstVariant.Id, secondVariant.Id }
+        ]);
+        System.assertEquals(template.Id, rows.get(firstVariant.Id).Source_Template__c);
+        System.assertEquals(template.Id, rows.get(secondVariant.Id).Source_Template__c);
+    }
+
+    @IsTest
     static void getPublishedVariantsForWizard_filtersByChannelOfferingAndStatus() {
         Id recordTypeId = [
             SELECT Id

@@ -28,6 +28,7 @@ public with sharing class CopyCockpitController {
                    MessageVariantId__c,
                    MessageName__c,
                    MessageVariant__c,
+                   Source_Template__c, Source_Template__r.Name,
                    Published_At__c,
                    MCE_Updated_At__c,
                    MCE_Last_Modified_By__c,
@@ -137,6 +138,11 @@ public with sharing class CopyCockpitController {
             Map<String, Object> data = (Map<String, Object>) JSON.deserializeUntyped(settingsJson);
             String offerId = (String) data.get('offerId');
             String familyId = (String) data.get('productFamilyId');
+            String sourceTemplateId = (String) data.get('sourceTemplateId');
+            Id validatedTemplateId = resolveActiveValidatedTemplateId(sourceTemplateId);
+            if (String.isNotBlank(sourceTemplateId) && validatedTemplateId == null) {
+                throw new AuraHandledException('Select an active, validated source template.');
+            }
             List<Object> variantIds = (List<Object>) data.get('variantIds');
             if (variantIds == null) {
                 List<Object> variantsList = (List<Object>) data.get('variants');
@@ -158,6 +164,9 @@ public with sharing class CopyCockpitController {
                 rec.Id = (Id) idObj;
                 rec.Product_Family__c = String.isNotBlank(familyId) ? (Id) familyId : null;
                 rec.Offer__c = String.isNotBlank(offerId) ? (Id) offerId : null;
+                if (validatedTemplateId != null) {
+                    rec.Source_Template__c = validatedTemplateId;
+                }
                 toUpdate.add(rec);
             }
 
@@ -165,6 +174,52 @@ public with sharing class CopyCockpitController {
         } catch (Exception e) {
             throw new AuraHandledException('Save failed: ' + e.getMessage());
         }
+    }
+
+    /**
+     * Assigns one active, validated Channel Template to many message variants.
+     */
+    @AuraEnabled(cacheable=false)
+    public static Integer updateMessageSourceTemplates(List<Id> messageIds, Id sourceTemplateId) {
+        if (messageIds == null || messageIds.isEmpty()) {
+            throw new AuraHandledException('Select at least one message variant.');
+        }
+        Id templateId = resolveActiveValidatedTemplateId(sourceTemplateId);
+        if (templateId == null) {
+            throw new AuraHandledException('Select an active, validated source template.');
+        }
+
+        Set<Id> uniqueIds = new Set<Id>(messageIds);
+        List<CC_Message_Metadata__c> updates = new List<CC_Message_Metadata__c>();
+        for (Id messageId : uniqueIds) {
+            if (messageId == null) {
+                continue;
+            }
+            updates.add(new CC_Message_Metadata__c(
+                Id = messageId,
+                Source_Template__c = templateId
+            ));
+        }
+        if (updates.isEmpty()) {
+            throw new AuraHandledException('Select at least one message variant.');
+        }
+        update updates;
+        return updates.size();
+    }
+
+    private static Id resolveActiveValidatedTemplateId(String sourceTemplateId) {
+        if (String.isBlank(sourceTemplateId)) {
+            return null;
+        }
+        List<Channel_Template__c> templates = [
+            SELECT Id
+            FROM Channel_Template__c
+            WHERE Id = :sourceTemplateId
+            AND Status__c = 'Active'
+            AND Validation_Status__c = 'Valid'
+            LIMIT 1
+        ];
+        return templates.isEmpty() ? null : templates[0].Id;
     }
 
     /**

@@ -133,6 +133,11 @@
                                 <span class="cockpit-bulk-count">{selectionCountLabel}</span>
                                 <div class="cockpit-bulk-actions">
                                     <lightning-button
+                                        label="Change Source Template"
+                                        icon-name="utility:insert_template"
+                                        onclick={handleBulkChangeSourceTemplate}
+                                    ></lightning-button>
+                                    <lightning-button
                                         label="Sync with MCE"
                                         icon-name="utility:sync"
                                         onclick={handleBulkSyncMCE}
@@ -250,6 +255,15 @@
                                                 <div class="cockpit-col-versions"></div>
                                                 <div class="cockpit-col-modified"></div>
                                                 <div class="cockpit-col-actions">
+                                                    <lightning-button-icon 
+                                                        icon-name="utility:insert_template" 
+                                                        variant="border-filled" 
+                                                        onclick={handleMasterChangeSourceTemplate} 
+                                                        alternative-text="Change Source Template" 
+                                                        title="Change Source Template"
+                                                        data-name={grp.messageName}
+                                                        size="small" >    
+                                                    </lightning-button-icon>
                                                     <lightning-button-icon 
                                                         icon-name="utility:settings" 
                                                         variant="border-filled" 
@@ -405,6 +419,15 @@
                                                                     <lightning-icon icon-name="utility:sync" size="xx-small" alternative-text="Sync from MCE"></lightning-icon>
                                                                 </button>
                                                             </template>
+                                                            <button
+                                                                type="button"
+                                                                class="slds-button slds-button_icon slds-button_icon-border slds-button_icon-small cockpit-quick-action"
+                                                                title="Change Source Template"
+                                                                data-id={v.Id}
+                                                                onclick={handleVariantChangeSourceTemplate}
+                                                            >
+                                                                <lightning-icon icon-name="utility:insert_template" size="xx-small" alternative-text="Change Source Template"></lightning-icon>
+                                                            </button>
                                                             <button
                                                                 type="button"
                                                                 class="slds-button slds-button_icon slds-button_icon-border slds-button_icon-small cockpit-quick-action"
@@ -717,10 +740,70 @@
                         </template>
                     </div>
 
+                    <div class="master-edit-section slds-m-top_large">
+                        <h3 class="master-edit-section__title">Source Template</h3>
+                        <template lwc:if={masterEditModal.currentSourceTemplateName}>
+                            <div class="master-edit-current-offer slds-m-bottom_x-small">
+                                <span class="master-edit-current-offer__label">Current template:</span>
+                                <span class="master-edit-current-offer__name">{masterEditModal.currentSourceTemplateName}</span>
+                            </div>
+                        </template>
+                        <template lwc:if={selectableTemplatesLoading}>
+                            <lightning-spinner size="small" alternative-text="Loading templates..."></lightning-spinner>
+                        </template>
+                        <template lwc:else>
+                            <lightning-combobox
+                                label="Source Template"
+                                placeholder="Select a validated template..."
+                                value={masterEditModal.sourceTemplateId}
+                                options={selectableTemplateOptions}
+                                field-level-help="Active, validated templates from Marketing Dictionary → Channels → Templates. Applies to all variants in this master row when you save settings."
+                                onchange={handleMasterEditSourceTemplateChange}
+                            ></lightning-combobox>
+                        </template>
+                    </div>
+
                 </div>
                 <footer class="slds-modal__footer">
                     <lightning-button label="Cancel" onclick={handleMasterEditCancel} class="slds-m-right_x-small" disabled={masterEditModal.isSaving}></lightning-button>
                     <lightning-button label="Save Settings" variant="brand" onclick={handleMasterEditSave} disabled={masterEditModal.isSaving}></lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+    <!-- Change Source Template modal (bulk / variant / master quick action) -->
+    <template lwc:if={isSourceTemplateModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="source-template-modal-title" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header">
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse" title="Close" onclick={handleSourceTemplateModalCancel}>
+                        <lightning-icon icon-name="utility:close" size="small" variant="inverse"></lightning-icon>
+                    </button>
+                    <lightning-icon icon-name="utility:insert_template" size="small" class="slds-m-right_x-small"></lightning-icon>
+                    <h2 id="source-template-modal-title" class="slds-modal__title">{sourceTemplateModal.title}</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <p class="slds-text-body_regular slds-m-bottom_medium">{sourceTemplateModal.subtitle}</p>
+                    <template lwc:if={selectableTemplatesLoading}>
+                        <lightning-spinner size="small" alternative-text="Loading templates..."></lightning-spinner>
+                    </template>
+                    <template lwc:else>
+                        <lightning-combobox
+                            label="Source Template"
+                            placeholder="Select a validated template..."
+                            value={sourceTemplateModal.selectedTemplateId}
+                            options={selectableTemplateOptions}
+                            required
+                            field-level-help="Templates are managed under Marketing Dictionary → Channels → Templates (active and validated only)."
+                            onchange={handleSourceTemplateModalChange}
+                        ></lightning-combobox>
+                    </template>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={handleSourceTemplateModalCancel} class="slds-m-right_x-small" disabled={sourceTemplateModal.isSaving}></lightning-button>
+                    <lightning-button label="Apply Template" variant="brand" onclick={handleSourceTemplateModalSave} disabled={sourceTemplateModal.isSaving}></lightning-button>
                 </footer>
             </div>
         </section>
