@@ -17,11 +17,14 @@ private class MarketingCloudCopySyncTest {
                 res.setBody('{"count":1,"page":1,"pageSize":2500,"items":[{"keys":{"messagevariantid":"banner-1"},"values":{"messagename":"BAN_PL_Home","messagetype":"WebBanner","lastmodifiedat":"9/15/2026 4:24:44 PM"}}]}');
             } else if (endpoint.contains('MessageType%20eq%20%27Email%27')) {
                 res.setBody('{"count":1,"page":1,"pageSize":2500,"items":[{"keys":{"messagevariantid":"variant-1"},"values":{"messagename":"EMA_PL_CashLoan","messagetype":"Email","lastmodifiedat":"9/15/2026 4:24:44 PM","subject":"Hello","isactive":"true","blockcount":"3","language":"PL","messagepropertiesjson":"blocks"}}]}');
-            } else if (endpoint.contains('/row/MessageVariantId:variant-1')) {
-                res.setBody('{"keys":{"messagevariantid":"variant-1"},"values":{"messagename":"EMA_PL_CashLoan","messagetype":"Email","lastmodifiedat":"9/15/2026 4:24:44 PM","subject":"Hello","isactive":"true","blockcount":"3","language":"PL","messagepropertiesjson":"blocks"}}');
+            } else if (endpoint.contains('/rowset')
+                && endpoint.contains('71647d3c-4ba1-f111-ba7f-f40343e980b0')
+                && endpoint.contains('MessageVariantId')
+                && endpoint.contains('variant-1')) {
+                res.setBody('{"count":1,"page":1,"pageSize":2500,"items":[{"keys":{"messagevariantid":"variant-1"},"values":{"messagename":"EMA_PL_CashLoan","messagetype":"Email","lastmodifiedat":"9/15/2026 4:24:44 PM","subject":"Hello","isactive":"true","blockcount":"3","language":"PL","messagepropertiesjson":"blocks"}}]}');
             } else if (endpoint.contains('CC_Message_Blocks_All')) {
                 res.setBody('{"count":0,"items":[]}');
-            } else if (endpoint.contains('MessageVariantId%20eq%20%27variant-1%27')) {
+            } else if (endpoint.contains('/rowset') && endpoint.contains('MessageVariantId') && endpoint.contains('variant-1')) {
                 res.setBody('{"count":0,"page":1,"pageSize":2500,"items":[]}');
             } else {
                 res.setBody('{"count":3,"page":1,"pageSize":2500,"items":[{"keys":{"messagevariantid":"a"},"values":{"messagename":"SMS_PL_SMS_1","messagetype":"SMS","lastmodifiedat":"7/24/2026 1:38:22 PM"}},{"keys":{"messagevariantid":"b"},"values":{"messagename":"APP_PL_Banner","messagetype":"In-App","lastmodifiedat":"9/15/2026 4:24:44 PM"}},{"keys":{},"values":{"messagename":"Missing Key","messagetype":"In-App"}}]}');
@@ -94,6 +97,14 @@ private class MarketingCloudCopySyncTest {
 
         System.assertEquals(1, result.fetchedCount);
         System.assertEquals(1, result.createdCount);
+        Boolean hasInFilter = false;
+        for (String callEndpoint : endpoints) {
+            if (callEndpoint.contains('MessageVariantId') && callEndpoint.contains('in%20')) {
+                hasInFilter = true;
+                break;
+            }
+        }
+        System.assert(hasInFilter, 'Expected MessageVariantId in (...) rowset filter');
         CC_Message_Metadata__c saved = [
             SELECT Name, MessageVariantId__c
             FROM CC_Message_Metadata__c

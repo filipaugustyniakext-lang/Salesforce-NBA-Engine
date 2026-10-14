@@ -5,6 +5,7 @@
 public with sharing class MarketingCloudCopySync {
     private static final Integer PAGE_SIZE = 2500;
     private static final Integer MAX_PAGES = 20;
+    private static final Integer VARIANT_ID_FILTER_CHUNK = 25;
     private static final String ORDER_BY = 'LastModifiedAt%20DESC';
 
     @TestVisible
@@ -78,19 +79,17 @@ public with sharing class MarketingCloudCopySync {
             result.failedCount = 0;
             result.skippedCount = 0;
 
-            List<Map<String, String>> rows = new List<Map<String, String>>();
-            for (String variantId : variantIds) {
-                Map<String, String> row = fetchVariantRow(settings, token, variantId);
-                if (row == null || row.isEmpty()) {
-                    result.skippedCount++;
-                    continue;
-                }
-                rows.add(row);
-                result.fetchedCount++;
-                if (result.latestMessageName == null) {
-                    result.latestMessageName = row.get('messagename');
-                    result.latestModifiedAt = row.get('lastmodifiedat');
-                }
+            String dataExtensionId = (String) dataExtension.get('id');
+            List<Map<String, String>> rows = fetchMetadataRowsByVariantIds(
+                settings,
+                token,
+                dataExtensionId,
+                variantIds,
+                result
+            );
+            if (!rows.isEmpty()) {
+                result.latestMessageName = rows[0].get('messagename');
+                result.latestModifiedAt = rows[0].get('lastmodifiedat');
             }
 
             upsertRows(rows, result);
@@ -192,10 +191,12 @@ public with sharing class MarketingCloudCopySync {
                 return;
             }
 
-            List<Map<String, String>> blockRows = new List<Map<String, String>>();
-            for (String variantId : ids) {
-                blockRows.addAll(fetchBlockRowsForVariant(settings, token, deId, variantId));
-            }
+            List<Map<String, String>> blockRows = fetchBlockRowsByVariantIds(
+                settings,
+                token,
+                deId,
+                ids
+            );
             upsertBlockRows(blockRows);
         } catch (Exception ex) {
             System.debug('Error in syncBlocksForVariantsAsync: ' + ex.getMessage());
@@ -320,39 +321,93 @@ public with sharing class MarketingCloudCopySync {
         return cleaned;
     }
 
-    private static Map<String, String> fetchVariantRow(
-        MCE_Settings__mdt settings,
-        String token,
-        String variantId
-    ) {
-        String endpoint = 'https://' + settings.Subdomain__c
-            + '.rest.marketingcloudapis.com/data/v1/customobjectdata/key/'
-            + EncodingUtil.urlEncode(settings.Data_Extension_Key__c, 'UTF-8')
-            + '/row/MessageVariantId:' + EncodingUtil.urlEncode(variantId, 'UTF-8');
-
-        HttpResponse res = new Http().send(authorizedGet(endpoint, token));
-        if (res.getStatusCode() == 404) {
-            return null;
-        }
-        if (res.getStatusCode() < 200 || res.getStatusCode() >= 300) {
-            throw auraError(
-                'Failed to load variant ' + variantId + ' from MCE (' + res.getStatusCode() + ').'
-            );
-        }
-        Object parsed = JSON.deserializeUntyped(res.getBody());
-        if (!(parsed instanceof Map<String, Object>)) {
-            return null;
-        }
-        return flattenRow((Map<String, Object>) parsed);
-    }
-
-    private static List<Map<String, String>> fetchBlockRowsForVariant(
+    private static List<Map<String, String>> fetchMetadataRowsByVariantIds(
         MCE_Settings__mdt settings,
         String token,
         String dataExtensionId,
-        String variantId
+        List<String> variantIds,
+        SyncResult result
+    ) {
+        List<Map<String, String>> rows = fetchRowsetByVariantIdFilter(
+            settings,
+            token,
+            dataExtensionId,
+            variantIds,
+            null
+        );
+        result.fetchedCount = rows.size();
+
+        Set<String> foundKeys = new Set<String>();
+        for (Map<String, String> row : rows) {
+            String id = row.get('messagevariantid');
+            if (String.isNotBlank(id)) {
+                foundKeys.add(id.trim().toLowerCase());
+            }
+        }
+        for (String requestedId : variantIds) {
+            if (!foundKeys.contains(requestedId.toLowerCase())) {
+                result.skippedCount++;
+            }
+        }
+        return rows;
+    }
+
+    private static List<Map<String, String>> fetchBlockRowsByVariantIds(
+        MCE_Settings__mdt settings,
+        String token,
+        String dataExtensionId,
+        List<String> variantIds
+    ) {
+        return fetchRowsetByVariantIdFilter(
+            settings,
+            token,
+            dataExtensionId,
+            variantIds,
+            'updatedat%20DESC'
+        );
+    }
+
+    /**
+     * MCE rowset filter: MessageVariantId in ('id1', 'id2', ...).
+     */
+    private static List<Map<String, String>> fetchRowsetByVariantIdFilter(
+        MCE_Settings__mdt settings,
+        String token,
+        String dataExtensionId,
+        List<String> variantIds,
+        String orderByEncoded
     ) {
         List<Map<String, String>> rows = new List<Map<String, String>>();
+        if (variantIds == null || variantIds.isEmpty()) {
+            return rows;
+        }
+
+        for (Integer start = 0; start < variantIds.size(); start += VARIANT_ID_FILTER_CHUNK) {
+            Integer endIndex = Math.min(start + VARIANT_ID_FILTER_CHUNK, variantIds.size());
+            List<String> chunk = new List<String>();
+            for (Integer index = start; index < endIndex; index++) {
+                chunk.add(variantIds[index]);
+            }
+            rows.addAll(
+                fetchRowsetChunk(settings, token, dataExtensionId, chunk, orderByEncoded)
+            );
+        }
+        return rows;
+    }
+
+    private static List<Map<String, String>> fetchRowsetChunk(
+        MCE_Settings__mdt settings,
+        String token,
+        String dataExtensionId,
+        List<String> variantIdsChunk,
+        String orderByEncoded
+    ) {
+        List<Map<String, String>> rows = new List<Map<String, String>>();
+        String filter = messageVariantIdsInFilter(variantIdsChunk);
+        if (String.isBlank(filter)) {
+            return rows;
+        }
+
         Integer page = 1;
         while (page <= MAX_PAGES) {
             String endpoint = 'https://' + settings.Subdomain__c
@@ -360,8 +415,10 @@ public with sharing class MarketingCloudCopySync {
                 + dataExtensionId
                 + '/rowset?$page=' + page
                 + '&$pageSize=' + PAGE_SIZE
-                + '&$orderBy=updatedat%20DESC'
-                + '&$filter=' + messageVariantIdFilter(variantId);
+                + '&$filter=' + filter;
+            if (String.isNotBlank(orderByEncoded)) {
+                endpoint += '&$orderBy=' + orderByEncoded;
+            }
 
             Map<String, Object> body = send(authorizedGet(endpoint, token));
             List<Object> items = (List<Object>) body.get('items');
@@ -377,11 +434,20 @@ public with sharing class MarketingCloudCopySync {
         return rows;
     }
 
-    private static String messageVariantIdFilter(String variantId) {
-        String value = variantId.replace('\'', '\'\'');
-        return 'MessageVariantId%20eq%20%27'
-            + EncodingUtil.urlEncode(value, 'UTF-8').replace('+', '%20')
-            + '%27';
+    private static String messageVariantIdsInFilter(List<String> variantIds) {
+        List<String> quotedIds = new List<String>();
+        for (String raw : variantIds) {
+            if (String.isBlank(raw)) {
+                continue;
+            }
+            String id = raw.trim().replace('\'', '\'\'');
+            quotedIds.add('\'' + id + '\'');
+        }
+        if (quotedIds.isEmpty()) {
+            return '';
+        }
+        String filter = 'MessageVariantId in (' + String.join(quotedIds, ', ') + ')';
+        return EncodingUtil.urlEncode(filter, 'UTF-8').replace('+', '%20');
     }
 
     private static SyncResult fetchRows(
