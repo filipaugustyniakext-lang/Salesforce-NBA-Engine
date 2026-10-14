@@ -178,8 +178,17 @@
                             <div class="cockpit-list" role="list">
 
                                 <!-- Column header -->
-                                <div class="cockpit-list-header" aria-hidden="true">
-                                    <span class="cockpit-col-check"></span>
+                                <div class="cockpit-list-header">
+                                    <span class="cockpit-col-check" onclick={handleSelectAllCheckboxClick}>
+                                        <input
+                                            type="checkbox"
+                                            class="cockpit-checkbox cockpit-checkbox_select-all"
+                                            data-select-all-variants
+                                            checked={allVisibleVariantsSelected}
+                                            aria-label={selectAllVisibleLabel}
+                                            onchange={handleSelectAllVisible}
+                                        />
+                                    </span>
                                     <span class="cockpit-col-name">Message / Variant</span>
                                     <span class="cockpit-col-status">Status</span>
                                     <span class="cockpit-col-weight">Weight</span>

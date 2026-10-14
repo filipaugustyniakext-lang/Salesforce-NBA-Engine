@@ -616,6 +616,41 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         return `${n} variant${n !== 1 ? 's' : ''} selected`;
     }
 
+    get allVisibleVariantIds() {
+        const ids = [];
+        (this.filteredGroups || []).forEach(group => {
+            (group.variants || []).forEach(variant => {
+                if (variant.Id) {
+                    ids.push(variant.Id);
+                }
+            });
+        });
+        return ids;
+    }
+
+    get allVisibleVariantsSelected() {
+        const ids = this.allVisibleVariantIds;
+        return ids.length > 0 && ids.every(id => this._selectedIds.has(id));
+    }
+
+    get someVisibleVariantsSelected() {
+        const ids = this.allVisibleVariantIds;
+        if (!ids.length) {
+            return false;
+        }
+        const selectedCount = ids.filter(id => this._selectedIds.has(id)).length;
+        return selectedCount > 0 && selectedCount < ids.length;
+    }
+
+    get selectAllVisibleLabel() {
+        const masterCount = this.filteredGroups.length;
+        const variantCount = this.allVisibleVariantIds.length;
+        if (!variantCount) {
+            return 'Select all messages';
+        }
+        return `Select all ${masterCount} message${masterCount !== 1 ? 's' : ''} and ${variantCount} variant${variantCount !== 1 ? 's' : ''} shown`;
+    }
+
     // ── lifecycle ──────────────────────────────────────────────────────────
 
     renderedCallback() {
@@ -634,6 +669,10 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
                 input.focus();
                 input.select();
             }
+        }
+        const selectAllCheckbox = this.template.querySelector('[data-select-all-variants]');
+        if (selectAllCheckbox) {
+            selectAllCheckbox.indeterminate = this.someVisibleVariantsSelected;
         }
     }
 
@@ -864,6 +903,22 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
 
     handleMasterCheckboxClick(e) {
         e.stopPropagation();
+    }
+
+    handleSelectAllCheckboxClick(e) {
+        e.stopPropagation();
+    }
+
+    handleSelectAllVisible(e) {
+        e.stopPropagation();
+        const ids = this.allVisibleVariantIds;
+        const next = new Set(this._selectedIds);
+        if (e.target.checked) {
+            ids.forEach(id => next.add(id));
+        } else {
+            ids.forEach(id => next.delete(id));
+        }
+        this._selectedIds = next;
     }
 
     handleGroupSelect(e) {
