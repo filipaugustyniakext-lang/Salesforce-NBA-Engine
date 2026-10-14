@@ -55,12 +55,7 @@ private class CopyCockpitSettingsTest {
     }
 
     @IsTest
-    static void updateMessageSourceTemplates_assignsValidatedTemplate() {
-        Id productRt = [
-            SELECT Id FROM RecordType
-            WHERE SObjectType = 'Marketing_Dictionary__c' AND DeveloperName = 'Product'
-            LIMIT 1
-        ].Id;
+    static void updateMessageSourceTemplates_rejectsDraftTemplate() {
         Id channelRt = [
             SELECT Id FROM RecordType
             WHERE SObjectType = 'Marketing_Dictionary__c' AND DeveloperName = 'Channel'
@@ -73,42 +68,35 @@ private class CopyCockpitSettingsTest {
             Is_Active__c = true
         );
         insert channel;
-        Channel_Template__c template = new Channel_Template__c(
-            Name = 'Validated Shell',
-            Channel__c = channel.Id,
-            Status__c = 'Active',
-            Validation_Status__c = 'Valid',
-            Version__c = 1
+        Id draftTemplateId = ChannelTemplateController.saveTemplate(
+            new Channel_Template__c(
+                Name = 'Draft Shell',
+                Status__c = 'Draft',
+                Version__c = 1,
+                Description__c = 'Not yet validated'
+            ),
+            channel.Id
         );
-        insert template;
-        CC_Message_Metadata__c firstVariant = new CC_Message_Metadata__c(
+        CC_Message_Metadata__c variant = new CC_Message_Metadata__c(
             Name = 'EMA_PL_Tpl_1',
             Channel_Type__c = 'Email'
         );
-        CC_Message_Metadata__c secondVariant = new CC_Message_Metadata__c(
-            Name = 'EMA_PL_Tpl_2',
-            Channel_Type__c = 'Email'
-        );
-        insert new List<CC_Message_Metadata__c>{ firstVariant, secondVariant };
+        insert variant;
 
-        Test.startTest();
-        Integer updated = CopyCockpitController.updateMessageSourceTemplates(
-            new List<Id>{ firstVariant.Id, secondVariant.Id },
-            template.Id
-        );
-        CopyCockpitController.saveMasterRowSettings(JSON.serialize(new Map<String, Object>{
-            'sourceTemplateId' => template.Id,
-            'variantIds' => new List<Object>{ firstVariant.Id }
-        }));
-        Test.stopTest();
-
-        System.assertEquals(2, updated);
-        Map<Id, CC_Message_Metadata__c> rows = new Map<Id, CC_Message_Metadata__c>([
-            SELECT Source_Template__c FROM CC_Message_Metadata__c
-            WHERE Id IN :new Set<Id>{ firstVariant.Id, secondVariant.Id }
-        ]);
-        System.assertEquals(template.Id, rows.get(firstVariant.Id).Source_Template__c);
-        System.assertEquals(template.Id, rows.get(secondVariant.Id).Source_Template__c);
+        Boolean threw = false;
+        try {
+            CopyCockpitController.updateMessageSourceTemplates(
+                new List<Id>{ variant.Id },
+                draftTemplateId
+            );
+        } catch (AuraHandledException e) {
+            threw = true;
+            System.assert(
+                e.getMessage().contains('validated'),
+                'Expected validated-template error: ' + e.getMessage()
+            );
+        }
+        System.assertEquals(true, threw, 'Draft template must be rejected');
     }
 
     @IsTest
