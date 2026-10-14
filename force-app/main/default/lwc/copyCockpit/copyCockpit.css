@@ -464,9 +464,6 @@
     padding: 0 0 0 0.5rem;
     border-bottom: 1px solid #f3f2f2;
     min-height: 38px;
-    width: 100%;
-    min-width: max-content;
-    box-sizing: border-box;
     transition: background 0.1s;
 }
 
