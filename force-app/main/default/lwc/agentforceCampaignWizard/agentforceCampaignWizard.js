@@ -2128,8 +2128,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             attributes: { apiName: 'Copy_Cockpit_Editor' },
             state: {
                 c__RecordID: variantId,
-                c__MessageType: messageType,
-                c__recordId: variantId
+                c__MessageType: messageType
             }
         };
         this[NavigationMixin.GenerateUrl](pageRef)
