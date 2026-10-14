@@ -188,6 +188,23 @@ function weightPercentFromRecord(prob, probManual) {
     return Math.round(pct);
 }
 
+/** Whole number 0–100 for inline weight editor (empty string allowed while typing). */
+function sanitizeWeightInput(raw) {
+    const digits = String(raw ?? '').replace(/\D/g, '');
+    if (digits === '') return '';
+    let n = parseInt(digits, 10);
+    if (Number.isNaN(n)) return '';
+    if (n > 100) n = 100;
+    if (n < 0) n = 0;
+    return String(n);
+}
+
+function parseCommittedWeight(raw) {
+    const sanitized = sanitizeWeightInput(raw);
+    if (sanitized === '') return null;
+    return parseInt(sanitized, 10);
+}
+
 function buildScheduleBadge(record) {
     const action   = (record.Scheduled_Action__c || '').toLowerCase();
     const status   = (record.Scheduled_Status__c || '').toLowerCase();
@@ -219,7 +236,7 @@ function buildScheduleBadge(record) {
     };
 }
 
-function buildGroups(records, expandedSet, editingGroupName, selectedIds, versionCounts) {
+function buildGroups(records, expandedSet, editingGroupName, selectedIds, versionCounts, editingWeightId) {
     const map = new Map();
     for (const r of records) {
         const key = groupKeyFromName(r.Name);
@@ -251,6 +268,7 @@ function buildGroups(records, expandedSet, editingGroupName, selectedIds, versio
             const modBy = v.MCE_Last_Modified_By__c || null;
             const vParsed = parseFullName(v.Name);
             const variantNum = v.Version__c != null ? v.Version__c : vParsed.variant;
+            const weightPercent = weightPercentFromRecord(v.Display_Probability__c, v.Display_Probability_Manual__c);
             return {
                 ...v,
                 statusClass:        statusBadgeClass(v.Status__c),
@@ -261,7 +279,9 @@ function buildGroups(records, expandedSet, editingGroupName, selectedIds, versio
                 validToFmt:         fmtDate(v.Valid_To__c),
                 campaignName:       v.Campaign__r?.Name || null,
                 versionLabel:       v.Message_Variant__c || (variantNum != null ? `Variant ${variantNum}` : '—'),
-                weightPercent:      weightPercentFromRecord(v.Display_Probability__c, v.Display_Probability_Manual__c),
+                weightPercent,
+                weightDisplayText:  weightPercent != null ? String(weightPercent) : '—',
+                weightIsEditing:    editingWeightId === v.Id,
                 weightAriaLabel:    `Weight (0–100) for ${v.Name || 'variant'}`,
                 scheduleBadge:      sched?.label || null,
                 scheduleBadgeClass: sched?.cssClass || null,
@@ -354,6 +374,10 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     @track _renameError = '';
 
     @track _masterEditModal = null;
+
+    @track _editingWeightId = null;
+    @track _weightEditValue = '';
+    _focusWeightInput = false;
 
     @track _editorRecordId = null;
 
@@ -452,7 +476,12 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             this._editingGroupName,
             this._selectedIds,
             this._versionCounts,
+            this._editingWeightId,
         );
+    }
+
+    get weightEditValue() {
+        return this._weightEditValue;
     }
 
     get editingCountryCode() { return this._editingCountryCode; }
@@ -561,6 +590,16 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             this._activeChannelId = first.Id;
             this._loadMessages(first.Channel_Type__c);
         }
+        if (this._focusWeightInput && this._editingWeightId) {
+            this._focusWeightInput = false;
+            const input = this.template.querySelector(
+                `input.cockpit-weight-input-native[data-id="${this._editingWeightId}"]`
+            );
+            if (input) {
+                input.focus();
+                input.select();
+            }
+        }
     }
 
     // ── handlers: channel ──────────────────────────────────────────────────
@@ -574,6 +613,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         this._expandedGroups = new Set();
         this._allExpanded = false;
         this._selectedIds = new Set();
+        this._cancelWeightEdit();
         this._loadMessages(e.currentTarget.dataset.channeltype);
     }
 
@@ -587,29 +627,70 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         this._statusFilter = e.detail.value;
     }
 
-    handleVariantWeightChange(event) {
+    handleWeightDisplayClick(event) {
         event.stopPropagation();
         const recordId = event.currentTarget.dataset.id;
-        const raw = event.detail.value;
-        if (!recordId || raw === '' || raw == null) {
+        if (!recordId) return;
+        const prior = this._messages.find(m => m.Id === recordId);
+        const pct = prior
+            ? weightPercentFromRecord(prior.Display_Probability__c, prior.Display_Probability_Manual__c)
+            : null;
+        this._editingWeightId = recordId;
+        this._weightEditValue = pct != null ? String(pct) : '';
+        this._focusWeightInput = true;
+    }
+
+    handleWeightEditInput(event) {
+        event.stopPropagation();
+        this._weightEditValue = sanitizeWeightInput(event.target.value);
+        event.target.value = this._weightEditValue;
+    }
+
+    handleWeightEditKeydown(event) {
+        event.stopPropagation();
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            event.currentTarget.blur();
+        } else if (event.key === 'Escape') {
+            event.preventDefault();
+            this._cancelWeightEdit();
+        }
+    }
+
+    handleWeightEditBlur(event) {
+        event.stopPropagation();
+        const recordId = event.currentTarget.dataset.id;
+        if (!recordId || recordId !== this._editingWeightId) {
             return;
         }
-        const weightPercent = Math.round(Number(raw));
-        if (Number.isNaN(weightPercent) || weightPercent < 0 || weightPercent > 100) {
-            this._showToast('Invalid weight', 'Enter a whole number from 0 to 100.', 'warning');
+        const weightPercent = parseCommittedWeight(event.target.value);
+        this._editingWeightId = null;
+        this._weightEditValue = '';
+        if (weightPercent == null) {
             return;
         }
+        this._persistVariantWeight(recordId, weightPercent);
+    }
+
+    _cancelWeightEdit() {
+        this._editingWeightId = null;
+        this._weightEditValue = '';
+        this._focusWeightInput = false;
+    }
+
+    _persistVariantWeight(recordId, weightPercent) {
+        const clamped = Math.min(100, Math.max(0, weightPercent));
         const prior = this._messages.find(m => m.Id === recordId);
         const priorPct = prior
             ? weightPercentFromRecord(prior.Display_Probability__c, prior.Display_Probability_Manual__c)
             : null;
-        if (priorPct === weightPercent) {
+        if (priorPct === clamped) {
             return;
         }
 
-        saveVariantDisplayWeight({ recordId, weightPercent })
+        saveVariantDisplayWeight({ recordId, weightPercent: clamped })
             .then(() => {
-                this._setMessageWeight(recordId, weightPercent / 100);
+                this._setMessageWeight(recordId, clamped / 100);
             })
             .catch(err => {
                 this._showToast('Error', err?.body?.message || 'Could not save weight.', 'error');

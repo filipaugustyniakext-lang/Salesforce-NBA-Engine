@@ -307,22 +307,35 @@
                                                             </div>
                                                         </div>
 
-                                                        <!-- Display weight (0–100, saved per variant) -->
-                                                        <div class="cockpit-col-weight" onclick={handleCheckboxClick}>
-                                                            <lightning-input
-                                                                type="number"
-                                                                variant="label-hidden"
-                                                                min="0"
-                                                                max="100"
-                                                                step="1"
-                                                                value={v.weightPercent}
-                                                                placeholder="—"
-                                                                data-id={v.Id}
-                                                                aria-label={v.weightAriaLabel}
-                                                                class="cockpit-weight-input"
-                                                                onchange={handleVariantWeightChange}
-                                                                onclick={handleCheckboxClick}>
-                                                            </lightning-input>
+                                                        <!-- Weight: text until click, then compact inline edit (0–100) -->
+                                                        <div class="cockpit-col-weight cockpit-weight-cell" onclick={handleCheckboxClick}>
+                                                            <template lwc:if={v.weightIsEditing}>
+                                                                <input
+                                                                    type="text"
+                                                                    inputmode="numeric"
+                                                                    pattern="[0-9]*"
+                                                                    maxlength="3"
+                                                                    class="cockpit-weight-input-native"
+                                                                    value={weightEditValue}
+                                                                    data-id={v.Id}
+                                                                    aria-label={v.weightAriaLabel}
+                                                                    onclick={handleCheckboxClick}
+                                                                    oninput={handleWeightEditInput}
+                                                                    onkeydown={handleWeightEditKeydown}
+                                                                    onblur={handleWeightEditBlur}
+                                                                />
+                                                            </template>
+                                                            <template lwc:else>
+                                                                <button
+                                                                    type="button"
+                                                                    class="cockpit-weight-display"
+                                                                    data-id={v.Id}
+                                                                    title="Click to edit weight (0–100)"
+                                                                    aria-label={v.weightAriaLabel}
+                                                                    onclick={handleWeightDisplayClick}>
+                                                                    {v.weightDisplayText}
+                                                                </button>
+                                                            </template>
                                                         </div>
 
                                                         <!-- Schedule badge -->

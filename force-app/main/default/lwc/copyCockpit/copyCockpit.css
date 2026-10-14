@@ -405,18 +405,51 @@
         margin-left: 0.5rem;
 }
 
-/* weight — inline 0–100 input on variant rows */
-.cockpit-weight-input {
-    --slds-c-input-spacing-horizontal-start: 0.35rem;
-    --slds-c-input-spacing-horizontal-end: 0.35rem;
-    max-width: 4.25rem;
-    margin: 0 auto;
+/* weight — click text, then subtle inline numeric edit (0–100) */
+.cockpit-weight-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.cockpit-col-weight .cockpit-weight-input input {
-    text-align: center;
+.cockpit-weight-display {
+    border: none;
+    background: transparent;
     font-size: 0.75rem;
     font-weight: 600;
+    color: #181818;
+    cursor: pointer;
+    padding: 0.1rem 0.35rem;
+    border-radius: 0.15rem;
+    line-height: 1.25;
+    min-width: 1.75rem;
+}
+
+.cockpit-weight-display:hover,
+.cockpit-weight-display:focus-visible {
+    background: #eef4fb;
+    outline: none;
+    box-shadow: inset 0 0 0 1px #c9daf0;
+}
+
+.cockpit-weight-input-native {
+    width: 2.5rem;
+    height: 1.35rem;
+    margin: 0;
+    padding: 0 0.15rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-align: center;
+    color: #181818;
+    border: 1px solid #0176d3;
+    border-radius: 0.15rem;
+    background: #fff;
+    box-shadow: 0 0 0 1px rgba(1, 118, 211, 0.15);
+}
+
+.cockpit-weight-input-native:focus {
+    outline: none;
+    box-shadow: 0 0 0 1px #0176d3;
 }
 
 /* always-visible round quick actions */
