@@ -604,7 +604,19 @@
     --slds-c-icon-color-foreground: #c23934;
 }
 
-/* Step 1 — Priority & Exclusions two-column layout */
+/* Step 1 — Campaign Properties | Channel Selection */
+.wizard-step1-two-col {
+    align-items: stretch;
+}
+
+.wizard-step1-card {
+    height: 100%;
+}
+
+.wizard-step1-card--channels .wizard-section-box--fill {
+    min-height: 100%;
+}
+
 .wizard-section-box {
     background: #ffffff;
     border: 1px solid #e5e5e5;
@@ -1052,21 +1064,6 @@
     --slds-c-button-text-color: #0176d3;
 }
 
-/* --- EXCLUSION SETTINGS (Step 3) --- */
-.exclusion-option {
-    padding: 0.75rem 0;
-    border-bottom: 1px solid #e5e5e5;
-}
-
-.exclusion-option:last-child {
-    border-bottom: none;
-}
-
-.exclusion-option-help {
-    padding-left: 1.6rem;
-    line-height: 1.4;
-}
-
 /* --- SUMMARY STEP STYLES --- */
 .summary-grid {
     display: grid;
@@ -1387,10 +1384,22 @@
     border: 1px solid #f5c6b8;
 }
 
-.suppression-section {
+.exclusions-section {
     border-top: 1px solid #dddbda;
     padding-top: 12px;
-    margin-top: 8px;
+    margin-top: 4px;
+    flex: 1 1 auto;
+}
+
+.exclusion-definition-row {
+    padding: 0.75rem;
+    border: 1px solid #e5e5e5;
+    border-radius: 0.375rem;
+    background: #fafaf9;
+}
+
+.copy-assignment-channels-alert {
+    margin-bottom: 1rem;
 }
 
 /* --- COPY ASSIGNMENT GHOST STEP --- */

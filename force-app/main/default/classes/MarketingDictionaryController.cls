@@ -44,7 +44,10 @@ public with sharing class MarketingDictionaryController {
                    Assigned_Channels__c,
                    Product_Family__c, Product_Family_Ids__c,
                    Family_of_Needs__c, Family_of_Needs_Ids__c,
-                   Exclude_Onboarding__c
+                   Exclude_Onboarding__c,
+                   Suppression_Campaign__c, Suppression_Campaign__r.Name,
+                   Suppression_Report_Id__c, Suppression_Segment__c,
+                   Campaign_Exclusions_JSON__c
             FROM Campaign
             WHERE Id = :campaignId
             LIMIT 1

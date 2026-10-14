@@ -24,6 +24,9 @@ import { parseFullName } from 'c/copyMessageNaming';
 import getCampaignTiers from '@salesforce/apex/MarketingDictionaryManagerController.getCampaignTiers';
 import getCampaignTypes from '@salesforce/apex/MarketingDictionaryController.getCampaignTypes';
 import getCampaignRecords from '@salesforce/apex/MarketingDictionaryManagerController.getCampaignRecords';
+import getData360DmoOptions from '@salesforce/apex/MarketingDictionaryManagerController.getData360DmoOptions';
+import searchSuppressionCampaigns from '@salesforce/apex/MarketingDictionaryController.searchSuppressionCampaigns';
+import searchSuppressionReports from '@salesforce/apex/MarketingDictionaryController.searchSuppressionReports';
 import {
     parseSupportedCampaignTypes as parseTierCampaignTypes,
     buildTierAttrRows,
@@ -40,6 +43,25 @@ const COPY_STATUS_BADGE_CLASS = {
 
 function copyStatusBadgeClass(status) {
     return COPY_STATUS_BADGE_CLASS[(status || '').toLowerCase()] || 'slds-badge slds-theme_lightest';
+}
+
+const EXCLUSION_SOURCE_OPTIONS = [
+    { label: 'Salesforce Campaign', value: 'campaign' },
+    { label: 'Salesforce Report', value: 'report' },
+    { label: 'Data360 Segment', value: 'segment' },
+    { label: 'Data360 DMO', value: 'dmo' }
+];
+
+function newExclusionRow(overrides = {}) {
+    return {
+        id: `excl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        source: '',
+        value: '',
+        display: '',
+        searchTerm: '',
+        lookupOptions: [],
+        ...overrides
+    };
 }
 
 function formatVariantWeight(manual, computed) {
@@ -80,10 +102,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     @track campaignDurationDays = '';
     @track selectedOfferingType = 'Product Family';
     @track selectedPriorityTier = '';
-    // --- EXCLUSION SETTINGS (replaces the old timing-reference block) ---
-    @track excludeOnboarding = false;      // persisted to Campaign.Exclude_Onboarding__c
-    @track excludeOtherMarketing = false;  // visual only — no persistence yet
-
     // --- EMERGENCY STATE CONTROL ---
     @track isEmergency = false;
 
@@ -96,10 +114,10 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     // --- DYNAMIC CAMPAIGN TYPES ---
     @track _allCampaignTypes = [];
 
-    // --- SUPPRESSION ASSOCIATION (when tier has Excl_Manual_Suppressions__c) ---
-    @track suppressionType = '';   // 'campaign' | 'report' | 'segment'
-    @track suppressionLookupValue = '';
-    @track suppressionLookupDisplay = '';
+    // --- EXCLUSION DEFINITIONS (when tier has Excl_Manual_Suppressions__c) ---
+    @track exclusionDefinitions = [];
+    @track dmoOptions = [];
+    _exclusionSearchTimers = {};
 
     // --- SCORING: Pick a Model + fallback score ---
     @track fromObjectOverallScore = '';
@@ -182,17 +200,12 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         { label: 'Family of Needs', value: 'Family of Needs' }
     ];
 
-    suppressionTypesData = [
-        { label: 'Salesforce Campaign', value: 'campaign' },
-        { label: 'Salesforce Report', value: 'report' },
-        { label: 'Data360 Segment', value: 'segment' }
-    ];
-
     // --- LIFECYCLE HOOKS ---
     connectedCallback() {
         this.loadTiers();
         this.loadCampaignTypes();
         this.loadScoringModels();
+        this.loadDmoOptions();
         this.loadTopicDictionary();
         this.loadProductOfferingCatalogue();
         // Migrate any Campaign rows still showing Ids in display fields → Names.
@@ -221,6 +234,109 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         getCampaignTypes()
             .then(data => { this._allCampaignTypes = data || []; })
             .catch(err => console.error('Error loading campaign types:', err));
+    }
+
+    loadDmoOptions() {
+        getData360DmoOptions()
+            .then(data => {
+                this.dmoOptions = (data || []).map(row => ({
+                    label: row.label,
+                    value: row.value
+                }));
+            })
+            .catch(err => console.error('Error loading Data360 DMO options:', err));
+    }
+
+    _tierAllowsManualExclusions(tierLabel) {
+        if (!tierLabel) return false;
+        const tier = this._allTiers.find(t => this.tierLabel(t) === tierLabel);
+        return !!(tier && tier.Excl_Manual_Suppressions__c);
+    }
+
+    _hydrateExclusionsFromCampaign(campaign) {
+        this.exclusionDefinitions = [];
+        if (!campaign) return;
+
+        let parsed = [];
+        const rawJson = campaign.Campaign_Exclusions_JSON__c;
+        if (rawJson) {
+            try {
+                const data = JSON.parse(rawJson);
+                if (Array.isArray(data)) {
+                    parsed = data.filter(row => row && row.source);
+                }
+            } catch (e) {
+                console.warn('Could not parse Campaign_Exclusions_JSON__c', e);
+            }
+        }
+
+        if (!parsed.length) {
+            if (campaign.Suppression_Campaign__c) {
+                parsed.push({
+                    source: 'campaign',
+                    value: campaign.Suppression_Campaign__c,
+                    display: campaign.Suppression_Campaign__r?.Name || campaign.Suppression_Campaign__c
+                });
+            }
+            if (campaign.Suppression_Report_Id__c) {
+                parsed.push({
+                    source: 'report',
+                    value: campaign.Suppression_Report_Id__c,
+                    display: campaign.Suppression_Report_Id__c
+                });
+            }
+            if (campaign.Suppression_Segment__c) {
+                parsed.push({
+                    source: 'segment',
+                    value: campaign.Suppression_Segment__c,
+                    display: campaign.Suppression_Segment__c
+                });
+            }
+        }
+
+        this.exclusionDefinitions = parsed.map(row => {
+            const lookupOptions = row.value
+                ? [{ label: row.display || row.value, value: row.value }]
+                : [];
+            return newExclusionRow({
+                source: row.source,
+                value: row.value || '',
+                display: row.display || row.value || '',
+                lookupOptions
+            });
+        });
+    }
+
+    _serializeExclusionDefinitions() {
+        return (this.exclusionDefinitions || [])
+            .filter(row => row.source && (row.value || '').toString().trim())
+            .map(row => ({
+                source: row.source,
+                value: (row.value || '').toString().trim(),
+                display: row.display || row.value
+            }));
+    }
+
+    _applyExclusionsToSaveFields(fields) {
+        const defs = this._serializeExclusionDefinitions();
+        fields['Campaign_Exclusions_JSON__c'] = defs.length ? JSON.stringify(defs) : null;
+        fields['Suppression_Campaign__c'] = null;
+        fields['Suppression_Report_Id__c'] = null;
+        fields['Suppression_Segment__c'] = null;
+
+        const first = (source) => defs.find(d => d.source === source);
+        const campaign = first('campaign');
+        const report = first('report');
+        const segment = first('segment');
+        if (campaign) {
+            fields['Suppression_Campaign__c'] = campaign.value;
+        }
+        if (report) {
+            fields['Suppression_Report_Id__c'] = report.value;
+        }
+        if (segment) {
+            fields['Suppression_Segment__c'] = segment.value;
+        }
     }
 
     loadScoringModels() {
@@ -365,7 +481,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         }
         this.selectedPriorityTier = campaign.Priority_Tier__c || '';
         this.isEmergency = campaign.Priority_Tier__c === 'Tier 1';
-        this.excludeOnboarding = campaign.Exclude_Onboarding__c === true;
+        this._hydrateExclusionsFromCampaign(campaign);
         this.selectedScoringModelId = campaign.Scoring_Model_Dict__c || '';
         this.selectedScoringModelName = campaign.Scoring_Model_Dict__r
             ? campaign.Scoring_Model_Dict__r.Name
@@ -907,9 +1023,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         const newTier = input.value;
         if (newTier !== this.selectedPriorityTier) {
             this.selectedPriorityTier = newTier;
-            this.suppressionType = '';
-            this.suppressionLookupValue = '';
-            this.suppressionLookupDisplay = '';
+            if (!this._tierAllowsManualExclusions(newTier)) {
+                this.exclusionDefinitions = [];
+            }
         }
     }
 
@@ -924,24 +1040,84 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         };
     }
 
-    handleSuppressionTypeChange(event) {
-        this.suppressionType = event.target.value;
-        this.suppressionLookupValue = '';
-        this.suppressionLookupDisplay = '';
+    handleAddExclusionDefinition() {
+        this.exclusionDefinitions = [...this.exclusionDefinitions, newExclusionRow()];
     }
 
-    handleSuppressionLookupChange(event) {
-        this.suppressionLookupValue = event.target.value;
-        this.suppressionLookupDisplay = event.target.value;
+    handleRemoveExclusionDefinition(event) {
+        const rowId = event.currentTarget.dataset.rowId;
+        this.exclusionDefinitions = this.exclusionDefinitions.filter(row => row.id !== rowId);
     }
 
-    handleExcludeOnboardingChange(event) { this.excludeOnboarding = event.target.checked; }
-    handleExcludeOtherMarketingChange(event) { this.excludeOtherMarketing = event.target.checked; }
+    handleExclusionSourceChange(event) {
+        const rowId = event.target.dataset.rowId;
+        const source = event.detail.value;
+        this.exclusionDefinitions = this.exclusionDefinitions.map(row => {
+            if (row.id !== rowId) return row;
+            return newExclusionRow({ id: row.id, source });
+        });
+        if (source === 'campaign' || source === 'report') {
+            this._runExclusionSearch(rowId, '');
+        }
+    }
 
-    // "Exclude other marketing" is intended to apply only to Tier 1-3 campaigns, but the
-    // tier data model is mid-change, so the checkbox is shown unconditionally for now.
-    get showExcludeOtherMarketing() {
-        return true;
+    handleExclusionSearchInput(event) {
+        const rowId = event.target.dataset.rowId;
+        const term = event.target.value || '';
+        this.exclusionDefinitions = this.exclusionDefinitions.map(row =>
+            row.id === rowId ? { ...row, searchTerm: term } : row
+        );
+        clearTimeout(this._exclusionSearchTimers[rowId]);
+        this._exclusionSearchTimers[rowId] = setTimeout(() => {
+            this._runExclusionSearch(rowId, term);
+        }, 300);
+    }
+
+    _runExclusionSearch(rowId, term) {
+        const row = this.exclusionDefinitions.find(r => r.id === rowId);
+        if (!row) return;
+        const searchFn = row.source === 'campaign'
+            ? searchSuppressionCampaigns
+            : row.source === 'report'
+                ? searchSuppressionReports
+                : null;
+        if (!searchFn) return;
+        searchFn({ searchTerm: term || '' })
+            .then(results => {
+                const lookupOptions = (results || []).map(r => ({
+                    label: r.name,
+                    value: r.id
+                }));
+                this.exclusionDefinitions = this.exclusionDefinitions.map(r =>
+                    r.id === rowId ? { ...r, lookupOptions } : r
+                );
+            })
+            .catch(err => console.error('Exclusion lookup search failed:', err));
+    }
+
+    handleExclusionLookupSelect(event) {
+        const rowId = event.target.dataset.rowId;
+        const value = event.detail.value;
+        const row = this.exclusionDefinitions.find(r => r.id === rowId);
+        let display = value;
+        if (row?.source === 'dmo') {
+            const opt = this.dmoOptions.find(o => o.value === value);
+            display = opt ? opt.label : value;
+        } else if (row) {
+            const opt = (row.lookupOptions || []).find(o => o.value === value);
+            display = opt ? opt.label : value;
+        }
+        this.exclusionDefinitions = this.exclusionDefinitions.map(r =>
+            r.id === rowId ? { ...r, value, display } : r
+        );
+    }
+
+    handleExclusionSegmentChange(event) {
+        const rowId = event.target.dataset.rowId;
+        const value = event.target.value || '';
+        this.exclusionDefinitions = this.exclusionDefinitions.map(row =>
+            row.id === rowId ? { ...row, value, display: value } : row
+        );
     }
 
     handleFromObjectChange(event) { this.fromObjectOverallScore = event.target.value; }
@@ -1078,12 +1254,38 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         return `${selected.length} Families of Needs selected`;
     }
 
-    get excludeOnboardingLabel() {
-        return this.excludeOnboarding ? 'Yes' : 'No';
+    get showCopyAssignmentNoChannelsAlert() {
+        return !this.hasSelectedChannel;
     }
 
-    get excludeOtherMarketingLabel() {
-        return this.excludeOtherMarketing ? 'Yes' : 'No';
+    get exclusionSourceOptions() {
+        return EXCLUSION_SOURCE_OPTIONS;
+    }
+
+    get exclusionDefinitionRows() {
+        return (this.exclusionDefinitions || []).map((row, index) => ({
+            ...row,
+            isCampaign: row.source === 'campaign',
+            isReport: row.source === 'report',
+            isSegment: row.source === 'segment',
+            isDmo: row.source === 'dmo',
+            showRemove: this.exclusionDefinitions.length > 1 || index > 0
+        }));
+    }
+
+    get addExclusionButtonLabel() {
+        return this.exclusionDefinitions.length === 0
+            ? '+ Add Exclusion Definition'
+            : '+ Add Exclusion';
+    }
+
+    get summaryExclusionsLabel() {
+        const defs = this._serializeExclusionDefinitions();
+        if (!defs.length) return '';
+        return defs.map(d => {
+            const sourceLabel = EXCLUSION_SOURCE_OPTIONS.find(o => o.value === d.source)?.label || d.source;
+            return `${sourceLabel}: ${d.display || d.value}`;
+        }).join('; ');
     }
 
     get summaryScore() {
@@ -1192,6 +1394,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     get copyAssignmentActivationIssues() {
         const issues = [];
+        if (!this.hasSelectedChannel) {
+            return issues;
+        }
         if (!this.selectedCopyVariantIds || this.selectedCopyVariantIds.length === 0) {
             issues.push(this._issue('copy', 'Assign at least one message variant (any channel).'));
         }
@@ -1559,32 +1764,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         return this._allTiers.find(t => this.tierLabel(t) === this.selectedPriorityTier) || null;
     }
 
-    get showSuppressionSection() {
+    get showExclusionsSection() {
         const tier = this.selectedTierRecord;
         return !!(tier && tier.Excl_Manual_Suppressions__c);
-    }
-
-    get suppressionTypeOptions() {
-        return [
-            {
-                label: 'Salesforce Campaign',
-                value: 'campaign',
-                inputId: 'suppression-type-campaign',
-                isChecked: this.suppressionType === 'campaign'
-            },
-            {
-                label: 'Salesforce Report',
-                value: 'report',
-                inputId: 'suppression-type-report',
-                isChecked: this.suppressionType === 'report'
-            },
-            {
-                label: 'Data360 Segment',
-                value: 'segment',
-                inputId: 'suppression-type-segment',
-                isChecked: this.suppressionType === 'segment'
-            }
-        ];
     }
 
     get activationOptions() {
@@ -2084,7 +2266,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         fields['Duration_Days__c'] = this.isAlwaysOnActivation
             ? num(this.campaignDurationDays)
             : null;
-        fields['Exclude_Onboarding__c'] = this.excludeOnboarding;
+        this._applyExclusionsToSaveFields(fields);
         fields['Scoring_Method__c'] = 'Pick a Model';
         fields['Offering_Type__c'] = this.selectedOfferingType || null;
         fields['Overall_Score__c'] = null;
