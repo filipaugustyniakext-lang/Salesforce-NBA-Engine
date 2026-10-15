@@ -181,6 +181,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     // --- EXCLUSION DEFINITIONS (when tier has Excl_Manual_Suppressions__c) ---
     @track exclusionDefinitions = [];
     @track dmoOptions = [];
+    _dmoOptionsLoadAttempted = false;
     _exclusionSearchTimers = {};
 
     // --- SCORING (tiers 4+): model picklist or apriori slider ---
@@ -278,7 +279,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         this.loadTiers();
         this.loadCampaignTypes();
         this.loadScoringModels();
-        this.loadDmoOptions();
         this.loadTopicDictionary();
         this.loadProductOfferingCatalogue();
         // Migrate any Campaign rows still showing Ids in display fields → Names.
@@ -309,7 +309,11 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             .catch(err => console.error('Error loading campaign types:', err));
     }
 
-    loadDmoOptions() {
+    loadDmoOptionsIfNeeded() {
+        if (this._dmoOptionsLoadAttempted) {
+            return;
+        }
+        this._dmoOptionsLoadAttempted = true;
         getData360DmoOptions()
             .then(data => {
                 this.dmoOptions = (data || []).map(row => ({
@@ -317,7 +321,10 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                     value: row.value
                 }));
             })
-            .catch(err => console.error('Error loading Data360 DMO options:', err));
+            .catch(() => {
+                // Data Cloud DMO catalogue is optional; orgs without CDP should not spam the console.
+                this.dmoOptions = [];
+            });
     }
 
     _tierAllowsManualExclusions(tierLabel) {
@@ -378,6 +385,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 lookupOptions
             });
         });
+        if (this.exclusionDefinitions.some(row => row.source === 'dmo')) {
+            this.loadDmoOptionsIfNeeded();
+        }
     }
 
     _serializeExclusionDefinitions() {
@@ -1147,6 +1157,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         });
         if (source === 'campaign' || source === 'report') {
             this._runExclusionSearch(rowId, '');
+        } else if (source === 'dmo') {
+            this.loadDmoOptionsIfNeeded();
         }
     }
 
