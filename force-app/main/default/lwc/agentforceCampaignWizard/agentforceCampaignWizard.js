@@ -1528,8 +1528,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     get addExclusionButtonLabel() {
         return this.exclusionDefinitions.length === 0
-            ? '+ Add Exclusion Definition'
-            : '+ Add Exclusion';
+            ? 'Add Exclusion Definition'
+            : 'Add Exclusion';
     }
 
     get summaryExclusionsLabel() {
