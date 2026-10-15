@@ -11,6 +11,11 @@ private class MarketingDictionaryDeleteGuardTest {
             .getRecordTypeInfosByDeveloperName().get('Campaign').getRecordTypeId();
     }
 
+    private static Id channelDictRt() {
+        return Schema.SObjectType.Marketing_Dictionary__c
+            .getRecordTypeInfosByDeveloperName().get('Channel').getRecordTypeId();
+    }
+
     @IsTest
     static void campaignGroupBlockedWhenCampaignReferences() {
         Marketing_Dictionary__c groupRec = new Marketing_Dictionary__c(
@@ -87,6 +92,45 @@ private class MarketingDictionaryDeleteGuardTest {
             MarketingDictionaryDeleteGuard.getRenameImpact(typeRec.Id, 'Always On Plus');
         System.assertEquals(true, impact.requiresConfirmation);
         System.assert(impact.message.contains('Activation Type'), impact.message);
+    }
+
+    @IsTest
+    static void channelBlockedByCampaignSelectionAndCopyCenter() {
+        Marketing_Dictionary__c channel = new Marketing_Dictionary__c(
+            Name = 'Email',
+            RecordTypeId = channelDictRt(),
+            Channel_Type__c = 'Email',
+            Is_Active__c = true
+        );
+        insert channel;
+
+        insert new Campaign(
+            Name = 'Email Camp',
+            Status = 'Planned',
+            IsActive = false,
+            Assigned_Channels__c = 'Email; SMS'
+        );
+
+        insert new CC_Message_Metadata__c(
+            Name = 'EMA_PL_Test',
+            Channel_Type__c = 'Email',
+            Channel__c = 'Email'
+        );
+
+        Marketing_Dictionary__c wrapper = [
+            SELECT Id, Name, Dictionary_Sub_Type__c, Channel_Type__c, RecordType.DeveloperName
+            FROM Marketing_Dictionary__c
+            WHERE Id = :channel.Id
+        ];
+        MarketingDictionaryDeleteGuard.DependencyReport report =
+            MarketingDictionaryDeleteGuard.buildDictionaryDeleteReport(wrapper);
+        System.assertEquals(true, report.hasDependencies(), 'Channel should be blocked.');
+        Set<String> categories = new Set<String>();
+        for (MarketingDictionaryDeleteGuard.DependencyGroup grp : report.groups) {
+            categories.add(grp.category);
+        }
+        System.assert(categories.contains('Campaign (channel selection)'), categories.toString());
+        System.assert(categories.contains('Copy Center message variant'), categories.toString());
     }
 
     @IsTest

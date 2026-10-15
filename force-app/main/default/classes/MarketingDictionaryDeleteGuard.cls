@@ -614,6 +614,11 @@ public with sharing class MarketingDictionaryDeleteGuard {
         String channelName = channel.Name;
         String channelType = channel.Channel_Type__c;
 
+        // Campaign wizard + Copy Center are the primary user-facing references — collect first.
+        collectCampaignAssignedChannelReferences(channelName, channelType, dependencies);
+        collectCopyCenterChannelMessages(channelName, channelType, dependencies);
+        collectBlackoutWindowChannelReferences(channelName, channelType, dependencies);
+
         for (Channel_Cooldown__c cooldown : [
             SELECT Name
             FROM Channel_Cooldown__c
@@ -641,9 +646,6 @@ public with sharing class MarketingDictionaryDeleteGuard {
         ]) {
             addDependency(dependencies, 'Channel template', tmpl.Name);
         }
-        collectCampaignAssignedChannelReferences(channelName, dependencies);
-        collectBlackoutWindowChannelReferences(channelName, dependencies);
-        collectCopyChannelReferences(channelName, channelType, dependencies);
     }
 
     // ─── Rename label impact (not Id-based) ──────────────────────────────────
@@ -808,9 +810,10 @@ public with sharing class MarketingDictionaryDeleteGuard {
 
     private static void collectCampaignAssignedChannelReferences(
         String channelName,
+        String channelType,
         DependencyCollector dependencies
     ) {
-        if (String.isBlank(channelName)) {
+        if (String.isBlank(channelName) && String.isBlank(channelType)) {
             return;
         }
         for (Campaign camp : [
@@ -818,17 +821,18 @@ public with sharing class MarketingDictionaryDeleteGuard {
             FROM Campaign
             LIMIT 5000
         ]) {
-            if (semicolonListContainsLabel(camp.Assigned_Channels__c, channelName)) {
-                addDependency(dependencies, 'Campaign (Assigned Channels)', camp.Name);
+            if (assignedChannelsInclude(camp.Assigned_Channels__c, channelName, channelType)) {
+                addDependency(dependencies, 'Campaign (channel selection)', camp.Name);
             }
         }
     }
 
     private static void collectBlackoutWindowChannelReferences(
         String channelName,
+        String channelType,
         DependencyCollector dependencies
     ) {
-        if (String.isBlank(channelName)) {
+        if (String.isBlank(channelName) && String.isBlank(channelType)) {
             return;
         }
         for (Blackout_Window__c window : [
@@ -836,39 +840,72 @@ public with sharing class MarketingDictionaryDeleteGuard {
             FROM Blackout_Window__c
             LIMIT 5000
         ]) {
-            if (semicolonListContainsLabel(window.Assigned_Channels__c, channelName)) {
+            if (assignedChannelsInclude(window.Assigned_Channels__c, channelName, channelType)) {
                 addDependency(dependencies, 'Blackout window', window.Name);
             }
         }
     }
 
-    private static void collectCopyChannelReferences(
+    /**
+     * Copy Center lists messages by dictionary Channel_Type__c (see CopyCockpitController.getMessagesByChannelType).
+     */
+    private static void collectCopyCenterChannelMessages(
         String channelName,
         String channelType,
         DependencyCollector dependencies
     ) {
-        if (String.isNotBlank(channelName)) {
-            for (CC_Message_Metadata__c row : [
+        List<CC_Message_Metadata__c> rows;
+        if (String.isNotBlank(channelType) && String.isNotBlank(channelName)) {
+            rows = [
                 SELECT Name
                 FROM CC_Message_Metadata__c
-                WHERE Channel__c = :channelName
+                WHERE Channel_Type__c = :channelType
+                   OR Channel__c = :channelName
                 ORDER BY Name ASC
                 LIMIT :MAX_DEPENDENCY_LABELS
-            ]) {
-                addDependency(dependencies, 'Copy variant (Channel)', row.Name);
-            }
-        }
-        if (String.isNotBlank(channelType)) {
-            for (CC_Message_Metadata__c row : [
+            ];
+        } else if (String.isNotBlank(channelType)) {
+            rows = [
                 SELECT Name
                 FROM CC_Message_Metadata__c
                 WHERE Channel_Type__c = :channelType
                 ORDER BY Name ASC
                 LIMIT :MAX_DEPENDENCY_LABELS
-            ]) {
-                addDependency(dependencies, 'Copy variant (Channel Type)', row.Name);
-            }
+            ];
+        } else if (String.isNotBlank(channelName)) {
+            rows = [
+                SELECT Name
+                FROM CC_Message_Metadata__c
+                WHERE Channel__c = :channelName
+                ORDER BY Name ASC
+                LIMIT :MAX_DEPENDENCY_LABELS
+            ];
+        } else {
+            return;
         }
+        for (CC_Message_Metadata__c row : rows) {
+            addDependency(dependencies, 'Copy Center message variant', row.Name);
+        }
+    }
+
+    @TestVisible
+    private static Boolean assignedChannelsInclude(
+        String assignedChannelsRaw,
+        String channelName,
+        String channelType
+    ) {
+        if (String.isBlank(assignedChannelsRaw)) {
+            return false;
+        }
+        if (String.isNotBlank(channelName)
+            && semicolonListContainsLabel(assignedChannelsRaw, channelName)) {
+            return true;
+        }
+        if (String.isNotBlank(channelType)
+            && semicolonListContainsLabel(assignedChannelsRaw, channelType)) {
+            return true;
+        }
+        return false;
     }
 
     private static String buildBlockedMessage(String recordName, List<String> flat, Boolean truncated) {
