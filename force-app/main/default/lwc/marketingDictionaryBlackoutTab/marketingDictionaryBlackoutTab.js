@@ -66,7 +66,13 @@ export default class MarketingDictionaryBlackoutTab extends LightningElement {
     wiredChannels({ data, error }) {
         if (data) {
             this._channelCatalogue = data || [];
-            this._rebuildChannelGroups([]);
+            if (this.isBlackoutModalOpen && !this.editBlackout?.Id) {
+                this._rebuildChannelGroups(this._allEnabledChannelNames());
+            } else if (this.isBlackoutModalOpen && this.editBlackout?.Id) {
+                this._rebuildChannelGroups(parseChannelList(this.editBlackout.Assigned_Channels__c));
+            } else {
+                this._rebuildChannelGroups([]);
+            }
         } else if (error) {
             console.error('Error loading channels for blackout form', error);
         }
@@ -170,6 +176,14 @@ export default class MarketingDictionaryBlackoutTab extends LightningElement {
         );
     }
 
+    /** Active dictionary channels — default selection for new blackout dates. */
+    _allEnabledChannelNames() {
+        return (this._channelCatalogue || [])
+            .filter(ch => ch.Is_Active__c !== false)
+            .map(ch => ch.Name)
+            .filter(name => !!name);
+    }
+
     _rebuildChannelGroups(selectedNames) {
         const selected = new Set(selectedNames || []);
         const groupMap = {};
@@ -224,7 +238,7 @@ export default class MarketingDictionaryBlackoutTab extends LightningElement {
 
     handleNewBlackout() {
         this.editBlackout = EMPTY_BLACKOUT();
-        this._rebuildChannelGroups([]);
+        this._rebuildChannelGroups(this._allEnabledChannelNames());
         this.isBlackoutModalOpen = true;
     }
 
