@@ -23,6 +23,7 @@ import {
     buildTierExclusionChips,
     buildTierTypeChips
 } from 'c/nbaTierConfig';
+import { confirmDictionaryRenameIfNeeded } from 'c/marketingDictionaryRenamePrompt';
 
 const EMPTY_CAMPAIGN_TYPE    = () => ({ Name: '', Dictionary_Sub_Type__c: 'Campaign Type', Include_In_Emergency__c: false, Define_Campaign_Groups__c: false });
 const EMPTY_CAMPAIGN_GROUP   = () => ({ Name: '', Dictionary_Sub_Type__c: 'Campaign Group', Campaign_Type_Dict__c: null });
@@ -91,6 +92,7 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
     @track editTopic = EMPTY_TOPIC();
     @track editPath = EMPTY_PATH();
     @track editSalesProcessType = EMPTY_SALES_PROCESS();
+    _dictionaryRenameOriginalName = '';
 
     @track scoringAsNewMaster = true;
     @track scoringNameLocked = false;
@@ -988,11 +990,19 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
     get salesProcessTypeCount() { return this.salesProcessTypes.length; }
     get salesProcessTypeModalTitle() { return this.editSalesProcessType.Id ? 'Edit Sales Process Type' : 'Add Sales Process Type'; }
 
-    handleNewCampaignType() { this.editCampaignType = EMPTY_CAMPAIGN_TYPE(); this.isCampaignTypeModalOpen = true; }
+    handleNewCampaignType() {
+        this.editCampaignType = EMPTY_CAMPAIGN_TYPE();
+        this._dictionaryRenameOriginalName = '';
+        this.isCampaignTypeModalOpen = true;
+    }
     closeCampaignTypeModal() { this.isCampaignTypeModalOpen = false; }
     handleEditCampaignType(e) {
         const rec = this._allRecords.find(r => r.Id === e.currentTarget.dataset.id);
-        if (rec) { this.editCampaignType = { ...rec }; this.isCampaignTypeModalOpen = true; }
+        if (rec) {
+            this.editCampaignType = { ...rec };
+            this._dictionaryRenameOriginalName = rec.Name || '';
+            this.isCampaignTypeModalOpen = true;
+        }
     }
     handleCampaignTypeFieldChange(e) {
         this.editCampaignType = { ...this.editCampaignType, [e.target.dataset.field]: e.target.value };
@@ -1002,7 +1012,11 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
     }
     async handleSaveCampaignType() {
         if (!this.editCampaignType.Name?.trim()) { this._showToast('Validation', 'Name is required.', 'warning'); return; }
-        await this._saveCampaignRecord(this.editCampaignType, () => { this.isCampaignTypeModalOpen = false; });
+        await this._saveCampaignRecord(
+            this.editCampaignType,
+            () => { this.isCampaignTypeModalOpen = false; },
+            this._dictionaryRenameOriginalName
+        );
     }
     handleDeleteCampaignType(e) { this._openDeleteModal(e.currentTarget.dataset.id, e.currentTarget.dataset.name, 'campaignRecord'); }
 
@@ -1590,9 +1604,20 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
         finally { this.isSaving = false; }
     }
 
-    async _saveCampaignRecord(record, onSuccess) {
+    async _saveCampaignRecord(record, onSuccess, originalName) {
         this.isSaving = true;
         try {
+            if (record?.Id) {
+                const proceed = await confirmDictionaryRenameIfNeeded(
+                    record.Id,
+                    originalName,
+                    record.Name
+                );
+                if (!proceed) {
+                    this.isSaving = false;
+                    return;
+                }
+            }
             await saveCampaignRecord({ record });
             this._showToast('Success', 'Saved.', 'success');
             if (onSuccess) onSuccess();

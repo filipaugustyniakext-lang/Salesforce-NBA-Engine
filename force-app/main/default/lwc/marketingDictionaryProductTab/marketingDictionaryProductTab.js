@@ -7,6 +7,7 @@ import saveProductRecordsBulk from '@salesforce/apex/MarketingDictionaryManagerC
 import deleteDictionaryRecord from '@salesforce/apex/MarketingDictionaryManagerController.deleteDictionaryRecord';
 import getFonCustomerTypes from '@salesforce/apex/MarketingDictionaryManagerController.getFonCustomerTypes';
 import setFonCustomerTypes from '@salesforce/apex/MarketingDictionaryManagerController.setFonCustomerTypes';
+import { confirmDictionaryRenameIfNeeded } from 'c/marketingDictionaryRenamePrompt';
 
 let _keyCounter = 0;
 const newKey = () => String(++_keyCounter);
@@ -167,6 +168,7 @@ export default class MarketingDictionaryProductTab extends LightningElement {
     @track isModalOpen = false;
     @track isDeleteModalOpen = false;
     @track editRecord = EMPTY_RECORD();
+    _editOriginalName = '';
     @track isSaving = false;
     @track bulkRows = [newRow(1)];
     @track bulkFonId = null;
@@ -231,6 +233,7 @@ export default class MarketingDictionaryProductTab extends LightningElement {
         this._isEditMode = true;
         const found = this._allRecords.find(r => r.Id === id);
         this.editRecord = found ? { ...found } : EMPTY_RECORD();
+        this._editOriginalName = this.editRecord.Name || '';
 
         if (subtype === 'Family of Needs') {
             const existing = this._fonCtMap[id] || new Set();
@@ -285,6 +288,15 @@ export default class MarketingDictionaryProductTab extends LightningElement {
         }
         this.isSaving = true;
         try {
+            const proceed = await confirmDictionaryRenameIfNeeded(
+                this.editRecord.Id,
+                this._editOriginalName,
+                this.editRecord.Name
+            );
+            if (!proceed) {
+                this.isSaving = false;
+                return;
+            }
             const savedId = await saveProductRecord({ record: this.editRecord });
             const fonId = this.editRecord.Id || savedId;
             if (this._activeSubtype === 'Family of Needs') {

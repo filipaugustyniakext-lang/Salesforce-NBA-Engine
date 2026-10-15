@@ -137,27 +137,19 @@ public with sharing class MarketingDictionaryManagerController {
     public static void deleteDictionaryRecord(Id recordId) {
         try {
             Marketing_Dictionary__c rec = [
-                SELECT Id, Name, Dictionary_Sub_Type__c, RecordType.DeveloperName
+                SELECT Id, Name, Dictionary_Sub_Type__c, RecordType.DeveloperName,
+                       Channel_Type__c, Parameter_API_Name__c
                 FROM Marketing_Dictionary__c
                 WHERE Id = :recordId
                 WITH SECURITY_ENFORCED
                 LIMIT 1
             ];
+            List<String> dependencies = MarketingDictionaryDeleteGuard.collectBlockingDependencies(rec);
+            if (!dependencies.isEmpty()) {
+                throw dependencyDeleteException(rec.Name, String.join(dependencies, '; '));
+            }
             if (rec.Dictionary_Sub_Type__c == 'Family of Needs') {
-                List<String> dependencies = new List<String>();
-                for (FamilyOfNeeds_CustomerType__c link : [
-                    SELECT Name, Customer_Type__r.Name
-                    FROM FamilyOfNeeds_CustomerType__c
-                    WHERE Family_of_Needs__c = :recordId
-                    ORDER BY Customer_Type__r.Name ASC
-                ]) {
-                    dependencies.add(
-                        String.isNotBlank(link.Customer_Type__r.Name) ? link.Customer_Type__r.Name : link.Name
-                    );
-                }
-                if (!dependencies.isEmpty()) {
-                    throw dependencyDeleteException(rec.Name, 'Family of Needs Customer Types: ' + String.join(dependencies, ', '));
-                }
+                delete [SELECT Id FROM FamilyOfNeeds_CustomerType__c WHERE Family_of_Needs__c = :recordId];
             }
             if (rec.RecordType.DeveloperName == 'Channel') {
                 ChannelTemplateController.deleteTemplatesForChannel(rec.Id);
@@ -996,7 +988,10 @@ public with sharing class MarketingDictionaryManagerController {
     @AuraEnabled
     public static void deleteCampaignTier(Id recordId) {
         try {
+            MarketingDictionaryDeleteGuard.assertCampaignTierDeletable(recordId);
             delete new Campaign_Tier__c(Id = recordId);
+        } catch (AuraHandledException e) {
+            throw e;
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());
         }
@@ -1368,6 +1363,7 @@ public with sharing class MarketingDictionaryManagerController {
     @AuraEnabled
     public static void deleteReferenceValue(Id recordId) {
         try {
+            MarketingDictionaryDeleteGuard.assertOfferReferenceValueDeletable(recordId);
             delete new Offer_Reference_Value__c(Id = recordId);
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());

@@ -13,6 +13,7 @@ import deleteBlackoutDayRule from '@salesforce/apex/MarketingDictionaryManagerCo
 import saveBannerPlacement from '@salesforce/apex/MarketingDictionaryManagerController.saveBannerPlacement';
 import saveBannerPlacementsBulk from '@salesforce/apex/MarketingDictionaryManagerController.saveBannerPlacementsBulk';
 import deleteBannerPlacement from '@salesforce/apex/MarketingDictionaryManagerController.deleteBannerPlacement';
+import { confirmDictionaryRenameIfNeeded } from 'c/marketingDictionaryRenamePrompt';
 import saveIntentTarget from '@salesforce/apex/MarketingDictionaryManagerController.saveIntentTarget';
 import deleteIntentTarget from '@salesforce/apex/MarketingDictionaryManagerController.deleteIntentTarget';
 import saveBannerIntent from '@salesforce/apex/MarketingDictionaryManagerController.saveBannerIntent';
@@ -60,6 +61,7 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
     @track isIntentModalOpen = false;
     @track isDeleteModalOpen = false;
     @track editChannel = EMPTY_CHANNEL();
+    _channelOriginalName = '';
     @track editCooldown = EMPTY_COOLDOWN();
     @track editDayRule = EMPTY_DAY_RULE();
     @track editPlacement = EMPTY_PLACEMENT();
@@ -481,12 +483,14 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
 
     handleNewChannel() {
         this.editChannel = EMPTY_CHANNEL();
+        this._channelOriginalName = '';
         this.isChannelModalOpen = true;
     }
 
     handleEditChannel(event) {
         const found = this._rawChannels.find(c => c.Id === event.currentTarget.dataset.id);
         this.editChannel = found ? { ...found } : EMPTY_CHANNEL();
+        this._channelOriginalName = this.editChannel.Name || '';
         this.isChannelModalOpen = true;
     }
 
@@ -526,6 +530,15 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
         if (icon && !VALID_ICON.test(icon)) { this._showToast('Validation', 'Icon must be category:name format', 'error'); return; }
         this.isSaving = true;
         try {
+            const proceed = await confirmDictionaryRenameIfNeeded(
+                this.editChannel.Id,
+                this._channelOriginalName,
+                this.editChannel.Name
+            );
+            if (!proceed) {
+                this.isSaving = false;
+                return;
+            }
             await saveChannelRecord({ record: this.editChannel });
             this._showToast('Success', 'Channel saved', 'success');
             this.isChannelModalOpen = false;

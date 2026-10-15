@@ -1,0 +1,104 @@
+@IsTest
+private class MarketingDictionaryDeleteGuardTest {
+
+    private static Id productDictRt() {
+        return Schema.SObjectType.Marketing_Dictionary__c
+            .getRecordTypeInfosByDeveloperName().get('Product').getRecordTypeId();
+    }
+
+    private static Id campaignDictRt() {
+        return Schema.SObjectType.Marketing_Dictionary__c
+            .getRecordTypeInfosByDeveloperName().get('Campaign').getRecordTypeId();
+    }
+
+    @IsTest
+    static void campaignGroupBlockedWhenCampaignReferences() {
+        Marketing_Dictionary__c groupRec = new Marketing_Dictionary__c(
+            Name = 'Spring Group',
+            RecordTypeId = campaignDictRt(),
+            Dictionary_Sub_Type__c = 'Campaign Group'
+        );
+        insert groupRec;
+
+        Campaign camp = new Campaign(
+            Name = 'Blocked Camp',
+            Status = 'Planned',
+            IsActive = false,
+            Campaign_Group_Dict__c = groupRec.Id
+        );
+        insert camp;
+
+        Marketing_Dictionary__c wrapper = [
+            SELECT Id, Name, Dictionary_Sub_Type__c, RecordType.DeveloperName
+            FROM Marketing_Dictionary__c
+            WHERE Id = :groupRec.Id
+        ];
+        List<String> deps = MarketingDictionaryDeleteGuard.collectBlockingDependencies(wrapper);
+        System.assert(!deps.isEmpty(), 'Campaign group should be blocked');
+        System.assert(deps[0].contains('Blocked Camp'), deps.toString());
+    }
+
+    @IsTest
+    static void campaignTierDeleteBlockedByCampaignPriorityTier() {
+        Campaign_Tier__c tier = new Campaign_Tier__c(Tier_Number__c = 2);
+        insert tier;
+
+        insert new Campaign(
+            Name = 'Tiered Camp',
+            Status = 'Planned',
+            IsActive = false,
+            Priority_Tier__c = 'Tier 2'
+        );
+
+        Boolean blocked = false;
+        Test.startTest();
+        try {
+            MarketingDictionaryDeleteGuard.assertCampaignTierDeletable(tier.Id);
+        } catch (AuraHandledException e) {
+            blocked = true;
+            System.assert(e.getMessage().contains('Please remove dependencies first'), e.getMessage());
+        }
+        Test.stopTest();
+        System.assertEquals(true, blocked);
+    }
+
+    @IsTest
+    static void renameImpactForCampaignTypeWithCampaigns() {
+        Marketing_Dictionary__c typeRec = new Marketing_Dictionary__c(
+            Name = 'Always-on',
+            RecordTypeId = campaignDictRt(),
+            Dictionary_Sub_Type__c = 'Campaign Type'
+        );
+        insert typeRec;
+
+        insert new Campaign(
+            Name = 'AO Camp',
+            Status = 'Planned',
+            IsActive = false,
+            Activation_Type__c = 'Always-on'
+        );
+
+        MarketingDictionaryDeleteGuard.RenameImpact impact =
+            MarketingDictionaryDeleteGuard.getRenameImpact(typeRec.Id, 'Always On Plus');
+        System.assertEquals(true, impact.requiresConfirmation);
+        System.assert(impact.message.contains('Activation Type'), impact.message);
+    }
+
+    @IsTest
+    static void tokenHelpers() {
+        Marketing_Dictionary__c typeRecord = new Marketing_Dictionary__c(
+            Name = 'Token Type',
+            RecordTypeId = productDictRt(),
+            Dictionary_Sub_Type__c = 'Product Type'
+        );
+        insert typeRecord;
+        System.assertEquals(
+            true,
+            MarketingDictionaryDeleteGuard.containsDictionaryId(typeRecord.Id + ';x', typeRecord.Id)
+        );
+        System.assertEquals(
+            true,
+            MarketingDictionaryDeleteGuard.semicolonListContainsLabel('Email; SMS', 'sms')
+        );
+    }
+}
