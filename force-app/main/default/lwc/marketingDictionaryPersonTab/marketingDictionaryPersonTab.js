@@ -6,6 +6,12 @@ import saveProductRecord from '@salesforce/apex/MarketingDictionaryManagerContro
 import saveProductRecordsBulk from '@salesforce/apex/MarketingDictionaryManagerController.saveProductRecordsBulk';
 import deleteDictionaryRecord from '@salesforce/apex/MarketingDictionaryManagerController.deleteDictionaryRecord';
 import { confirmDictionaryRenameIfNeeded } from 'c/marketingDictionaryRenamePrompt';
+import {
+    runDictionaryDeleteWithDependencyCheck,
+    isDependencyBlockedMessage,
+    fetchDictionaryDeleteReport,
+    reportHasDependencies
+} from 'c/marketingDictionaryDeleteHelper';
 
 let _key = 0;
 const newKey = () => String(++_key);
@@ -63,6 +69,7 @@ export default class MarketingDictionaryPersonTab extends LightningElement {
 
     @track isModalOpen = false;
     @track isDeleteModalOpen = false;
+    @track dependencyReport = null;
     @track editRecord = EMPTY_RECORD();
     @track isSaving = false;
     @track bulkRows = [newRow(1)];
@@ -166,12 +173,38 @@ export default class MarketingDictionaryPersonTab extends LightningElement {
     async handleConfirmDelete() {
         const id = this._pendingDeleteId;
         this.isDeleteModalOpen = false;
-        this._pendingDeleteId = null; this._pendingDeleteName = '';
+        this._pendingDeleteId = null;
+        this._pendingDeleteName = '';
         try {
-            await deleteDictionaryRecord({ recordId: id });
+            const deleted = await runDictionaryDeleteWithDependencyCheck({
+                recordId: id,
+                deleteFn: () => deleteDictionaryRecord({ recordId: id }),
+                onBlocked: (report) => { this.dependencyReport = report; }
+            });
+            if (!deleted) {
+                return;
+            }
             this._showToast('Success', 'Record deleted', 'success');
             await refreshApex(this._wiredResult);
-        } catch (e) { this._showToast('Error', e.body?.message || e.message, 'error'); }
+        } catch (e) {
+            const message = e.body?.message || e.message || 'Delete failed.';
+            if (isDependencyBlockedMessage(message) && id) {
+                const report = await fetchDictionaryDeleteReport(id);
+                if (reportHasDependencies(report)) {
+                    this.dependencyReport = report;
+                    return;
+                }
+            }
+            this._showToast('Error', message, 'error');
+        }
+    }
+
+    handleCloseDependencyDialog() {
+        this.dependencyReport = null;
+    }
+
+    get isDependencyDialogOpen() {
+        return reportHasDependencies(this.dependencyReport);
     }
 
     handleCloseModal() { this.isModalOpen = false; }

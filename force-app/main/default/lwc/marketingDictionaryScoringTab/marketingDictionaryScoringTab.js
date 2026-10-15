@@ -5,6 +5,12 @@ import getCampaignRecords from '@salesforce/apex/MarketingDictionaryManagerContr
 import saveCampaignRecord from '@salesforce/apex/MarketingDictionaryManagerController.saveCampaignRecord';
 import saveScoringModel from '@salesforce/apex/MarketingDictionaryManagerController.saveScoringModel';
 import deleteDictionaryRecord from '@salesforce/apex/MarketingDictionaryManagerController.deleteDictionaryRecord';
+import {
+    runDictionaryDeleteWithDependencyCheck,
+    isDependencyBlockedMessage,
+    fetchDictionaryDeleteReport,
+    reportHasDependencies
+} from 'c/marketingDictionaryDeleteHelper';
 import getProductFamilyDependencies from '@salesforce/apex/MarketingDictionaryController.getProductFamilyDependencies';
 import getProductFamilyByRecordType from '@salesforce/apex/MarketingDictionaryController.getProductFamilyByRecordType';
 import getProductFamilyCustomerTypes from '@salesforce/apex/MarketingDictionaryController.getProductFamilyCustomerTypes';
@@ -56,6 +62,7 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
     @track isModelGroupModalOpen = false;
     @track isExpireConfirmOpen = false;
     @track isDeleteModalOpen = false;
+    @track dependencyReport = null;
     @track editScoring = EMPTY_SCORING();
     @track editModelGroup = EMPTY_MODEL_GROUP();
     @track scoringAsNewMaster = true;
@@ -1099,24 +1106,57 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
     async handleConfirmDelete() {
         this.isDeleteModalOpen = false;
         this.isSaving = true;
+        const deleteId = this._deleteId;
         try {
             if (this._deleteType === 'modelSetting') {
-                await deleteScoringModelSetting({ recordId: this._deleteId });
+                await deleteScoringModelSetting({ recordId: deleteId });
                 await refreshApex(this._wiredSettingsResult);
             } else if (this._deleteType === 'scoringBulk' && this._deleteIds?.length) {
-                for (const recordId of this._deleteIds) await deleteDictionaryRecord({ recordId });
+                for (const recordId of this._deleteIds) {
+                    const deleted = await runDictionaryDeleteWithDependencyCheck({
+                        recordId,
+                        deleteFn: () => deleteDictionaryRecord({ recordId }),
+                        onBlocked: (report) => { this.dependencyReport = report; }
+                    });
+                    if (!deleted) {
+                        return;
+                    }
+                }
                 this.selectedScoringIds = [];
                 this._deleteIds = null;
                 await refreshApex(this._wiredCampaignResult);
             } else {
-                await deleteDictionaryRecord({ recordId: this._deleteId });
-                this.selectedScoringIds = this.selectedScoringIds.filter(id => id !== this._deleteId);
+                const deleted = await runDictionaryDeleteWithDependencyCheck({
+                    recordId: deleteId,
+                    deleteFn: () => deleteDictionaryRecord({ recordId: deleteId }),
+                    onBlocked: (report) => { this.dependencyReport = report; }
+                });
+                if (!deleted) {
+                    return;
+                }
+                this.selectedScoringIds = this.selectedScoringIds.filter(id => id !== deleteId);
                 await refreshApex(this._wiredCampaignResult);
             }
             this._showToast('Success', 'Deleted.', 'success');
         } catch (e) {
-            this._showToast('Error', e.body?.message || 'Delete failed.', 'error');
+            const message = e.body?.message || e.message || 'Delete failed.';
+            if (isDependencyBlockedMessage(message) && deleteId) {
+                const report = await fetchDictionaryDeleteReport(deleteId);
+                if (reportHasDependencies(report)) {
+                    this.dependencyReport = report;
+                    return;
+                }
+            }
+            this._showToast('Error', message, 'error');
         } finally { this.isSaving = false; }
+    }
+
+    handleCloseDependencyDialog() {
+        this.dependencyReport = null;
+    }
+
+    get isDependencyDialogOpen() {
+        return reportHasDependencies(this.dependencyReport);
     }
     async _saveCampaignRecord(record, onSuccess) {
         this.isSaving = true;

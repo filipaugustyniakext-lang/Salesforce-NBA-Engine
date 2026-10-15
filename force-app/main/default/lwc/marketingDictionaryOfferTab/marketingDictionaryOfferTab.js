@@ -17,6 +17,14 @@ import updateRangeReferenceValue from '@salesforce/apex/MarketingDictionaryManag
 import deleteReferenceValue from '@salesforce/apex/MarketingDictionaryManagerController.deleteReferenceValue';
 import toggleReferenceValueActive from '@salesforce/apex/MarketingDictionaryManagerController.toggleReferenceValueActive';
 import updateReferenceAttributeMaster from '@salesforce/apex/MarketingDictionaryManagerController.updateReferenceAttributeMaster';
+import {
+    runDictionaryDeleteWithDependencyCheck,
+    runOfferReferenceDeleteWithDependencyCheck,
+    isDependencyBlockedMessage,
+    fetchDictionaryDeleteReport,
+    fetchOfferReferenceValueDeleteReport,
+    reportHasDependencies
+} from 'c/marketingDictionaryDeleteHelper';
 
 const PARAM_TYPES = [
     { label: 'Text', value: 'Text' },
@@ -89,6 +97,7 @@ export default class MarketingDictionaryOfferTab extends LightningElement {
     // ─── Shared ───────────────────────────────────────────────────────────────
     @track isSaving = false;
     @track isDeleteModalOpen = false;
+    @track dependencyReport = null;
     _deleteId = null;
     _deleteType = null;
     _deleteAttrId = null;
@@ -1569,19 +1578,33 @@ export default class MarketingDictionaryOfferTab extends LightningElement {
     async handleConfirmDelete() {
         this.isDeleteModalOpen = false;
         this.isSaving = true;
+        const deleteType = this._deleteType;
+        const deleteId = this._deleteId;
         try {
-            if (this._deleteType === 'attr') {
-                await deleteDictionaryRecord({ recordId: this._deleteId });
+            if (deleteType === 'attr') {
+                const deleted = await runDictionaryDeleteWithDependencyCheck({
+                    recordId: deleteId,
+                    deleteFn: () => deleteDictionaryRecord({ recordId: deleteId }),
+                    onBlocked: (report) => { this.dependencyReport = report; }
+                });
+                if (!deleted) {
+                    return;
+                }
                 this._showToast('Success', 'Attribute deleted.', 'success');
                 await refreshApex(this._wiredResult);
-            } else if (this._deleteType === 'attrFromModal') {
-                // Delete saved attribute from inside the family modal
-                await deleteDictionaryRecord({ recordId: this._deleteId });
-                // Also remove from pending list so modal reflects the change
+            } else if (deleteType === 'attrFromModal') {
+                const deleted = await runDictionaryDeleteWithDependencyCheck({
+                    recordId: deleteId,
+                    deleteFn: () => deleteDictionaryRecord({ recordId: deleteId }),
+                    onBlocked: (report) => { this.dependencyReport = report; }
+                });
+                if (!deleted) {
+                    return;
+                }
                 this.fmPendingList = this.fmPendingList.filter(r => r._key !== this._deleteKey);
                 this._showToast('Success', 'Attribute deleted.', 'success');
                 await refreshApex(this._wiredResult);
-            } else if (this._deleteType === 'familyConfig') {
+            } else if (deleteType === 'familyConfig') {
                 // Delete all rule assignments for this family (and orphaned attributes)
                 const familyId = this._deleteFamilyId;
                 const ruleIds = this._rawRecords
@@ -1593,19 +1616,63 @@ export default class MarketingDictionaryOfferTab extends LightningElement {
                 }
                 this._showToast('Success', `Removed ${ruleIds.length} attribute assignment(s) for this family.`, 'success');
                 await refreshApex(this._wiredResult);
-            } else if (this._deleteType === 'rule') {
-                await deleteAttributeRule({ ruleId: this._deleteId });
+            } else if (deleteType === 'rule') {
+                await deleteAttributeRule({ ruleId: deleteId });
                 this._showToast('Success', 'Assignment removed.', 'success');
                 await refreshApex(this._wiredResult);
-            } else if (this._deleteType === 'ref') {
-                await deleteReferenceValue({ recordId: this._deleteId });
-                if (this._deleteRangeMaxId) await deleteReferenceValue({ recordId: this._deleteRangeMaxId });
+            } else if (deleteType === 'ref') {
+                const deleted = await runOfferReferenceDeleteWithDependencyCheck({
+                    recordId: deleteId,
+                    deleteFn: async () => {
+                        await deleteReferenceValue({ recordId: deleteId });
+                        if (this._deleteRangeMaxId) {
+                            await deleteReferenceValue({ recordId: this._deleteRangeMaxId });
+                        }
+                    },
+                    onBlocked: (report) => { this.dependencyReport = report; }
+                });
+                if (!deleted) {
+                    return;
+                }
                 this._deleteRangeMaxId = null;
                 this._showToast('Success', 'Reference value deleted.', 'success');
                 await refreshApex(this._wiredRefResult);
             }
-        } catch (e) { this._showToast('Error', e.body?.message || 'Delete failed.', 'error'); }
+        } catch (e) {
+            await this._handleOfferDeleteError(e, deleteType, deleteId);
+        }
         finally { this.isSaving = false; }
+    }
+
+    async _handleOfferDeleteError(e, deleteType, deleteId) {
+        const message = e.body?.message || e.message || 'Delete failed.';
+        if (!isDependencyBlockedMessage(message) || !deleteId) {
+            this._showToast('Error', message, 'error');
+            return;
+        }
+        try {
+            let report;
+            if (deleteType === 'ref') {
+                report = await fetchOfferReferenceValueDeleteReport(deleteId);
+            } else if (deleteType === 'attr' || deleteType === 'attrFromModal') {
+                report = await fetchDictionaryDeleteReport(deleteId);
+            }
+            if (reportHasDependencies(report)) {
+                this.dependencyReport = report;
+                return;
+            }
+        } catch {
+            // fall through
+        }
+        this._showToast('Error', message, 'error');
+    }
+
+    handleCloseDependencyDialog() {
+        this.dependencyReport = null;
+    }
+
+    get isDependencyDialogOpen() {
+        return reportHasDependencies(this.dependencyReport);
     }
 
     _showToast(title, message, variant) {

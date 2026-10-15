@@ -33,9 +33,11 @@ private class MarketingDictionaryDeleteGuardTest {
             FROM Marketing_Dictionary__c
             WHERE Id = :groupRec.Id
         ];
-        List<String> deps = MarketingDictionaryDeleteGuard.collectBlockingDependencies(wrapper);
-        System.assert(!deps.isEmpty(), 'Campaign group should be blocked');
-        System.assert(deps[0].contains('Blocked Camp'), deps.toString());
+        MarketingDictionaryDeleteGuard.DependencyReport report =
+            MarketingDictionaryDeleteGuard.buildDictionaryDeleteReport(wrapper);
+        System.assert(report.hasDependencies(), 'Campaign group should be blocked');
+        System.assertEquals('Campaign', report.groups[0].category);
+        System.assert(report.groups[0].recordNames.contains('Blocked Camp'), report.toString());
     }
 
     @IsTest
@@ -56,7 +58,10 @@ private class MarketingDictionaryDeleteGuardTest {
             MarketingDictionaryDeleteGuard.assertCampaignTierDeletable(tier.Id);
         } catch (AuraHandledException e) {
             blocked = true;
-            System.assert(e.getMessage().contains('Please remove dependencies first'), e.getMessage());
+            System.assert(
+                e.getMessage().contains('must be removed before it can be deleted'),
+                e.getMessage()
+            );
         }
         Test.stopTest();
         System.assertEquals(true, blocked);

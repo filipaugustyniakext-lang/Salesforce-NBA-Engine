@@ -14,6 +14,12 @@ import saveBannerPlacement from '@salesforce/apex/MarketingDictionaryManagerCont
 import saveBannerPlacementsBulk from '@salesforce/apex/MarketingDictionaryManagerController.saveBannerPlacementsBulk';
 import deleteBannerPlacement from '@salesforce/apex/MarketingDictionaryManagerController.deleteBannerPlacement';
 import { confirmDictionaryRenameIfNeeded } from 'c/marketingDictionaryRenamePrompt';
+import {
+    runDictionaryDeleteWithDependencyCheck,
+    isDependencyBlockedMessage,
+    fetchDictionaryDeleteReport,
+    reportHasDependencies
+} from 'c/marketingDictionaryDeleteHelper';
 import saveIntentTarget from '@salesforce/apex/MarketingDictionaryManagerController.saveIntentTarget';
 import deleteIntentTarget from '@salesforce/apex/MarketingDictionaryManagerController.deleteIntentTarget';
 import saveBannerIntent from '@salesforce/apex/MarketingDictionaryManagerController.saveBannerIntent';
@@ -60,6 +66,7 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
     @track isIntentTargetModalOpen = false;
     @track isIntentModalOpen = false;
     @track isDeleteModalOpen = false;
+    @track dependencyReport = null;
     @track editChannel = EMPTY_CHANNEL();
     _channelOriginalName = '';
     @track editCooldown = EMPTY_COOLDOWN();
@@ -778,14 +785,52 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
         this.isDeleteModalOpen = false;
         this._pendingDeleteId = null; this._pendingDeleteName = ''; this._pendingDeleteType = '';
         try {
-            if (type === 'channel') { await deleteDictionaryRecord({ recordId: id }); this._showToast('Success', 'Channel deleted', 'success'); }
-            else if (type === 'cooldown') { await deleteCooldownRecord({ cooldownId: id }); this._showToast('Success', 'Cooldown rule deleted', 'success'); }
-            else if (type === 'dayRule') { await deleteBlackoutDayRule({ recordId: id }); this._showToast('Success', 'Weekly restriction removed', 'success'); }
-            else if (type === 'intentTarget') { await deleteIntentTarget({ recordId: id }); this._showToast('Success', 'Intent target deleted', 'success'); }
-            else if (type === 'intent') { await deleteBannerIntent({ recordId: id }); this._showToast('Success', 'Intent deleted', 'success'); }
-            else { await deleteBannerPlacement({ recordId: id }); this._showToast('Success', 'Placeholder deleted', 'success'); }
+            if (type === 'channel') {
+                const deleted = await runDictionaryDeleteWithDependencyCheck({
+                    recordId: id,
+                    deleteFn: () => deleteDictionaryRecord({ recordId: id }),
+                    onBlocked: (report) => { this.dependencyReport = report; }
+                });
+                if (!deleted) {
+                    return;
+                }
+                this._showToast('Success', 'Channel deleted', 'success');
+            } else if (type === 'cooldown') {
+                await deleteCooldownRecord({ cooldownId: id });
+                this._showToast('Success', 'Cooldown rule deleted', 'success');
+            } else if (type === 'dayRule') {
+                await deleteBlackoutDayRule({ recordId: id });
+                this._showToast('Success', 'Weekly restriction removed', 'success');
+            } else if (type === 'intentTarget') {
+                await deleteIntentTarget({ recordId: id });
+                this._showToast('Success', 'Intent target deleted', 'success');
+            } else if (type === 'intent') {
+                await deleteBannerIntent({ recordId: id });
+                this._showToast('Success', 'Intent deleted', 'success');
+            } else {
+                await deleteBannerPlacement({ recordId: id });
+                this._showToast('Success', 'Placeholder deleted', 'success');
+            }
             await refreshApex(this._wiredResult);
-        } catch (e) { this._showToast('Error', e.body?.message || e.message, 'error'); }
+        } catch (e) {
+            const message = e.body?.message || e.message || 'Delete failed.';
+            if (type === 'channel' && isDependencyBlockedMessage(message) && id) {
+                const report = await fetchDictionaryDeleteReport(id);
+                if (reportHasDependencies(report)) {
+                    this.dependencyReport = report;
+                    return;
+                }
+            }
+            this._showToast('Error', message, 'error');
+        }
+    }
+
+    handleCloseDependencyDialog() {
+        this.dependencyReport = null;
+    }
+
+    get isDependencyDialogOpen() {
+        return reportHasDependencies(this.dependencyReport);
     }
 
     // ── Intent Target handlers ───────────────────────────────────────────────

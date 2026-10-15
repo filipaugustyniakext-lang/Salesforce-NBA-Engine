@@ -144,9 +144,10 @@ public with sharing class MarketingDictionaryManagerController {
                 WITH SECURITY_ENFORCED
                 LIMIT 1
             ];
-            List<String> dependencies = MarketingDictionaryDeleteGuard.collectBlockingDependencies(rec);
-            if (!dependencies.isEmpty()) {
-                throw dependencyDeleteException(rec.Name, String.join(dependencies, '; '));
+            MarketingDictionaryDeleteGuard.DependencyReport report =
+                MarketingDictionaryDeleteGuard.buildDictionaryDeleteReport(rec);
+            if (report.hasDependencies()) {
+                throw dependencyDeleteException(report);
             }
             if (rec.Dictionary_Sub_Type__c == 'Family of Needs') {
                 delete [SELECT Id FROM FamilyOfNeeds_CustomerType__c WHERE Family_of_Needs__c = :recordId];
@@ -160,7 +161,11 @@ public with sharing class MarketingDictionaryManagerController {
         } catch (DmlException e) {
             String detail = e.getNumDml() > 0 ? e.getDmlMessage(0) : e.getMessage();
             if (detail != null && (detail.contains('DELETE_FAILED') || detail.containsIgnoreCase('associated with'))) {
-                throw dependencyDeleteException(null, 'related records');
+                MarketingDictionaryDeleteGuard.DependencyReport fallback =
+                    new MarketingDictionaryDeleteGuard.DependencyReport();
+                fallback.summaryMessage =
+                    'This value has dependencies that must be removed before it can be deleted.';
+                throw dependencyDeleteException(fallback);
             }
             throw new AuraHandledException(detail);
         } catch (Exception e) {
@@ -168,10 +173,12 @@ public with sharing class MarketingDictionaryManagerController {
         }
     }
 
-    private static AuraHandledException dependencyDeleteException(String recordName, String dependency) {
-        String message = (String.isBlank(recordName) ? 'This value' : 'The value ' + recordName)
-            + ' has a dependency to ' + dependency
-            + '. Please remove dependencies first to delete this record.';
+    private static AuraHandledException dependencyDeleteException(
+        MarketingDictionaryDeleteGuard.DependencyReport report
+    ) {
+        String message = report != null && String.isNotBlank(report.summaryMessage)
+            ? report.summaryMessage
+            : 'This value has dependencies that must be removed before it can be deleted.';
         AuraHandledException ex = new AuraHandledException(message);
         ex.setMessage(message);
         return ex;

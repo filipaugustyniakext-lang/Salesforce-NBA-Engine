@@ -6,6 +6,90 @@ public with sharing class MarketingDictionaryDeleteGuard {
 
     private static final Integer MAX_DEPENDENCY_LABELS = 12;
 
+    public class DependencyGroup {
+        @AuraEnabled public String category { get; set; }
+        @AuraEnabled public List<String> recordNames { get; set; }
+
+        public DependencyGroup() {
+            this.recordNames = new List<String>();
+        }
+
+        public DependencyGroup(String category, List<String> recordNames) {
+            this.category = category;
+            this.recordNames = recordNames != null ? recordNames : new List<String>();
+        }
+    }
+
+    public class DependencyReport {
+        @AuraEnabled public String recordName { get; set; }
+        @AuraEnabled public List<DependencyGroup> groups { get; set; }
+        @AuraEnabled public Boolean truncated { get; set; }
+        @AuraEnabled public String summaryMessage { get; set; }
+
+        public DependencyReport() {
+            this.groups = new List<DependencyGroup>();
+            this.truncated = false;
+        }
+
+        public Boolean hasDependencies() {
+            return groups != null && !groups.isEmpty();
+        }
+    }
+
+    private class DependencyCollector {
+        private Map<String, List<String>> byCategory = new Map<String, List<String>>();
+        private Integer totalCount = 0;
+        public Boolean truncated = false;
+
+        void add(String category, String recordName) {
+            if (totalCount >= MAX_DEPENDENCY_LABELS) {
+                truncated = true;
+                return;
+            }
+            String cat = String.isBlank(category) ? 'Related record' : category;
+            String name = String.isBlank(recordName) ? 'record' : recordName;
+            if (!byCategory.containsKey(cat)) {
+                byCategory.put(cat, new List<String>());
+            }
+            byCategory.get(cat).add(name);
+            totalCount++;
+        }
+
+        Boolean isEmpty() {
+            return totalCount == 0;
+        }
+
+        List<String> toFlatList() {
+            List<String> flat = new List<String>();
+            for (String cat : sortedCategoryKeys()) {
+                for (String entry : byCategory.get(cat)) {
+                    flat.add(cat + ': ' + entry);
+                }
+            }
+            return flat;
+        }
+
+        DependencyReport toReport(String recordLabel) {
+            DependencyReport report = new DependencyReport();
+            report.recordName = recordLabel;
+            report.truncated = truncated;
+            for (String cat : sortedCategoryKeys()) {
+                report.groups.add(new DependencyGroup(cat, new List<String>(byCategory.get(cat))));
+            }
+            List<String> flat = toFlatList();
+            if (!flat.isEmpty()) {
+                report.summaryMessage = buildBlockedMessage(recordLabel, flat, truncated);
+            }
+            return report;
+        }
+
+        private List<String> sortedCategoryKeys() {
+            List<String> keys = new List<String>(byCategory.keySet());
+            keys.sort();
+            return keys;
+        }
+    }
+
     public class RenameImpact {
         @AuraEnabled public Boolean requiresConfirmation;
         @AuraEnabled public String message;
@@ -17,7 +101,42 @@ public with sharing class MarketingDictionaryDeleteGuard {
     }
 
     public static List<String> collectBlockingDependencies(Marketing_Dictionary__c dictionaryRecord) {
-        List<String> dependencies = new List<String>();
+        return collectIntoCollector(dictionaryRecord).toFlatList();
+    }
+
+    public static DependencyReport buildDictionaryDeleteReport(Marketing_Dictionary__c dictionaryRecord) {
+        String label = dictionaryRecord != null ? dictionaryRecord.Name : null;
+        return collectIntoCollector(dictionaryRecord).toReport(label);
+    }
+
+    @AuraEnabled
+    public static DependencyReport getDictionaryDeleteDependencies(Id recordId) {
+        if (recordId == null) {
+            return new DependencyReport();
+        }
+        Marketing_Dictionary__c rec = [
+            SELECT Id, Name, Dictionary_Sub_Type__c, RecordType.DeveloperName,
+                   Channel_Type__c, Parameter_API_Name__c
+            FROM Marketing_Dictionary__c
+            WHERE Id = :recordId
+            WITH SECURITY_ENFORCED
+            LIMIT 1
+        ];
+        return buildDictionaryDeleteReport(rec);
+    }
+
+    @AuraEnabled
+    public static DependencyReport getCampaignTierDeleteDependencies(Id tierId) {
+        return buildCampaignTierDeleteReport(tierId);
+    }
+
+    @AuraEnabled
+    public static DependencyReport getOfferReferenceValueDeleteDependencies(Id referenceValueId) {
+        return buildOfferReferenceValueDeleteReport(referenceValueId);
+    }
+
+    private static DependencyCollector collectIntoCollector(Marketing_Dictionary__c dictionaryRecord) {
+        DependencyCollector dependencies = new DependencyCollector();
         if (dictionaryRecord == null || dictionaryRecord.Id == null) {
             return dependencies;
         }
@@ -57,9 +176,10 @@ public with sharing class MarketingDictionaryDeleteGuard {
         return dependencies;
     }
 
-    public static void assertCampaignTierDeletable(Id tierId) {
+    public static DependencyReport buildCampaignTierDeleteReport(Id tierId) {
+        DependencyReport empty = new DependencyReport();
         if (tierId == null) {
-            return;
+            return empty;
         }
         Campaign_Tier__c tier = [
             SELECT Id, Name, Tier_Number__c
@@ -67,7 +187,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
             WHERE Id = :tierId
             LIMIT 1
         ];
-        List<String> dependencies = new List<String>();
+        DependencyCollector dependencies = new DependencyCollector();
         String tierLabel = tierLabelForNumber(tier.Tier_Number__c);
         if (String.isNotBlank(tierLabel)) {
             for (Campaign camp : [
@@ -80,12 +200,13 @@ public with sharing class MarketingDictionaryDeleteGuard {
                 addDependency(dependencies, 'Campaign (Priority Tier)', camp.Name);
             }
         }
-        throwIfBlocked(tier.Name, dependencies);
+        return dependencies.toReport(tier.Name);
     }
 
-    public static void assertOfferReferenceValueDeletable(Id referenceValueId) {
+    public static DependencyReport buildOfferReferenceValueDeleteReport(Id referenceValueId) {
+        DependencyReport empty = new DependencyReport();
         if (referenceValueId == null) {
-            return;
+            return empty;
         }
         Offer_Reference_Value__c refVal = [
             SELECT Id, Name
@@ -93,9 +214,9 @@ public with sharing class MarketingDictionaryDeleteGuard {
             WHERE Id = :referenceValueId
             LIMIT 1
         ];
-        List<String> dependencies = new List<String>();
+        DependencyCollector dependencies = new DependencyCollector();
         for (Offer_Attribute_Rule__c rule : [
-            SELECT Offer_Attribute__r.Name, Product_Family__r.Name
+            SELECT Offer_Attribute__r.Name
             FROM Offer_Attribute_Rule__c
             WHERE Reference_Value__c = :referenceValueId
             ORDER BY Offer_Attribute__r.Name ASC
@@ -103,7 +224,21 @@ public with sharing class MarketingDictionaryDeleteGuard {
         ]) {
             addDependency(dependencies, 'Offer attribute rule', rule.Offer_Attribute__r?.Name);
         }
-        throwIfBlocked(refVal.Name, dependencies);
+        return dependencies.toReport(refVal.Name);
+    }
+
+    public static void assertCampaignTierDeletable(Id tierId) {
+        if (tierId == null) {
+            return;
+        }
+        throwIfBlocked(buildCampaignTierDeleteReport(tierId));
+    }
+
+    public static void assertOfferReferenceValueDeletable(Id referenceValueId) {
+        if (referenceValueId == null) {
+            return;
+        }
+        throwIfBlocked(buildOfferReferenceValueDeleteReport(referenceValueId));
     }
 
     @AuraEnabled
@@ -147,7 +282,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
 
     // ─── Customer / Audience / Product sub-types ───────────────────────────
 
-    private static void collectCustomerTypeDependencies(Id recordId, List<String> dependencies) {
+    private static void collectCustomerTypeDependencies(Id recordId, DependencyCollector dependencies) {
         for (Product_Customer_Type__c link : [
             SELECT Product__r.Name
             FROM Product_Customer_Type__c
@@ -177,7 +312,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
         }
     }
 
-    private static void collectAudienceTypeDependencies(Id recordId, List<String> dependencies) {
+    private static void collectAudienceTypeDependencies(Id recordId, DependencyCollector dependencies) {
         for (Channel_Cooldown__c cooldown : [
             SELECT Name, Channel__r.Name
             FROM Channel_Cooldown__c
@@ -193,7 +328,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
         }
     }
 
-    private static void collectProductFamilyDependencies(Id recordId, List<String> dependencies) {
+    private static void collectProductFamilyDependencies(Id recordId, DependencyCollector dependencies) {
         for (Product2 product : [
             SELECT Name
             FROM Product2
@@ -248,7 +383,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
         collectScoringModelOfferingTokens(recordId, 'Product Family', dependencies);
     }
 
-    private static void collectFamilyOfNeedsDependencies(Id recordId, List<String> dependencies) {
+    private static void collectFamilyOfNeedsDependencies(Id recordId, DependencyCollector dependencies) {
         for (Product2 product : [
             SELECT Name
             FROM Product2
@@ -277,7 +412,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
         collectScoringModelOfferingTokens(recordId, 'Family of Needs', dependencies);
     }
 
-    private static void collectProductTypeDependencies(Id recordId, List<String> dependencies) {
+    private static void collectProductTypeDependencies(Id recordId, DependencyCollector dependencies) {
         for (Product2 product : [
             SELECT Name
             FROM Product2
@@ -304,7 +439,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
     private static void collectCampaignTypeDependencies(
         Id recordId,
         String typeName,
-        List<String> dependencies
+        DependencyCollector dependencies
     ) {
         if (String.isNotBlank(typeName)) {
             for (Campaign camp : [
@@ -330,7 +465,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
         }
     }
 
-    private static void collectCampaignGroupDependencies(Id recordId, List<String> dependencies) {
+    private static void collectCampaignGroupDependencies(Id recordId, DependencyCollector dependencies) {
         for (Campaign camp : [
             SELECT Name
             FROM Campaign
@@ -342,7 +477,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
         }
     }
 
-    private static void collectTopicDependencies(Id recordId, List<String> dependencies) {
+    private static void collectTopicDependencies(Id recordId, DependencyCollector dependencies) {
         for (Campaign camp : [
             SELECT Name
             FROM Campaign
@@ -383,7 +518,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
         collectCopyTopicTextReferences(recordId, dependencies);
     }
 
-    private static void collectTopicGroupDependencies(Id recordId, List<String> dependencies) {
+    private static void collectTopicGroupDependencies(Id recordId, DependencyCollector dependencies) {
         for (Marketing_Dictionary__c topic : [
             SELECT Name
             FROM Marketing_Dictionary__c
@@ -396,7 +531,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
         }
     }
 
-    private static void collectScoringModelDependencies(Id recordId, List<String> dependencies) {
+    private static void collectScoringModelDependencies(Id recordId, DependencyCollector dependencies) {
         for (Campaign camp : [
             SELECT Name
             FROM Campaign
@@ -417,7 +552,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
         }
     }
 
-    private static void collectScoringModelGroupDependencies(Id recordId, List<String> dependencies) {
+    private static void collectScoringModelGroupDependencies(Id recordId, DependencyCollector dependencies) {
         for (Marketing_Dictionary__c model : [
             SELECT Name
             FROM Marketing_Dictionary__c
@@ -434,7 +569,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
 
     private static void collectOfferAttributeDependencies(
         Marketing_Dictionary__c attribute,
-        List<String> dependencies
+        DependencyCollector dependencies
     ) {
         Id recordId = attribute.Id;
         for (Offer_Attribute_Rule__c rule : [
@@ -451,11 +586,8 @@ public with sharing class MarketingDictionaryDeleteGuard {
 
     private static void collectOfferVersionFieldPopulation(
         Marketing_Dictionary__c attribute,
-        List<String> dependencies
+        DependencyCollector dependencies
     ) {
-        if (dependencies.size() >= MAX_DEPENDENCY_LABELS) {
-            return;
-        }
         String apiName = attribute.Parameter_API_Name__c;
         if (String.isBlank(apiName)) {
             return;
@@ -471,15 +603,12 @@ public with sharing class MarketingDictionaryDeleteGuard {
             + MAX_DEPENDENCY_LABELS;
         for (Offer_Version__c ver : (List<Offer_Version__c>) Database.query(query)) {
             addDependency(dependencies, 'Offer', ver.Offer_Lookup__r?.Name);
-            if (dependencies.size() >= MAX_DEPENDENCY_LABELS) {
-                return;
-            }
         }
     }
 
     private static void collectChannelDependencies(
         Marketing_Dictionary__c channel,
-        List<String> dependencies
+        DependencyCollector dependencies
     ) {
         Id recordId = channel.Id;
         String channelName = channel.Name;
@@ -609,19 +738,13 @@ public with sharing class MarketingDictionaryDeleteGuard {
         Id dictionaryId,
         String campaignFieldApi,
         String dependencyPrefix,
-        List<String> dependencies
+        DependencyCollector dependencies
     ) {
-        if (dependencies.size() >= MAX_DEPENDENCY_LABELS) {
-            return;
-        }
         String query = 'SELECT Id, Name, ' + campaignFieldApi + ' FROM Campaign LIMIT 5000';
         for (Campaign campaign : (List<Campaign>) Database.query(query)) {
             String raw = (String) campaign.get(campaignFieldApi);
             if (containsDictionaryId(raw, dictionaryId)) {
                 addDependency(dependencies, dependencyPrefix, campaign.Name);
-            }
-            if (dependencies.size() >= MAX_DEPENDENCY_LABELS) {
-                return;
             }
         }
     }
@@ -629,11 +752,8 @@ public with sharing class MarketingDictionaryDeleteGuard {
     private static void collectScoringModelOfferingTokens(
         Id dictionaryId,
         String offeringType,
-        List<String> dependencies
+        DependencyCollector dependencies
     ) {
-        if (dependencies.size() >= MAX_DEPENDENCY_LABELS) {
-            return;
-        }
         for (Marketing_Dictionary__c model : [
             SELECT Name, Product_Family__c, Family_of_Needs__c, Offering_Type__c
             FROM Marketing_Dictionary__c
@@ -650,14 +770,11 @@ public with sharing class MarketingDictionaryDeleteGuard {
             if (containsDictionaryId(raw, dictionaryId)) {
                 addDependency(dependencies, 'Scoring Model', model.Name);
             }
-            if (dependencies.size() >= MAX_DEPENDENCY_LABELS) {
-                return;
-            }
         }
     }
 
-    private static void collectTierSupportedTypeReferences(String typeName, List<String> dependencies) {
-        if (dependencies.size() >= MAX_DEPENDENCY_LABELS || String.isBlank(typeName)) {
+    private static void collectTierSupportedTypeReferences(String typeName, DependencyCollector dependencies) {
+        if (String.isBlank(typeName)) {
             return;
         }
         for (Campaign_Tier__c tier : [
@@ -669,16 +786,10 @@ public with sharing class MarketingDictionaryDeleteGuard {
             if (supportedTypesContain(tier.Supported_Campaign_Types__c, typeName)) {
                 addDependency(dependencies, 'Tier definition', tier.Name);
             }
-            if (dependencies.size() >= MAX_DEPENDENCY_LABELS) {
-                return;
-            }
         }
     }
 
-    private static void collectCopyTopicTextReferences(Id topicId, List<String> dependencies) {
-        if (dependencies.size() >= MAX_DEPENDENCY_LABELS) {
-            return;
-        }
+    private static void collectCopyTopicTextReferences(Id topicId, DependencyCollector dependencies) {
         String id18 = String.valueOf(topicId);
         String id15 = id18.length() == 18 ? id18.substring(0, 15) : id18;
         for (CC_Message_Metadata__c row : [
@@ -697,9 +808,9 @@ public with sharing class MarketingDictionaryDeleteGuard {
 
     private static void collectCampaignAssignedChannelReferences(
         String channelName,
-        List<String> dependencies
+        DependencyCollector dependencies
     ) {
-        if (dependencies.size() >= MAX_DEPENDENCY_LABELS || String.isBlank(channelName)) {
+        if (String.isBlank(channelName)) {
             return;
         }
         for (Campaign camp : [
@@ -710,17 +821,14 @@ public with sharing class MarketingDictionaryDeleteGuard {
             if (semicolonListContainsLabel(camp.Assigned_Channels__c, channelName)) {
                 addDependency(dependencies, 'Campaign (Assigned Channels)', camp.Name);
             }
-            if (dependencies.size() >= MAX_DEPENDENCY_LABELS) {
-                return;
-            }
         }
     }
 
     private static void collectBlackoutWindowChannelReferences(
         String channelName,
-        List<String> dependencies
+        DependencyCollector dependencies
     ) {
-        if (dependencies.size() >= MAX_DEPENDENCY_LABELS || String.isBlank(channelName)) {
+        if (String.isBlank(channelName)) {
             return;
         }
         for (Blackout_Window__c window : [
@@ -731,20 +839,14 @@ public with sharing class MarketingDictionaryDeleteGuard {
             if (semicolonListContainsLabel(window.Assigned_Channels__c, channelName)) {
                 addDependency(dependencies, 'Blackout window', window.Name);
             }
-            if (dependencies.size() >= MAX_DEPENDENCY_LABELS) {
-                return;
-            }
         }
     }
 
     private static void collectCopyChannelReferences(
         String channelName,
         String channelType,
-        List<String> dependencies
+        DependencyCollector dependencies
     ) {
-        if (dependencies.size() >= MAX_DEPENDENCY_LABELS) {
-            return;
-        }
         if (String.isNotBlank(channelName)) {
             for (CC_Message_Metadata__c row : [
                 SELECT Name
@@ -754,9 +856,6 @@ public with sharing class MarketingDictionaryDeleteGuard {
                 LIMIT :MAX_DEPENDENCY_LABELS
             ]) {
                 addDependency(dependencies, 'Copy variant (Channel)', row.Name);
-                if (dependencies.size() >= MAX_DEPENDENCY_LABELS) {
-                    return;
-                }
             }
         }
         if (String.isNotBlank(channelType)) {
@@ -768,20 +867,26 @@ public with sharing class MarketingDictionaryDeleteGuard {
                 LIMIT :MAX_DEPENDENCY_LABELS
             ]) {
                 addDependency(dependencies, 'Copy variant (Channel Type)', row.Name);
-                if (dependencies.size() >= MAX_DEPENDENCY_LABELS) {
-                    return;
-                }
             }
         }
     }
 
-    private static void throwIfBlocked(String recordName, List<String> dependencies) {
-        if (dependencies == null || dependencies.isEmpty()) {
+    private static String buildBlockedMessage(String recordName, List<String> flat, Boolean truncated) {
+        String message = (String.isBlank(recordName) ? 'This value' : 'The value ' + recordName)
+            + ' has dependencies that must be removed before it can be deleted.';
+        if (truncated == true) {
+            message += ' (Showing the first ' + MAX_DEPENDENCY_LABELS + ' references.)';
+        }
+        return message;
+    }
+
+    private static void throwIfBlocked(DependencyReport report) {
+        if (report == null || !report.hasDependencies()) {
             return;
         }
-        String message = (String.isBlank(recordName) ? 'This value' : 'The value ' + recordName)
-            + ' has a dependency to ' + String.join(dependencies, '; ')
-            + '. Please remove dependencies first to delete this record.';
+        String message = String.isNotBlank(report.summaryMessage)
+            ? report.summaryMessage
+            : buildBlockedMessage(report.recordName, new List<String>(), report.truncated);
         AuraHandledException ex = new AuraHandledException(message);
         ex.setMessage(message);
         throw ex;
@@ -850,11 +955,10 @@ public with sharing class MarketingDictionaryDeleteGuard {
         return 'Tier ' + tierNumber.intValue();
     }
 
-    private static void addDependency(List<String> dependencies, String category, String recordName) {
-        if (dependencies.size() >= MAX_DEPENDENCY_LABELS) {
+    private static void addDependency(DependencyCollector dependencies, String category, String recordName) {
+        if (dependencies == null) {
             return;
         }
-        String name = String.isBlank(recordName) ? 'record' : recordName;
-        dependencies.add(category + ': ' + name);
+        dependencies.add(category, recordName);
     }
 }
