@@ -191,6 +191,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     @track aprioriHasSharedState = false;
     @track aprioriHasMixedSharedScores = false;
     @track aprioriChangeConfirmed = false;
+    @track platformConfirmOpen = false;
     aprioriSliderResetKey = 0;
     @track selectedScoringModelId = '';
     @track selectedScoringModelName = '';
@@ -1234,13 +1235,37 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         this.aprioriScore = clamped;
     }
 
+    get wizardDialogClass() {
+        const base = 'slds-modal slds-fade-in-open slds-modal_large custom-modal-frame';
+        return this.platformConfirmOpen
+            ? `${base} wizard-hidden-for-platform-confirm`
+            : base;
+    }
+
+    get wizardBackdropClass() {
+        const base = 'slds-backdrop slds-backdrop_open';
+        return this.platformConfirmOpen
+            ? `${base} wizard-backdrop-hidden-for-platform-confirm`
+            : base;
+    }
+
     async promptAprioriSharedScoreChange(clampedScore) {
-        const confirmed = await LightningConfirm.open({
-            label: 'Update shared apriori score?',
-            message: 'This score is shared across all campaigns with the same Topic and Product Family combination. Saving will update the central apriori state and affect every campaign using that pair.',
-            variant: 'header',
-            theme: 'warning'
+        this.platformConfirmOpen = true;
+        await new Promise((resolve) => {
+            // eslint-disable-next-line @lwc/lwc/no-async-operation
+            requestAnimationFrame(resolve);
         });
+        let confirmed = false;
+        try {
+            confirmed = await LightningConfirm.open({
+                label: 'Update shared apriori score?',
+                message: 'This score is shared across all campaigns with the same Topic and Product Family combination. Saving will update the central apriori state and affect every campaign using that pair.',
+                variant: 'header',
+                theme: 'warning'
+            });
+        } finally {
+            this.platformConfirmOpen = false;
+        }
         if (confirmed) {
             this.aprioriScore = clampedScore;
             this.aprioriChangeConfirmed = true;

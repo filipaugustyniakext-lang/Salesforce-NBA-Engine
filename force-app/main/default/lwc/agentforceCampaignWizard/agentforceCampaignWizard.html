@@ -1,5 +1,5 @@
 <template>
-    <section role="dialog" tabindex="-1" aria-modal="true" class="slds-modal slds-fade-in-open slds-modal_large custom-modal-frame" onclick={handleBackdropClick}>
+    <section role="dialog" tabindex="-1" aria-modal="true" class={wizardDialogClass} onclick={handleBackdropClick}>
         <div class="slds-modal__container custom-modal-container" onclick={handleContainerClick}>
 
             <template lwc:if={isLoading}>
@@ -1134,5 +1134,5 @@
             </footer>
         </div>
     </section>
-    <div class="slds-backdrop slds-backdrop_open" role="presentation" onclick={handleBackdropClick}></div>
+    <div class={wizardBackdropClass} role="presentation" onclick={handleBackdropClick}></div>
 </template>

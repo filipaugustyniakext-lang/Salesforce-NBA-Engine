@@ -25,6 +25,16 @@
     padding-top: 0;
 }
 
+/* Nested LightningConfirm: hide wizard shell so platform prompt receives clicks. */
+.wizard-hidden-for-platform-confirm {
+    pointer-events: none !important;
+    visibility: hidden !important;
+}
+
+.wizard-backdrop-hidden-for-platform-confirm {
+    display: none !important;
+}
+
 /* --- BASE DIALOG LAYOUT --- */
 .custom-modal-frame .custom-modal-container {
     overflow: visible !important; /* Allows close circle button to cleanly pop out */
