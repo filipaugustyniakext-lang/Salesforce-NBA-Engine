@@ -824,6 +824,17 @@
                                 <span class="module-header-title">Scoring Settings</span>
 
                                 <div class="scoring-content-box slds-m-top_medium">
+                                    <lightning-radio-group
+                                        name="scoringConfigurationMethod"
+                                        label="Scoring method"
+                                        options={scoringConfigurationOptions}
+                                        value={scoringConfigurationMethod}
+                                        type="button"
+                                        onchange={handleScoringConfigurationMethodChange}
+                                        class="slds-m-bottom_medium">
+                                    </lightning-radio-group>
+
+                                    <template lwc:if={isScoringModelConfiguration}>
                                         <template lwc:if={hasScoringModels}>
                                             <lightning-combobox
                                                 name="scoringModel"
@@ -833,32 +844,36 @@
                                                 options={scoringModelOptions}
                                                 onchange={handleScoringModelChange}
                                                 required
-                                                class="custom-form-input slds-m-bottom_small">
+                                                class="custom-form-input">
                                             </lightning-combobox>
                                         </template>
                                         <template lwc:else>
-                                            <div class="slds-notify slds-notify_alert slds-alert_warning slds-m-bottom_small" role="alert">
+                                            <div class="slds-notify slds-notify_alert slds-alert_warning" role="alert">
                                                 <span class="slds-assistive-text">warning</span>
                                                 <h2>{scoringModelEmptyMessage}</h2>
                                             </div>
                                         </template>
-                                        <lightning-input
-                                            type="number"
-                                            label="Fallback A-Priori Score"
-                                            placeholder="Insert Value (1-1000)"
-                                            value={fromObjectOverallScore}
-                                            onchange={handleFromObjectChange}
-                                            min="1"
-                                            max="1000"
-                                            step="1"
-                                            message-when-range-underflow="Score must be at least 1"
-                                            message-when-range-overflow="Score cannot exceed 1000"
-                                            message-when-step-mismatch="Score must be a whole number"
-                                            field-level-help="Required. Applied to customers missing a score in the selected model’s output."
-                                            required
-                                            class="custom-form-input">
-                                        </lightning-input>
-                                    </div>
+                                    </template>
+
+                                    <template lwc:if={isAprioriScoreConfiguration}>
+                                        <div class="slds-m-vertical_medium">
+                                            <p class="slds-text-body_regular slds-m-bottom_small">
+                                                Set a fixed apriori score between 1 and 1000 for this campaign.
+                                            </p>
+                                            <lightning-slider
+                                                label="Apriori Score"
+                                                min="1"
+                                                max="1000"
+                                                step="1"
+                                                value={aprioriScore}
+                                                onchange={handleAprioriScoreChange}>
+                                            </lightning-slider>
+                                            <p class="slds-text-body_small slds-m-top_x-small">
+                                                Current value: <strong>{summaryAprioriScore}</strong>
+                                            </p>
+                                        </div>
+                                    </template>
+                                </div>
                             </div>
                         </template>
 
@@ -1000,25 +1015,35 @@
                                         </div>
                                     </div>
 
-                                    <!-- Scoring -->
-                                    <div class={scoringSummaryState.sectionClass}>
-                                        <h4 class="summary-section-title">Scoring</h4>
-                                        <template lwc:if={scoringSummaryState.issues.length}>
-                                            <ul class="summary-validation-list">
-                                                <template for:each={scoringSummaryState.issues} for:item="issue">
-                                                    <li key={issue.id}>{issue.message}</li>
-                                                </template>
-                                            </ul>
-                                        </template>
-                                        <div class="summary-row">
-                                            <span class="summary-label">Scoring Model</span>
-                                            <span class="summary-value">{summaryScoringModel}</span>
+                                    <!-- Scoring (tiers 4+ only) -->
+                                    <template lwc:if={isScoringStepRequired}>
+                                        <div class={scoringSummaryState.sectionClass}>
+                                            <h4 class="summary-section-title">Scoring</h4>
+                                            <template lwc:if={scoringSummaryState.issues.length}>
+                                                <ul class="summary-validation-list">
+                                                    <template for:each={scoringSummaryState.issues} for:item="issue">
+                                                        <li key={issue.id}>{issue.message}</li>
+                                                    </template>
+                                                </ul>
+                                            </template>
+                                            <div class="summary-row">
+                                                <span class="summary-label">Scoring Method</span>
+                                                <span class="summary-value">{summaryScoringMethod}</span>
+                                            </div>
+                                            <template lwc:if={isScoringModelConfiguration}>
+                                                <div class="summary-row">
+                                                    <span class="summary-label">Scoring Model</span>
+                                                    <span class="summary-value">{summaryScoringModel}</span>
+                                                </div>
+                                            </template>
+                                            <template lwc:if={isAprioriScoreConfiguration}>
+                                                <div class="summary-row">
+                                                    <span class="summary-label">Apriori Score</span>
+                                                    <span class="summary-value">{summaryAprioriScore}</span>
+                                                </div>
+                                            </template>
                                         </div>
-                                        <div class="summary-row">
-                                            <span class="summary-label">Fallback A-Priori Score</span>
-                                            <span class="summary-value">{summaryScore}</span>
-                                        </div>
-                                    </div>
+                                    </template>
                                 </div>
 
                                 <!-- Selected offer panel: only shown when a matching offer was chosen during offering -->
