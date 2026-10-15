@@ -2,7 +2,6 @@ import { LightningElement, api, track, wire } from 'lwc';
 import { NavigationMixin } from 'lightning/navigation';
 import { createRecord, updateRecord } from 'lightning/uiRecordApi';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
-import LightningConfirm from 'lightning/confirm';
 
 // Backend Apex Controllers
 import getChannelDictionaryRecords from '@salesforce/apex/MarketingDictionaryController.getChannelDictionaryRecords';
@@ -191,10 +190,10 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     @track aprioriHasSharedState = false;
     @track aprioriHasMixedSharedScores = false;
     @track aprioriChangeConfirmed = false;
-    @track platformConfirmOpen = false;
+    @track showAprioriChangePopover = false;
+    @track pendingAprioriScore = null;
     aprioriSliderResetKey = 0;
     _aprioriScoreCommitTimer = null;
-    _aprioriConfirmInFlight = false;
     @track selectedScoringModelId = '';
     @track selectedScoringModelName = '';
     @track _scoringModels = [];
@@ -1240,54 +1239,35 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             && clamped !== baseline
             && !this.aprioriChangeConfirmed;
         if (!needsSharedScoreConfirm) {
+            this.showAprioriChangePopover = false;
+            this.pendingAprioriScore = null;
             return;
         }
-        this.promptAprioriSharedScoreChange(clamped);
+        this.pendingAprioriScore = clamped;
+        this.showAprioriChangePopover = true;
     }
 
-    get wizardDialogClass() {
-        const base = 'slds-modal slds-fade-in-open slds-modal_large custom-modal-frame';
-        return this.platformConfirmOpen
-            ? `${base} wizard-hidden-for-platform-confirm`
-            : base;
+    handleAprioriPopoverConfirm() {
+        if (this.pendingAprioriScore !== null && this.pendingAprioriScore !== undefined) {
+            this.aprioriScore = this.pendingAprioriScore;
+        }
+        this.aprioriChangeConfirmed = true;
+        this.showAprioriChangePopover = false;
+        this.pendingAprioriScore = null;
     }
 
-    get wizardBackdropClass() {
-        const base = 'slds-backdrop slds-backdrop_open';
-        return this.platformConfirmOpen
-            ? `${base} wizard-backdrop-hidden-for-platform-confirm`
-            : base;
-    }
-
-    async promptAprioriSharedScoreChange(clampedScore) {
-        if (this._aprioriConfirmInFlight) {
-            return;
-        }
-        this._aprioriConfirmInFlight = true;
-        this.platformConfirmOpen = true;
-        await new Promise((resolve) => {
-            // eslint-disable-next-line @lwc/lwc/no-async-operation
-            requestAnimationFrame(resolve);
-        });
-        let confirmed = false;
-        try {
-            confirmed = await LightningConfirm.open({
-                label: 'Update shared apriori score?',
-                message: 'This score is shared across all campaigns with the same Topic and Product Family combination. Saving will update the central apriori state and affect every campaign using that pair.',
-                variant: 'header',
-                theme: 'warning'
-            });
-        } finally {
-            this.platformConfirmOpen = false;
-            this._aprioriConfirmInFlight = false;
-        }
-        if (confirmed) {
-            this.aprioriScore = clampedScore;
-            this.aprioriChangeConfirmed = true;
-            return;
-        }
+    handleAprioriPopoverCancel() {
         this.aprioriScore = this.aprioriBaselineScore;
         this.aprioriSliderResetKey += 1;
+        this.showAprioriChangePopover = false;
+        this.pendingAprioriScore = null;
+    }
+
+    get aprioriPopoverPendingScoreLabel() {
+        if (this.pendingAprioriScore === null || this.pendingAprioriScore === undefined) {
+            return '';
+        }
+        return String(this.pendingAprioriScore);
     }
 
     get aprioriProductFamilyIds() {
@@ -1572,6 +1552,26 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         return this.scoringConfigurationMethod === 'apriori';
     }
 
+    get showAprioriSummaryChangeAlert() {
+        if (!this.isAprioriScoreConfiguration || !this.isScoringStepRequired) {
+            return false;
+        }
+        const baseline = this.aprioriBaselineScore;
+        if (!this.aprioriHasSharedState || baseline === null || baseline === undefined) {
+            return false;
+        }
+        return this.aprioriScore !== baseline;
+    }
+
+    get aprioriSummaryChangeAlertMessage() {
+        const baseline = this.aprioriBaselineScore;
+        const current = this.aprioriScore;
+        if (baseline === null || baseline === undefined) {
+            return 'This apriori score will be stored for all campaigns sharing the same Topic and Product Family combination.';
+        }
+        return `Apriori score changed from ${baseline} to ${current}. Saving or activating updates the shared score for every campaign with this Topic and Product Family combination.`;
+    }
+
     get aprioriSharedStateHint() {
         if (this.aprioriHasMixedSharedScores) {
             return 'Selected product families have different shared apriori scores for this topic. Resolve in Marketing Dictionary or adjust selections.';
@@ -1722,7 +1722,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 && this.aprioriBaselineScore !== null
                 && this.aprioriScore !== this.aprioriBaselineScore
                 && !this.aprioriChangeConfirmed) {
-                issues.push(this._issue('apriori-confirm', 'Confirm the shared apriori score change before activating.'));
+                issues.push(this._issue('apriori-confirm', 'Confirm the shared apriori score change in the popover before activating.'));
             }
             if (!this.isValidScoreValue(this.aprioriScore)) {
                 issues.push(this._issue('apriori-score', 'Set an apriori score between 0 and 1000.'));

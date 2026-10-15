@@ -1,5 +1,5 @@
 <template>
-    <section role="dialog" tabindex="-1" aria-modal="true" class={wizardDialogClass} onclick={handleBackdropClick}>
+    <section role="dialog" tabindex="-1" aria-modal="true" class="slds-modal slds-fade-in-open slds-modal_large custom-modal-frame" onclick={handleBackdropClick}>
         <div class="slds-modal__container custom-modal-container" onclick={handleContainerClick}>
 
             <template lwc:if={isLoading}>
@@ -862,15 +862,59 @@
                                     <template lwc:if={isAprioriScoreConfiguration}>
                                         <div class="slds-m-vertical_medium">
                                             <p class="slds-text-body_regular slds-m-bottom_small">{aprioriSharedStateHint}</p>
-                                            <lightning-slider
-                                                key={aprioriSliderResetKey}
-                                                label="Apriori Score"
-                                                min="0"
-                                                max="1000"
-                                                step="1"
-                                                value={aprioriScore}
-                                                onchange={handleAprioriScoreChange}>
-                                            </lightning-slider>
+                                            <div class="apriori-slider-anchor">
+                                                <lightning-slider
+                                                    key={aprioriSliderResetKey}
+                                                    label="Apriori Score"
+                                                    min="0"
+                                                    max="1000"
+                                                    step="1"
+                                                    value={aprioriScore}
+                                                    onchange={handleAprioriScoreChange}>
+                                                </lightning-slider>
+                                                <template lwc:if={showAprioriChangePopover}>
+                                                    <section
+                                                        aria-describedby="apriori-popover-body"
+                                                        aria-label="Update shared apriori score"
+                                                        class="slds-popover slds-nubbin_bottom-left apriori-score-popover"
+                                                        role="dialog">
+                                                        <button
+                                                            type="button"
+                                                            class="slds-button slds-button_icon slds-button_icon-small slds-float_right slds-popover__close"
+                                                            title="Close"
+                                                            onclick={handleAprioriPopoverCancel}>
+                                                            <lightning-icon icon-name="utility:close" size="x-small" alternative-text="Close"></lightning-icon>
+                                                            <span class="slds-assistive-text">Close</span>
+                                                        </button>
+                                                        <div class="slds-popover__body" id="apriori-popover-body">
+                                                            <div class="slds-media">
+                                                                <div class="slds-media__body">
+                                                                    <p class="slds-text-body_regular">
+                                                                        Change the shared apriori score to <strong>{aprioriPopoverPendingScoreLabel}</strong>?
+                                                                        This updates all campaigns with the same Topic and Product Family combination.
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <footer class="slds-popover__footer">
+                                                            <div class="slds-grid slds-grid_vertical-align-center">
+                                                                <button
+                                                                    type="button"
+                                                                    class="slds-button slds-button_neutral"
+                                                                    onclick={handleAprioriPopoverCancel}>
+                                                                    Cancel
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    class="slds-button slds-button_brand slds-col_bump-left"
+                                                                    onclick={handleAprioriPopoverConfirm}>
+                                                                    Confirm
+                                                                </button>
+                                                            </div>
+                                                        </footer>
+                                                    </section>
+                                                </template>
+                                            </div>
                                             <p class="slds-text-body_small slds-m-top_x-small">
                                                 Current value: <strong>{summaryAprioriScore}</strong>
                                             </p>
@@ -1040,6 +1084,13 @@
                                                 </div>
                                             </template>
                                             <template lwc:if={isAprioriScoreConfiguration}>
+                                                <template lwc:if={showAprioriSummaryChangeAlert}>
+                                                    <div class="slds-notify slds-notify_alert slds-alert_warning apriori-summary-alert slds-m-vertical_x-small" role="alert">
+                                                        <span class="slds-assistive-text">warning</span>
+                                                        <lightning-icon icon-name="utility:warning" size="x-small" class="slds-m-right_x-small apriori-summary-alert-icon"></lightning-icon>
+                                                        <h2 class="apriori-summary-alert-text">{aprioriSummaryChangeAlertMessage}</h2>
+                                                    </div>
+                                                </template>
                                                 <div class="summary-row">
                                                     <span class="summary-label">Apriori Score</span>
                                                     <span class="summary-value">{summaryAprioriScore}</span>
@@ -1134,5 +1185,5 @@
             </footer>
         </div>
     </section>
-    <div class={wizardBackdropClass} role="presentation" onclick={handleBackdropClick}></div>
+    <div class="slds-backdrop slds-backdrop_open" role="presentation" onclick={handleBackdropClick}></div>
 </template>
