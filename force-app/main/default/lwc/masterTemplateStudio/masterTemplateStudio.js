@@ -246,7 +246,14 @@ const EMPTY_TEMPLATE = () => ({
     Description__c: ''
 });
 
-export default class ChannelTemplateManager extends LightningElement {
+const WIZARD_STEPS = [
+    { value: 'details', label: 'Definition', hint: 'Name, version, and status for this master template package.' },
+    { value: 'shell', label: 'Shell', hint: 'Upload shell HTML and optional CSS or JavaScript source.' },
+    { value: 'components', label: 'Components', hint: 'Import HTML blocks and configure the Copy Center component catalog.' },
+    { value: 'preview', label: 'Validate & preview', hint: 'Validate the package and preview with the Copy Center render path.' }
+];
+
+export default class MasterTemplateStudio extends LightningElement {
     @api channelId;
     @api channelName;
 
@@ -257,6 +264,7 @@ export default class ChannelTemplateManager extends LightningElement {
     @track isModalOpen = false;
     @track isSaving = false;
     @track pendingDelete = null;
+    @track wizardStep = 'details';
 
     acceptedHtml = ['.html'];
     acceptedCss = ['.css'];
@@ -322,7 +330,38 @@ export default class ChannelTemplateManager extends LightningElement {
     }
 
     get modalTitle() {
-        return this.editTemplate.Id ? `Edit ${this.editTemplate.Name}` : `New ${this.channelName} Template`;
+        const base = this.editTemplate.Id ? `Edit ${this.editTemplate.Name}` : `New ${this.channelName} master template`;
+        const step = WIZARD_STEPS.find(item => item.value === this.wizardStep);
+        return step ? `${base} — ${step.label}` : base;
+    }
+
+    get wizardSteps() {
+        const index = WIZARD_STEPS.findIndex(item => item.value === this.wizardStep);
+        return WIZARD_STEPS.map((step, stepIndex) => ({
+            ...step,
+            markerClass: 'slds-progress__marker'
+                + (stepIndex < index ? ' slds-progress__marker_icon' : '')
+                + (stepIndex === index ? ' slds-progress__marker_active' : ''),
+            isComplete: stepIndex < index,
+            isCurrent: stepIndex === index
+        }));
+    }
+
+    get wizardStepHint() {
+        return WIZARD_STEPS.find(item => item.value === this.wizardStep)?.hint || '';
+    }
+
+    get isWizardDetails() { return this.wizardStep === 'details'; }
+    get isWizardShell() { return this.wizardStep === 'shell'; }
+    get isWizardComponents() { return this.wizardStep === 'components'; }
+    get isWizardPreview() { return this.wizardStep === 'preview'; }
+    get showWizardBack() { return this.wizardStep !== 'details'; }
+    get showWizardNext() { return this.wizardStep !== 'preview'; }
+    get wizardNextDisabled() {
+        if (this.isSaving) return true;
+        if (this.isWizardDetails && !(this.editTemplate.Name || '').trim()) return true;
+        if ((this.isWizardShell || this.isWizardComponents || this.isWizardPreview) && !this.hasSavedTemplate) return true;
+        return false;
     }
 
     get hasSavedTemplate() {
@@ -467,6 +506,7 @@ export default class ChannelTemplateManager extends LightningElement {
         this.editTemplate = EMPTY_TEMPLATE();
         this.catalogRows = [];
         this.expandedFile = '';
+        this.wizardStep = 'details';
         this.isModalOpen = true;
     }
 
@@ -483,8 +523,49 @@ export default class ChannelTemplateManager extends LightningElement {
         };
         this.catalogRows = [];
         this.expandedFile = '';
+        this.wizardStep = 'details';
         this.isModalOpen = true;
         this._syncCatalogRows();
+    }
+
+    handleWizardBack() {
+        const index = WIZARD_STEPS.findIndex(item => item.value === this.wizardStep);
+        if (index <= 0) return;
+        this.wizardStep = WIZARD_STEPS[index - 1].value;
+    }
+
+    async handleWizardNext() {
+        if (this.isWizardDetails) {
+            if (!(this.editTemplate.Name || '').trim()) {
+                this._toast('Validation', 'Template Name is required.', 'warning');
+                return;
+            }
+            if (!this.editTemplate.Id) {
+                await this.handleSave();
+                if (!this.editTemplate.Id) return;
+            }
+            this.wizardStep = 'shell';
+            return;
+        }
+        if (this.isWizardShell) {
+            this.wizardStep = 'components';
+            return;
+        }
+        if (this.isWizardComponents) {
+            this.wizardStep = 'preview';
+            this._refreshPreviewPanel();
+            return;
+        }
+    }
+
+    handleWizardStepClick(event) {
+        const value = event.currentTarget.dataset.step;
+        if (!value || value === this.wizardStep) return;
+        const targetIndex = WIZARD_STEPS.findIndex(item => item.value === value);
+        const currentIndex = WIZARD_STEPS.findIndex(item => item.value === this.wizardStep);
+        if (targetIndex < 0 || targetIndex > currentIndex) return;
+        this.wizardStep = value;
+        if (value === 'preview') this._refreshPreviewPanel();
     }
 
     handleFieldChange(event) {
@@ -547,6 +628,7 @@ export default class ChannelTemplateManager extends LightningElement {
             if (classificationError) throw new Error(classificationError);
             await refreshApex(this._wiredTemplates);
             if (assetType === 'CONTENT_BLOCK') this._syncCatalogRows();
+            if (this.isWizardPreview) this._refreshPreviewPanel();
             this._toast('Files attached', `${documentIds.length} template file(s) attached.`, 'success');
         } catch (error) {
             this._toast('Upload classification failed', error.body?.message || error.message, 'error');
@@ -896,6 +978,7 @@ export default class ChannelTemplateManager extends LightningElement {
         try {
             const result = await validateTemplate({ templateId: this.editTemplate.Id });
             await refreshApex(this._wiredTemplates);
+            this._refreshPreviewPanel();
             this._toast(
                 result.valid ? 'Package valid' : 'Package invalid',
                 result.message,
@@ -934,7 +1017,14 @@ export default class ChannelTemplateManager extends LightningElement {
     closeModal() {
         this.isModalOpen = false;
         this.expandedFile = '';
+        this.wizardStep = 'details';
         this.editTemplate = EMPTY_TEMPLATE();
+    }
+
+    _refreshPreviewPanel() {
+        window.requestAnimationFrame(() => {
+            this.template.querySelector('c-copy-template-preview-panel')?.refreshPreview();
+        });
     }
 
     _syncCatalogRows() {

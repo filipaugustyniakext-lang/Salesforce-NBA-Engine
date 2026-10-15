@@ -2,13 +2,13 @@
     <div class="template-manager">
         <div class="template-toolbar">
             <div>
-                <h3 class="slds-text-heading_small">Master Templates</h3>
+                <h3 class="slds-text-heading_small">Master Template Definition</h3>
                 <p class="slds-text-body_small slds-text-color_weak">
-                    Attach shell source files and supported HTML content blocks for {channelName}.
+                    Define schema 2.0 template packages for {channelName}. Copy Center renders validated packages with the same preview pipeline shown in the studio.
                 </p>
             </div>
             <lightning-button
-                label="New Template"
+                label="New master template"
                 icon-name="utility:add"
                 variant="brand"
                 onclick={handleNew}>
@@ -128,47 +128,63 @@
                 </header>
 
                 <div class="slds-modal__content slds-p-around_medium">
-                    <div class="slds-grid slds-gutters_small slds-wrap">
-                        <div class="slds-col slds-size_1-of-2">
-                            <lightning-input
-                                label="Template Name"
-                                required
-                                value={editTemplate.Name}
-                                data-field="Name"
-                                onchange={handleFieldChange}>
-                            </lightning-input>
-                        </div>
-                        <div class="slds-col slds-size_1-of-4">
-                            <lightning-input
-                                type="number"
-                                label="Version"
-                                min="1"
-                                step="1"
-                                value={editTemplate.Version__c}
-                                data-field="Version__c"
-                                onchange={handleFieldChange}>
-                            </lightning-input>
-                        </div>
-                        <div class="slds-col slds-size_1-of-4">
-                            <lightning-combobox
-                                label="Status"
-                                value={editTemplate.Status__c}
-                                options={statusOptions}
-                                data-field="Status__c"
-                                onchange={handleFieldChange}>
-                            </lightning-combobox>
-                        </div>
-                        <div class="slds-col slds-size_1-of-1 slds-m-top_small">
-                            <lightning-textarea
-                                label="Description"
-                                value={editTemplate.Description__c}
-                                max-length="1000"
-                                data-field="Description__c"
-                                onchange={handleFieldChange}>
-                            </lightning-textarea>
-                        </div>
-                    </div>
+                    <ol class="slds-progress slds-progress_shade slds-m-bottom_medium master-wizard-progress" role="list">
+                        <template for:each={wizardSteps} for:item="step">
+                            <li key={step.value} class="slds-progress__item slds-is-active">
+                                <button type="button" class="master-wizard-step" data-step={step.value} onclick={handleWizardStepClick} title={step.label}>
+                                    <span class={step.markerClass}></span>
+                                    <span class="slds-assistive-text">{step.label}</span>
+                                </button>
+                                <span class="master-wizard-step__label slds-text-body_small">{step.label}</span>
+                            </li>
+                        </template>
+                    </ol>
+                    <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_medium">{wizardStepHint}</p>
 
+                    <template lwc:if={isWizardDetails}>
+                        <div class="slds-grid slds-gutters_small slds-wrap">
+                            <div class="slds-col slds-size_1-of-2">
+                                <lightning-input
+                                    label="Template Name"
+                                    required
+                                    value={editTemplate.Name}
+                                    data-field="Name"
+                                    onchange={handleFieldChange}>
+                                </lightning-input>
+                            </div>
+                            <div class="slds-col slds-size_1-of-4">
+                                <lightning-input
+                                    type="number"
+                                    label="Version"
+                                    min="1"
+                                    step="1"
+                                    value={editTemplate.Version__c}
+                                    data-field="Version__c"
+                                    onchange={handleFieldChange}>
+                                </lightning-input>
+                            </div>
+                            <div class="slds-col slds-size_1-of-4">
+                                <lightning-combobox
+                                    label="Status"
+                                    value={editTemplate.Status__c}
+                                    options={statusOptions}
+                                    data-field="Status__c"
+                                    onchange={handleFieldChange}>
+                                </lightning-combobox>
+                            </div>
+                            <div class="slds-col slds-size_1-of-1 slds-m-top_small">
+                                <lightning-textarea
+                                    label="Description"
+                                    value={editTemplate.Description__c}
+                                    max-length="1000"
+                                    data-field="Description__c"
+                                    onchange={handleFieldChange}>
+                                </lightning-textarea>
+                            </div>
+                        </div>
+                    </template>
+
+                    <template lwc:if={isWizardShell}>
                     <template lwc:if={hasSavedTemplate}>
                         <div class="template-upload-section">
                             <h3 class="slds-text-heading_small">Template Shell Files</h3>
@@ -256,7 +272,16 @@
                                 </div>
                             </div>
                         </div>
+                    </template>
+                    <template lwc:else>
+                        <div class="slds-box slds-theme_shade">
+                            Save the template definition on the previous step before uploading shell files.
+                        </div>
+                    </template>
+                    </template>
 
+                    <template lwc:if={isWizardComponents}>
+                    <template lwc:if={hasSavedTemplate}>
                         <div class="template-upload-section">
                             <h3 class="slds-text-heading_small">Components</h3>
                             <p class="slds-text-body_small slds-text-color_weak">
@@ -512,32 +537,62 @@
                             </template>
                         </div>
                     </template>
-
                     <template lwc:else>
-                        <div class="slds-box slds-theme_shade slds-m-top_medium">
-                            Save the template definition first. File upload controls will then become available.
+                        <div class="slds-box slds-theme_shade">
+                            Save the template definition before configuring components.
                         </div>
+                    </template>
+                    </template>
+
+                    <template lwc:if={isWizardPreview}>
+                        <template lwc:if={hasSavedTemplate}>
+                            <div class="slds-m-bottom_medium">
+                                <lightning-button
+                                    label="Validate package"
+                                    icon-name="utility:check"
+                                    disabled={validateDisabled}
+                                    onclick={handleValidate}>
+                                </lightning-button>
+                                <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">
+                                    Validation writes the schema 2.0 catalog, checksum, and package metadata Copy Center relies on.
+                                </p>
+                            </div>
+                            <c-copy-template-preview-panel
+                                template-id={editTemplate.Id}
+                                heading="Copy Center preview">
+                            </c-copy-template-preview-panel>
+                        </template>
+                        <template lwc:else>
+                            <div class="slds-box slds-theme_shade">
+                                Save the template definition to validate and preview.
+                            </div>
+                        </template>
                     </template>
                 </div>
 
                 <footer class="slds-modal__footer">
-                    <lightning-button label="Done" onclick={closeModal}></lightning-button>
-                    <template lwc:if={hasSavedTemplate}>
+                    <lightning-button label="Close" onclick={closeModal}></lightning-button>
+                    <template lwc:if={showWizardBack}>
+                        <lightning-button label="Back" onclick={handleWizardBack} class="slds-m-left_x-small"></lightning-button>
+                    </template>
+                    <template lwc:if={isWizardDetails}>
                         <lightning-button
-                            label="Validate Package"
-                            icon-name="utility:check"
-                            disabled={validateDisabled}
-                            onclick={handleValidate}
+                            label={saveLabel}
+                            variant="neutral"
+                            disabled={isSaving}
+                            onclick={handleSave}
                             class="slds-m-left_x-small">
                         </lightning-button>
                     </template>
-                    <lightning-button
-                        label={saveLabel}
-                        variant="brand"
-                        disabled={isSaving}
-                        onclick={handleSave}
-                        class="slds-m-left_x-small">
-                    </lightning-button>
+                    <template lwc:if={showWizardNext}>
+                        <lightning-button
+                            label="Next"
+                            variant="brand"
+                            disabled={wizardNextDisabled}
+                            onclick={handleWizardNext}
+                            class="slds-m-left_x-small">
+                        </lightning-button>
+                    </template>
                 </footer>
             </div>
         </section>

@@ -2,6 +2,25 @@
     min-height: 10rem;
 }
 
+.master-wizard-progress {
+    max-width: 100%;
+}
+
+.master-wizard-step {
+    border: none;
+    background: transparent;
+    padding: 0;
+    cursor: pointer;
+}
+
+.master-wizard-step__label {
+    display: block;
+    text-align: center;
+    margin-top: 0.25rem;
+    max-width: 5.5rem;
+    line-height: 1.2;
+}
+
 .component-catalog {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));

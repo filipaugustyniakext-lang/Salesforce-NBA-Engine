@@ -57,7 +57,7 @@ The Copy Center **Push to D360** action still uses a sandbox-specific Data Strea
 | Marketing Dictionary | `marketingDictionary*`, `MarketingDictionary*Controller`, `Marketing_Dictionary__c` |
 | Campaign wizard | `agentforceCampaignWizard`, `CampaignOfferingLabelSync`, `Campaign` fields |
 | Offers & products | `offerManager`, `productManager`, `Offer__c`, `Product2` extensions |
-| Channel templates | `channelTemplateManager`, `Channel_Template__c`, banner/cooldown objects |
+| Channel templates | `masterTemplateStudio`, `copyTemplatePreview`, `Channel_Template__c`, banner/cooldown objects |
 | Blackout & scoring | blackout tabs, `Scoring_Model_Setting__c`, scoring tab LWC |
 | Security | `ClientActivationCenter` permission set, Marketing Cloud remote sites, MCE custom metadata type |
 

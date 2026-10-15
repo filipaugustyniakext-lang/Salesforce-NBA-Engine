@@ -1,0 +1,62 @@
+<template>
+    <section class="preview-panel">
+        <div class="preview-panel__header">
+            <div>
+                <h3 class="slds-text-heading_small">{heading}</h3>
+                <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">{helpText}</p>
+            </div>
+            <div class="preview-panel__toolbar" role="toolbar" aria-label="Preview options">
+                <lightning-button-icon
+                    icon-name="utility:desktop"
+                    variant={deviceDesktopVariant}
+                    class={deviceDesktopClass}
+                    alternative-text="Desktop preview"
+                    title="Desktop"
+                    onclick={handleDeviceDesktop}>
+                </lightning-button-icon>
+                <lightning-button-icon
+                    icon-name="utility:phone_portrait"
+                    variant={deviceMobileVariant}
+                    class={deviceMobileClass}
+                    alternative-text="Mobile preview"
+                    title="Mobile"
+                    onclick={handleDeviceMobile}>
+                </lightning-button-icon>
+                <lightning-button-icon
+                    icon-name="utility:dayview"
+                    variant={themeLightVariant}
+                    class={themeLightClass}
+                    alternative-text="Light theme"
+                    title="Light"
+                    onclick={handleThemeLight}>
+                </lightning-button-icon>
+                <lightning-button-icon
+                    icon-name="utility:night"
+                    variant={themeDarkVariant}
+                    class={themeDarkClass}
+                    alternative-text="Dark theme"
+                    title="Dark"
+                    onclick={handleThemeDark}>
+                </lightning-button-icon>
+            </div>
+        </div>
+
+        <template lwc:if={renderSourceLoading}>
+            <div class="preview-panel__loading">
+                <lightning-spinner alternative-text="Loading preview" size="small"></lightning-spinner>
+            </div>
+        </template>
+
+        <template lwc:elseif={hasShellPreview}>
+            <div class={previewFrameClass}>
+                <div class="preview-panel__document" data-preview-host lwc:dom="manual"></div>
+            </div>
+        </template>
+
+        <template lwc:elseif={previewIsEmpty}>
+            <div class="preview-panel__empty slds-box slds-theme_shade">
+                <p class="slds-text-body_small slds-text-color_weak">{previewStatusMessage}</p>
+            </div>
+        </template>
+    </section>
+</template>

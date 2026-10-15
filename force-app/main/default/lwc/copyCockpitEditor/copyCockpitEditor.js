@@ -5,7 +5,7 @@ import getMessageById from '@salesforce/apex/CopyCockpitController.getMessageByI
 import saveMessageEditor from '@salesforce/apex/CopyCockpitController.saveMessageEditor';
 import getVersionsByMessageId from '@salesforce/apex/CopyCockpitController.getVersionsByMessageId';
 import getTemplateRenderSource from '@salesforce/apex/ChannelTemplateController.getTemplateRenderSource';
-import { renderTemplatePreview, scopePreviewDocument } from './templatePreview';
+import { renderTemplatePreview, scopePreviewDocument, pinPreviewWidths } from './templatePreview';
 import { parseBlockTemplate, alignLayout } from 'c/contentBindingModel';
 
 const STATUS_OPTIONS = [
@@ -1392,15 +1392,6 @@ export default class CopyCockpitEditor extends LightningElement {
             })
             .finally(() => { this._renderSourceLoading = false; });
     }
-}
-
-function pinPreviewWidths(root) {
-    root.querySelectorAll('table[width], td[width], th[width]').forEach(el => {
-        if (el.style.width) return;
-        const raw = String(el.getAttribute('width') || '').trim();
-        if (/^\d+$/.test(raw)) el.style.width = `${raw}px`;
-        else if (/^\d+%$/.test(raw)) el.style.width = raw;
-    });
 }
 
 function parseCanvas(raw) {
