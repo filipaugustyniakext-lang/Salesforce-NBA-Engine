@@ -1494,6 +1494,10 @@
     width: 5rem;
 }
 
+.copy-assignment-col-normalized {
+    width: 7rem;
+}
+
 .copy-assignment-col-status {
     width: 6.5rem;
 }

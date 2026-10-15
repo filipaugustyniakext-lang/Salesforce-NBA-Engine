@@ -755,6 +755,7 @@
                                                                         <th scope="col"><div class="slds-truncate" title="Message Name">Message Name</div></th>
                                                                         <th scope="col" class="copy-assignment-col-variant"><div class="slds-truncate" title="Message Variant">Variant #</div></th>
                                                                         <th scope="col" class="copy-assignment-col-weight"><div class="slds-truncate" title="Display Weight">Weight</div></th>
+                                                                        <th scope="col" class="copy-assignment-col-normalized"><div class="slds-truncate" title="Normalized Weight">Normalized Weight</div></th>
                                                                         <th scope="col" class="copy-assignment-col-status"><div class="slds-truncate" title="Status">Status</div></th>
                                                                         <th scope="col" class="copy-assignment-col-open" aria-label="Open in Copy Center"></th>
                                                                     </tr>
@@ -783,6 +784,9 @@
                                                                                     <span class="slds-truncate" title={variant.weight}>{variant.weight}</span>
                                                                                 </td>
                                                                                 <td role="gridcell">
+                                                                                    <span class="slds-truncate" title={variant.normalizedWeight}>{variant.normalizedWeight}</span>
+                                                                                </td>
+                                                                                <td role="gridcell">
                                                                                     <span class={variant.statusClass}>{variant.status}</span>
                                                                                 </td>
                                                                                 <td class="slds-text-align_right" role="gridcell">
@@ -801,7 +805,7 @@
                                                                     </template>
                                                                     <template lwc:else>
                                                                         <tr>
-                                                                            <td colspan="6" class="slds-text-align_center slds-text-color_weak slds-p-vertical_medium">
+                                                                            <td colspan="7" class="slds-text-align_center slds-text-color_weak slds-p-vertical_medium">
                                                                                 <template lwc:if={isLoadingCopy}>Loading…</template>
                                                                                 <template lwc:else>No published variants match your offerings for this channel.</template>
                                                                             </td>

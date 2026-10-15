@@ -115,6 +115,27 @@ function formatVariantWeight(manual, computed) {
     return '—';
 }
 
+function variantWeightNumeric(manual, computed) {
+    const raw = manual !== null && manual !== undefined && manual !== ''
+        ? manual
+        : computed;
+    if (raw === null || raw === undefined || raw === '') {
+        return 0;
+    }
+    const n = Number(raw);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+}
+
+function formatNormalizedWeightPercent(variantWeight, selectedWeightSum, selectedCount) {
+    if (!selectedCount) {
+        return '—';
+    }
+    if (selectedWeightSum > 0) {
+        return `${((variantWeight / selectedWeightSum) * 100).toFixed(1)}%`;
+    }
+    return `${(100 / selectedCount).toFixed(1)}%`;
+}
+
 export default class AgentforceCampaignWizard extends NavigationMixin(LightningElement) {
     @api recordId;
     @track isLoading = false;
@@ -1848,6 +1869,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             let isAllowed = false;
             if (this.isEmergency) {
                 isAllowed = Number(tierNumber) === 1;
+            } else if (Number(tierNumber) === 1) {
+                // Tier 1 is reserved for emergency One-Off campaigns only.
+                isAllowed = false;
             } else if (activationType) {
                 // Empty Supported_Campaign_Types means the tier was not scoped — treat as available.
                 isAllowed = supported.length === 0 || supported.some(s => s === activationType);
@@ -2192,20 +2216,31 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get activeChannelCopyVariants() {
-        return this.copyVariantData
-            .filter(v => v.channel === this.activeCopyChannelValue)
-            .map(v => {
-                const selected = this.selectedCopyVariantIds.includes(v.id);
-                return {
-                    ...v,
-                    selected,
-                    rowClass: selected ? 'slds-hint-parent offer-row-selected' : 'slds-hint-parent',
-                    toggleIcon: selected ? 'utility:check' : 'utility:add',
-                    toggleTitle: selected ? 'Remove variant' : 'Add variant',
-                    toggleAssistive: selected ? `Remove ${v.messageName}` : `Add ${v.messageName}`,
-                    statusClass: copyStatusBadgeClass(v.status)
-                };
-            });
+        const channel = this.activeCopyChannelValue;
+        const channelVariants = this.copyVariantData.filter(v => v.channel === channel);
+        const selectedInChannel = channelVariants.filter(v => this.selectedCopyVariantIds.includes(v.id));
+        const selectedWeightSum = selectedInChannel.reduce(
+            (sum, v) => sum + (v.weightNumeric ?? 0),
+            0
+        );
+        const selectedCount = selectedInChannel.length;
+
+        return channelVariants.map(v => {
+            const selected = this.selectedCopyVariantIds.includes(v.id);
+            const normalizedWeight = selected
+                ? formatNormalizedWeightPercent(v.weightNumeric ?? 0, selectedWeightSum, selectedCount)
+                : '—';
+            return {
+                ...v,
+                selected,
+                normalizedWeight,
+                rowClass: selected ? 'slds-hint-parent offer-row-selected' : 'slds-hint-parent',
+                toggleIcon: selected ? 'utility:check' : 'utility:add',
+                toggleTitle: selected ? 'Remove variant' : 'Add variant',
+                toggleAssistive: selected ? `Remove ${v.messageName}` : `Add ${v.messageName}`,
+                statusClass: copyStatusBadgeClass(v.status)
+            };
+        });
     }
 
     handleCopyVariantPreview(event) {
@@ -2288,6 +2323,10 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                         messageType,
                         variantNumber,
                         weight: formatVariantWeight(
+                            row.Display_Probability_Manual__c,
+                            row.Display_Probability__c
+                        ),
+                        weightNumeric: variantWeightNumeric(
                             row.Display_Probability_Manual__c,
                             row.Display_Probability__c
                         ),
