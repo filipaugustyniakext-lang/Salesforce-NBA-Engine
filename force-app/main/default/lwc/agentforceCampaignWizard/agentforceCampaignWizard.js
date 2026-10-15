@@ -2,6 +2,7 @@ import { LightningElement, api, track, wire } from 'lwc';
 import { NavigationMixin } from 'lightning/navigation';
 import { createRecord, updateRecord } from 'lightning/uiRecordApi';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+import LightningConfirm from 'lightning/confirm';
 
 // Backend Apex Controllers
 import getChannelDictionaryRecords from '@salesforce/apex/MarketingDictionaryController.getChannelDictionaryRecords';
@@ -190,8 +191,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     @track aprioriHasSharedState = false;
     @track aprioriHasMixedSharedScores = false;
     @track aprioriChangeConfirmed = false;
-    @track showAprioriConfirmDialog = false;
-    pendingAprioriScore = null;
     aprioriSliderResetKey = 0;
     @track selectedScoringModelId = '';
     @track selectedScoringModelName = '';
@@ -1228,27 +1227,26 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             && clamped !== baseline
             && !this.aprioriChangeConfirmed;
         if (changingSharedScore) {
-            this.pendingAprioriScore = clamped;
-            this.showAprioriConfirmDialog = true;
             this.aprioriSliderResetKey += 1;
+            this.promptAprioriSharedScoreChange(clamped);
             return;
         }
         this.aprioriScore = clamped;
     }
 
-    handleAprioriConfirmCancel() {
-        this.showAprioriConfirmDialog = false;
-        this.pendingAprioriScore = null;
-        this.aprioriSliderResetKey += 1;
-    }
-
-    handleAprioriConfirmAccept() {
-        if (this.pendingAprioriScore !== null && this.pendingAprioriScore !== undefined) {
-            this.aprioriScore = this.pendingAprioriScore;
+    async promptAprioriSharedScoreChange(clampedScore) {
+        const confirmed = await LightningConfirm.open({
+            label: 'Update shared apriori score?',
+            message: 'This score is shared across all campaigns with the same Topic and Product Family combination. Saving will update the central apriori state and affect every campaign using that pair.',
+            variant: 'header',
+            theme: 'warning'
+        });
+        if (confirmed) {
+            this.aprioriScore = clampedScore;
+            this.aprioriChangeConfirmed = true;
+            return;
         }
-        this.aprioriChangeConfirmed = true;
-        this.showAprioriConfirmDialog = false;
-        this.pendingAprioriScore = null;
+        this.aprioriSliderResetKey += 1;
     }
 
     get aprioriProductFamilyIds() {
