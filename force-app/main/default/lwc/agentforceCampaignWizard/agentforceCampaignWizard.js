@@ -193,6 +193,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     @track aprioriChangeConfirmed = false;
     @track platformConfirmOpen = false;
     aprioriSliderResetKey = 0;
+    _aprioriScoreCommitTimer = null;
+    _aprioriConfirmInFlight = false;
     @track selectedScoringModelId = '';
     @track selectedScoringModelName = '';
     @track _scoringModels = [];
@@ -1221,18 +1223,26 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             return;
         }
         const clamped = Math.min(1000, Math.max(0, Math.round(next)));
+        // Keep the thumb moving while dragging; confirm only after the user pauses on a new value.
+        this.aprioriScore = clamped;
+        clearTimeout(this._aprioriScoreCommitTimer);
+        // eslint-disable-next-line @lwc/lwc/no-async-operation
+        this._aprioriScoreCommitTimer = setTimeout(() => {
+            this.finalizeAprioriScoreSelection(clamped);
+        }, 400);
+    }
+
+    finalizeAprioriScoreSelection(clamped) {
         const baseline = this.aprioriBaselineScore;
-        const changingSharedScore = this.aprioriHasSharedState
+        const needsSharedScoreConfirm = this.aprioriHasSharedState
             && baseline !== null
             && baseline !== undefined
             && clamped !== baseline
             && !this.aprioriChangeConfirmed;
-        if (changingSharedScore) {
-            this.aprioriSliderResetKey += 1;
-            this.promptAprioriSharedScoreChange(clamped);
+        if (!needsSharedScoreConfirm) {
             return;
         }
-        this.aprioriScore = clamped;
+        this.promptAprioriSharedScoreChange(clamped);
     }
 
     get wizardDialogClass() {
@@ -1250,6 +1260,10 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     async promptAprioriSharedScoreChange(clampedScore) {
+        if (this._aprioriConfirmInFlight) {
+            return;
+        }
+        this._aprioriConfirmInFlight = true;
         this.platformConfirmOpen = true;
         await new Promise((resolve) => {
             // eslint-disable-next-line @lwc/lwc/no-async-operation
@@ -1265,12 +1279,14 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             });
         } finally {
             this.platformConfirmOpen = false;
+            this._aprioriConfirmInFlight = false;
         }
         if (confirmed) {
             this.aprioriScore = clampedScore;
             this.aprioriChangeConfirmed = true;
             return;
         }
+        this.aprioriScore = this.aprioriBaselineScore;
         this.aprioriSliderResetKey += 1;
     }
 
