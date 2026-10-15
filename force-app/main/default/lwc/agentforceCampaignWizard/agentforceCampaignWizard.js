@@ -20,6 +20,8 @@ import getCampaignCopyVariants from '@salesforce/apex/MarketingDictionaryControl
 import saveCampaignCopyVariants from '@salesforce/apex/MarketingDictionaryController.saveCampaignCopyVariants';
 import getOfferSummaries from '@salesforce/apex/MarketingDictionaryController.getOfferSummaries';
 import getPublishedVariantsForWizard from '@salesforce/apex/CopyCockpitController.getPublishedVariantsForWizard';
+import getAprioriContext from '@salesforce/apex/CampaignScoringAprioriController.getAprioriContext';
+import publishAprioriScores from '@salesforce/apex/CampaignScoringAprioriController.publishAprioriScores';
 import { parseFullName } from 'c/copyMessageNaming';
 import getCampaignTiers from '@salesforce/apex/MarketingDictionaryManagerController.getCampaignTiers';
 import getCampaignTypes from '@salesforce/apex/MarketingDictionaryController.getCampaignTypes';
@@ -184,6 +186,13 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     // --- SCORING (tiers 4+): model picklist or apriori slider ---
     @track scoringConfigurationMethod = 'model';
     @track aprioriScore = 500;
+    @track aprioriBaselineScore = null;
+    @track aprioriHasSharedState = false;
+    @track aprioriHasMixedSharedScores = false;
+    @track aprioriChangeConfirmed = false;
+    @track showAprioriConfirmDialog = false;
+    pendingAprioriScore = null;
+    aprioriSliderResetKey = 0;
     @track selectedScoringModelId = '';
     @track selectedScoringModelName = '';
     @track _scoringModels = [];
@@ -924,6 +933,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         this.buildGroupedOptions();
         this.scheduleFetchOffers();
         this.loadScoringModels();
+        if (this.scoringConfigurationMethod === 'apriori') {
+            this.loadAprioriContextFromState();
+        }
     }
 
     handleSelectAllFamilyOfNeeds(event) {
@@ -989,6 +1001,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             this.topicName = event.currentTarget.dataset.name || '';
         }
         this.isTopicDropdownOpen = false;
+        if (this.scoringConfigurationMethod === 'apriori') {
+            this.loadAprioriContextFromState();
+        }
     }
 
     handleNameChange(event) {
@@ -1021,6 +1036,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         this.selectAllProductFamilies = this.productFamilyOptions.every(opt => opt.checked);
         this.buildGroupedOptions();
         this.scheduleFetchOffers();
+        if (this.scoringConfigurationMethod === 'apriori') {
+            this.loadAprioriContextFromState();
+        }
     }
 
     handleCustomerTypeFilter(event) {
@@ -1192,6 +1210,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     handleScoringConfigurationMethodChange(event) {
         this.scoringConfigurationMethod = event.detail.value;
+        if (this.scoringConfigurationMethod === 'apriori') {
+            this.loadAprioriContextFromState();
+        }
     }
 
     handleAprioriScoreChange(event) {
@@ -1199,7 +1220,86 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         if (Number.isNaN(next)) {
             return;
         }
-        this.aprioriScore = Math.min(1000, Math.max(1, Math.round(next)));
+        const clamped = Math.min(1000, Math.max(0, Math.round(next)));
+        const baseline = this.aprioriBaselineScore;
+        const changingSharedScore = this.aprioriHasSharedState
+            && baseline !== null
+            && baseline !== undefined
+            && clamped !== baseline
+            && !this.aprioriChangeConfirmed;
+        if (changingSharedScore) {
+            this.pendingAprioriScore = clamped;
+            this.showAprioriConfirmDialog = true;
+            this.aprioriSliderResetKey += 1;
+            return;
+        }
+        this.aprioriScore = clamped;
+    }
+
+    handleAprioriConfirmCancel() {
+        this.showAprioriConfirmDialog = false;
+        this.pendingAprioriScore = null;
+        this.aprioriSliderResetKey += 1;
+    }
+
+    handleAprioriConfirmAccept() {
+        if (this.pendingAprioriScore !== null && this.pendingAprioriScore !== undefined) {
+            this.aprioriScore = this.pendingAprioriScore;
+        }
+        this.aprioriChangeConfirmed = true;
+        this.showAprioriConfirmDialog = false;
+        this.pendingAprioriScore = null;
+    }
+
+    get aprioriProductFamilyIds() {
+        if (!this.isOfferingProductFamily) {
+            return [];
+        }
+        return this.productFamilyOptions.filter(o => o.checked).map(o => o.value);
+    }
+
+    get aprioriContextReady() {
+        return !!this.selectedTopicId && this.aprioriProductFamilyIds.length > 0;
+    }
+
+    loadAprioriContextFromState() {
+        if (!this.isAprioriScoreConfiguration || !this.aprioriContextReady) {
+            this._resetAprioriSharedStateFlags(false);
+            return;
+        }
+        getAprioriContext({
+            topicId: this.selectedTopicId,
+            productFamilyIds: this.aprioriProductFamilyIds
+        })
+            .then(result => {
+                this.aprioriHasMixedSharedScores = !!result?.hasMixedScores;
+                this.aprioriHasSharedState = !!result?.hasExistingState;
+                this.aprioriChangeConfirmed = false;
+                if (this.aprioriHasMixedSharedScores) {
+                    this.aprioriBaselineScore = null;
+                    return;
+                }
+                if (this.aprioriHasSharedState && result.suggestedScore !== null && result.suggestedScore !== undefined) {
+                    this.aprioriBaselineScore = Number(result.suggestedScore);
+                    this.aprioriScore = this.aprioriBaselineScore;
+                } else {
+                    this.aprioriBaselineScore = null;
+                }
+            })
+            .catch(err => {
+                console.error('Apriori context load failed:', err);
+                this._resetAprioriSharedStateFlags(false);
+            });
+    }
+
+    _resetAprioriSharedStateFlags(resetScore) {
+        this.aprioriHasSharedState = false;
+        this.aprioriHasMixedSharedScores = false;
+        this.aprioriBaselineScore = null;
+        this.aprioriChangeConfirmed = false;
+        if (resetScore) {
+            this.aprioriScore = 500;
+        }
     }
 
     handleScoringModelChange(event) {
@@ -1433,6 +1533,16 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         return this.scoringConfigurationMethod === 'apriori';
     }
 
+    get aprioriSharedStateHint() {
+        if (this.aprioriHasMixedSharedScores) {
+            return 'Selected product families have different shared apriori scores for this topic. Resolve in Marketing Dictionary or adjust selections.';
+        }
+        if (this.aprioriHasSharedState && this.aprioriBaselineScore !== null) {
+            return `A shared apriori score (${this.aprioriBaselineScore}) already exists for this topic and product family selection. Changing it updates all campaigns using the same combination.`;
+        }
+        return 'No shared apriori score exists yet for this topic and product family selection. You can set a value from 0 to 1000.';
+    }
+
     get scoringConfigurationOptions() {
         return [
             { label: 'Assign Scoring Model', value: 'model' },
@@ -1459,7 +1569,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             return false;
         }
         const val = Number(raw);
-        return Number.isInteger(val) && val >= 1 && val <= 1000;
+        return Number.isInteger(val) && val >= 0 && val <= 1000;
     }
 
     get isAlwaysOnActivation() {
@@ -1559,8 +1669,25 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             if (!this.selectedScoringModelId) {
                 issues.push(this._issue('scoring-model', 'Select a scoring model.'));
             }
-        } else if (!this.isValidScoreValue(this.aprioriScore)) {
-            issues.push(this._issue('apriori-score', 'Set an apriori score between 1 and 1000.'));
+        } else {
+            if (!this.isOfferingProductFamily || this.aprioriProductFamilyIds.length === 0) {
+                issues.push(this._issue('apriori-pf', 'Select at least one Product Family for apriori scoring.'));
+            }
+            if (!this.selectedTopicId) {
+                issues.push(this._issue('apriori-topic', 'Select a Topic for apriori scoring.'));
+            }
+            if (this.aprioriHasMixedSharedScores) {
+                issues.push(this._issue('apriori-mixed', 'Selected product families have different shared apriori scores. Align states before continuing.'));
+            }
+            if (this.aprioriHasSharedState
+                && this.aprioriBaselineScore !== null
+                && this.aprioriScore !== this.aprioriBaselineScore
+                && !this.aprioriChangeConfirmed) {
+                issues.push(this._issue('apriori-confirm', 'Confirm the shared apriori score change before activating.'));
+            }
+            if (!this.isValidScoreValue(this.aprioriScore)) {
+                issues.push(this._issue('apriori-score', 'Set an apriori score between 0 and 1000.'));
+            }
         }
         return issues;
     }
@@ -1764,6 +1891,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         // Refresh Model Definitions when entering Scoring so dictionary edits are visible.
         if (this.currentStepKey === 'scoring') {
             this.loadScoringModels();
+            if (this.scoringConfigurationMethod === 'apriori') {
+                this.loadAprioriContextFromState();
+            }
         }
     }
 
@@ -2490,6 +2620,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             updateRecord(recordInput)
                 .then(() => this.persistCampaignOffers(this.recordId))
                 .then(() => this.persistCampaignCopyVariants(this.recordId))
+                .then(() => this.persistAprioriScoresIfNeeded(this.recordId))
                 .then(() => {
                     this.isLoading = false;
                     this.dispatchEvent(new ShowToastEvent({ title: 'Success!', message: successMessage, variant: 'success' }));
@@ -2503,6 +2634,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             createRecord({ apiName: 'Campaign', fields })
                 .then(camp => this.persistCampaignOffers(camp.id)
                     .then(() => this.persistCampaignCopyVariants(camp.id))
+                    .then(() => this.persistAprioriScoresIfNeeded(camp.id))
                     .then(() => camp.id))
                 .then(campId => {
                     this.isLoading = false;
@@ -2527,6 +2659,26 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         return saveCampaignCopyVariants({
             campaignId,
             messageVariantIds: this.selectedCopyVariantIds || []
+        });
+    }
+
+    persistAprioriScoresIfNeeded(campaignId) {
+        if (!this.isScoringStepRequired || this.scoringConfigurationMethod !== 'apriori') {
+            return Promise.resolve();
+        }
+        if (!this.aprioriContextReady || this.aprioriHasMixedSharedScores) {
+            return Promise.resolve();
+        }
+        if (!this.isValidScoreValue(this.aprioriScore)) {
+            return Promise.resolve();
+        }
+        const campaignName = `${this.activationPrefix}${this.toCamelCase(this._resolveCampaignBaseNameForSave())}`;
+        return publishAprioriScores({
+            topicId: this.selectedTopicId,
+            productFamilyIds: this.aprioriProductFamilyIds,
+            score: this.aprioriScore,
+            campaignId,
+            campaignName
         });
     }
 

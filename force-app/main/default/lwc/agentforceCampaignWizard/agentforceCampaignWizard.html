@@ -861,12 +861,11 @@
 
                                     <template lwc:if={isAprioriScoreConfiguration}>
                                         <div class="slds-m-vertical_medium">
-                                            <p class="slds-text-body_regular slds-m-bottom_small">
-                                                Set a fixed apriori score between 1 and 1000 for this campaign.
-                                            </p>
+                                            <p class="slds-text-body_regular slds-m-bottom_small">{aprioriSharedStateHint}</p>
                                             <lightning-slider
+                                                key={aprioriSliderResetKey}
                                                 label="Apriori Score"
-                                                min="1"
+                                                min="0"
                                                 max="1000"
                                                 step="1"
                                                 value={aprioriScore}
@@ -1136,4 +1135,25 @@
         </div>
     </section>
     <div class="slds-backdrop slds-backdrop_open" role="presentation" onclick={handleBackdropClick}></div>
+
+    <template lwc:if={showAprioriConfirmDialog}>
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="apriori-confirm-heading" class="slds-modal slds-fade-in-open slds-modal_small">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header">
+                    <h2 id="apriori-confirm-heading" class="slds-text-heading_medium">Update shared apriori score?</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <p class="slds-text-body_regular">
+                        This score is shared across all campaigns with the same Topic and Product Family combination.
+                        Saving will update the central apriori state and affect every campaign using that pair.
+                    </p>
+                </div>
+                <footer class="slds-modal__footer">
+                    <button type="button" class="slds-button slds-button_neutral" onclick={handleAprioriConfirmCancel}>Cancel</button>
+                    <button type="button" class="slds-button slds-button_brand" onclick={handleAprioriConfirmAccept}>Confirm change</button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open" role="presentation"></div>
+    </template>
 </template>

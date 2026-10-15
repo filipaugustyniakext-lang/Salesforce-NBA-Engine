@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Product_Family_Dict__c</fullName>
+    <deleteConstraint>Restrict</deleteConstraint>
+    <label>Product Family ID</label>
+    <lookupFilter>
+        <active>true</active>
+        <errorMessage>Only Product Family dictionary entries are allowed.</errorMessage>
+        <filterItems>
+            <field>Marketing_Dictionary__c.Dictionary_Sub_Type__c</field>
+            <operation>equals</operation>
+            <value>Product Family</value>
+        </filterItems>
+        <isOptional>false</isOptional>
+    </lookupFilter>
+    <referenceTo>Marketing_Dictionary__c</referenceTo>
+    <relationshipLabel>Campaign Scoring Apriori Histories (Product Family)</relationshipLabel>
+    <relationshipName>Campaign_Scoring_Apriori_Histories_PF</relationshipName>
+    <required>true</required>
+    <type>Lookup</type>
+</CustomField>
