@@ -47,8 +47,6 @@ const ICON_MAP = {
     whatsapp:  'utility:anywhere_chat',
 };
 
-const COLUMN_WIDTH_STORAGE_KEY = 'copyCockpit.columnWidths.v1';
-
 const COLUMN_WIDTH_DEFAULTS = {
     name: 240,
     status: 112,
@@ -59,7 +57,7 @@ const COLUMN_WIDTH_DEFAULTS = {
     modified: 168,
 };
 
-const COLUMN_WIDTH_MIN = {
+const COLUMN_FIT_MIN = {
     name: 120,
     status: 88,
     weight: 56,
@@ -69,15 +67,19 @@ const COLUMN_WIDTH_MIN = {
     modified: 108,
 };
 
-const COLUMN_WIDTH_MAX = {
-    name: 520,
-    status: 180,
-    weight: 120,
-    schedule: 260,
-    blocks: 96,
-    versions: 120,
-    modified: 320,
+/** Relative share of flexible width when auto-fitting columns. */
+const COLUMN_FIT_WEIGHTS = {
+    name: 2.4,
+    status: 1.1,
+    weight: 0.75,
+    schedule: 1.25,
+    blocks: 0.6,
+    versions: 0.65,
+    modified: 1.5,
 };
+
+const COL_CHECK_PX = 32;
+const COL_ACTIONS_PX = 168;
 
 const STATUS_BADGE_CLASS = {
     draft:     'slds-badge slds-theme_lightest',
@@ -436,10 +438,6 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     @track isVariantDeleteSaving = false;
 
     @track _columnWidths = { ...COLUMN_WIDTH_DEFAULTS };
-    @track _isColumnResizing = false;
-    _colResize = null;
-    _boundColResizeMove;
-    _boundColResizeEnd;
 
     @track isCloneModalOpen = false;
     @track isCloning = false;
@@ -757,102 +755,88 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         ].join('; ');
     }
 
-    get listGridClass() {
-        return this._isColumnResizing ? 'cockpit-list cockpit-list_resizing' : 'cockpit-list';
+    get fitColumnsLabel() {
+        return 'Fit columns';
+    }
+
+    handleAutoFitColumns(event) {
+        event?.stopPropagation?.();
+        this._fitColumnsToAvailableSpace();
+    }
+
+    _estimateNameColumnWidthPx() {
+        let maxChars = 'Message / Variant'.length;
+        (this.filteredGroups || []).forEach(group => {
+            const master = group.displayName || group.messageName || '';
+            maxChars = Math.max(maxChars, master.length + 4);
+            (group.variants || []).forEach(variant => {
+                const variantLabel = `Variant ${variant.versionLabel || ''}`;
+                const badgeLen = variant.sourceTemplateBadge ? variant.sourceTemplateBadge.length + 2 : 0;
+                maxChars = Math.max(maxChars, variantLabel.length + badgeLen + 6);
+            });
+        });
+        return Math.min(380, Math.max(COLUMN_FIT_MIN.name, Math.round(maxChars * 6.5 + 28)));
+    }
+
+    _fitColumnsToAvailableSpace() {
+        const list = this.template.querySelector('.cockpit-list');
+        if (!list) {
+            return;
+        }
+        const containerWidth = list.clientWidth;
+        if (!containerWidth || containerWidth < 480) {
+            this._columnWidths = { ...COLUMN_WIDTH_DEFAULTS };
+            return;
+        }
+
+        const available =
+            containerWidth - COL_CHECK_PX - COL_ACTIONS_PX - 20;
+        const weightTotal = Object.values(COLUMN_FIT_WEIGHTS).reduce((sum, w) => sum + w, 0);
+        const next = {};
+        Object.keys(COLUMN_FIT_WEIGHTS).forEach(key => {
+            next[key] = Math.max(
+                COLUMN_FIT_MIN[key],
+                Math.round((available * COLUMN_FIT_WEIGHTS[key]) / weightTotal)
+            );
+        });
+
+        const nameNeed = this._estimateNameColumnWidthPx();
+        if (next.name < nameNeed) {
+            const deficit = nameNeed - next.name;
+            const donors = ['schedule', 'modified', 'status', 'versions', 'blocks', 'weight'];
+            let remaining = deficit;
+            for (const donor of donors) {
+                if (remaining <= 0) {
+                    break;
+                }
+                const slack = next[donor] - COLUMN_FIT_MIN[donor];
+                if (slack <= 0) {
+                    continue;
+                }
+                const take = Math.min(slack, remaining);
+                next[donor] -= take;
+                remaining -= take;
+            }
+            next.name = nameNeed;
+        }
+
+        let assigned = Object.values(next).reduce((sum, px) => sum + px, 0);
+        if (assigned > available) {
+            const scale = available / assigned;
+            Object.keys(next).forEach(key => {
+                next[key] = Math.max(COLUMN_FIT_MIN[key], Math.floor(next[key] * scale));
+            });
+            assigned = Object.values(next).reduce((sum, px) => sum + px, 0);
+        }
+
+        if (assigned < available) {
+            next.name += available - assigned;
+        }
+
+        this._columnWidths = next;
     }
 
     // ── lifecycle ──────────────────────────────────────────────────────────
-
-    connectedCallback() {
-        this._columnWidths = this._loadColumnWidths();
-        this._boundColResizeMove = this._handleColResizeMove.bind(this);
-        this._boundColResizeEnd = this._handleColResizeEnd.bind(this);
-    }
-
-    disconnectedCallback() {
-        this._teardownColResizeListeners();
-    }
-
-    _loadColumnWidths() {
-        try {
-            const raw = window.localStorage.getItem(COLUMN_WIDTH_STORAGE_KEY);
-            if (!raw) {
-                return { ...COLUMN_WIDTH_DEFAULTS };
-            }
-            const parsed = JSON.parse(raw);
-            const merged = { ...COLUMN_WIDTH_DEFAULTS };
-            Object.keys(COLUMN_WIDTH_DEFAULTS).forEach(key => {
-                const value = Number(parsed[key]);
-                if (!Number.isFinite(value)) {
-                    return;
-                }
-                const min = COLUMN_WIDTH_MIN[key];
-                const max = COLUMN_WIDTH_MAX[key];
-                merged[key] = Math.min(max, Math.max(min, Math.round(value)));
-            });
-            return merged;
-        } catch (e) {
-            return { ...COLUMN_WIDTH_DEFAULTS };
-        }
-    }
-
-    _saveColumnWidths() {
-        try {
-            window.localStorage.setItem(
-                COLUMN_WIDTH_STORAGE_KEY,
-                JSON.stringify(this._columnWidths || COLUMN_WIDTH_DEFAULTS)
-            );
-        } catch (e) {
-            // Ignore storage failures (private mode, quota, etc.).
-        }
-    }
-
-    _teardownColResizeListeners() {
-        window.removeEventListener('mousemove', this._boundColResizeMove);
-        window.removeEventListener('mouseup', this._boundColResizeEnd);
-    }
-
-    handleColResizeStart(event) {
-        event.preventDefault();
-        event.stopPropagation();
-        const col = event.currentTarget.dataset.col;
-        if (!col || this._columnWidths[col] == null) {
-            return;
-        }
-        this._colResize = {
-            col,
-            startX: event.clientX,
-            startWidth: this._columnWidths[col],
-        };
-        this._isColumnResizing = true;
-        window.addEventListener('mousemove', this._boundColResizeMove);
-        window.addEventListener('mouseup', this._boundColResizeEnd);
-    }
-
-    _handleColResizeMove(event) {
-        if (!this._colResize) {
-            return;
-        }
-        const { col, startX, startWidth } = this._colResize;
-        const delta = event.clientX - startX;
-        const min = COLUMN_WIDTH_MIN[col];
-        const max = COLUMN_WIDTH_MAX[col];
-        const nextWidth = Math.min(max, Math.max(min, startWidth + delta));
-        this._columnWidths = {
-            ...this._columnWidths,
-            [col]: nextWidth,
-        };
-    }
-
-    _handleColResizeEnd() {
-        if (!this._colResize) {
-            return;
-        }
-        this._colResize = null;
-        this._isColumnResizing = false;
-        this._teardownColResizeListeners();
-        this._saveColumnWidths();
-    }
 
     renderedCallback() {
         if (!this._firstChannelSeeded && this._wiredChannels.data?.length > 0) {
