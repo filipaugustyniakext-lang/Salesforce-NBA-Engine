@@ -715,7 +715,7 @@ private class ChannelTemplateControllerTest {
     }
 
     private static String ccPreviewShellHtml() {
-        return '<html><body><cc-preview type="blocks" data-key="body" data-label="BODY"></cc-preview></body></html>';
+        return '<html><body><cc-preview region="blocks" data-key="body" data-label="BODY"></cc-preview></body></html>';
     }
 
     private static Id createDraftTemplate(Id channelId, String name, Decimal version) {

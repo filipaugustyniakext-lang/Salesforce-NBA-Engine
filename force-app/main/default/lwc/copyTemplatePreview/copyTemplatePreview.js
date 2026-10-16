@@ -267,7 +267,7 @@ function findCcPreviewRegions(html) {
             const attrs = match[1];
             stack.push({
                 attrs,
-                type: normalizeCcPreviewType(parseCcPreviewTypeAttr(attrs)),
+                type: normalizeCcPreviewType(parseCcPreviewRegionAttr(attrs)),
                 dataAction: parseCcPreviewDataAction(attrs),
                 openStart: match.index,
                 openEnd: match.index + match[0].length
@@ -350,9 +350,10 @@ function unwrapTemplateStartWrapper(shell) {
     return source.slice(0, wrapper.openStart) + wrapper.innerHtml + source.slice(wrapper.closeEnd);
 }
 
-function parseCcPreviewTypeAttr(attrs) {
-    const match = /\btype\s*=\s*(['"])([^'"]+)\1/i.exec(String(attrs || ''));
-    return match ? match[2] : '';
+/** Reads region kind from `region` (preferred) or legacy `type`. */
+function parseCcPreviewRegionAttr(attrs) {
+    const value = parseCcPreviewAttr(attrs, 'region') || parseCcPreviewAttr(attrs, 'type');
+    return value;
 }
 
 function applyCcPreviewRegions(shell, blockHtml) {

@@ -1488,8 +1488,16 @@ public with sharing class ChannelTemplateController {
         RegionOpenToken(String attrs) {
             String action = ccPreviewAttrValue(attrs, 'data-action').toLowerCase();
             isTemplateStart = action == 'template-start';
-            regionType = ccPreviewRegionDisplayLabel(ccPreviewAttrValue(attrs, 'type'));
+            regionType = ccPreviewRegionDisplayLabel(ccPreviewRegionKind(attrs));
         }
+    }
+
+    private static String ccPreviewRegionKind(String attrs) {
+        String kind = ccPreviewAttrValue(attrs, 'region');
+        if (String.isBlank(kind)) {
+            kind = ccPreviewAttrValue(attrs, 'type');
+        }
+        return kind;
     }
 
     private static String ccPreviewAttrValue(String attrs, String name) {
@@ -1508,7 +1516,7 @@ public with sharing class ChannelTemplateController {
         }
         if (definition.shellPreviewRegions == null || definition.shellPreviewRegions.isEmpty()) {
             issues.add(
-                'Shell HTML must include at least one cc-preview region (fixed-read, fixed-edit, or blocks).'
+                'Shell HTML must include at least one cc-preview wrapper with region="fixed-read", region="fixed-edit", or region="blocks".'
             );
         }
         return issues;

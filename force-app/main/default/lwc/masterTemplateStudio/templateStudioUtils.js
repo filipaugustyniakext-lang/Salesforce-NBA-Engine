@@ -21,6 +21,7 @@ export const WIZARD_STEPS = [
     { value: 'summary', label: 'Validate & Preview', number: 'IV' }
 ];
 
+const CC_PREVIEW_REGION_PATTERN = /<cc-preview\b[^>]*\bregion\s*=\s*(['"])([^'"]+)\1/gi;
 const CC_PREVIEW_TYPE_PATTERN = /<cc-preview\b[^>]*\btype\s*=\s*(['"])([^'"]+)\1/gi;
 
 const CANONICAL_REGION_ORDER = ['fixed-read', 'fixed-edit', 'blocks'];
@@ -52,13 +53,17 @@ export function composeRecordName(countryCode, slug, classification) {
 export function scanCcPreviewRegions(html) {
     const found = new Set();
     const source = String(html || '');
-    let match = CC_PREVIEW_TYPE_PATTERN.exec(source);
-    while (match) {
-        const canonical = normalizePreviewType(match[2]);
-        if (canonical) found.add(canonical);
-        match = CC_PREVIEW_TYPE_PATTERN.exec(source);
-    }
-    CC_PREVIEW_TYPE_PATTERN.lastIndex = 0;
+    const collect = (pattern) => {
+        pattern.lastIndex = 0;
+        let match = pattern.exec(source);
+        while (match) {
+            const canonical = normalizePreviewType(match[2]);
+            if (canonical) found.add(canonical);
+            match = pattern.exec(source);
+        }
+    };
+    collect(CC_PREVIEW_REGION_PATTERN);
+    collect(CC_PREVIEW_TYPE_PATTERN);
     return CANONICAL_REGION_ORDER.filter(type => found.has(type));
 }
 
