@@ -5,7 +5,14 @@ import getMessageById from '@salesforce/apex/CopyCockpitController.getMessageByI
 import saveMessageEditor from '@salesforce/apex/CopyCockpitController.saveMessageEditor';
 import getVersionsByMessageId from '@salesforce/apex/CopyCockpitController.getVersionsByMessageId';
 import getTemplateRenderSource from '@salesforce/apex/ChannelTemplateController.getTemplateRenderSource';
-import { renderTemplatePreview, scopePreviewDocument } from './templatePreview';
+import {
+    renderTemplatePreview,
+    scopePreviewDocument,
+    pinPreviewWidths,
+    parsePreviewLayoutFromShell,
+    previewPanelWidthPx,
+    previewFrameWidthPx
+} from './templatePreview';
 import { parseBlockTemplate, alignLayout } from 'c/contentBindingModel';
 
 const STATUS_OPTIONS = [
@@ -446,7 +453,10 @@ export default class CopyCockpitEditor extends LightningElement {
     get leftPanelOpen()       { return this._leftOpen ? 'true' : 'false'; }
     get leftToggleTitle()     { return this._leftOpen ? 'Collapse Components panel' : 'Expand Components panel'; }
     get leftToolbarToggleClass() {
-        return 'slds-button slds-button_icon slds-button_icon-border' + (this._leftOpen ? ' slds-is-selected' : '');
+        let cls = 'slds-button slds-button_icon slds-button_icon-border';
+        if (this._leftOpen) cls += ' slds-is-selected';
+        if (this.componentsPanelToggleDisabled) cls += ' slds-is-disabled';
+        return cls;
     }
     get isSingleContentLayout() {
         const actions = this._renderSource?.previewActions || [];
@@ -455,8 +465,11 @@ export default class CopyCockpitEditor extends LightningElement {
     get availablePaletteBlocks() {
         if (this.isSingleContentLayout) return [];
         const templateBlocks = this._renderSource?.blocks || [];
-        if (!this._renderSource) return PALETTE_BLOCKS;
-        return templateBlocks.filter(block => block.type && block.status !== 'Draft' && block.status !== 'Ready').map(block => {
+        if (!this._renderSource) return [];
+        return templateBlocks.filter(block => {
+            const status = (block.status || '').toLowerCase();
+            return block.type && status === 'active';
+        }).map(block => {
             const known = PALETTE_BLOCKS.find(item => item.blockType === block.type) || {};
             return {
                 id: block.type,
@@ -472,14 +485,37 @@ export default class CopyCockpitEditor extends LightningElement {
         });
     }
 
-    get paletteEmpty() {
-        return !!this._renderSource && this.availablePaletteBlocks.length === 0;
-    }
-    get paletteEmptyMessage() {
-        if (this.isSingleContentLayout) {
-            return 'This layout comes from the shell. Edit its content on the canvas. Sections marked preload stay as designed.';
+    get hasActiveTemplateComponents() {
+        if (this._renderSourceLoading || !this._renderSource || this.isSingleContentLayout) {
+            return false;
         }
-        return 'This template has no components defined.';
+        return this.availablePaletteBlocks.length > 0;
+    }
+
+    get showComponentsPanel() {
+        return this.hasActiveTemplateComponents;
+    }
+
+    get componentsPanelToggleDisabled() {
+        return !this.hasActiveTemplateComponents;
+    }
+
+    get paletteEmpty() {
+        return this.showComponentsPanel && this.availablePaletteBlocks.length === 0;
+    }
+
+    get paletteEmptyMessage() {
+        return 'This template has no activated content blocks.';
+    }
+
+    get emptyCanvasHint() {
+        if (this.isSingleContentLayout) {
+            return 'This layout comes from the shell. Edit its content on the canvas.';
+        }
+        if (!this.hasActiveTemplateComponents) {
+            return 'This template has no activated content blocks to add. Configure and activate blocks in the template definition first.';
+        }
+        return 'Drag a component from the left panel, or click below to add one.';
     }
 
     get blockGroups() { return groupBlocks(this.availablePaletteBlocks); }
@@ -689,6 +725,24 @@ export default class CopyCockpitEditor extends LightningElement {
         return 'slds-panel slds-size_medium slds-panel_docked slds-panel_docked-right slds-panel_drawer editor-panel-right'
             + device + (this._rightOpen ? ' slds-is-open' : '');
     }
+
+    get _previewLayout() {
+        return parsePreviewLayoutFromShell(this._renderSource?.shellHtml || '');
+    }
+
+    get rightPanelStyle() {
+        if (!this._rightOpen) return '';
+        const width = previewPanelWidthPx(this._previewDevice, this._previewLayout);
+        return `width: ${width}px;`;
+    }
+
+    get previewFrameStyle() {
+        const frameWidth = previewFrameWidthPx(this._previewDevice, this._previewLayout);
+        if (this._previewDevice === 'mobile') {
+            return `width: ${frameWidth}px;`;
+        }
+        return `width: 100%; max-width: ${frameWidth}px;`;
+    }
     get rightPanelAriaHidden() { return this._rightOpen ? 'false' : 'true'; }
     get rightPanelOpen()       { return this._rightOpen ? 'true' : 'false'; }
     get rightToggleTitle()     { return this._rightOpen ? 'Collapse Preview panel' : 'Expand Preview panel'; }
@@ -894,7 +948,10 @@ export default class CopyCockpitEditor extends LightningElement {
 
     // ── handlers: panels ──────────────────────────────────────────────────────
 
-    handleToggleLeft()  { this._leftOpen  = !this._leftOpen; }
+    handleToggleLeft() {
+        if (this.componentsPanelToggleDisabled) return;
+        this._leftOpen = !this._leftOpen;
+    }
     handleToggleRight() { this._rightOpen = !this._rightOpen; }
     handleCloseLeft()   { this._leftOpen  = false; }
     handleCloseRight()  { this._rightOpen = false; }
@@ -1376,31 +1433,37 @@ export default class CopyCockpitEditor extends LightningElement {
         this._activeBlockId = instance.instanceId;
     }
 
+    _syncComponentsPanelState() {
+        if (!this.hasActiveTemplateComponents) {
+            this._leftOpen = false;
+            this._addPopoverOpen = false;
+            this._addSearchQuery = '';
+            return;
+        }
+        if (!this._leftOpen) {
+            this._leftOpen = true;
+        }
+    }
+
     _loadRenderSource() {
         const templateId = this._record?.Source_Template__c;
         this._renderSource = null;
         this._renderSourceError = '';
+        this._leftOpen = false;
+        this._addPopoverOpen = false;
         if (!templateId) return;
         this._renderSourceLoading = true;
         getTemplateRenderSource({ templateId })
             .then(source => {
                 this._renderSource = source;
                 this._seedSingleContentBlock();
+                this._syncComponentsPanelState();
             })
             .catch(err => {
                 this._renderSourceError = err?.body?.message || 'Could not load the source template.';
             })
             .finally(() => { this._renderSourceLoading = false; });
     }
-}
-
-function pinPreviewWidths(root) {
-    root.querySelectorAll('table[width], td[width], th[width]').forEach(el => {
-        if (el.style.width) return;
-        const raw = String(el.getAttribute('width') || '').trim();
-        if (/^\d+$/.test(raw)) el.style.width = `${raw}px`;
-        else if (/^\d+%$/.test(raw)) el.style.width = raw;
-    });
 }
 
 function parseCanvas(raw) {

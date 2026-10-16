@@ -211,11 +211,12 @@
         <members>agentforceCampaignWizard</members>
         <members>attractivenessRing</members>
         <members>campaignPathManager</members>
-        <members>channelTemplateManager</members>
         <members>contentBindingModel</members>
         <members>copyCockpit</members>
         <members>copyCockpitAddModal</members>
         <members>copyCockpitEditor</members>
+        <members>copyTemplatePreview</members>
+        <members>copyTemplatePreviewPanel</members>
         <members>copyMessageNaming</members>
         <members>createMarketingDictionaryModal</members>
         <members>deactivateOfferAction</members>
@@ -224,6 +225,7 @@
         <members>marketingDictionaryBlackoutTab</members>
         <members>marketingDictionaryCampaignTab</members>
         <members>marketingDictionaryChannelTab</members>
+        <members>masterTemplateStudio</members>
         <members>marketingDictionaryManager</members>
         <members>marketingDictionaryOfferTab</members>
         <members>marketingDictionaryPersonTab</members>

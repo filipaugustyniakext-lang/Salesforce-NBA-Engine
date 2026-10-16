@@ -25,6 +25,37 @@
     padding-top: 0;
 }
 
+.apriori-slider-anchor {
+    position: relative;
+    padding-top: 0.25rem;
+}
+
+.apriori-score-popover {
+    position: absolute;
+    left: 0;
+    bottom: calc(100% + 0.75rem);
+    width: min(22rem, 100%);
+    z-index: 10000;
+}
+
+.apriori-summary-alert {
+    display: flex;
+    align-items: flex-start;
+    text-align: left;
+}
+
+.apriori-summary-alert-text {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    line-height: 1.4;
+    margin: 0;
+}
+
+.apriori-summary-alert-icon {
+    flex-shrink: 0;
+    margin-top: 0.125rem;
+}
+
 /* --- BASE DIALOG LAYOUT --- */
 .custom-modal-frame .custom-modal-container {
     overflow: visible !important; /* Allows close circle button to cleanly pop out */
@@ -1492,6 +1523,10 @@
 
 .copy-assignment-col-weight {
     width: 5rem;
+}
+
+.copy-assignment-col-normalized {
+    width: 7rem;
 }
 
 .copy-assignment-col-status {

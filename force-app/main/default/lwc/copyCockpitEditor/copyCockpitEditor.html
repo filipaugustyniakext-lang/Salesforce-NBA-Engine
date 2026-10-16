@@ -75,6 +75,7 @@
                             aria-expanded={leftPanelOpen}
                             aria-pressed={leftPanelOpen}
                             aria-controls="editor-left-panel"
+                            disabled={componentsPanelToggleDisabled}
                         >
                             <lightning-icon icon-name="utility:toggle_panel_left" size="x-small" class="slds-button__icon"></lightning-icon>
                             <span class="slds-assistive-text">{leftToggleTitle}</span>
@@ -416,6 +417,7 @@
             <div class="editor-workspace">
 
                 <!-- ── LEFT PANEL ────────────────────────────────────────────── -->
+                <template lwc:if={showComponentsPanel}>
                 <div
                     id="editor-left-panel"
                     class={leftPanelClass}
@@ -473,6 +475,7 @@
                         </template>
                     </div>
                 </div>
+                </template>
 
                 <!-- ── CANVAS ─────────────────────────────────────────────────── -->
                 <main class={canvasClass}>
@@ -480,6 +483,7 @@
                         <div class="editor-canvas__page">
 
                             <!-- ── CTC Add Component dialog ──────────────────── -->
+                            <template lwc:if={showComponentsPanel}>
                             <template lwc:if={addPopoverOpen}>
                                 <div class="editor-ctc-backdrop" onclick={handleCloseAddPopover}></div>
                                 <div class="slds-popover editor-ctc-panel" role="dialog" aria-label="Add Component" aria-modal="true">
@@ -521,6 +525,7 @@
                                     </section>
                                 </div>
                             </template>
+                            </template>
 
                             <!-- ── Empty state ──────────────────────────────── -->
                             <template lwc:if={isCanvasEmpty}>
@@ -534,7 +539,7 @@
                                         <svg class="slds-illustration__svg" viewBox="0 0 454 213" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd"><g transform="translate(-70.000000, -94.000000)"><g><g transform="translate(124.500000, 222.000000)"><g fill="#FFFFFF"><path vector-effect="non-scaling-stroke" d="M18.9209988,1.95433401 L33.259296,51.443436 C33.5666778,52.5043744 32.9557995,53.613617 31.8948612,53.9209988 C31.7139843,53.9734036 31.5266126,54 31.3382972,54 L2.6617028,54 C1.5571333,54 0.661702805,53.1045695 0.661702805,52 C0.661702805,51.8116846 0.688299176,51.6243129 0.74070397,51.443436 L15.0790012,1.95433401 C15.386383,0.893395645 16.4956256,0.282517358 17.556564,0.589899164 C18.2152102,0.780726338 18.7301717,1.29568777 18.9209988,1.95433401 Z"></path></g><g class="slds-illustration__stroke-secondary" stroke-linecap="round" stroke-width="3"><polygon vector-effect="non-scaling-stroke" stroke-linejoin="round" points="17 0.323943662 34 54 -1.81721305e-12 54"></polygon><path vector-effect="non-scaling-stroke" d="M17,4.6953125 C17,43.0456294 17,62.6471919 17,63.5 C17,62.6471919 17,43.0456294 17,4.6953125 Z"></path><path vector-effect="non-scaling-stroke" d="M17,29.3239437 C22.3333333,35.7851611 25,39.1184944 25,39.3239437 C25,39.1184944 22.3333333,35.7851611 17,29.3239437 Z" stroke-linejoin="round" transform="translate(21.000000, 34.323944) scale(-1, 1) translate(-21.000000, -34.323944) "></path></g></g><g transform="translate(145.000000, 194.000000)"><g transform="translate(1.000000, 0.000000)" fill="#FFFFFF"><path vector-effect="non-scaling-stroke" d="M25.6478873,0 L50.879042,84.4273253 C51.1953215,85.4856452 50.5937789,86.5999782 49.535459,86.9162577 C49.3496374,86.9717906 49.1567264,87 48.9627843,87 L2.33299037,87 C1.22842087,87 0.332990367,86.1045695 0.332990367,85 C0.332990367,84.8060578 0.361199757,84.6131469 0.416732643,84.4273253 L25.6478873,0 Z"></path></g><g class="slds-illustration__stroke-secondary" stroke-linecap="round" stroke-width="3"><polygon vector-effect="non-scaling-stroke" stroke-linejoin="round" points="26.5 0 52.5 87 0.5 87"></polygon><path vector-effect="non-scaling-stroke" d="M26.5,2.58642578 C26.5,61.0261034 26.5,90.9972948 26.5,92.5 C26.5,90.9972948 26.5,61.0261034 26.5,2.58642578 Z"></path><path vector-effect="non-scaling-stroke" d="M15.6478873,42 C22.314554,49.078692 25.6478873,52.7453587 25.6478873,53 C25.6478873,52.7453587 22.314554,49.078692 15.6478873,42 Z" stroke-linejoin="round"></path><path vector-effect="non-scaling-stroke" d="M27.6478873,68 C36.9812207,57.078692 41.6478873,51.7453587 41.6478873,52 C41.6478873,51.7453587 36.9812207,57.078692 27.6478873,68 Z" stroke-linejoin="round"></path></g></g><g transform="translate(404.500000, 245.000000) scale(-1, 1) translate(-404.500000, -245.000000) translate(348.000000, 226.000000)" class="slds-illustration__stroke-secondary" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"><polyline vector-effect="non-scaling-stroke" points="0 38 47.5 0 80.5 26"></polyline><polyline vector-effect="non-scaling-stroke" points="71 17 80.5 9 113 36"></polyline></g><g transform="translate(72.000000, 262.500000)"><path vector-effect="non-scaling-stroke" d="M153.962142,26.4644491 C151.225735,20.0143094 144.944776,15.5029106 137.633892,15.5029106 C135.619663,15.5029106 133.683612,15.8453541 131.878328,16.4764392 C128.451481,11.1704266 122.567406,7.66985447 115.883789,7.66985447 C109.491267,7.66985447 103.830159,10.8721423 100.350851,15.7935668 C98.9589956,14.968161 97.3423157,14.4956341 95.6177606,14.4956341 C94.1083143,14.4956341 92.6815102,14.8576334 91.4157672,15.5014039 C87.9975328,6.58722215 79.5098304,0.275259875 69.5804557,0.275259875 C60.4632836,0.275259875 52.5615782,5.59684366 48.6837305,13.3681823 C46.3912034,12.266973 43.8314865,11.6515593 41.1312741,11.6515593 C32.4373504,11.6515593 25.1998844,18.0312998 23.6476214,26.4644491 L153.962142,26.4644491 Z" class="slds-illustration__fill-secondary"></path><path vector-effect="non-scaling-stroke" d="M13,25 L143,25" class="slds-illustration__stroke-secondary" stroke-width="3" stroke-linecap="round"></path><path vector-effect="non-scaling-stroke" d="M0,25 L450,25" class="slds-illustration__stroke-secondary" stroke-width="3" stroke-linecap="round"></path></g><g transform="translate(344.000000, 247.000000)"><g transform="translate(0.293436, 0.054545)"><path vector-effect="non-scaling-stroke" d="M165.428708,41.9454545 L0.0995432562,41.9454545 C0.0336614956,41.2089487 0,40.4630069 0,39.7090909 C0,26.2132599 10.7866531,15.2727273 24.0926641,15.2727273 C27.7492016,15.2727273 31.215485,16.0989227 34.3199502,17.5772977 C39.5712028,7.14424616 50.271428,0 62.6175975,0 C76.0636257,0 87.5573893,8.47383452 92.1862485,20.441159 C93.9002755,19.5768947 95.8324059,19.0909091 97.8764479,19.0909091 C100.211783,19.0909091 102.401037,19.7252784 104.285841,20.8333889 C108.997403,14.2263569 116.663488,9.92727273 125.320028,9.92727273 C138.043441,9.92727273 148.627152,19.2146805 150.834755,31.4671412 C151.487388,31.3631046 152.156394,31.3090909 152.837838,31.3090909 C159.117096,31.3090909 164.340238,35.8953699 165.428708,41.9454545 Z" class="slds-illustration__fill-secondary"></path><path vector-effect="non-scaling-stroke" d="M32.7065637,40.4454545 L173.706564,40.4454545" class="slds-illustration__stroke-secondary" stroke-width="3" stroke-linecap="round"></path></g></g><g transform="translate(105.000000, 189.000000)"><g transform="translate(106.000000, 48.000000)" fill="#FFFFFF"><polygon vector-effect="non-scaling-stroke" points="121.5 14.5 158.5 14.5 158.5 0.5 47.5 0.5 47.5 14.5 93.5 14.5 93.5 35.5 121.5 35.5 121.5 14.5"></polygon><rect x="0" y="0" width="48" height="14"></rect></g><g transform="translate(106.000000, 62.000000)" class="slds-illustration__fill-secondary"><polygon vector-effect="non-scaling-stroke" points="93.3109375 0.456640625 93.3109375 21.6722656 120.925 21.6722656 121.823047 1.13242188 158.5 0.456640625 158.5 54.5 48.5 54.5 48.5 0.693359375"></polygon><rect x="0.5" y="0.5" width="48" height="54"></rect></g><g><rect class="slds-illustration__stroke-primary" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" x="154.5" y="48.5" width="110" height="68"></rect><polygon vector-effect="non-scaling-stroke" class="slds-illustration__stroke-primary" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" points="264.5 62.5 264.5 48.5 154.5 48.5 154.5 62.5 199.5 62.5 199.5 83.5 227.5 83.5 227.5 62.5"></polygon><path vector-effect="non-scaling-stroke" d="M96.5,7.5 C109.754834,7.5 120.5,18.245166 120.5,31.5 L120.5,41.5 L72.5,41.5 L72.5,31.5 C72.5,18.245166 83.245166,7.5 96.5,7.5 Z" class="slds-illustration__fill-secondary" transform="translate(96.500000, 24.500000) scale(-1, 1) rotate(90.000000) translate(-96.500000, -24.500000) "></path><path vector-effect="non-scaling-stroke" d="M96.5,7.5 C109.754834,7.5 120.5,18.245166 120.5,31.5 L120.5,41.5 L72.5,41.5 L72.5,31.5 C72.5,18.245166 83.245166,7.5 96.5,7.5 Z" class="slds-illustration__stroke-primary" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" transform="translate(96.500000, 24.500000) scale(-1, 1) rotate(90.000000) translate(-96.500000, -24.500000) "></path><rect class="slds-illustration__fill-secondary" x="106.5" y="0.5" width="110" height="48"></rect><rect class="slds-illustration__stroke-primary" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" x="106.5" y="0.5" width="110" height="48"></rect><rect class="slds-illustration__stroke-primary" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" x="106.5" y="62.5" width="48" height="54"></rect><rect class="slds-illustration__stroke-primary" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" x="106.5" y="48.5" width="48" height="14"></rect><path vector-effect="non-scaling-stroke" d="M0,116.5 L350,116.5" class="slds-illustration__stroke-primary" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path></g></g></g></g></g></svg>
                                         <div class="slds-text-longform">
                                             <h3 class="slds-text-heading_medium">Start building your message</h3>
-                                            <p class="slds-text-body_regular">Drag a component from the left panel, or click below to add one.</p>
+                                            <p class="slds-text-body_regular">{emptyCanvasHint}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -666,7 +671,7 @@
                                                                         data-instance-id={blk.instanceId}
                                                                         data-tab="content"
                                                                         onclick={handleBlockTabChange}
-                                                                    >Content Settings</button>
+                                                                    >Block Content</button>
                                                                 </li>
                                                                 <li class={blk.settingsTabClass} role="presentation">
                                                                     <button
@@ -1070,13 +1075,15 @@
                                 </div>
                             </template>
 
-                            <!-- ── Always-visible add button ────────────────── -->
-                            <div class="editor-canvas__add-row">
-                                <button class="slds-button slds-button_neutral editor-canvas__add-btn" type="button" onclick={handleOpenAddPopover}>
-                                    <lightning-icon icon-name="utility:add" size="x-small" class="slds-button__icon slds-button__icon_left"></lightning-icon>
-                                    Add Component
-                                </button>
-                            </div>
+                            <!-- ── Add component (when template defines active blocks) ── -->
+                            <template lwc:if={showComponentsPanel}>
+                                <div class="editor-canvas__add-row">
+                                    <button class="slds-button slds-button_neutral editor-canvas__add-btn" type="button" onclick={handleOpenAddPopover}>
+                                        <lightning-icon icon-name="utility:add" size="x-small" class="slds-button__icon slds-button__icon_left"></lightning-icon>
+                                        Add Component
+                                    </button>
+                                </div>
+                            </template>
 
                         </div>
                     </div>
@@ -1086,6 +1093,7 @@
                 <div
                     id="editor-right-panel"
                     class={rightPanelClass}
+                    style={rightPanelStyle}
                     aria-hidden={rightPanelAriaHidden}
                 >
                     <div class="slds-panel__header">
@@ -1103,11 +1111,11 @@
                             </div>
                             <div class="slds-button-group slds-m-left_x-small" role="group" aria-label="Theme">
                                 <button class={themeLightClass} onclick={handleThemeLight} title="Light mode" aria-pressed={isLightTheme}>
-                                    <lightning-icon icon-name="utility:daylight" size="x-small" variant={themeLightVariant} class="slds-button__icon"></lightning-icon>
+                                    <lightning-icon icon-name="custom:custom3" size="x-small" variant={themeLightVariant} class="slds-button__icon preview-theme-icon"></lightning-icon>
                                     <span class="slds-assistive-text">Light</span>
                                 </button>
                                 <button class={themeDarkClass} onclick={handleThemeDark} title="Dark mode" aria-pressed={isDarkTheme}>
-                                    <lightning-icon icon-name="utility:night" size="x-small" variant={themeDarkVariant} class="slds-button__icon"></lightning-icon>
+                                    <lightning-icon icon-name="custom:custom10" size="x-small" variant={themeDarkVariant} class="slds-button__icon preview-theme-icon"></lightning-icon>
                                     <span class="slds-assistive-text">Dark</span>
                                 </button>
                             </div>
@@ -1124,7 +1132,7 @@
 
                     <div class="slds-panel__body editor-preview-body">
                         <div class="editor-preview__mock-wrap">
-                            <div class={previewFrameClass}>
+                            <div class={previewFrameClass} style={previewFrameStyle}>
 
                                 <template lwc:if={isMobile}>
                                     <div class="editor-preview__notch"></div>

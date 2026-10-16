@@ -411,12 +411,8 @@
     width: 0;
     border-left: 0 solid #e0e5ee;
 }
-.slds-panel_docked-right.slds-is-open.editor-panel-right_desktop {
-    width: 700px; /* 648px mockup + padding */
-    border-left-width: 1px;
-}
+.slds-panel_docked-right.slds-is-open.editor-panel-right_desktop,
 .slds-panel_docked-right.slds-is-open.editor-panel-right_mobile {
-    width: 420px; /* 375px mockup + padding */
     border-left-width: 1px;
 }
 
@@ -427,6 +423,18 @@
     gap: 0.25rem;
     flex-wrap: nowrap;
     flex-shrink: 0;
+}
+
+.slds-panel__header-actions lightning-icon.preview-theme-icon {
+    --slds-c-icon-color-background: transparent;
+    --sds-c-icon-color-background: transparent;
+    --slds-c-icon-color-foreground: #fff;
+    --slds-c-icon-color-foreground-default: #fff;
+}
+
+.slds-panel__header-actions .slds-button_icon-border:not(.slds-is-selected) lightning-icon.preview-theme-icon {
+    --slds-c-icon-color-foreground: #0176d3;
+    --slds-c-icon-color-foreground-default: #0176d3;
 }
 
 /* ─── Left panel: block palette ──────────────────────────────────────────── */
@@ -1063,6 +1071,14 @@
     padding: 1.75rem 0.5rem;
     min-height: 200px;
     overflow-y: auto;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.editor-preview__content::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
 }
 
 .editor-preview__content_document {
@@ -1078,6 +1094,30 @@
     min-height: 520px;
     overflow: auto;
     background: #fff;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.editor-preview__shell::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+}
+
+.editor-preview_dark .editor-preview__shell {
+    background: #1a1a1a;
+}
+
+.editor-preview_dark .editor-preview__browser-bar {
+    background: #2a2a2a;
+    border-bottom-color: #3e3e3c;
+}
+
+.editor-preview__shell .cc-preview table.mobile-full,
+.editor-preview__shell .cc-preview table.mobile-full td,
+.editor-preview__shell .cc-preview table.mobile-full th {
+    border: 0 !important;
+    outline: none !important;
 }
 
 .cc-preview table:not([width]):not([style*="width"]) {
@@ -1089,6 +1129,8 @@
 .editor-preview_mobile .editor-preview__shell {
     min-height: 0;
     height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 .block-content-fields {

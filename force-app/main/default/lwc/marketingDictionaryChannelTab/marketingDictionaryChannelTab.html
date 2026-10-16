@@ -230,10 +230,10 @@
 
                             <template lwc:if={isChannelTabTemplates}>
                                 <div class="tab-content slds-p-around_small">
-                                    <c-channel-template-manager
+                                    <c-master-template-studio
                                         channel-id={activeChannel.Id}
                                         channel-name={activeChannel.Name}>
-                                    </c-channel-template-manager>
+                                    </c-master-template-studio>
                                 </div>
                             </template>
 
@@ -822,5 +822,12 @@
             </div>
         </section>
         <div class="slds-backdrop slds-backdrop_open" role="presentation"></div>
+    </template>
+
+    <template lwc:if={isDependencyDialogOpen}>
+        <c-marketing-dictionary-dependency-dialog
+            report={dependencyReport}
+            onclose={handleCloseDependencyDialog}>
+        </c-marketing-dictionary-dependency-dialog>
     </template>
 </template>

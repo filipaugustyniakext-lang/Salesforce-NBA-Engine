@@ -23,6 +23,15 @@ import {
     buildTierExclusionChips,
     buildTierTypeChips
 } from 'c/nbaTierConfig';
+import { confirmDictionaryRenameIfNeeded } from 'c/marketingDictionaryRenamePrompt';
+import {
+    runDictionaryDeleteWithDependencyCheck,
+    runCampaignTierDeleteWithDependencyCheck,
+    isDependencyBlockedMessage,
+    fetchDictionaryDeleteReport,
+    fetchCampaignTierDeleteReport,
+    reportHasDependencies
+} from 'c/marketingDictionaryDeleteHelper';
 
 const EMPTY_CAMPAIGN_TYPE    = () => ({ Name: '', Dictionary_Sub_Type__c: 'Campaign Type', Include_In_Emergency__c: false, Define_Campaign_Groups__c: false });
 const EMPTY_CAMPAIGN_GROUP   = () => ({ Name: '', Dictionary_Sub_Type__c: 'Campaign Group', Campaign_Type_Dict__c: null });
@@ -81,6 +90,7 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
     @track isPathModalOpen = false;
     @track isSalesProcessTypeModalOpen = false;
     @track isDeleteModalOpen = false;
+    @track dependencyReport = null;
 
     @track editCampaignType = EMPTY_CAMPAIGN_TYPE();
     @track editCampaignGroup = EMPTY_CAMPAIGN_GROUP();
@@ -91,6 +101,7 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
     @track editTopic = EMPTY_TOPIC();
     @track editPath = EMPTY_PATH();
     @track editSalesProcessType = EMPTY_SALES_PROCESS();
+    _dictionaryRenameOriginalName = '';
 
     @track scoringAsNewMaster = true;
     @track scoringNameLocked = false;
@@ -988,11 +999,19 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
     get salesProcessTypeCount() { return this.salesProcessTypes.length; }
     get salesProcessTypeModalTitle() { return this.editSalesProcessType.Id ? 'Edit Sales Process Type' : 'Add Sales Process Type'; }
 
-    handleNewCampaignType() { this.editCampaignType = EMPTY_CAMPAIGN_TYPE(); this.isCampaignTypeModalOpen = true; }
+    handleNewCampaignType() {
+        this.editCampaignType = EMPTY_CAMPAIGN_TYPE();
+        this._dictionaryRenameOriginalName = '';
+        this.isCampaignTypeModalOpen = true;
+    }
     closeCampaignTypeModal() { this.isCampaignTypeModalOpen = false; }
     handleEditCampaignType(e) {
         const rec = this._allRecords.find(r => r.Id === e.currentTarget.dataset.id);
-        if (rec) { this.editCampaignType = { ...rec }; this.isCampaignTypeModalOpen = true; }
+        if (rec) {
+            this.editCampaignType = { ...rec };
+            this._dictionaryRenameOriginalName = rec.Name || '';
+            this.isCampaignTypeModalOpen = true;
+        }
     }
     handleCampaignTypeFieldChange(e) {
         this.editCampaignType = { ...this.editCampaignType, [e.target.dataset.field]: e.target.value };
@@ -1002,7 +1021,11 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
     }
     async handleSaveCampaignType() {
         if (!this.editCampaignType.Name?.trim()) { this._showToast('Validation', 'Name is required.', 'warning'); return; }
-        await this._saveCampaignRecord(this.editCampaignType, () => { this.isCampaignTypeModalOpen = false; });
+        await this._saveCampaignRecord(
+            this.editCampaignType,
+            () => { this.isCampaignTypeModalOpen = false; },
+            this._dictionaryRenameOriginalName
+        );
     }
     handleDeleteCampaignType(e) { this._openDeleteModal(e.currentTarget.dataset.id, e.currentTarget.dataset.name, 'campaignRecord'); }
 
@@ -1561,38 +1584,94 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
     async handleConfirmDelete() {
         this.isDeleteModalOpen = false;
         this.isSaving = true;
+        const deleteType = this._deleteType;
+        const deleteId = this._deleteId;
         try {
-            if (this._deleteType === 'tier') {
-                await deleteCampaignTier({ recordId: this._deleteId });
+            if (deleteType === 'tier') {
+                const deleted = await runCampaignTierDeleteWithDependencyCheck({
+                    recordId: deleteId,
+                    deleteFn: () => deleteCampaignTier({ recordId: deleteId }),
+                    onBlocked: (report) => { this.dependencyReport = report; }
+                });
+                if (!deleted) {
+                    return;
+                }
                 await refreshApex(this._wiredTiersResult);
-            } else if (this._deleteType === 'scoringBulk' && this._deleteIds?.length) {
+            } else if (deleteType === 'scoringBulk' && this._deleteIds?.length) {
                 for (const recordId of this._deleteIds) {
-                    await deleteDictionaryRecord({ recordId });
+                    const deleted = await runDictionaryDeleteWithDependencyCheck({
+                        recordId,
+                        deleteFn: () => deleteDictionaryRecord({ recordId }),
+                        onBlocked: (report) => { this.dependencyReport = report; }
+                    });
+                    if (!deleted) {
+                        return;
+                    }
                 }
                 this.selectedScoringIds = [];
                 this._deleteIds = null;
                 await refreshApex(this._wiredCampaignResult);
             } else {
-                await deleteDictionaryRecord({ recordId: this._deleteId });
-                this.selectedScoringIds = this.selectedScoringIds.filter(id => id !== this._deleteId);
+                const deleted = await runDictionaryDeleteWithDependencyCheck({
+                    recordId: deleteId,
+                    deleteFn: () => deleteDictionaryRecord({ recordId: deleteId }),
+                    onBlocked: (report) => { this.dependencyReport = report; }
+                });
+                if (!deleted) {
+                    return;
+                }
+                this.selectedScoringIds = this.selectedScoringIds.filter(id => id !== deleteId);
                 await refreshApex(this._wiredCampaignResult);
             }
             this._showToast('Success', 'Deleted.', 'success');
         } catch (e) {
-            const message = e.body?.message || e.message || 'Delete failed.';
-            const blockedByDependency = message.includes('Please remove dependencies first');
-            this._showToast(
-                blockedByDependency ? 'Cannot delete' : 'Error',
-                message,
-                blockedByDependency ? 'warning' : 'error'
-            );
+            await this._handleDeleteError(e, deleteType, deleteId);
         }
         finally { this.isSaving = false; }
     }
 
-    async _saveCampaignRecord(record, onSuccess) {
+    async _handleDeleteError(e, deleteType, deleteId) {
+        const message = e.body?.message || e.message || 'Delete failed.';
+        if (!isDependencyBlockedMessage(message) || !deleteId) {
+            this._showToast('Error', message, 'error');
+            return;
+        }
+        try {
+            const report = deleteType === 'tier'
+                ? await fetchCampaignTierDeleteReport(deleteId)
+                : await fetchDictionaryDeleteReport(deleteId);
+            if (reportHasDependencies(report)) {
+                this.dependencyReport = report;
+                return;
+            }
+        } catch {
+            // fall through
+        }
+        this._showToast('Error', message, 'error');
+    }
+
+    handleCloseDependencyDialog() {
+        this.dependencyReport = null;
+    }
+
+    get isDependencyDialogOpen() {
+        return reportHasDependencies(this.dependencyReport);
+    }
+
+    async _saveCampaignRecord(record, onSuccess, originalName) {
         this.isSaving = true;
         try {
+            if (record?.Id) {
+                const proceed = await confirmDictionaryRenameIfNeeded(
+                    record.Id,
+                    originalName,
+                    record.Name
+                );
+                if (!proceed) {
+                    this.isSaving = false;
+                    return;
+                }
+            }
             await saveCampaignRecord({ record });
             this._showToast('Success', 'Saved.', 'success');
             if (onSuccess) onSuccess();

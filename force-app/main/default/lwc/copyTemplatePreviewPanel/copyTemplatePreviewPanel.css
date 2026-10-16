@@ -1,0 +1,191 @@
+.preview-panel {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    border: 1px solid #e0e5ee;
+    border-radius: 0.25rem;
+    background: #fff;
+    overflow: hidden;
+    transition: width 0.2s ease;
+}
+
+.preview-panel__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #e0e5ee;
+    flex-shrink: 0;
+    min-height: 3rem;
+}
+
+.preview-panel__title {
+    margin: 0;
+    flex: 1;
+    min-width: 0;
+}
+
+.preview-panel__header-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+}
+
+.preview-panel__help {
+    margin: 0.5rem 1rem 0.75rem;
+    display: flex;
+    align-items: flex-start;
+    text-align: left;
+    border-radius: 0.25rem;
+}
+
+/* SLDS sets width:100% on alerts, which overflows once horizontal inset margins are applied */
+.preview-panel__help.slds-notify_alert {
+    width: auto;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.preview-panel__help h2 {
+    margin: 0;
+    font-weight: 400;
+    line-height: 1.45;
+}
+
+.preview-panel__header-actions lightning-icon.preview-theme-icon {
+    --slds-c-icon-color-background: transparent;
+    --sds-c-icon-color-background: transparent;
+    --slds-c-icon-color-foreground: #fff;
+    --sds-c-icon-color-foreground-default: #fff;
+}
+
+.preview-panel__header-actions .slds-button_icon-border:not(.slds-is-selected) lightning-icon.preview-theme-icon {
+    --slds-c-icon-color-foreground: #0176d3;
+    --slds-c-icon-color-foreground-default: #0176d3;
+}
+
+.preview-panel__body {
+    padding: 20px;
+    background: #f3f2f2;
+    overflow: auto;
+    flex: 1;
+    min-height: 12rem;
+}
+
+.preview-panel__loading,
+.preview-panel__empty {
+    min-height: 12rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.preview-panel__mock-wrap {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.preview-panel__frame {
+    border-radius: 0.5rem;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    display: flex;
+    flex-direction: column;
+    transition: width 0.2s ease, max-width 0.2s ease, background 0.2s;
+}
+
+.preview-panel__frame_desktop {
+    width: 100%;
+}
+
+.preview-panel__frame_mobile {
+    height: 600px;
+    border-radius: 45px;
+    border: 8px solid #3e3e3c;
+    flex-shrink: 0;
+}
+
+.preview-panel__frame_light {
+    background: #fff;
+}
+
+.preview-panel__frame_dark {
+    background: #1a1a1a;
+}
+
+.preview-panel__browser-bar {
+    display: flex;
+    gap: 4px;
+    padding: 6px 8px;
+    background: #f3f2f2;
+    border-bottom: 1px solid #e0e5ee;
+    flex-shrink: 0;
+}
+
+.preview-panel__frame_dark .preview-panel__browser-bar {
+    background: #2a2a2a;
+    border-bottom-color: #3e3e3c;
+}
+
+.preview-panel__browser-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #dddbda;
+}
+
+.preview-panel__browser-dot:nth-child(1) {
+    background: #f87171;
+}
+
+.preview-panel__browser-dot:nth-child(2) {
+    background: #fbbf24;
+}
+
+.preview-panel__browser-dot:nth-child(3) {
+    background: #34d399;
+}
+
+.preview-panel__notch {
+    background: #3e3e3c;
+    flex-shrink: 0;
+    width: 90px;
+    height: 22px;
+    border-radius: 50px;
+    margin: 0.5rem auto 0;
+}
+
+.preview-panel__document {
+    flex: 1;
+    min-height: 8rem;
+    overflow: auto;
+    background: #fff;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.preview-panel__document::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+}
+
+.preview-panel__frame_dark .preview-panel__document {
+    background: #1a1a1a;
+}
+
+.preview-panel__frame_mobile .preview-panel__document {
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+.preview-panel__document .cc-preview table.mobile-full,
+.preview-panel__document .cc-preview table.mobile-full td,
+.preview-panel__document .cc-preview table.mobile-full th {
+    border: 0 !important;
+    outline: none !important;
+}

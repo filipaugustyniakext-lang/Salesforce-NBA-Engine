@@ -191,4 +191,11 @@
         </section>
         <div class="slds-backdrop slds-backdrop_open" role="presentation"></div>
     </template>
+
+    <template lwc:if={isDependencyDialogOpen}>
+        <c-marketing-dictionary-dependency-dialog
+            report={dependencyReport}
+            onclose={handleCloseDependencyDialog}>
+        </c-marketing-dictionary-dependency-dialog>
+    </template>
 </template>

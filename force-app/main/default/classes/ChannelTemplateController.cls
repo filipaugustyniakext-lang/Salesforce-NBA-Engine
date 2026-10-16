@@ -25,6 +25,9 @@ public with sharing class ChannelTemplateController {
         @AuraEnabled public String status;
         @AuraEnabled public Decimal version;
         @AuraEnabled public String description;
+        @AuraEnabled public String countryCode;
+        @AuraEnabled public String templateClassification;
+        @AuraEnabled public String templateSlug;
         @AuraEnabled public String packageId;
         @AuraEnabled public String semVer;
         @AuraEnabled public String packageHash;
@@ -33,6 +36,13 @@ public with sharing class ChannelTemplateController {
         @AuraEnabled public String validationMessage;
         @AuraEnabled public Datetime validatedAt;
         @AuraEnabled public Datetime lastModifiedDate;
+        @AuraEnabled public List<String> shellPreviewRegions = new List<String>();
+        @AuraEnabled public List<String> contentBlockNames = new List<String>();
+        @AuraEnabled public Integer messageVariantCount = 0;
+        @AuraEnabled public Integer publishedVariantCount = 0;
+        @AuraEnabled public Boolean deleteBlockedByMessages = false;
+        @AuraEnabled public Boolean archiveBlockedByPublished = false;
+        @AuraEnabled public List<String> validationIssues = new List<String>();
         @AuraEnabled public List<TemplateAsset> assets = new List<TemplateAsset>();
         @AuraEnabled public List<CatalogComponent> components = new List<CatalogComponent>();
     }
@@ -62,6 +72,14 @@ public with sharing class ChannelTemplateController {
         @AuraEnabled public List<String> placeholders = new List<String>();
     }
 
+    public class ContentBlockValidationResult {
+        @AuraEnabled public Boolean valid = false;
+        @AuraEnabled public Boolean htmlValid = false;
+        @AuraEnabled public Boolean contentBindingsConfigured = false;
+        @AuraEnabled public Boolean settingsBindingsConfigured = false;
+        @AuraEnabled public String message;
+    }
+
     public class ValidationResponse {
         @AuraEnabled public Boolean valid;
         @AuraEnabled public String message;
@@ -77,6 +95,7 @@ public with sharing class ChannelTemplateController {
 
         List<Channel_Template__c> records = [
             SELECT Id, Name, Status__c, Version__c, Description__c,
+                   Country_Code__c, Template_Classification__c, Template_Slug__c,
                    Package_Id__c, SemVer__c, Package_Hash__c, Compiler_Version__c,
                    Validation_Status__c, Validation_Message__c, Validated_At__c,
                    Manifest_JSON__c, LastModifiedDate
@@ -94,6 +113,9 @@ public with sharing class ChannelTemplateController {
             definition.status = record.Status__c;
             definition.version = record.Version__c;
             definition.description = record.Description__c;
+            definition.countryCode = record.Country_Code__c;
+            definition.templateClassification = record.Template_Classification__c;
+            definition.templateSlug = record.Template_Slug__c;
             definition.packageId = record.Package_Id__c;
             definition.semVer = record.SemVer__c;
             definition.packageHash = record.Package_Hash__c;
@@ -103,7 +125,41 @@ public with sharing class ChannelTemplateController {
             definition.validatedAt = record.Validated_At__c;
             definition.lastModifiedDate = record.LastModifiedDate;
             definition.components = readCatalog(record.Manifest_JSON__c);
+            definition.shellPreviewRegions = scanCcPreviewRegionsInOrder(readShellHtmlForTemplate(record.Id));
             byId.put(record.Id, definition);
+        }
+
+        if (!byId.isEmpty()) {
+            for (AggregateResult row : [
+                SELECT Source_Template__c templateId, COUNT(Id) variantCount
+                FROM CC_Message_Metadata__c
+                WHERE Source_Template__c IN :byId.keySet()
+                GROUP BY Source_Template__c
+            ]) {
+                Id templateId = (Id) row.get('templateId');
+                TemplateDefinition definition = byId.get(templateId);
+                if (definition == null) continue;
+                Integer count = (Integer) row.get('variantCount');
+                definition.messageVariantCount = count == null ? 0 : count;
+                definition.deleteBlockedByMessages = definition.messageVariantCount > 0;
+            }
+            for (AggregateResult row : [
+                SELECT Source_Template__c templateId, COUNT(Id) publishedCount
+                FROM CC_Message_Metadata__c
+                WHERE Source_Template__c IN :byId.keySet()
+                  AND Status__c = 'Published'
+                GROUP BY Source_Template__c
+            ]) {
+                Id templateId = (Id) row.get('templateId');
+                TemplateDefinition definition = byId.get(templateId);
+                if (definition == null) continue;
+                Integer count = (Integer) row.get('publishedCount');
+                definition.publishedVariantCount = count == null ? 0 : count;
+                definition.archiveBlockedByPublished = definition.publishedVariantCount > 0;
+            }
+            for (TemplateDefinition definition : byId.values()) {
+                definition.validationIssues = buildValidationIssues(definition);
+            }
         }
 
         if (!byId.isEmpty()) {
@@ -120,7 +176,11 @@ public with sharing class ChannelTemplateController {
             ]) {
                 TemplateDefinition definition = byId.get(link.LinkedEntityId);
                 if (definition == null) continue;
-                definition.assets.add(toAsset(link));
+                TemplateAsset asset = toAsset(link);
+                definition.assets.add(asset);
+                if (asset.assetType == 'CONTENT_BLOCK') {
+                    definition.contentBlockNames.add(asset.name);
+                }
             }
         }
 
@@ -133,6 +193,18 @@ public with sharing class ChannelTemplateController {
     public static Id saveTemplate(Channel_Template__c record, Id channelId) {
         if (record == null || channelId == null) {
             throw new AuraHandledException('Template and Channel are required.');
+        }
+        if (String.isNotBlank(record.Template_Slug__c)) {
+            record.Name = composeTemplateName(
+                record.Country_Code__c,
+                record.Template_Slug__c,
+                record.Template_Classification__c
+            );
+            record.Template_Slug__c = normalizeTemplateSlug(record.Template_Slug__c);
+        }
+        if (String.isBlank(record.Country_Code__c)) record.Country_Code__c = 'PL';
+        if (String.isBlank(record.Template_Classification__c)) {
+            record.Template_Classification__c = 'Commercial';
         }
         if (String.isBlank(record.Name)) {
             throw new AuraHandledException('Template Name is required.');
@@ -159,13 +231,20 @@ public with sharing class ChannelTemplateController {
                 throw new AuraHandledException('A template cannot be moved to another channel.');
             }
             if (existing.Status__c == 'Active' && record.Status__c == 'Archived') {
+                if (
+                    !ChannelTemplateTriggerHandler.allowSupersedingArchive
+                    && countPublishedVariantsUsingTemplate(record.Id) > 0
+                ) {
+                    throw new AuraHandledException(
+                        'This active template is used by published message variants and cannot be archived. '
+                        + 'Create a new template version and activate it instead.'
+                    );
+                }
                 update new Channel_Template__c(Id = record.Id, Status__c = 'Archived');
                 return record.Id;
             }
             if (existing.Status__c == 'Active' && record.Status__c != 'Archived') {
-                throw new AuraHandledException(
-                    'Active template packages are immutable. Archive this version before changing it.'
-                );
+                record.Status__c = 'Active';
             }
         }
         if (String.isBlank(record.Status__c)) record.Status__c = 'Draft';
@@ -192,14 +271,244 @@ public with sharing class ChannelTemplateController {
                   AND Status__c = 'Active'
                   AND Id != :record.Id
             ];
+            Set<Id> supersededTemplateIds = new Set<Id>();
             for (Channel_Template__c activeTemplate : activeTemplates) {
+                supersededTemplateIds.add(activeTemplate.Id);
                 activeTemplate.Status__c = 'Archived';
             }
-            if (!activeTemplates.isEmpty()) update activeTemplates;
+            ChannelTemplateTriggerHandler.allowSupersedingArchive = true;
+            try {
+                if (!activeTemplates.isEmpty()) {
+                    update activeTemplates;
+                }
+            } finally {
+                ChannelTemplateTriggerHandler.allowSupersedingArchive = false;
+            }
+            upsert record;
+            repointMessageVariants(supersededTemplateIds, record.Id);
+            return record.Id;
         }
 
         upsert record;
         return record.Id;
+    }
+
+    public static Integer countPublishedVariantsUsingTemplate(Id templateId) {
+        if (templateId == null) return 0;
+        return [
+            SELECT COUNT()
+            FROM CC_Message_Metadata__c
+            WHERE Source_Template__c = :templateId
+              AND Status__c = 'Published'
+        ];
+    }
+
+    public static void repointMessageVariants(Set<Id> fromTemplateIds, Id toTemplateId) {
+        if (toTemplateId == null || fromTemplateIds == null || fromTemplateIds.isEmpty()) {
+            return;
+        }
+        List<CC_Message_Metadata__c> variants = [
+            SELECT Id, Source_Template__c
+            FROM CC_Message_Metadata__c
+            WHERE Source_Template__c IN :fromTemplateIds
+        ];
+        if (variants.isEmpty()) return;
+        for (CC_Message_Metadata__c variant : variants) {
+            variant.Source_Template__c = toTemplateId;
+        }
+        update variants;
+    }
+
+    @AuraEnabled
+    public static Id cloneTemplateVersion(Id sourceTemplateId) {
+        if (sourceTemplateId == null) {
+            throw new AuraHandledException('Template is required.');
+        }
+        Channel_Template__c source = [
+            SELECT Id, Name, Status__c, Channel__c, Version__c, Description__c,
+                   Country_Code__c, Template_Classification__c, Template_Slug__c,
+                   Package_Id__c, SemVer__c, Package_Hash__c, Compiler_Version__c,
+                   Manifest_JSON__c, Validation_Status__c, Validation_Message__c, Validated_At__c
+            FROM Channel_Template__c
+            WHERE Id = :sourceTemplateId
+            LIMIT 1
+        ];
+        if (source.Status__c != 'Active') {
+            throw new AuraHandledException('Create a new version only from the active template package.');
+        }
+        AggregateResult maxVersionRow = [
+            SELECT MAX(Version__c) maxVersion
+            FROM Channel_Template__c
+            WHERE Channel__c = :source.Channel__c
+              AND Template_Slug__c = :source.Template_Slug__c
+        ];
+        Decimal maxVersion = (Decimal) maxVersionRow.get('maxVersion');
+        Decimal nextVersion = (maxVersion == null ? source.Version__c : maxVersion) + 1;
+
+        Channel_Template__c draft = source.clone(false, true, false, false);
+        draft.Status__c = 'Draft';
+        draft.Version__c = nextVersion;
+        insert draft;
+
+        List<ContentDocumentLink> sourceLinks = [
+            SELECT ContentDocumentId, ShareType, Visibility
+            FROM ContentDocumentLink
+            WHERE LinkedEntityId = :sourceTemplateId
+        ];
+        if (!sourceLinks.isEmpty()) {
+            List<ContentDocumentLink> draftLinks = new List<ContentDocumentLink>();
+            for (ContentDocumentLink link : sourceLinks) {
+                draftLinks.add(new ContentDocumentLink(
+                    LinkedEntityId = draft.Id,
+                    ContentDocumentId = link.ContentDocumentId,
+                    ShareType = link.ShareType,
+                    Visibility = link.Visibility
+                ));
+            }
+            insert draftLinks;
+        }
+        return draft.Id;
+    }
+
+    @AuraEnabled
+    public static List<String> getShellPreviewRegions(Id templateId) {
+        return scanCcPreviewRegionsInOrder(readShellHtmlForTemplate(templateId));
+    }
+
+    @AuraEnabled
+    public static void syncDraftBlockCatalog(Id templateId) {
+        if (templateId == null) return;
+        Map<String, String> bodies = contentBlockBodies(templateId);
+        if (bodies.isEmpty()) return;
+        List<Object> rows = new List<Object>();
+        for (String fileName : bodies.keySet()) {
+            rows.add(new Map<String, Object>{
+                'type' => '',
+                'label' => '',
+                'description' => '',
+                'icon' => '',
+                'fileName' => fileName,
+                'status' => 'Draft'
+            });
+        }
+        saveComponentCatalog(templateId, JSON.serialize(rows));
+    }
+
+    @AuraEnabled
+    public static String activateTemplatePackage(Id templateId) {
+        if (templateId == null) {
+            throw new AuraHandledException('Template is required.');
+        }
+        List<Channel_Template__c> templates = [
+            SELECT Id, Status__c, Channel__c, Validation_Status__c, Channel__r.Channel_Type__c
+            FROM Channel_Template__c
+            WHERE Id = :templateId
+            LIMIT 1
+        ];
+        if (templates.isEmpty()) {
+            throw new AuraHandledException('Template definition was not found or you do not have access.');
+        }
+        Channel_Template__c template = templates[0];
+        if (template.Status__c == 'Active' && template.Validation_Status__c == 'Valid') {
+            throw new AuraHandledException('This template is already active.');
+        }
+        List<String> regions = scanCcPreviewRegionsInOrder(readShellHtmlForTemplate(templateId));
+        if (regions.isEmpty()) {
+            throw new AuraHandledException(
+                'Upload shell HTML with at least one cc-preview region before activation.'
+            );
+        }
+        ChannelTemplateManifestService.ValidationResult validation =
+            ChannelTemplateManifestService.validate(
+                template.Id,
+                template.Channel__r.Channel_Type__c
+            );
+        applyValidation(template, validation);
+        if (!validation.valid) {
+            update template;
+            throw new AuraHandledException(
+                'Template package validation failed:\n' + validation.message
+            );
+        }
+        // Content block HTML is optional (shell-only templates such as banners).
+        template.Status__c = 'Active';
+        List<Channel_Template__c> otherActive = [
+            SELECT Id, Status__c
+            FROM Channel_Template__c
+            WHERE Channel__c = :template.Channel__c
+              AND Status__c = 'Active'
+              AND Id != :templateId
+        ];
+        Set<Id> supersededTemplateIds = new Set<Id>();
+        for (Channel_Template__c other : otherActive) {
+            supersededTemplateIds.add(other.Id);
+            other.Status__c = 'Archived';
+        }
+        ChannelTemplateTriggerHandler.allowSupersedingArchive = true;
+        try {
+            if (!otherActive.isEmpty()) {
+                update otherActive;
+            }
+            update template;
+            repointMessageVariants(supersededTemplateIds, template.Id);
+        } catch (DmlException error) {
+            throw new AuraHandledException(
+                error.getNumDml() > 0 ? error.getDmlMessage(0) : error.getMessage()
+            );
+        } finally {
+            ChannelTemplateTriggerHandler.allowSupersedingArchive = false;
+        }
+        return template.Id;
+    }
+
+    @AuraEnabled
+    public static ContentBlockValidationResult validateContentBlockDefinition(
+        Id templateId,
+        String blockKey
+    ) {
+        ContentBlockValidationResult result = new ContentBlockValidationResult();
+        if (templateId == null || String.isBlank(blockKey)) {
+            result.message = 'Content block definition is required.';
+            return result;
+        }
+        CatalogComponent component = findCatalogComponent(templateId, blockKey);
+        if (component == null) {
+            result.message = 'Save the content block definition before validating.';
+            return result;
+        }
+        String fileName = component.fileName;
+        Map<String, String> blockHtmlByName = contentBlockBodies(templateId);
+        String blockHtml = lookupBlockHtml(blockHtmlByName, fileName);
+        result.htmlValid = String.isNotBlank(fileName) && String.isNotBlank(blockHtml);
+        if (!result.htmlValid) {
+            result.message = 'Upload valid content block HTML before validating.';
+            return result;
+        }
+        List<PlaceholderBinding> bindings = component.bindings == null
+            ? new List<PlaceholderBinding>()
+            : component.bindings;
+        List<String> blockSettings = component.blockSettings == null
+            ? new List<String>()
+            : component.blockSettings;
+        List<String> placeholders = extractPlaceholders(blockHtml);
+        result.contentBindingsConfigured = bindingsConfiguredForContent(placeholders, bindings);
+        result.settingsBindingsConfigured = bindingsConfiguredForSettings(blockSettings, bindings);
+        result.valid = result.htmlValid
+            && result.contentBindingsConfigured
+            && result.settingsBindingsConfigured;
+        if (!result.valid) {
+            List<String> missing = new List<String>();
+            if (!result.contentBindingsConfigured) {
+                missing.add('Blocks Content Binding');
+            }
+            if (!result.settingsBindingsConfigured) {
+                missing.add('Block Settings Binding');
+            }
+            result.message = 'Configure ' + String.join(missing, ' and ') + ' before validation passes.';
+        } else {
+            result.message = 'Content block definition is valid and ready to activate.';
+        }
+        return result;
     }
 
     @AuraEnabled
@@ -211,11 +520,6 @@ public with sharing class ChannelTemplateController {
             WHERE Id = :templateId
             LIMIT 1
         ];
-        if (template.Status__c == 'Active') {
-            throw new AuraHandledException(
-                'Active template packages are immutable. Archive this version before changing it.'
-            );
-        }
         List<Object> rawRows;
         try {
             rawRows = (List<Object>) JSON.deserializeUntyped(
@@ -231,11 +535,11 @@ public with sharing class ChannelTemplateController {
             if (!(rawRow instanceof Map<String, Object>)) continue;
             Map<String, Object> row = (Map<String, Object>) rawRow;
             String fileName = textValue(row.get('fileName'));
-            if (String.isBlank(fileName)) {
+            String status = textValue(row.get('status'));
+            if (String.isBlank(status)) status = 'Draft';
+            if (String.isBlank(fileName) && status != 'Draft') {
                 throw new AuraHandledException('Each content block requires an HTML file.');
             }
-            String status = textValue(row.get('status'));
-            if (String.isBlank(status)) status = 'Active';
             if (status != 'Draft' && status != 'Ready' && status != 'Active') status = 'Draft';
             Boolean publishable = status == 'Ready' || status == 'Active';
             String label = textValue(row.get('label'));
@@ -415,11 +719,6 @@ public with sharing class ChannelTemplateController {
             if (template == null) {
                 throw new TemplateAssetException('Template is required.');
             }
-            if (template.Status__c == 'Active') {
-                throw new TemplateAssetException(
-                    'Active template packages are immutable. Archive this version before replacing files.'
-                );
-            }
             Set<Id> linkedDocumentIds = new Set<Id>();
             for (ContentDocumentLink link : [
                 SELECT ContentDocumentId
@@ -466,12 +765,19 @@ public with sharing class ChannelTemplateController {
             if (assetType != 'CONTENT_BLOCK') {
                 Set<Id> replacedDocumentIds = new Set<Id>();
                 for (ContentDocumentLink link : [
-                    SELECT ContentDocumentId, ContentDocument.Title
+                    SELECT ContentDocumentId, ContentDocument.Title,
+                           ContentDocument.LatestPublishedVersion.FileExtension
                     FROM ContentDocumentLink
                     WHERE LinkedEntityId = :templateId
                 ]) {
-                    if (!uploadedDocumentIds.contains(link.ContentDocumentId)
-                        && link.ContentDocument.Title.startsWith(prefix)) {
+                    if (uploadedDocumentIds.contains(link.ContentDocumentId)) continue;
+                    if (link.ContentDocument.Title.startsWith(prefix)) {
+                        replacedDocumentIds.add(link.ContentDocumentId);
+                        continue;
+                    }
+                    if (assetType == 'SHELL_HTML'
+                        && !isContentBlockTitle(link.ContentDocument.Title)
+                        && isHtmlFile(link)) {
                         replacedDocumentIds.add(link.ContentDocumentId);
                     }
                 }
@@ -497,11 +803,6 @@ public with sharing class ChannelTemplateController {
         Channel_Template__c template = [
             SELECT Id, Status__c FROM Channel_Template__c WHERE Id = :templateId LIMIT 1
         ];
-        if (template.Status__c == 'Active') {
-            throw new AuraHandledException(
-                'Active template packages are immutable. Archive this version before removing files.'
-            );
-        }
         removeTemplateFileLinks(template.Id, new Set<Id>{ documentId });
         markNeedsValidation(template.Id);
     }
@@ -518,6 +819,16 @@ public with sharing class ChannelTemplateController {
         if (template.Status__c == 'Active') {
             throw new AuraHandledException(
                 'Active template packages cannot be deleted. Archive this version first.'
+            );
+        }
+        Integer assignedVariants = [
+            SELECT COUNT()
+            FROM CC_Message_Metadata__c
+            WHERE Source_Template__c = :templateId
+        ];
+        if (assignedVariants > 0) {
+            throw new AuraHandledException(
+                'This template is assigned to ' + assignedVariants + ' message variant(s) and cannot be deleted.'
             );
         }
         Set<Id> documentIds = new Set<Id>();
@@ -706,6 +1017,8 @@ public with sharing class ChannelTemplateController {
             if (String.isNotBlank(stringValue(injection.get('bodySlotKey')))) {
                 source.bodySlotKey = restorePlaceholder(stringValue(injection.get('bodySlotKey')));
             }
+            Map<String, String> blockBodies = contentBlockBodies(template.Id);
+            Set<String> studioCatalogFiles = new Set<String>();
             for (CatalogComponent component : readCatalog(template.Manifest_JSON__c)) {
                 RenderBlock renderBlock = new RenderBlock();
                 renderBlock.type = component.type;
@@ -722,14 +1035,33 @@ public with sharing class ChannelTemplateController {
                 renderBlock.html = htmlByName.get(baseName(renderBlock.fileName).toLowerCase());
                 if (String.isBlank(renderBlock.html)) {
                     String withExtension = baseName(renderBlock.fileName).toLowerCase();
-                    if (!withExtension.endsWith('.html')) renderBlock.html = htmlByName.get(withExtension + '.html');
+                    if (!withExtension.endsWith('.html')) {
+                        renderBlock.html = htmlByName.get(withExtension + '.html');
+                    }
                 }
-                if (String.isNotBlank(renderBlock.type) && component.status != 'Draft' && component.status != 'Ready') {
+                if (String.isBlank(renderBlock.html)) {
+                    renderBlock.html = lookupBlockHtml(blockBodies, renderBlock.fileName);
+                }
+                if (String.isBlank(renderBlock.type) && String.isNotBlank(renderBlock.fileName)) {
+                    renderBlock.type = componentTypeToken(renderBlock.label, renderBlock.fileName);
+                }
+                if (String.isNotBlank(renderBlock.html)
+                    && (String.isNotBlank(renderBlock.type) || String.isNotBlank(renderBlock.fileName))) {
+                    source.studioBlocks.add(renderBlock);
+                    studioCatalogFiles.add(catalogBlockFileKey(renderBlock.fileName));
+                }
+                if (String.isNotBlank(renderBlock.type) && 'Active'.equalsIgnoreCase(component.status)) {
                     source.blocks.add(renderBlock);
                 }
             }
+            appendOrphanStudioBlocks(source, template.Id, studioCatalogFiles);
+        } else {
+            appendOrphanStudioBlocks(source, template.Id, new Set<String>());
         }
-        source.shellHtml = library.shellHtml;
+        source.shellHtml = readShellHtmlForTemplate(template.Id);
+        if (String.isBlank(source.shellHtml)) {
+            source.shellHtml = library.shellHtml;
+        }
         if (String.isBlank(source.shellHtml)) {
             source.shellHtml = htmlByName.get(baseName(shellName).toLowerCase());
         }
@@ -761,6 +1093,8 @@ public with sharing class ChannelTemplateController {
         @AuraEnabled public String bodySlotKey;
         @AuraEnabled public List<String> previewActions = new List<String>();
         @AuraEnabled public List<RenderBlock> blocks = new List<RenderBlock>();
+        /** Draft/Ready catalog blocks and unlinked uploads for Template Studio preview (not Copy Center palette). */
+        @AuraEnabled public List<RenderBlock> studioBlocks = new List<RenderBlock>();
     }
 
     public class RenderBlock {
@@ -1144,6 +1478,42 @@ public with sharing class ChannelTemplateController {
         return slash >= 0 ? normalized.substring(slash + 1) : normalized;
     }
 
+    private static String catalogBlockFileKey(String fileName) {
+        return baseName(String.valueOf(fileName)).toLowerCase();
+    }
+
+    private static void appendOrphanStudioBlocks(
+        TemplateRenderSource source,
+        Id templateId,
+        Set<String> linkedFileKeys
+    ) {
+        if (source == null || templateId == null) return;
+        Set<String> seen = linkedFileKeys == null ? new Set<String>() : new Set<String>(linkedFileKeys);
+        Map<String, String> bodies = contentBlockBodies(templateId);
+        List<ContentDocumentLink> links = [
+            SELECT ContentDocument.Title, ContentDocument.LatestPublishedVersionId
+            FROM ContentDocumentLink
+            WHERE LinkedEntityId = :templateId
+        ];
+        for (ContentDocumentLink link : links) {
+            if (link.ContentDocument == null || !isContentBlockTitle(link.ContentDocument.Title)) continue;
+            String fileName = stripKnownPrefix(link.ContentDocument.Title);
+            if (String.isBlank(fileName)) continue;
+            if (!fileName.toLowerCase().endsWith('.html')) fileName = fileName + '.html';
+            String key = catalogBlockFileKey(fileName);
+            if (seen.contains(key)) continue;
+            String html = lookupBlockHtml(bodies, fileName);
+            if (String.isBlank(html)) continue;
+            RenderBlock orphan = new RenderBlock();
+            orphan.fileName = fileName;
+            orphan.type = componentTypeToken('', fileName);
+            orphan.html = html;
+            orphan.status = 'Draft';
+            source.studioBlocks.add(orphan);
+            seen.add(key);
+        }
+    }
+
     private static String assetTypeLabel(String assetType) {
         if (assetType == 'MANIFEST') return 'Package Manifest';
         if (assetType == 'SHELL_HTML') return 'Shell HTML';
@@ -1151,5 +1521,164 @@ public with sharing class ChannelTemplateController {
         if (assetType == 'SHELL_JS') return 'Shell JavaScript';
         if (assetType == 'CONTENT_BLOCK') return 'Content Block HTML';
         return 'Unclassified File';
+    }
+
+    public static String composeTemplateName(String countryCode, String slug, String classification) {
+        String cleanSlug = normalizeTemplateSlug(slug);
+        if (String.isBlank(cleanSlug)) {
+            throw new AuraHandledException('Template Name is required.');
+        }
+        String country = String.isBlank(countryCode) ? 'PL' : countryCode.trim();
+        String kind = String.isBlank(classification) ? 'Commercial' : classification.trim();
+        return 'TEMP_' + country + '_' + cleanSlug + '_' + kind;
+    }
+
+    private static String normalizeTemplateSlug(String slug) {
+        if (String.isBlank(slug)) return '';
+        String normalized = slug.trim().replaceAll('\\s+', '_').replaceAll('[^A-Za-z0-9_]', '');
+        return normalized.length() > 80 ? normalized.substring(0, 80) : normalized;
+    }
+
+    private static String readShellHtmlForTemplate(Id templateId) {
+        if (templateId == null) return '';
+        HtmlLibrary library = readHtmlFiles(templateId);
+        if (String.isNotBlank(library.shellHtml)) return library.shellHtml;
+        for (String html : library.byName.values()) {
+            if (String.isNotBlank(html) && html.toLowerCase().contains('<cc-preview')) {
+                return html;
+            }
+        }
+        for (String name : library.byName.keySet()) {
+            if (name.contains('master') || name.contains('shell')) {
+                return library.byName.get(name);
+            }
+        }
+        return '';
+    }
+
+    private static String normalizeCcPreviewType(String rawType) {
+        if (String.isBlank(rawType)) return '';
+        String value = rawType.trim().toLowerCase();
+        if (value == 'fixed' || value == 'fixed-read' || value == 'preview-fixed') return 'fixed-read';
+        if (value == 'fixed-edit' || value == 'preview-edit') return 'fixed-edit';
+        if (value == 'blocks') return 'blocks';
+        return '';
+    }
+
+    private static String ccPreviewRegionDisplayLabel(String rawType) {
+        return normalizeCcPreviewType(rawType);
+    }
+
+    private static List<String> scanCcPreviewRegionsInOrder(String html) {
+        List<String> ordered = new List<String>();
+        if (String.isBlank(html)) return ordered;
+        Pattern tokenPattern = Pattern.compile('(?i)<cc-preview\\b([^>]*)>|</cc-preview\\s*>');
+        Matcher matcher = tokenPattern.matcher(html);
+        List<RegionOpenToken> stack = new List<RegionOpenToken>();
+        while (matcher.find()) {
+            String token = matcher.group();
+            if (token.startsWith('</')) {
+                if (stack.isEmpty()) continue;
+                RegionOpenToken open = stack.remove(stack.size() - 1);
+                if (open.isTemplateStart) continue;
+                if (String.isNotBlank(open.regionType)) ordered.add(open.regionType);
+                continue;
+            }
+            String attrs = matcher.group(1);
+            stack.add(new RegionOpenToken(attrs));
+        }
+        return ordered;
+    }
+
+    private class RegionOpenToken {
+        public Boolean isTemplateStart;
+        public String regionType;
+
+        RegionOpenToken(String attrs) {
+            String action = ccPreviewAttrValue(attrs, 'data-action').toLowerCase();
+            isTemplateStart = action == 'template-start';
+            regionType = ccPreviewRegionDisplayLabel(ccPreviewRegionKind(attrs));
+        }
+    }
+
+    private static String ccPreviewRegionKind(String attrs) {
+        String kind = ccPreviewAttrValue(attrs, 'region');
+        if (String.isBlank(kind)) {
+            kind = ccPreviewAttrValue(attrs, 'type');
+        }
+        return kind;
+    }
+
+    private static String ccPreviewAttrValue(String attrs, String name) {
+        if (String.isBlank(attrs)) return '';
+        Matcher matcher = Pattern.compile(
+            '(?i)\\b' + Pattern.quote(name) + '\\s*=\\s*([\\\'\\"])([^\\\'\\"]+)\\1'
+        ).matcher(attrs);
+        return matcher.find() ? matcher.group(2) : '';
+    }
+
+    private static List<String> buildValidationIssues(TemplateDefinition definition) {
+        List<String> issues = new List<String>();
+        if (definition == null) return issues;
+        if (String.isNotBlank(definition.validationMessage)) {
+            issues.add(definition.validationMessage);
+        }
+        if (definition.shellPreviewRegions == null || definition.shellPreviewRegions.isEmpty()) {
+            issues.add(
+                'Shell HTML must include at least one cc-preview wrapper with region="fixed-read", region="fixed-edit", or region="blocks".'
+            );
+        }
+        return issues;
+    }
+
+    private static CatalogComponent findCatalogComponent(Id templateId, String blockKey) {
+        if (templateId == null || String.isBlank(blockKey)) return null;
+        Channel_Template__c template = [
+            SELECT Manifest_JSON__c
+            FROM Channel_Template__c
+            WHERE Id = :templateId
+            LIMIT 1
+        ];
+        for (CatalogComponent component : readCatalog(template.Manifest_JSON__c)) {
+            if (blockKey.equalsIgnoreCase(component.fileName) || blockKey.equalsIgnoreCase(component.type)) {
+                return component;
+            }
+        }
+        return null;
+    }
+
+    private static Boolean bindingsConfiguredForContent(
+        List<String> placeholders,
+        List<PlaceholderBinding> bindings
+    ) {
+        if (bindings == null || bindings.isEmpty()) return false;
+        if (placeholders == null || placeholders.isEmpty()) return true;
+        Set<String> bound = new Set<String>();
+        for (PlaceholderBinding binding : bindings) {
+            if (String.isNotBlank(binding.placeholder)) bound.add(binding.placeholder);
+        }
+        for (String placeholder : placeholders) {
+            if (!bound.contains(placeholder)) return false;
+        }
+        return true;
+    }
+
+    private static Boolean bindingsConfiguredForSettings(
+        List<String> blockSettings,
+        List<PlaceholderBinding> bindings
+    ) {
+        if (blockSettings == null || blockSettings.isEmpty()) return false;
+        if (bindings == null || bindings.isEmpty()) return false;
+        for (String setting : blockSettings) {
+            Boolean mapped = false;
+            for (PlaceholderBinding binding : bindings) {
+                if (setting == binding.source) {
+                    mapped = true;
+                    break;
+                }
+            }
+            if (!mapped) return false;
+        }
+        return true;
     }
 }
