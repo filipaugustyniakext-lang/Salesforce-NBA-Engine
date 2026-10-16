@@ -32,10 +32,12 @@
                                 <h4 class="slds-text-heading_small">{item.name}</h4>
                                 <span class={item.statusClass}>{item.status}</span>
                             </div>
-                            <div class="slds-button-group">
+                            <div class="studio-tile__actions" role="group" aria-label="Template actions">
                                 <template lwc:if={item.showNewVersion}>
                                     <lightning-button-icon
                                         icon-name="utility:copy"
+                                        size="small"
+                                        variant="border-filled"
                                         alternative-text="New version"
                                         title={item.newVersionTitle}
                                         data-id={item.id}
@@ -44,6 +46,8 @@
                                 </template>
                                 <lightning-button-icon
                                     icon-name="utility:edit"
+                                    size="small"
+                                    variant="border-filled"
                                     alternative-text="Edit"
                                     title={item.editTitle}
                                     data-id={item.id}
@@ -51,6 +55,8 @@
                                 </lightning-button-icon>
                                 <lightning-button-icon
                                     icon-name="utility:delete"
+                                    size="small"
+                                    variant="border-filled"
                                     alternative-text="Delete"
                                     title={item.deleteTitle}
                                     data-id={item.id}
@@ -62,37 +68,53 @@
                         <dl class="studio-tile__meta">
                             <div class="studio-tile__row">
                                 <dt>Shell regions</dt>
-                                <dd>{item.regionSummary}</dd>
+                                <dd>
+                                    <template lwc:if={item.hasShellRegions}>
+                                        <div class="studio-tile__badges" role="list" aria-label="Shell regions">
+                                            <template for:each={item.shellRegionBadges} for:item="region">
+                                                <span key={region.key} class="slds-badge slds-badge_lightest" role="listitem">{region.label}</span>
+                                            </template>
+                                        </div>
+                                    </template>
+                                    <template lwc:else>None detected</template>
+                                </dd>
                             </div>
                             <div class="studio-tile__row">
                                 <dt>Content blocks</dt>
                                 <dd>
                                     <template lwc:if={item.hasBlocks}>
-                                        <ul class="studio-tile__list">
-                                            <template for:each={item.blockLabels} for:item="blockName">
-                                                <li key={blockName}>{blockName}</li>
+                                        <div class="studio-tile__badges" role="list" aria-label="Content blocks">
+                                            <template for:each={item.blockBadges} for:item="block">
+                                                <span key={block.key} class="slds-badge slds-badge_lightest" role="listitem">{block.label}</span>
                                             </template>
-                                        </ul>
+                                        </div>
                                     </template>
-                                    <template lwc:else>None yet</template>
+                                    <template lwc:else>None</template>
                                 </dd>
                             </div>
                             <div class="studio-tile__row">
                                 <dt>Validation</dt>
-                                <dd>
-                                    <template lwc:if={item.hasValidationIssues}>
-                                        <ul class="studio-tile__list studio-tile__list_warn">
-                                            <template for:each={item.validationLines} for:item="issue">
+                                <dd class="studio-tile__validation">
+                                    <template lwc:if={item.packageValidationBadge}>
+                                        <span class={item.packageValidationBadge.className}>{item.packageValidationBadge.label}</span>
+                                    </template>
+                                    <template lwc:if={item.hasSupplementalValidationIssues}>
+                                        <ul class="studio-tile__list studio-tile__list_warn slds-m-top_xx-small">
+                                            <template for:each={item.supplementalValidationIssues} for:item="issue">
                                                 <li key={issue}>{issue}</li>
                                             </template>
                                         </ul>
                                     </template>
-                                    <template lwc:else>No blocking issues recorded</template>
+                                    <template lwc:if={item.showValidationPending}>
+                                        <span class="slds-text-body_small slds-text-color_weak">Not validated yet</span>
+                                    </template>
                                 </dd>
                             </div>
                             <div class="studio-tile__row">
                                 <dt>Copy Center usage</dt>
-                                <dd>{item.variantLabel}</dd>
+                                <dd>
+                                    <span class={item.copyCenterUsageClass}>{item.variantLabel}</span>
+                                </dd>
                             </div>
                         </dl>
                     </article>

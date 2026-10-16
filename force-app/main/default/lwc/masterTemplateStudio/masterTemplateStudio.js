@@ -76,21 +76,40 @@ export default class MasterTemplateStudio extends LightningElement {
     }
 
     get templates() {
-        return (this._wiredTemplates?.data || []).map(item => ({
+        return (this._wiredTemplates?.data || []).map(item => {
+            const shellRegions = item.shellPreviewRegions || [];
+            const blockLabels = (item.contentBlockNames || []).length
+                ? item.contentBlockNames
+                : (item.components || []).map(c => c.fileName).filter(Boolean);
+            const validationStatus = String(item.validationStatus || '').trim();
+            const packageValidationBadge = this._packageValidationBadge(validationStatus);
+            const supplementalValidationIssues = (item.validationIssues || []).filter(line =>
+                this._isSupplementalValidationIssue(line, validationStatus)
+            );
+
+            return {
             ...item,
             statusClass: item.status === 'Active'
                 ? 'slds-badge template-status template-status_active'
                 : item.status === 'Archived'
                     ? 'slds-badge template-status template-status_archived'
                     : 'slds-badge template-status',
-            blockLabels: (item.contentBlockNames || []).length
-                ? item.contentBlockNames
-                : (item.components || []).map(c => c.fileName).filter(Boolean),
-            hasBlocks: (item.contentBlockNames || []).length > 0
-                || (item.components || []).length > 0,
-            regionSummary: (item.shellPreviewRegions || []).join(', ') || 'None detected',
-            validationLines: item.validationIssues || [],
-            hasValidationIssues: (item.validationIssues || []).length > 0,
+            blockLabels,
+            blockBadges: blockLabels.map((label, index) => ({
+                key: `block-${item.id}-${index}-${label}`,
+                label
+            })),
+            hasBlocks: blockLabels.length > 0,
+            shellRegionBadges: shellRegions.map((label, index) => ({
+                key: `region-${item.id}-${index}-${label}`,
+                label
+            })),
+            hasShellRegions: shellRegions.length > 0,
+            packageValidationBadge,
+            supplementalValidationIssues,
+            hasSupplementalValidationIssues: supplementalValidationIssues.length > 0,
+            showValidationPending: !packageValidationBadge && supplementalValidationIssues.length === 0,
+            copyCenterUsageClass: 'slds-badge slds-badge_lightest',
             variantLabel: item.messageVariantCount === 1
                 ? '1 message variant'
                 : `${item.messageVariantCount || 0} message variants`,
@@ -107,7 +126,33 @@ export default class MasterTemplateStudio extends LightningElement {
             editTitle: item.status === 'Active'
                 ? 'View active template (create a new version to edit files).'
                 : 'Edit'
-        }));
+            };
+        });
+    }
+
+    _packageValidationBadge(validationStatus) {
+        if (validationStatus === 'Valid') {
+            return {
+                label: 'Package is valid',
+                className: 'slds-badge slds-theme_success'
+            };
+        }
+        if (validationStatus === 'Invalid') {
+            return {
+                label: 'Package is invalid',
+                className: 'slds-badge slds-theme_error'
+            };
+        }
+        return null;
+    }
+
+    _isSupplementalValidationIssue(line, validationStatus) {
+        const text = String(line || '').trim();
+        if (!text) return false;
+        const normalized = text.toLowerCase();
+        if (normalized === 'package is valid.' || normalized === 'package is valid') return false;
+        if (validationStatus === 'Invalid' && normalized.startsWith('package is invalid')) return false;
+        return true;
     }
 
     get modalTitle() {
