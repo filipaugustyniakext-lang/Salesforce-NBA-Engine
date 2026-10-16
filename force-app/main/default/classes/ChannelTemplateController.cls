@@ -276,9 +276,40 @@ public with sharing class ChannelTemplateController {
 
     @AuraEnabled
     public static void activateTemplatePackage(Id templateId) {
-        throw new AuraHandledException(
-            'Template validation and activation are not available yet. Save the definition as Draft for now.'
-        );
+        if (templateId == null) {
+            throw new AuraHandledException('Template is required.');
+        }
+        Channel_Template__c template = [
+            SELECT Id, Status__c, Channel__c
+            FROM Channel_Template__c
+            WHERE Id = :templateId
+            LIMIT 1
+        ];
+        if (template.Status__c == 'Active') {
+            throw new AuraHandledException('This template is already active.');
+        }
+        List<String> regions = scanCcPreviewRegionsInOrder(readShellHtmlForTemplate(templateId));
+        if (regions.isEmpty()) {
+            throw new AuraHandledException(
+                'Upload shell HTML with at least one cc-preview region before activation.'
+            );
+        }
+        // Content block HTML is optional (shell-only templates such as banners).
+        template.Status__c = 'Active';
+        List<Channel_Template__c> otherActive = [
+            SELECT Id, Status__c
+            FROM Channel_Template__c
+            WHERE Channel__c = :template.Channel__c
+              AND Status__c = 'Active'
+              AND Id != :templateId
+        ];
+        for (Channel_Template__c other : otherActive) {
+            other.Status__c = 'Archived';
+        }
+        if (!otherActive.isEmpty()) {
+            update otherActive;
+        }
+        update template;
     }
 
     @AuraEnabled
@@ -1315,7 +1346,7 @@ public with sharing class ChannelTemplateController {
         }
         if (definition.shellPreviewRegions == null || definition.shellPreviewRegions.isEmpty()) {
             issues.add(
-                'Shell HTML must include at least one cc-preview region (fixed, fixed-read, fixed-edit, or blocks).'
+                'Shell HTML must include at least one cc-preview region (fixed-read, fixed-edit, or blocks).'
             );
         }
         return issues;

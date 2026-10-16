@@ -151,6 +151,7 @@
 .studio-panel__aside-body {
     flex: 1;
     min-width: 0;
+    text-align: left;
 }
 
 .studio-panel__aside-title {
@@ -163,6 +164,7 @@
 .studio-panel__aside-list {
     margin: 0 0 0.625rem;
     padding-left: 1.125rem;
+    list-style-type: square;
 }
 
 .studio-panel__aside-label {
@@ -173,8 +175,8 @@
 
 .studio-panel__aside-code {
     margin: 0;
-    padding-left: 0;
-    list-style: none;
+    padding-left: 1.125rem;
+    list-style-type: square;
     font-size: 0.6875rem;
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     line-height: 1.5;
@@ -187,8 +189,8 @@
 
 .studio-detected-regions__badges {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
+    flex-direction: column;
+    align-items: flex-start;
     gap: 0.375rem;
     margin-top: 0.25rem;
 }

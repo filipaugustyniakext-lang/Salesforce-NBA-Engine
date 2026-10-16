@@ -177,16 +177,17 @@ export default class MasterTemplateStudio extends LightningElement {
 
     get summaryBlockNames() {
         const fromAssets = this.blockHtmlAssets.map(a => a.name);
-        return fromAssets.length ? fromAssets : ['No content block HTML files yet.'];
+        return fromAssets.length
+            ? fromAssets
+            : ['None — optional for shell-only templates (not required to activate).'];
     }
 
     get summaryValidationLines() {
         const lines = [];
         if (!this.shellRegionsOk) {
             lines.push('Shell HTML must include at least one cc-preview region.');
-        }
-        if (!lines.length) {
-            lines.push('Full validation is not enabled yet (bindings coming in a later iteration).');
+        } else {
+            lines.push('Content block files are optional unless you assign block HTML in Copy Center.');
         }
         return lines;
     }
@@ -203,7 +204,17 @@ export default class MasterTemplateStudio extends LightningElement {
     }
 
     get activateDisabled() {
-        return true;
+        return this.isSaving || !this.draft.Id || !this.shellRegionsOk;
+    }
+
+    get activateTitle() {
+        if (!this.draft.Id) {
+            return 'Save the template draft before activation.';
+        }
+        if (!this.shellRegionsOk) {
+            return 'Upload shell HTML with cc-preview regions before activation.';
+        }
+        return 'Activate this template for Copy Center assignment.';
     }
 
     handleNew() {
@@ -338,12 +349,20 @@ export default class MasterTemplateStudio extends LightningElement {
         }
     }
 
-    handleActivate() {
-        if (!this.draft.Id) return;
-        activateTemplatePackage({ templateId: this.draft.Id })
-            .catch(error => {
-                this._toast('Activation', error.body?.message || error.message, 'info');
-            });
+    async handleActivate() {
+        if (!this.draft.Id || this.activateDisabled) return;
+        this.isSaving = true;
+        try {
+            await activateTemplatePackage({ templateId: this.draft.Id });
+            this.draft = { ...this.draft, Status__c: 'Active' };
+            await refreshApex(this._wiredTemplates);
+            this._toast('Activated', 'Template definition is active.', 'success');
+            this.closeModal();
+        } catch (error) {
+            this._toast('Activation', error.body?.message || error.message, 'error');
+        } finally {
+            this.isSaving = false;
+        }
     }
 
     handleDeleteTemplate(event) {

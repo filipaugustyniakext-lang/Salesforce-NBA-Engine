@@ -249,7 +249,6 @@
                                             <ul class="studio-panel__aside-code">
                                                 <li>&lt;cc-preview type="fixed-read"&gt;YOUR HTML&lt;/cc-preview&gt;</li>
                                                 <li>&lt;cc-preview type="fixed-edit"&gt;YOUR HTML&lt;/cc-preview&gt;</li>
-                                                <li>&lt;cc-preview type="fixed"&gt;YOUR HTML&lt;/cc-preview&gt;</li>
                                                 <li>&lt;cc-preview type="blocks"&gt;YOUR HTML&lt;/cc-preview&gt;</li>
                                             </ul>
                                         </div>
@@ -258,7 +257,7 @@
 
                             <template lwc:if={isBlocksStep}>
                                 <p class="slds-text-body_small slds-text-color_weak">
-                                    Import HTML (and optional CSS) for each content block. If all styles live in the shell file, skip block CSS here.
+                                    Optional: import HTML (and optional CSS) for separate content blocks. Shell-only templates (for example banners) can skip this step and go to Summary.
                                 </p>
                                 <template lwc:if={hasRecordId}>
                                     <lightning-file-upload
@@ -363,7 +362,7 @@
                                 <lightning-button
                                     class="slds-m-top_medium"
                                     label="Activate Template"
-                                    title="Activation requires validation (coming soon)"
+                                    title={activateTitle}
                                     disabled={activateDisabled}
                                     onclick={handleActivate}>
                                 </lightning-button>
