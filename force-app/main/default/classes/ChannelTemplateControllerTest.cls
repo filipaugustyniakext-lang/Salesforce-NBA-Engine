@@ -613,6 +613,111 @@ private class ChannelTemplateControllerTest {
         System.assert(source.blocks[0].html.contains('Offer copy'));
     }
 
+    @IsTest
+    static void blocksManualArchiveWhenPublishedVariantsUseActiveTemplate() {
+        Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
+        Id activeId = createDraftTemplate(channel.Id, 'Published Guard', 1);
+        Id shellId = uploadFile(activeId, 'guard-shell.html', ccPreviewShellHtml());
+        ChannelTemplateController.classifyUploadedFiles(
+            activeId, new List<Id>{ shellId }, 'SHELL_HTML'
+        );
+        attachManifest(activeId, 'email.guard', 'Email', 'email-preview@1');
+        ChannelTemplateController.activateTemplatePackage(activeId);
+
+        CC_Message_Metadata__c variant = new CC_Message_Metadata__c(
+            Name = 'EMA_PL_Guard_1',
+            Channel_Type__c = 'Email',
+            Status__c = 'Published',
+            Source_Template__c = activeId
+        );
+        insert variant;
+
+        Boolean rejected = false;
+        Test.startTest();
+        try {
+            ChannelTemplateController.saveTemplate(
+                new Channel_Template__c(Id = activeId, Status__c = 'Archived'),
+                channel.Id
+            );
+        } catch (AuraHandledException error) {
+            rejected = true;
+        }
+        Test.stopTest();
+
+        System.assertEquals(true, rejected, 'Manual archive should be blocked while published variants reference the active template.');
+        System.assertEquals('Active', [SELECT Status__c FROM Channel_Template__c WHERE Id = :activeId].Status__c);
+    }
+
+    @IsTest
+    static void activatingNewVersionRepointsVariantsAndArchivesPriorActive() {
+        Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
+        Id firstId = createDraftTemplate(channel.Id, 'Repoint First', 1);
+        Id firstShell = uploadFile(firstId, 'repoint-first.html', ccPreviewShellHtml());
+        ChannelTemplateController.classifyUploadedFiles(
+            firstId, new List<Id>{ firstShell }, 'SHELL_HTML'
+        );
+        attachManifest(firstId, 'email.repoint.first', 'Email', 'email-preview@1');
+        ChannelTemplateController.activateTemplatePackage(firstId);
+
+        CC_Message_Metadata__c variant = new CC_Message_Metadata__c(
+            Name = 'EMA_PL_Repoint_1',
+            Channel_Type__c = 'Email',
+            Status__c = 'Published',
+            Source_Template__c = firstId
+        );
+        insert variant;
+
+        Test.startTest();
+        Id secondId = ChannelTemplateController.cloneTemplateVersion(firstId);
+        Id secondShell = uploadFile(secondId, 'repoint-second.html', ccPreviewShellHtml());
+        ChannelTemplateController.classifyUploadedFiles(
+            secondId, new List<Id>{ secondShell }, 'SHELL_HTML'
+        );
+        attachManifest(secondId, 'email.repoint.second', 'Email', 'email-preview@1');
+        ChannelTemplateController.activateTemplatePackage(secondId);
+        Test.stopTest();
+
+        System.assertEquals('Archived', [SELECT Status__c FROM Channel_Template__c WHERE Id = :firstId].Status__c);
+        System.assertEquals('Active', [SELECT Status__c FROM Channel_Template__c WHERE Id = :secondId].Status__c);
+        System.assertEquals(
+            secondId,
+            [SELECT Source_Template__c FROM CC_Message_Metadata__c WHERE Id = :variant.Id].Source_Template__c
+        );
+    }
+
+    @IsTest
+    static void cloneTemplateVersionCreatesDraftWithLinkedFiles() {
+        Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
+        Id activeId = createDraftTemplate(channel.Id, 'Clone Source', 1);
+        Id shellId = uploadFile(activeId, 'clone-shell.html', ccPreviewShellHtml());
+        ChannelTemplateController.classifyUploadedFiles(
+            activeId, new List<Id>{ shellId }, 'SHELL_HTML'
+        );
+        attachManifest(activeId, 'email.clone', 'Email', 'email-preview@1');
+        ChannelTemplateController.activateTemplatePackage(activeId);
+
+        Test.startTest();
+        Id draftId = ChannelTemplateController.cloneTemplateVersion(activeId);
+        Test.stopTest();
+
+        Channel_Template__c draft = [
+            SELECT Status__c, Version__c
+            FROM Channel_Template__c
+            WHERE Id = :draftId
+        ];
+        System.assertEquals('Draft', draft.Status__c);
+        System.assertEquals(2, draft.Version__c);
+        System.assertEquals(
+            2,
+            [SELECT COUNT() FROM ContentDocumentLink WHERE LinkedEntityId = :draftId],
+            'Cloned draft should share the same package files.'
+        );
+    }
+
+    private static String ccPreviewShellHtml() {
+        return '<html><body><cc-preview type="blocks" data-key="body" data-label="BODY"></cc-preview></body></html>';
+    }
+
     private static Id createDraftTemplate(Id channelId, String name, Decimal version) {
         return ChannelTemplateController.saveTemplate(
             new Channel_Template__c(Name = name, Status__c = 'Draft', Version__c = version),

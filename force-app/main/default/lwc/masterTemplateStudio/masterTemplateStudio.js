@@ -9,6 +9,7 @@ import deleteTemplate from '@salesforce/apex/ChannelTemplateController.deleteTem
 import getShellPreviewRegions from '@salesforce/apex/ChannelTemplateController.getShellPreviewRegions';
 import syncDraftBlockCatalog from '@salesforce/apex/ChannelTemplateController.syncDraftBlockCatalog';
 import activateTemplatePackage from '@salesforce/apex/ChannelTemplateController.activateTemplatePackage';
+import cloneTemplateVersion from '@salesforce/apex/ChannelTemplateController.cloneTemplateVersion';
 import {
     COUNTRY_OPTIONS,
     CLASSIFICATION_OPTIONS,
@@ -39,6 +40,7 @@ export default class MasterTemplateStudio extends LightningElement {
     @track pendingDelete = null;
     @track shellRegions = [];
     @track shellRegionError = '';
+    @track summaryPreviewDevice = 'desktop';
 
     acceptedHtml = ['.html'];
     acceptedCss = ['.css'];
@@ -98,8 +100,22 @@ export default class MasterTemplateStudio extends LightningElement {
                 ? 'Unassign this template from all message variants before deleting.'
                 : item.status === 'Active'
                     ? 'Archive the template before deleting.'
-                    : 'Delete template'
+                    : 'Delete template',
+            showNewVersion: item.status === 'Active',
+            newVersionTitle: item.archiveBlockedByPublished
+                ? 'Clone a new draft version (required when published variants use this template).'
+                : 'Create a new draft version from this active template.',
+            editTitle: item.status === 'Active'
+                ? 'View active template (create a new version to edit files).'
+                : 'Edit'
         }));
+    }
+
+    get summaryLayoutClass() {
+        const wide = this.summaryPreviewDevice === 'desktop'
+            ? ' studio-summary-layout--desktop-preview'
+            : '';
+        return `studio-summary-layout${wide}`;
     }
 
     get modalTitle() {
@@ -222,7 +238,38 @@ export default class MasterTemplateStudio extends LightningElement {
         this.wizardStep = 'basic';
         this.shellRegions = [];
         this.shellRegionError = '';
+        this.summaryPreviewDevice = 'desktop';
         this.isModalOpen = true;
+    }
+
+    handlePreviewLayoutChange(event) {
+        const device = event.detail?.device;
+        if (device === 'desktop' || device === 'mobile') {
+            this.summaryPreviewDevice = device;
+        }
+    }
+
+    async handleNewVersion(event) {
+        const sourceId = event.currentTarget.dataset.id;
+        if (!sourceId) return;
+        this.isSaving = true;
+        try {
+            const newId = await cloneTemplateVersion({ sourceTemplateId: sourceId });
+            await refreshApex(this._wiredTemplates);
+            const source = (this._wiredTemplates?.data || []).find(t => t.id === newId);
+            if (source) {
+                this.handleEdit({ currentTarget: { dataset: { id: newId } } });
+            }
+            this._toast(
+                'New version',
+                'Draft template version created. Update files if needed, then activate to supersede the active package.',
+                'success'
+            );
+        } catch (error) {
+            this._toast('Error', this._apexErrorMessage(error), 'error');
+        } finally {
+            this.isSaving = false;
+        }
     }
 
     handleEdit(event) {
@@ -396,6 +443,7 @@ export default class MasterTemplateStudio extends LightningElement {
         this.draft = EMPTY_DRAFT();
         this.wizardStep = 'basic';
         this.shellRegions = [];
+        this.summaryPreviewDevice = 'desktop';
     }
 
     async _classifyUpload(event, assetType) {

@@ -33,10 +33,19 @@
                                 <span class={item.statusClass}>{item.status}</span>
                             </div>
                             <div class="slds-button-group">
+                                <template lwc:if={item.showNewVersion}>
+                                    <lightning-button-icon
+                                        icon-name="utility:copy"
+                                        alternative-text="New version"
+                                        title={item.newVersionTitle}
+                                        data-id={item.id}
+                                        onclick={handleNewVersion}>
+                                    </lightning-button-icon>
+                                </template>
                                 <lightning-button-icon
                                     icon-name="utility:edit"
                                     alternative-text="Edit"
-                                    title="Edit"
+                                    title={item.editTitle}
                                     data-id={item.id}
                                     onclick={handleEdit}>
                                 </lightning-button-icon>
@@ -324,7 +333,7 @@
                             </template>
 
                             <template lwc:if={isSummaryStep}>
-                                <div class="studio-summary-layout">
+                                <div class={summaryLayoutClass}>
                                 <div class="studio-summary-layout__main">
                                 <h3 class="slds-text-heading_small">Summary</h3>
                                 <dl class="studio-summary">
@@ -374,7 +383,8 @@
                                         template-id={draft.Id}
                                         empty-canvas
                                         heading="Content Builder preview"
-                                        help-text="fixed-read and fixed-edit render shell HTML as-is; blocks start empty until content is added in Copy Center.">
+                                        help-text="fixed-read and fixed-edit render shell HTML as-is; blocks start empty until content is added in Copy Center."
+                                        onpreviewlayoutchange={handlePreviewLayoutChange}>
                                     </c-copy-template-preview-panel>
                                 </div>
                                 </div>

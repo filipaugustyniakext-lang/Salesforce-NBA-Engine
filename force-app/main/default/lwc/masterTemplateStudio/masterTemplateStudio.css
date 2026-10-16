@@ -239,6 +239,10 @@
     align-items: start;
 }
 
+.studio-summary-layout--desktop-preview {
+    grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr);
+}
+
 .studio-summary-layout__main {
     min-width: 0;
 }

@@ -71,9 +71,36 @@ export default class CopyTemplatePreviewPanel extends LightningElement {
         return renderTemplatePreview(this._renderSource, this._canvasBlocks, this._previewDevice);
     }
 
+    get isDesktop() {
+        return this._previewDevice === 'desktop';
+    }
+
+    get isMobile() {
+        return this._previewDevice === 'mobile';
+    }
+
+    get isLightTheme() {
+        return this._previewTheme === 'light';
+    }
+
+    get isDarkTheme() {
+        return this._previewTheme === 'dark';
+    }
+
+    get panelClass() {
+        const device = this.isDesktop ? ' preview-panel_device-desktop' : ' preview-panel_device-mobile';
+        const theme = this.isDarkTheme ? ' preview-panel_theme-dark' : '';
+        return `preview-panel${device}${theme}`;
+    }
+
+    get previewBodyClass() {
+        const theme = this.isDarkTheme ? ' preview-panel__body_dark' : '';
+        return `preview-panel__body${theme}`;
+    }
+
     get previewFrameClass() {
-        const device = this._previewDevice === 'mobile' ? 'preview-panel__frame_mobile' : 'preview-panel__frame_desktop';
-        const theme = this._previewTheme === 'dark' ? 'preview-panel__frame_dark' : 'preview-panel__frame_light';
+        const device = this.isMobile ? 'preview-panel__frame_mobile' : 'preview-panel__frame_desktop';
+        const theme = this.isDarkTheme ? 'preview-panel__frame_dark' : 'preview-panel__frame_light';
         return `preview-panel__frame ${device} ${theme}`;
     }
 
@@ -116,11 +143,13 @@ export default class CopyTemplatePreviewPanel extends LightningElement {
     handleDeviceDesktop() {
         this._previewDevice = 'desktop';
         this._previewTick += 1;
+        this._emitLayoutChange();
     }
 
     handleDeviceMobile() {
         this._previewDevice = 'mobile';
         this._previewTick += 1;
+        this._emitLayoutChange();
     }
 
     handleThemeLight() {
@@ -131,6 +160,14 @@ export default class CopyTemplatePreviewPanel extends LightningElement {
     handleThemeDark() {
         this._previewTheme = 'dark';
         this._previewTick += 1;
+    }
+
+    _emitLayoutChange() {
+        this.dispatchEvent(new CustomEvent('previewlayoutchange', {
+            bubbles: true,
+            composed: true,
+            detail: { device: this._previewDevice }
+        }));
     }
 
     _loadRenderSource() {

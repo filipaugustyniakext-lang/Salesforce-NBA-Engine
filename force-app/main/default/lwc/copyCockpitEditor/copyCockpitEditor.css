@@ -1003,6 +1003,11 @@
     padding: 1rem 0.75rem;
     background: #f3f2f2;
     height:100%;
+    transition: background 0.2s;
+}
+
+.editor-preview-body_dark {
+    background: #1a1a1a;
 }
 
 .editor-preview__mock-wrap {
@@ -1078,6 +1083,22 @@
     min-height: 520px;
     overflow: auto;
     background: #fff;
+}
+
+.editor-preview_dark .editor-preview__shell {
+    background: #1a1a1a;
+}
+
+.editor-preview_dark .editor-preview__browser-bar {
+    background: #2a2a2a;
+    border-bottom-color: #3e3e3c;
+}
+
+.editor-preview__shell .cc-preview table.mobile-full,
+.editor-preview__shell .cc-preview table.mobile-full td,
+.editor-preview__shell .cc-preview table.mobile-full th {
+    border: 0 !important;
+    outline: none !important;
 }
 
 .cc-preview table:not([width]):not([style*="width"]) {

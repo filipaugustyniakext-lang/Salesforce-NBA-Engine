@@ -1,43 +1,31 @@
 <template>
-    <section class="preview-panel">
+    <section class={panelClass}>
         <div class="preview-panel__header">
             <div>
                 <h3 class="slds-text-heading_small">{heading}</h3>
                 <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">{helpText}</p>
             </div>
             <div class="preview-panel__toolbar" role="toolbar" aria-label="Preview options">
-                <lightning-button-icon
-                    icon-name="utility:desktop"
-                    variant={deviceDesktopVariant}
-                    class={deviceDesktopClass}
-                    alternative-text="Desktop preview"
-                    title="Desktop"
-                    onclick={handleDeviceDesktop}>
-                </lightning-button-icon>
-                <lightning-button-icon
-                    icon-name="utility:phone_portrait"
-                    variant={deviceMobileVariant}
-                    class={deviceMobileClass}
-                    alternative-text="Mobile preview"
-                    title="Mobile"
-                    onclick={handleDeviceMobile}>
-                </lightning-button-icon>
-                <lightning-button-icon
-                    icon-name="utility:dayview"
-                    variant={themeLightVariant}
-                    class={themeLightClass}
-                    alternative-text="Light theme"
-                    title="Light"
-                    onclick={handleThemeLight}>
-                </lightning-button-icon>
-                <lightning-button-icon
-                    icon-name="utility:night"
-                    variant={themeDarkVariant}
-                    class={themeDarkClass}
-                    alternative-text="Dark theme"
-                    title="Dark"
-                    onclick={handleThemeDark}>
-                </lightning-button-icon>
+                <div class="slds-button-group" role="group" aria-label="Device">
+                    <button class={deviceDesktopClass} type="button" onclick={handleDeviceDesktop} title="Desktop preview" aria-pressed={isDesktop}>
+                        <lightning-icon icon-name="utility:desktop" size="x-small" variant={deviceDesktopVariant} class="slds-button__icon"></lightning-icon>
+                        <span class="slds-assistive-text">Desktop</span>
+                    </button>
+                    <button class={deviceMobileClass} type="button" onclick={handleDeviceMobile} title="Mobile preview" aria-pressed={isMobile}>
+                        <lightning-icon icon-name="utility:phone_portrait" size="x-small" variant={deviceMobileVariant} class="slds-button__icon"></lightning-icon>
+                        <span class="slds-assistive-text">Mobile</span>
+                    </button>
+                </div>
+                <div class="slds-button-group slds-m-left_x-small" role="group" aria-label="Theme">
+                    <button class={themeLightClass} type="button" onclick={handleThemeLight} title="Light mode" aria-pressed={isLightTheme}>
+                        <lightning-icon icon-name="utility:daylight" size="x-small" variant={themeLightVariant} class="slds-button__icon"></lightning-icon>
+                        <span class="slds-assistive-text">Light</span>
+                    </button>
+                    <button class={themeDarkClass} type="button" onclick={handleThemeDark} title="Dark mode" aria-pressed={isDarkTheme}>
+                        <lightning-icon icon-name="utility:night" size="x-small" variant={themeDarkVariant} class="slds-button__icon"></lightning-icon>
+                        <span class="slds-assistive-text">Dark</span>
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -48,8 +36,22 @@
         </template>
 
         <template lwc:elseif={hasShellPreview}>
-            <div class={previewFrameClass}>
-                <div class="preview-panel__document" data-preview-host lwc:dom="manual"></div>
+            <div class={previewBodyClass}>
+                <div class="preview-panel__mock-wrap">
+                    <div class={previewFrameClass}>
+                        <template lwc:if={isMobile}>
+                            <div class="preview-panel__notch"></div>
+                        </template>
+                        <template lwc:if={isDesktop}>
+                            <div class="preview-panel__browser-bar">
+                                <span class="preview-panel__browser-dot"></span>
+                                <span class="preview-panel__browser-dot"></span>
+                                <span class="preview-panel__browser-dot"></span>
+                            </div>
+                        </template>
+                        <div class="preview-panel__document" data-preview-host lwc:dom="manual"></div>
+                    </div>
+                </div>
             </div>
         </template>
 

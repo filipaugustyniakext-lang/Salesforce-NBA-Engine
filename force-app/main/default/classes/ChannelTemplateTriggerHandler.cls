@@ -1,5 +1,7 @@
 public with sharing class ChannelTemplateTriggerHandler {
     public static Boolean allowActiveDelete = false;
+    /** Allows archiving the current Active template when a new version is activated in the same transaction. */
+    public static Boolean allowSupersedingArchive = false;
 
     public static void beforeInsert(List<Channel_Template__c> newRecords) {
         for (Channel_Template__c record : newRecords) {
@@ -37,6 +39,14 @@ public with sharing class ChannelTemplateTriggerHandler {
                     );
                 } else if (packageContentChanged(record, oldRecord)) {
                     record.addError('Archiving an Active package may only change its Status.');
+                } else if (
+                    !allowSupersedingArchive
+                    && ChannelTemplateController.countPublishedVariantsUsingTemplate(record.Id) > 0
+                ) {
+                    record.addError(
+                        'This active template is used by published message variants and cannot be archived. '
+                        + 'Create a new template version and activate it instead; message variants will move to the new version.'
+                    );
                 }
                 continue;
             }
@@ -83,14 +93,38 @@ public with sharing class ChannelTemplateTriggerHandler {
         if (channelIds.isEmpty()) return;
 
         List<Channel_Template__c> priorActive = [
-            SELECT Id, Status__c
+            SELECT Id, Status__c, Channel__c
             FROM Channel_Template__c
             WHERE Channel__c IN :channelIds
               AND Status__c = 'Active'
               AND Id NOT IN :activatedIds
         ];
+        if (priorActive.isEmpty()) return;
+
+        Map<Id, Id> successorBySuperseded = new Map<Id, Id>();
+        for (Channel_Template__c record : newRecords) {
+            if (!activatedIds.contains(record.Id)) continue;
+            for (Channel_Template__c prior : priorActive) {
+                if (prior.Channel__c == record.Channel__c) {
+                    successorBySuperseded.put(prior.Id, record.Id);
+                }
+            }
+        }
+
         for (Channel_Template__c record : priorActive) record.Status__c = 'Archived';
-        if (!priorActive.isEmpty()) update priorActive;
+        allowSupersedingArchive = true;
+        try {
+            update priorActive;
+        } finally {
+            allowSupersedingArchive = false;
+        }
+
+        for (Id supersededId : successorBySuperseded.keySet()) {
+            ChannelTemplateController.repointMessageVariants(
+                new Set<Id>{ supersededId },
+                successorBySuperseded.get(supersededId)
+            );
+        }
     }
 
     private static Map<Id, String> loadChannelTypes(List<Channel_Template__c> templates) {

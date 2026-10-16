@@ -39,7 +39,9 @@ public with sharing class ChannelTemplateController {
         @AuraEnabled public List<String> shellPreviewRegions = new List<String>();
         @AuraEnabled public List<String> contentBlockNames = new List<String>();
         @AuraEnabled public Integer messageVariantCount = 0;
+        @AuraEnabled public Integer publishedVariantCount = 0;
         @AuraEnabled public Boolean deleteBlockedByMessages = false;
+        @AuraEnabled public Boolean archiveBlockedByPublished = false;
         @AuraEnabled public List<String> validationIssues = new List<String>();
         @AuraEnabled public List<TemplateAsset> assets = new List<TemplateAsset>();
         @AuraEnabled public List<CatalogComponent> components = new List<CatalogComponent>();
@@ -133,6 +135,20 @@ public with sharing class ChannelTemplateController {
                 definition.messageVariantCount = count == null ? 0 : count;
                 definition.deleteBlockedByMessages = definition.messageVariantCount > 0;
             }
+            for (AggregateResult row : [
+                SELECT Source_Template__c templateId, COUNT(Id) publishedCount
+                FROM CC_Message_Metadata__c
+                WHERE Source_Template__c IN :byId.keySet()
+                  AND Status__c = 'Published'
+                GROUP BY Source_Template__c
+            ]) {
+                Id templateId = (Id) row.get('templateId');
+                TemplateDefinition definition = byId.get(templateId);
+                if (definition == null) continue;
+                Integer count = (Integer) row.get('publishedCount');
+                definition.publishedVariantCount = count == null ? 0 : count;
+                definition.archiveBlockedByPublished = definition.publishedVariantCount > 0;
+            }
             for (TemplateDefinition definition : byId.values()) {
                 definition.validationIssues = buildValidationIssues(definition);
             }
@@ -207,6 +223,15 @@ public with sharing class ChannelTemplateController {
                 throw new AuraHandledException('A template cannot be moved to another channel.');
             }
             if (existing.Status__c == 'Active' && record.Status__c == 'Archived') {
+                if (
+                    !ChannelTemplateTriggerHandler.allowSupersedingArchive
+                    && countPublishedVariantsUsingTemplate(record.Id) > 0
+                ) {
+                    throw new AuraHandledException(
+                        'This active template is used by published message variants and cannot be archived. '
+                        + 'Create a new template version and activate it instead.'
+                    );
+                }
                 update new Channel_Template__c(Id = record.Id, Status__c = 'Archived');
                 return record.Id;
             }
@@ -240,14 +265,103 @@ public with sharing class ChannelTemplateController {
                   AND Status__c = 'Active'
                   AND Id != :record.Id
             ];
+            Set<Id> supersededTemplateIds = new Set<Id>();
             for (Channel_Template__c activeTemplate : activeTemplates) {
+                supersededTemplateIds.add(activeTemplate.Id);
                 activeTemplate.Status__c = 'Archived';
             }
-            if (!activeTemplates.isEmpty()) update activeTemplates;
+            ChannelTemplateTriggerHandler.allowSupersedingArchive = true;
+            try {
+                if (!activeTemplates.isEmpty()) {
+                    update activeTemplates;
+                }
+            } finally {
+                ChannelTemplateTriggerHandler.allowSupersedingArchive = false;
+            }
+            upsert record;
+            repointMessageVariants(supersededTemplateIds, record.Id);
+            return record.Id;
         }
 
         upsert record;
         return record.Id;
+    }
+
+    public static Integer countPublishedVariantsUsingTemplate(Id templateId) {
+        if (templateId == null) return 0;
+        return [
+            SELECT COUNT()
+            FROM CC_Message_Metadata__c
+            WHERE Source_Template__c = :templateId
+              AND Status__c = 'Published'
+        ];
+    }
+
+    public static void repointMessageVariants(Set<Id> fromTemplateIds, Id toTemplateId) {
+        if (toTemplateId == null || fromTemplateIds == null || fromTemplateIds.isEmpty()) {
+            return;
+        }
+        List<CC_Message_Metadata__c> variants = [
+            SELECT Id, Source_Template__c
+            FROM CC_Message_Metadata__c
+            WHERE Source_Template__c IN :fromTemplateIds
+        ];
+        if (variants.isEmpty()) return;
+        for (CC_Message_Metadata__c variant : variants) {
+            variant.Source_Template__c = toTemplateId;
+        }
+        update variants;
+    }
+
+    @AuraEnabled
+    public static Id cloneTemplateVersion(Id sourceTemplateId) {
+        if (sourceTemplateId == null) {
+            throw new AuraHandledException('Template is required.');
+        }
+        Channel_Template__c source = [
+            SELECT Id, Name, Status__c, Channel__c, Version__c, Description__c,
+                   Country_Code__c, Template_Classification__c, Template_Slug__c,
+                   Package_Id__c, SemVer__c, Package_Hash__c, Compiler_Version__c,
+                   Manifest_JSON__c, Validation_Status__c, Validation_Message__c, Validated_At__c
+            FROM Channel_Template__c
+            WHERE Id = :sourceTemplateId
+            LIMIT 1
+        ];
+        if (source.Status__c != 'Active') {
+            throw new AuraHandledException('Create a new version only from the active template package.');
+        }
+        AggregateResult maxVersionRow = [
+            SELECT MAX(Version__c) maxVersion
+            FROM Channel_Template__c
+            WHERE Channel__c = :source.Channel__c
+              AND Template_Slug__c = :source.Template_Slug__c
+        ];
+        Decimal maxVersion = (Decimal) maxVersionRow.get('maxVersion');
+        Decimal nextVersion = (maxVersion == null ? source.Version__c : maxVersion) + 1;
+
+        Channel_Template__c draft = source.clone(false, true, false, false);
+        draft.Status__c = 'Draft';
+        draft.Version__c = nextVersion;
+        insert draft;
+
+        List<ContentDocumentLink> sourceLinks = [
+            SELECT ContentDocumentId, ShareType, Visibility
+            FROM ContentDocumentLink
+            WHERE LinkedEntityId = :sourceTemplateId
+        ];
+        if (!sourceLinks.isEmpty()) {
+            List<ContentDocumentLink> draftLinks = new List<ContentDocumentLink>();
+            for (ContentDocumentLink link : sourceLinks) {
+                draftLinks.add(new ContentDocumentLink(
+                    LinkedEntityId = draft.Id,
+                    ContentDocumentId = link.ContentDocumentId,
+                    ShareType = link.ShareType,
+                    Visibility = link.Visibility
+                ));
+            }
+            insert draftLinks;
+        }
+        return draft.Id;
     }
 
     @AuraEnabled(cacheable=true)
@@ -307,18 +421,24 @@ public with sharing class ChannelTemplateController {
               AND Status__c = 'Active'
               AND Id != :templateId
         ];
+        Set<Id> supersededTemplateIds = new Set<Id>();
         for (Channel_Template__c other : otherActive) {
+            supersededTemplateIds.add(other.Id);
             other.Status__c = 'Archived';
         }
+        ChannelTemplateTriggerHandler.allowSupersedingArchive = true;
         try {
             if (!otherActive.isEmpty()) {
                 update otherActive;
             }
             update template;
+            repointMessageVariants(supersededTemplateIds, template.Id);
         } catch (DmlException error) {
             throw new AuraHandledException(
                 error.getNumDml() > 0 ? error.getDmlMessage(0) : error.getMessage()
             );
+        } finally {
+            ChannelTemplateTriggerHandler.allowSupersedingArchive = false;
         }
         return template.Id;
     }
