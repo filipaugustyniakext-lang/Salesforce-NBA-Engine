@@ -342,12 +342,21 @@
                                                                 <p class="slds-text-body_small slds-text-color_weak slds-truncate" title={block.fileMeta}>{block.fileMeta}</p>
                                                             </div>
                                                         </header>
-                                                        <div class="slds-no-flex">
+                                                        <div class="slds-no-flex studio-block-summary__actions">
                                                             <lightning-button
                                                                 label="Edit"
                                                                 data-type={block.type}
                                                                 onclick={handleEditBlockDefinition}>
                                                             </lightning-button>
+                                                            <lightning-button-icon
+                                                                class="slds-m-left_x-small"
+                                                                icon-name="utility:delete"
+                                                                variant="border-filled"
+                                                                alternative-text="Delete content block definition"
+                                                                title="Delete content block definition"
+                                                                data-type={block.type}
+                                                                onclick={handleDeleteBlockDefinition}>
+                                                            </lightning-button-icon>
                                                         </div>
                                                     </div>
                                                     <div class="slds-card__body slds-card__body_inner">
@@ -542,6 +551,25 @@
                     <template lwc:if={isBlocksStep}>
                         <lightning-button label="Next" variant="brand" onclick={handleNext} class="slds-m-left_x-small"></lightning-button>
                     </template>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+    <template lwc:if={pendingBlockDelete}>
+        <section role="alertdialog" tabindex="-1" aria-modal="true" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header slds-theme_warning">
+                    <h2 class="slds-modal__title">Delete content block definition?</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    Delete <strong>{pendingBlockDelete.title}</strong>? This removes the block definition from the template catalog
+                    <template lwc:if={pendingBlockDelete.documentId}> and unlinks its HTML file</template>.
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={closeBlockDeleteModal}></lightning-button>
+                    <lightning-button label="Delete" variant="destructive" onclick={confirmDeleteBlockDefinition} class="slds-m-left_x-small"></lightning-button>
                 </footer>
             </div>
         </section>

@@ -40,6 +40,7 @@ export default class MasterTemplateStudio extends LightningElement {
     @track isModalOpen = false;
     @track isSaving = false;
     @track pendingDelete = null;
+    @track pendingBlockDelete = null;
     @track shellRegions = [];
     @track shellRegionError = '';
     @track showNewBlockDefinitionForm = false;
@@ -196,7 +197,8 @@ export default class MasterTemplateStudio extends LightningElement {
                 validationBadgeClass: validated
                     ? 'slds-badge slds-theme_success'
                     : 'slds-badge slds-badge_lightest',
-                descriptionDisplay: component.description || 'No description provided.'
+                descriptionDisplay: component.description || 'No description provided.',
+                documentId: this._contentBlockDocumentId(component.fileName)
             };
         });
     }
@@ -477,6 +479,70 @@ export default class MasterTemplateStudio extends LightningElement {
         this._resetPendingBlockDraft();
     }
 
+    handleDeleteBlockDefinition(event) {
+        const blockType = event.currentTarget.dataset.type;
+        const block = this.contentBlockCards.find(item => item.type === blockType)
+            || this._savedBlockDefinitions()
+                .filter(component => !(
+                    this.showNewBlockDefinitionForm
+                    && this.pendingBlockDraft.draftKey
+                    && component.type === this.pendingBlockDraft.draftKey
+                ))
+                .map((component, index) => ({
+                    type: component.type,
+                    displayTitle: component.label || component.fileName || component.type,
+                    documentId: this._contentBlockDocumentId(component.fileName)
+                }))
+                .find(item => item.type === blockType);
+        if (!block) return;
+        this.pendingBlockDelete = {
+            type: blockType,
+            title: block.displayTitle || blockType,
+            documentId: block.documentId
+        };
+    }
+
+    closeBlockDeleteModal() {
+        this.pendingBlockDelete = null;
+    }
+
+    async confirmDeleteBlockDefinition() {
+        const pending = this.pendingBlockDelete;
+        this.pendingBlockDelete = null;
+        if (!pending || !this.draft.Id) return;
+        this.isSaving = true;
+        try {
+            const rows = this._componentCatalogRows().filter(
+                row => row.type !== pending.type && row.fileName !== pending.type
+            );
+            await saveComponentCatalog({
+                templateId: this.draft.Id,
+                componentsJson: JSON.stringify(rows)
+            });
+            if (pending.documentId) {
+                await deleteTemplateAsset({
+                    templateId: this.draft.Id,
+                    documentId: pending.documentId
+                });
+            }
+            if (
+                this.showNewBlockDefinitionForm
+                && this.pendingBlockDraft.draftKey === pending.type
+            ) {
+                this.showNewBlockDefinitionForm = false;
+                this._resetPendingBlockDraft();
+            }
+            await refreshApex(this._wiredTemplates);
+            // eslint-disable-next-line @lwc/lwc/no-async-operation
+            requestAnimationFrame(() => this._refreshStudioPreviews());
+            this._toast('Deleted', 'Content block definition removed.', 'success');
+        } catch (error) {
+            this._toast('Error', this._apexErrorMessage(error), 'error');
+        } finally {
+            this.isSaving = false;
+        }
+    }
+
     handlePendingBlockFieldChange(event) {
         const field = event.currentTarget.dataset.field;
         const value = event.detail?.value ?? event.target?.value ?? '';
@@ -677,6 +743,17 @@ export default class MasterTemplateStudio extends LightningElement {
         if (normalized === 'active') return 'slds-badge slds-theme_success';
         if (normalized === 'ready') return 'slds-badge slds-theme_info';
         return 'slds-badge slds-badge_lightest';
+    }
+
+    _contentBlockDocumentId(fileName) {
+        if (!fileName) return null;
+        const target = fileName.toLowerCase().replace(/\.html$/i, '');
+        const asset = this.blockHtmlAssets.find(item => {
+            const name = (item.name || '').toLowerCase();
+            const base = name.replace(/\.html$/i, '');
+            return name === fileName.toLowerCase() || base === target;
+        });
+        return asset?.documentId || null;
     }
 
     _assets(assetType) {
