@@ -93,18 +93,24 @@ export default class MasterTemplateStudio extends LightningElement {
                 ? item.contentBlockNames
                 : (item.components || []).map(c => c.fileName).filter(Boolean);
             const validationStatus = String(item.validationStatus || '').trim();
+            const validationIsValid = validationStatus === 'Valid';
             const packageValidationBadge = this._packageValidationBadge(validationStatus);
             const supplementalValidationIssues = (item.validationIssues || []).filter(line =>
                 this._isSupplementalValidationIssue(line, validationStatus)
             );
+            const displayStatus = item.status === 'Active' && !validationIsValid
+                ? 'Draft'
+                : item.status;
+            const statusClass = displayStatus === 'Active'
+                ? 'slds-badge template-status template-status_active'
+                : displayStatus === 'Archived'
+                    ? 'slds-badge template-status template-status_archived'
+                    : 'slds-badge template-status';
 
             return {
             ...item,
-            statusClass: item.status === 'Active'
-                ? 'slds-badge template-status template-status_active'
-                : item.status === 'Archived'
-                    ? 'slds-badge template-status template-status_archived'
-                    : 'slds-badge template-status',
+            displayStatus,
+            statusClass,
             blockLabels,
             blockBadges: blockLabels.map((label, index) => ({
                 key: `block-${item.id}-${index}-${label}`,
@@ -146,6 +152,12 @@ export default class MasterTemplateStudio extends LightningElement {
             return {
                 label: 'Package is invalid',
                 className: 'slds-badge slds-theme_error'
+            };
+        }
+        if (!validationStatus || validationStatus === 'Not Validated') {
+            return {
+                label: 'Not validated yet',
+                className: 'slds-badge slds-theme_warning'
             };
         }
         return null;
@@ -334,7 +346,7 @@ export default class MasterTemplateStudio extends LightningElement {
         if (!this.shellRegionsOk) {
             return 'Upload shell HTML with cc-preview regions before activation.';
         }
-        return 'Activate this template for Copy Center assignment.';
+        return 'Validate the package and activate this template for Copy Center. Unvalidated packages cannot become active.';
     }
 
     handleNew() {
@@ -481,24 +493,12 @@ export default class MasterTemplateStudio extends LightningElement {
 
     handleDeleteBlockDefinition(event) {
         const blockType = event.currentTarget.dataset.type;
-        const block = this.contentBlockCards.find(item => item.type === blockType)
-            || this._savedBlockDefinitions()
-                .filter(component => !(
-                    this.showNewBlockDefinitionForm
-                    && this.pendingBlockDraft.draftKey
-                    && component.type === this.pendingBlockDraft.draftKey
-                ))
-                .map((component, index) => ({
-                    type: component.type,
-                    displayTitle: component.label || component.fileName || component.type,
-                    documentId: this._contentBlockDocumentId(component.fileName)
-                }))
-                .find(item => item.type === blockType);
-        if (!block) return;
+        const component = this._savedBlockDefinitions().find(item => item.type === blockType);
+        if (!component) return;
         this.pendingBlockDelete = {
             type: blockType,
-            title: block.displayTitle || blockType,
-            documentId: block.documentId
+            title: component.label || component.fileName || blockType,
+            documentId: this._contentBlockDocumentId(component.fileName)
         };
     }
 
@@ -512,9 +512,7 @@ export default class MasterTemplateStudio extends LightningElement {
         if (!pending || !this.draft.Id) return;
         this.isSaving = true;
         try {
-            const rows = this._componentCatalogRows().filter(
-                row => row.type !== pending.type && row.fileName !== pending.type
-            );
+            const rows = this._componentCatalogRows().filter(row => row.type !== pending.type);
             await saveComponentCatalog({
                 templateId: this.draft.Id,
                 componentsJson: JSON.stringify(rows)

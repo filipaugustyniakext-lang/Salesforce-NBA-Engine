@@ -12,8 +12,18 @@
 
 .studio-tiles {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.75rem;
+}
+
+@media (max-width: 48rem) {
+    .studio-tiles {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.studio-tile {
+    min-width: 0;
 }
 
 .studio-tile__header {
@@ -22,11 +32,22 @@
     align-items: flex-start;
     gap: 0.75rem;
     margin-bottom: 0.75rem;
-    flex-wrap: wrap;
 }
 
-.studio-tile__header > div:first-child {
+.studio-tile__title-wrap {
     flex: 1;
+    min-width: 0;
+}
+
+.studio-tile__title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.studio-tile__title-row h4 {
+    margin: 0;
     min-width: 0;
 }
 

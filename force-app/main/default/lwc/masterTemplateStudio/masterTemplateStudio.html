@@ -28,9 +28,11 @@
                 <template for:each={templates} for:item="item">
                     <article key={item.id} class="studio-tile slds-box">
                         <header class="studio-tile__header">
-                            <div>
-                                <h4 class="slds-text-heading_small">{item.name}</h4>
-                                <span class={item.statusClass}>{item.status}</span>
+                            <div class="studio-tile__title-wrap">
+                                <div class="studio-tile__title-row">
+                                    <h4 class="slds-text-heading_small slds-truncate" title={item.name}>{item.name}</h4>
+                                    <span class={item.statusClass}>{item.displayStatus}</span>
+                                </div>
                             </div>
                             <div class="studio-tile__actions" role="group" aria-label="Template actions">
                                 <lightning-button-icon
@@ -93,9 +95,6 @@
                                                 <li key={issue}>{issue}</li>
                                             </template>
                                         </ul>
-                                    </template>
-                                    <template lwc:if={item.showValidationPending}>
-                                        <span class="slds-text-body_small slds-text-color_weak">Not validated yet</span>
                                     </template>
                                 </dd>
                             </div>

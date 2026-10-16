@@ -400,7 +400,7 @@ public with sharing class ChannelTemplateController {
             throw new AuraHandledException('Template is required.');
         }
         List<Channel_Template__c> templates = [
-            SELECT Id, Status__c, Channel__c
+            SELECT Id, Status__c, Channel__c, Validation_Status__c, Channel__r.Channel_Type__c
             FROM Channel_Template__c
             WHERE Id = :templateId
             LIMIT 1
@@ -409,13 +409,25 @@ public with sharing class ChannelTemplateController {
             throw new AuraHandledException('Template definition was not found or you do not have access.');
         }
         Channel_Template__c template = templates[0];
-        if (template.Status__c == 'Active') {
+        if (template.Status__c == 'Active' && template.Validation_Status__c == 'Valid') {
             throw new AuraHandledException('This template is already active.');
         }
         List<String> regions = scanCcPreviewRegionsInOrder(readShellHtmlForTemplate(templateId));
         if (regions.isEmpty()) {
             throw new AuraHandledException(
                 'Upload shell HTML with at least one cc-preview region before activation.'
+            );
+        }
+        ChannelTemplateManifestService.ValidationResult validation =
+            ChannelTemplateManifestService.validate(
+                template.Id,
+                template.Channel__r.Channel_Type__c
+            );
+        applyValidation(template, validation);
+        if (!validation.valid) {
+            update template;
+            throw new AuraHandledException(
+                'Template package validation failed:\n' + validation.message
             );
         }
         // Content block HTML is optional (shell-only templates such as banners).
