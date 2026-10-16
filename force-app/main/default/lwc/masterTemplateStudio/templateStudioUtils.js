@@ -21,7 +21,16 @@ export const WIZARD_STEPS = [
     { value: 'summary', label: 'Validate & Preview', number: 'IV' }
 ];
 
-const CC_PREVIEW_PATTERN = /<cc-preview\b[^>]*\btype\s*=\s*(['"])(fixed-read|fixed-edit|blocks)\1/gi;
+const CC_PREVIEW_TYPE_PATTERN = /<cc-preview\b[^>]*\btype\s*=\s*(['"])([^'"]+)\1/gi;
+
+const CANONICAL_REGION_ORDER = ['fixed-read', 'fixed-edit', 'blocks'];
+
+export function normalizePreviewType(rawType) {
+    const value = String(rawType || '').trim().toLowerCase();
+    if (value === 'fixed') return 'fixed-read';
+    if (CANONICAL_REGION_ORDER.includes(value)) return value;
+    return '';
+}
 
 export function normalizeSlug(value) {
     return String(value || '')
@@ -42,17 +51,18 @@ export function composeRecordName(countryCode, slug, classification) {
 export function scanCcPreviewRegions(html) {
     const found = new Set();
     const source = String(html || '');
-    let match = CC_PREVIEW_PATTERN.exec(source);
+    let match = CC_PREVIEW_TYPE_PATTERN.exec(source);
     while (match) {
-        found.add(String(match[2]).toLowerCase());
-        match = CC_PREVIEW_PATTERN.exec(source);
+        const canonical = normalizePreviewType(match[2]);
+        if (canonical) found.add(canonical);
+        match = CC_PREVIEW_TYPE_PATTERN.exec(source);
     }
-    CC_PREVIEW_PATTERN.lastIndex = 0;
-    return ['fixed-read', 'fixed-edit', 'blocks'].filter(type => found.has(type));
+    CC_PREVIEW_TYPE_PATTERN.lastIndex = 0;
+    return CANONICAL_REGION_ORDER.filter(type => found.has(type));
 }
 
 export function regionLabel(type) {
-    if (type === 'fixed-read') return 'fixed-read (pre-rendered)';
+    if (type === 'fixed-read') return 'fixed-read / fixed (pre-rendered shell)';
     if (type === 'fixed-edit') return 'fixed-edit (editable defaults)';
     if (type === 'blocks') return 'blocks (drop zone)';
     return type;

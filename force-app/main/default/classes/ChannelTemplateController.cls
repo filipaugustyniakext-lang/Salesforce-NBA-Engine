@@ -1260,7 +1260,27 @@ public with sharing class ChannelTemplateController {
 
     private static String readShellHtmlForTemplate(Id templateId) {
         if (templateId == null) return '';
-        return readHtmlFiles(templateId).shellHtml;
+        HtmlLibrary library = readHtmlFiles(templateId);
+        if (String.isNotBlank(library.shellHtml)) return library.shellHtml;
+        for (String html : library.byName.values()) {
+            if (String.isNotBlank(html) && html.toLowerCase().contains('<cc-preview')) {
+                return html;
+            }
+        }
+        for (String name : library.byName.keySet()) {
+            if (name.contains('master') || name.contains('shell')) {
+                return library.byName.get(name);
+            }
+        }
+        return '';
+    }
+
+    private static String normalizeCcPreviewType(String rawType) {
+        if (String.isBlank(rawType)) return '';
+        String value = rawType.trim().toLowerCase();
+        if (value == 'fixed') return 'fixed-read';
+        if (value == 'fixed-read' || value == 'fixed-edit' || value == 'blocks') return value;
+        return '';
     }
 
     private static List<String> scanCcPreviewRegions(String html) {
@@ -1268,10 +1288,11 @@ public with sharing class ChannelTemplateController {
         if (String.isBlank(html)) return regions;
         Set<String> found = new Set<String>();
         Matcher matcher = Pattern.compile(
-            '(?i)<cc-preview\\b[^>]*\\btype\\s*=\\s*[\\\'\\"](fixed-read|fixed-edit|blocks)[\\\'\\"]'
+            '(?i)<cc-preview\\b[^>]*\\btype\\s*=\\s*[\\\'\\"]([^\\\'\\"]+)[\\\'\\"]'
         ).matcher(html);
         while (matcher.find()) {
-            found.add(matcher.group(1).toLowerCase());
+            String canonical = normalizeCcPreviewType(matcher.group(1));
+            if (String.isNotBlank(canonical)) found.add(canonical);
         }
         for (String region : new List<String>{ 'fixed-read', 'fixed-edit', 'blocks' }) {
             if (found.contains(region)) regions.add(region);
@@ -1287,7 +1308,7 @@ public with sharing class ChannelTemplateController {
         }
         if (definition.shellPreviewRegions == null || definition.shellPreviewRegions.isEmpty()) {
             issues.add(
-                'Shell HTML must include at least one cc-preview region (fixed-read, fixed-edit, or blocks).'
+                'Shell HTML must include at least one cc-preview region (fixed, fixed-read, fixed-edit, or blocks).'
             );
         }
         return issues;
