@@ -1003,11 +1003,6 @@
     padding: 1rem 0.75rem;
     background: #f3f2f2;
     height:100%;
-    transition: background 0.2s;
-}
-
-.editor-preview-body_dark {
-    background: #1a1a1a;
 }
 
 .editor-preview__mock-wrap {

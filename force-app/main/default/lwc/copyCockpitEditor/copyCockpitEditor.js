@@ -722,10 +722,6 @@ export default class CopyCockpitEditor extends LightningElement {
         const t = this._previewTheme  === 'dark'   ? 'editor-preview_dark'   : 'editor-preview_light';
         return 'editor-preview__frame ' + d + ' ' + t;
     }
-    get previewBodyClass() {
-        const theme = this._previewTheme === 'dark' ? ' editor-preview-body_dark' : '';
-        return 'slds-panel__body editor-preview-body' + theme;
-    }
     get _templateBlockTypes() {
         return new Set((this._renderSource?.blocks || []).filter(block => block.html).map(block => block.type));
     }
