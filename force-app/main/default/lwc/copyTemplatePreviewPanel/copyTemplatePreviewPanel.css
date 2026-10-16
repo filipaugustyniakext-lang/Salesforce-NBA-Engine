@@ -171,6 +171,40 @@
 
 .preview-panel__frame_mobile .preview-panel__document {
     min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    --preview-scrollbar-gutter: 12px;
+    /* Keep full mobile width: scrollbar overlays content instead of shrinking it */
+    width: calc(100% + var(--preview-scrollbar-gutter));
+    margin-right: calc(-1 * var(--preview-scrollbar-gutter));
+    padding-right: var(--preview-scrollbar-gutter);
+    box-sizing: border-box;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(61, 61, 58, 0.45) transparent;
+}
+
+.preview-panel__frame_mobile.preview-panel__frame_dark .preview-panel__document {
+    scrollbar-color: rgba(255, 255, 255, 0.4) transparent;
+}
+
+.preview-panel__frame_mobile .preview-panel__document::-webkit-scrollbar {
+    width: var(--preview-scrollbar-gutter);
+    background: transparent;
+}
+
+.preview-panel__frame_mobile .preview-panel__document::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.preview-panel__frame_mobile .preview-panel__document::-webkit-scrollbar-thumb {
+    background-color: rgba(61, 61, 58, 0.45);
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+}
+
+.preview-panel__frame_mobile.preview-panel__frame_dark .preview-panel__document::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.4);
 }
 
 .preview-panel__document .cc-preview table.mobile-full,
