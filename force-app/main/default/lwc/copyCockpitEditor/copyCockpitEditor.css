@@ -425,6 +425,18 @@
     flex-shrink: 0;
 }
 
+.slds-panel__header-actions lightning-icon.preview-theme-icon {
+    --slds-c-icon-color-background: transparent;
+    --sds-c-icon-color-background: transparent;
+    --slds-c-icon-color-foreground: #fff;
+    --slds-c-icon-color-foreground-default: #fff;
+}
+
+.slds-panel__header-actions .slds-button_icon-border:not(.slds-is-selected) lightning-icon.preview-theme-icon {
+    --slds-c-icon-color-foreground: #0176d3;
+    --slds-c-icon-color-foreground-default: #0176d3;
+}
+
 /* ─── Left panel: block palette ──────────────────────────────────────────── */
 
 .editor-block-section { margin-bottom: 1rem; }

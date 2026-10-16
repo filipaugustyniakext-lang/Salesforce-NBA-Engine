@@ -34,8 +34,29 @@
 }
 
 .preview-panel__help {
+    margin: 0.5rem 1rem 0;
+    display: flex;
+    align-items: flex-start;
+    text-align: left;
+    border-radius: 0.25rem;
+}
+
+.preview-panel__help h2 {
     margin: 0;
-    padding: 0.5rem 1rem 0;
+    font-weight: 400;
+    line-height: 1.45;
+}
+
+.preview-panel__header-actions lightning-icon.preview-theme-icon {
+    --slds-c-icon-color-background: transparent;
+    --sds-c-icon-color-background: transparent;
+    --slds-c-icon-color-foreground: #fff;
+    --sds-c-icon-color-foreground-default: #fff;
+}
+
+.preview-panel__header-actions .slds-button_icon-border:not(.slds-is-selected) lightning-icon.preview-theme-icon {
+    --slds-c-icon-color-foreground: #0176d3;
+    --slds-c-icon-color-foreground-default: #0176d3;
 }
 
 .preview-panel__body {
