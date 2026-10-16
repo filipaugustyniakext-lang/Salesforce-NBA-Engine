@@ -179,6 +179,13 @@
                             <template lwc:if={isShellStep}>
                                     <div class="studio-panel__main">
                                         <template lwc:if={hasRecordId}>
+                                            <lightning-file-upload
+                                                label={shellUploadLabel}
+                                                name="shellHtml"
+                                                record-id={draft.Id}
+                                                accept={acceptedHtml}
+                                                onuploadfinished={handleShellUpload}>
+                                            </lightning-file-upload>
                                             <template lwc:if={hasShellFile}>
                                                 <div class="studio-file-list">
                                                     <template for:each={shellFileTiles} for:item="asset">
@@ -199,13 +206,6 @@
                                                     </template>
                                                 </div>
                                             </template>
-                                            <lightning-file-upload
-                                                label={shellUploadLabel}
-                                                name="shellHtml"
-                                                record-id={draft.Id}
-                                                accept={acceptedHtml}
-                                                onuploadfinished={handleShellUpload}>
-                                            </lightning-file-upload>
                                             <div class="studio-detected-regions">
                                                 <h3 class="slds-text-title_caps">Detected regions summary</h3>
                                                 <template lwc:if={shellRegionsOk}>
