@@ -323,13 +323,12 @@
                                                     <p slot="description">
                                                         Add a content block definition to import HTML used in the Copy Cockpit editor.
                                                     </p>
-                                                    <div slot="actions">
-                                                        <lightning-button
-                                                            variant="brand"
-                                                            label="Add Content Block Definition"
-                                                            onclick={handleAddBlockDefinition}>
-                                                        </lightning-button>
-                                                    </div>
+                                                    <lightning-button
+                                                        slot="cta"
+                                                        variant="brand"
+                                                        label="Add Content Block Definition"
+                                                        onclick={handleAddBlockDefinition}>
+                                                    </lightning-button>
                                                 </lightning-empty-state>
                                             </template>
                                             <template for:each={contentBlockCards} for:item="block">
