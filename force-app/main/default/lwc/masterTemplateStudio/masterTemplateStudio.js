@@ -151,7 +151,6 @@ export default class MasterTemplateStudio extends LightningElement {
         if (!text) return false;
         const normalized = text.toLowerCase();
         if (normalized === 'package is valid.' || normalized === 'package is valid') return false;
-        if (validationStatus === 'Invalid' && normalized.startsWith('package is invalid')) return false;
         return true;
     }
 
@@ -171,9 +170,9 @@ export default class MasterTemplateStudio extends LightningElement {
     get isSummaryStep() { return this.wizardStep === 'summary'; }
 
     get studioPanelClass() {
-        return this.isShellStep
-            ? 'studio-panel studio-panel--shell-columns'
-            : 'studio-panel';
+        if (this.isShellStep) return 'studio-panel studio-panel--shell-step';
+        if (this.isBlocksStep) return 'studio-panel studio-panel--blocks-step';
+        return 'studio-panel';
     }
 
     get navItems() {
@@ -326,12 +325,12 @@ export default class MasterTemplateStudio extends LightningElement {
         const step = event.currentTarget.dataset.step;
         if (!step) return;
         this.wizardStep = step;
-        if (step === 'shell' || step === 'summary') {
+        if (step === 'shell' || step === 'blocks' || step === 'summary') {
             this._refreshShellRegions(this.draft.Id);
         }
-        if (step === 'summary') {
+        if (step === 'shell' || step === 'blocks') {
             // eslint-disable-next-line @lwc/lwc/no-async-operation
-            requestAnimationFrame(() => this._refreshSummaryPreview());
+            requestAnimationFrame(() => this._refreshStudioPreviews());
         }
     }
 
@@ -493,6 +492,8 @@ export default class MasterTemplateStudio extends LightningElement {
             }
             await refreshApex(this._wiredTemplates);
             await this._refreshShellRegions(this.draft.Id);
+            // eslint-disable-next-line @lwc/lwc/no-async-operation
+            requestAnimationFrame(() => this._refreshStudioPreviews());
             this._toast('Uploaded', 'File attached to the template definition.', 'success');
         } catch (error) {
             this._toast('Upload failed', error.body?.message || error.message, 'error');
@@ -534,11 +535,10 @@ export default class MasterTemplateStudio extends LightningElement {
         }));
     }
 
-    _refreshSummaryPreview() {
-        const panel = this.template.querySelector('c-copy-template-preview-panel');
-        if (panel) {
+    _refreshStudioPreviews() {
+        this.template.querySelectorAll('c-copy-template-preview-panel').forEach(panel => {
             panel.refreshPreview();
-        }
+        });
     }
 
     _apexErrorMessage(error) {

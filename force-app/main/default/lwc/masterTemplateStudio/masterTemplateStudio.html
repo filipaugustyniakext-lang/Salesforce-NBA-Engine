@@ -208,7 +208,8 @@
                             </template>
 
                             <template lwc:if={isShellStep}>
-                                    <div class="studio-panel__main">
+                                <div class="studio-shell-layout">
+                                    <div class="studio-shell-layout__main">
                                         <template lwc:if={hasRecordId}>
                                             <lightning-file-upload
                                                 label={shellUploadLabel}
@@ -255,6 +256,17 @@
                                             <div class="slds-box slds-theme_shade">Save basic properties first.</div>
                                         </template>
                                     </div>
+                                    <template lwc:if={hasRecordId}>
+                                        <div class="studio-shell-layout__preview">
+                                            <c-copy-template-preview-panel
+                                                template-id={draft.Id}
+                                                preview-mode="shell"
+                                                heading="Shell preview"
+                                                help-text="fixed-read and fixed-edit render as-is; the blocks region shows the empty canvas until content blocks are added.">
+                                            </c-copy-template-preview-panel>
+                                        </div>
+                                    </template>
+                                </div>
                                     <div
                                         class="slds-notify slds-notify_alert slds-theme_info studio-panel__aside"
                                         role="alert"
@@ -292,6 +304,8 @@
                             </template>
 
                             <template lwc:if={isBlocksStep}>
+                                <div class="studio-blocks-layout">
+                                    <div class="studio-blocks-layout__main">
                                 <p class="slds-text-body_small slds-text-color_weak">
                                     Optional: import HTML (and optional CSS) for separate content blocks. Shell-only templates (for example banners) can skip this step and go to Summary.
                                 </p>
@@ -357,11 +371,22 @@
                                 <template lwc:else>
                                     <div class="slds-box slds-theme_shade slds-m-top_small">Save basic properties first.</div>
                                 </template>
+                                    </div>
+                                    <template lwc:if={hasRecordId}>
+                                        <div class="studio-blocks-layout__preview">
+                                            <c-copy-template-preview-panel
+                                                template-id={draft.Id}
+                                                preview-mode="blocks"
+                                                heading="Block preview"
+                                                help-text="Uploaded blocks render inside the shell using the shell CSS from Template Shell.">
+                                            </c-copy-template-preview-panel>
+                                        </div>
+                                    </template>
+                                </div>
                             </template>
 
                             <template lwc:if={isSummaryStep}>
-                                <div class="studio-summary-layout">
-                                <div class="studio-summary-layout__main">
+                                <div class="studio-summary-only">
                                 <h3 class="slds-text-heading_small">Summary</h3>
                                 <dl class="studio-summary">
                                     <div><dt>Template name</dt><dd>{computedRecordName}</dd></div>
@@ -404,15 +429,6 @@
                                     disabled={activateDisabled}
                                     onclick={handleActivate}>
                                 </lightning-button>
-                                </div>
-                                <div class="studio-summary-layout__preview">
-                                    <c-copy-template-preview-panel
-                                        template-id={draft.Id}
-                                        empty-canvas
-                                        heading="Preview"
-                                        help-text="fixed-read and fixed-edit render shell HTML as-is; blocks start empty until content is added in Copy Center.">
-                                    </c-copy-template-preview-panel>
-                                </div>
                                 </div>
                             </template>
                         </div>

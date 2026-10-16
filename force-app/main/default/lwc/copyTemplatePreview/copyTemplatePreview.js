@@ -538,6 +538,32 @@ export function emptyPreviewLayoutState() {
     };
 }
 
+/** Studio block step: render uploaded block HTML inside the shell without sample copy. */
+export function buildCatalogPreviewBlocks(renderSource) {
+    const catalog = (renderSource?.blocks || []).filter(block => block.html);
+    return catalog.map((def, index) => ({
+        instanceId: `studio_catalog_${index}`,
+        blockType: def.type,
+        blockOrder: index,
+        visDesktop: 'show',
+        visMobile: 'show',
+        padTop: '0',
+        padRight: '0',
+        padBottom: '0',
+        padLeft: '0',
+        copyText: '',
+        imageUrl: '',
+        altText: '',
+        legalText: '',
+        imageLayout: 'text-left',
+        heightDesktop: '',
+        heightMobile: '',
+        spacerHeight: '0',
+        bgValue: '',
+        layoutState: emptyPreviewLayoutState()
+    }));
+}
+
 /** Sample canvas blocks for dictionary template preview (same shape as Copy Center editor). */
 export function buildSamplePreviewBlocks(renderSource) {
     const catalog = (renderSource?.blocks || []).filter(block => block.html);

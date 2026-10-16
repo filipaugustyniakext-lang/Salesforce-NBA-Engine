@@ -4,6 +4,7 @@ import {
     renderTemplatePreview,
     scopePreviewDocument,
     buildSamplePreviewBlocks,
+    buildCatalogPreviewBlocks,
     pinPreviewWidths,
     parsePreviewLayoutFromShell,
     previewPanelWidthPx,
@@ -15,6 +16,8 @@ export default class CopyTemplatePreviewPanel extends LightningElement {
     @api helpText = 'Uses the same preview compiler as the Copy Center editor. Sample copy and images stand in for author content.';
     /** When true, blocks cc-preview regions render the empty canvas placeholder. */
     @api emptyCanvas = false;
+    /** shell: fixed regions only; blocks: catalog HTML in shell; full: sample copy (Copy Center). */
+    @api previewMode = 'full';
 
     @track _renderSource = null;
     @track _renderSourceLoading = false;
@@ -187,6 +190,16 @@ export default class CopyTemplatePreviewPanel extends LightningElement {
         }));
     }
 
+    _resolveCanvasBlocks(source) {
+        if (this.previewMode === 'shell' || this.emptyCanvas) {
+            return [];
+        }
+        if (this.previewMode === 'blocks') {
+            return buildCatalogPreviewBlocks(source);
+        }
+        return buildSamplePreviewBlocks(source);
+    }
+
     _loadRenderSource() {
         const templateId = this._templateId;
         this._renderSource = null;
@@ -197,7 +210,7 @@ export default class CopyTemplatePreviewPanel extends LightningElement {
         getTemplateRenderSource({ templateId })
             .then(source => {
                 this._renderSource = source;
-                this._canvasBlocks = this.emptyCanvas ? [] : buildSamplePreviewBlocks(source);
+                this._canvasBlocks = this._resolveCanvasBlocks(source);
                 this._previewTick += 1;
             })
             .catch(err => {
