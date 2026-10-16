@@ -318,9 +318,11 @@
                                         <template lwc:if={hasRecordId}>
                                             <template lwc:if={showBlocksEmptyState}>
                                                 <lightning-empty-state
-                                                    size="small"
-                                                    heading="No content blocks yet"
-                                                    message="Add a content block definition to import HTML used in the Copy Cockpit editor.">
+                                                    illustration-name="success:new"
+                                                    title="No content blocks yet">
+                                                    <p slot="description">
+                                                        Add a content block definition to import HTML used in the Copy Cockpit editor.
+                                                    </p>
                                                     <div slot="actions">
                                                         <lightning-button
                                                             variant="brand"
