@@ -1023,7 +1023,7 @@ public with sharing class ChannelTemplateController {
                     String withExtension = baseName(renderBlock.fileName).toLowerCase();
                     if (!withExtension.endsWith('.html')) renderBlock.html = htmlByName.get(withExtension + '.html');
                 }
-                if (String.isNotBlank(renderBlock.type) && component.status != 'Draft' && component.status != 'Ready') {
+                if (String.isNotBlank(renderBlock.type) && 'Active'.equalsIgnoreCase(component.status)) {
                     source.blocks.add(renderBlock);
                 }
             }
