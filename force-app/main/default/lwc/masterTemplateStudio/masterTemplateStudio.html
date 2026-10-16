@@ -177,15 +177,36 @@
                             </template>
 
                             <template lwc:if={isShellStep}>
-                                <p class="slds-text-body_small slds-text-color_weak">
-                                    One HTML shell per template (CSS may be embedded). Uploading a new file replaces the current shell.
-                                    Mark preview areas with
-                                    <code>&lt;cc-preview type="fixed"&gt;</code> or
-                                    <code>fixed-read</code>, <code>fixed-edit</code>, or <code>blocks</code>.
-                                </p>
+                                <div class="slds-notify slds-notify_alert slds-theme_info studio-shell-alert" role="alert">
+                                    <span class="slds-assistive-text">Information</span>
+                                    <lightning-icon
+                                        icon-name="utility:info"
+                                        alternative-text="Information"
+                                        size="x-small"
+                                        class="slds-m-right_x-small">
+                                    </lightning-icon>
+                                    <div class="studio-shell-alert__body">
+                                        <h2>Shell HTML requirements</h2>
+                                        <ul class="studio-shell-alert__list">
+                                            <li>Only one HTML shell file is allowed per template definition.</li>
+                                            <li>CSS can be embedded inside the shell file.</li>
+                                            <li>Uploading a new shell file replaces the current one.</li>
+                                            <li>
+                                                Add Copy Center preview wrappers in your HTML so message preview renders correctly.
+                                            </li>
+                                        </ul>
+                                        <p class="slds-text-body_small slds-m-bottom_xx-small">Accepted wrappers:</p>
+                                        <ul class="studio-shell-alert__wrappers">
+                                            <li>&lt;cc-preview type="fixed-read"&gt;YOUR HTML&lt;/cc-preview&gt;</li>
+                                            <li>&lt;cc-preview type="fixed-edit"&gt;YOUR HTML&lt;/cc-preview&gt;</li>
+                                            <li>&lt;cc-preview type="fixed"&gt;YOUR HTML&lt;/cc-preview&gt;</li>
+                                            <li>&lt;cc-preview type="blocks"&gt;&lt;/cc-preview&gt;</li>
+                                        </ul>
+                                    </div>
+                                </div>
                                 <template lwc:if={hasRecordId}>
                                     <template lwc:if={hasShellFile}>
-                                        <div class="studio-file-list slds-m-top_small">
+                                        <div class="studio-file-list">
                                             <template for:each={shellFileTiles} for:item="asset">
                                                 <article key={asset.documentId} class="studio-file" title={asset.name}>
                                                     <lightning-icon icon-name={asset.tileIcon} size="small" alternative-text="HTML"></lightning-icon>
@@ -205,14 +226,13 @@
                                         </div>
                                     </template>
                                     <lightning-file-upload
-                                        class="slds-m-top_small"
                                         label={shellUploadLabel}
                                         name="shellHtml"
                                         record-id={draft.Id}
                                         accept={acceptedHtml}
                                         onuploadfinished={handleShellUpload}>
                                     </lightning-file-upload>
-                                    <div class="slds-m-top_medium">
+                                    <div>
                                         <h3 class="slds-text-title_caps">Detected regions</h3>
                                         <template lwc:if={shellRegionsOk}>
                                             <ul class="studio-tile__list">
