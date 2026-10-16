@@ -2,7 +2,7 @@ import { applyBlockTemplate } from 'c/contentBindingModel';
 
 const CC_PREVIEW_OPEN = /<cc-preview\b([^>]*)>/gi;
 const CC_PREVIEW_CLOSE = /<\/cc-preview\s*>/gi;
-const EMPTY_BLOCKS_PLACEHOLDER = '<div class="cc-preview-blocks-empty" style="border:2px dashed #939393;padding:48px 24px;text-align:center;color:#444444;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;max-width:100%;box-sizing:border-box;">No content blocks yet. Start adding content blocks using the editor canvas.</div>';
+const EMPTY_BLOCKS_PLACEHOLDER = '<div class="cc-preview-blocks-empty" style="border:1px dashed #939393;padding:48px 24px;text-align:center;color:#444444;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;max-width:100%;box-sizing:border-box;">No content blocks yet. Start adding content blocks using the editor canvas.</div>';
 
 export const PREVIEW_PANEL_PADDING_PX = 20;
 export const PREVIEW_MOBILE_FRAME_WIDTH_PX = 288;

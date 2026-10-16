@@ -540,10 +540,10 @@ private class ChannelTemplateControllerTest {
         }
         Test.stopTest();
 
-        System.assertEquals(true, deleteRejected);
-        System.assertEquals(true, fileVersionRejected);
-        System.assertEquals(true, linkInsertRejected);
-        System.assertEquals(true, linkDeleteRejected);
+        System.assertEquals(true, deleteRejected, 'Active templates still cannot be deleted.');
+        System.assertEquals(false, fileVersionRejected, 'Active templates allow in-place shell file updates.');
+        System.assertEquals(false, linkInsertRejected, 'Active templates allow package file link changes.');
+        System.assertEquals(false, linkDeleteRejected, 'Active templates allow replacing package files.');
     }
 
     @IsTest

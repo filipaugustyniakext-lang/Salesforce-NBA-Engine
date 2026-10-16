@@ -33,11 +33,11 @@ public with sharing class ChannelTemplateTriggerHandler {
         for (Channel_Template__c record : newRecords) {
             Channel_Template__c oldRecord = oldMap.get(record.Id);
             if (oldRecord.Status__c == 'Active') {
-                if (record.Status__c != 'Archived') {
-                    record.addError(
-                        'Active template packages are immutable. Archive this version before changing it.'
-                    );
-                } else if (packageContentChanged(record, oldRecord)) {
+                if (record.Status__c != 'Archived' && record.Status__c != 'Active') {
+                    record.addError('Active templates can only stay active or be archived.');
+                } else if (record.Status__c == 'Active' && record.Channel__c != oldRecord.Channel__c) {
+                    record.addError('An active template cannot be moved to another channel.');
+                } else if (record.Status__c == 'Archived' && packageContentChanged(record, oldRecord)) {
                     record.addError('Archiving an Active package may only change its Status.');
                 } else if (
                     !allowSupersedingArchive

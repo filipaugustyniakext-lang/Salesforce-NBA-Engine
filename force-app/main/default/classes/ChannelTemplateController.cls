@@ -236,9 +236,7 @@ public with sharing class ChannelTemplateController {
                 return record.Id;
             }
             if (existing.Status__c == 'Active' && record.Status__c != 'Archived') {
-                throw new AuraHandledException(
-                    'Active template packages are immutable. Archive this version before changing it.'
-                );
+                record.Status__c = 'Active';
             }
         }
         if (String.isBlank(record.Status__c)) record.Status__c = 'Draft';
@@ -452,11 +450,6 @@ public with sharing class ChannelTemplateController {
             WHERE Id = :templateId
             LIMIT 1
         ];
-        if (template.Status__c == 'Active') {
-            throw new AuraHandledException(
-                'Active template packages are immutable. Archive this version before changing it.'
-            );
-        }
         List<Object> rawRows;
         try {
             rawRows = (List<Object>) JSON.deserializeUntyped(
@@ -656,11 +649,6 @@ public with sharing class ChannelTemplateController {
             if (template == null) {
                 throw new TemplateAssetException('Template is required.');
             }
-            if (template.Status__c == 'Active') {
-                throw new TemplateAssetException(
-                    'Active template packages are immutable. Archive this version before replacing files.'
-                );
-            }
             Set<Id> linkedDocumentIds = new Set<Id>();
             for (ContentDocumentLink link : [
                 SELECT ContentDocumentId
@@ -745,11 +733,6 @@ public with sharing class ChannelTemplateController {
         Channel_Template__c template = [
             SELECT Id, Status__c FROM Channel_Template__c WHERE Id = :templateId LIMIT 1
         ];
-        if (template.Status__c == 'Active') {
-            throw new AuraHandledException(
-                'Active template packages are immutable. Archive this version before removing files.'
-            );
-        }
         removeTemplateFileLinks(template.Id, new Set<Id>{ documentId });
         markNeedsValidation(template.Id);
     }
