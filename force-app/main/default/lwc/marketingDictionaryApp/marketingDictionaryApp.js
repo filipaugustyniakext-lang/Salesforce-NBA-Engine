@@ -1,16 +1,33 @@
 import { LightningElement, track } from 'lwc';
-import { persistMainTab, resolveMainTab } from 'c/marketingDictionaryState';
+import {
+    mainTabFromActiveEvent,
+    persistMainTab,
+    resolveMainTab
+} from 'c/marketingDictionaryState';
 
 export default class MarketingDictionaryApp extends LightningElement {
     @track activeTab = 'person';
     _channelAvailability = {};
+    _acceptTabActiveEvents = false;
 
     connectedCallback() {
-        this.activeTab = persistMainTab(resolveMainTab());
+        this.activeTab = resolveMainTab();
+        // Ignore the tabset's initial onactive (it can reset to the first tab).
+        // eslint-disable-next-line @lwc/lwc/no-async-operation
+        requestAnimationFrame(() => {
+            this._acceptTabActiveEvents = true;
+        });
     }
 
     handleTabChange(event) {
-        this.activeTab = persistMainTab(event.target.value);
+        if (!this._acceptTabActiveEvents) {
+            return;
+        }
+        const nextTab = mainTabFromActiveEvent(event);
+        if (!nextTab || nextTab === this.activeTab) {
+            return;
+        }
+        this.activeTab = persistMainTab(nextTab);
     }
 
     handleChannelActiveChange(event) {
