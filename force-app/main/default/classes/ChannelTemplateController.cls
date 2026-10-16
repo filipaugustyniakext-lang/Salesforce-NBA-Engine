@@ -1291,11 +1291,7 @@ public with sharing class ChannelTemplateController {
     }
 
     private static String ccPreviewRegionDisplayLabel(String rawType) {
-        String canonical = normalizeCcPreviewType(rawType);
-        if (canonical == 'fixed-read') return 'fixed read';
-        if (canonical == 'fixed-edit') return 'fixed edit';
-        if (canonical == 'blocks') return 'blocks';
-        return '';
+        return normalizeCcPreviewType(rawType);
     }
 
     private static List<String> scanCcPreviewRegionsInOrder(String html) {

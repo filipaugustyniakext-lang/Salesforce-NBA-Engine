@@ -210,11 +210,11 @@
                                             <div class="studio-detected-regions">
                                                 <h3 class="slds-text-title_caps">Detected regions summary</h3>
                                                 <template lwc:if={shellRegionsOk}>
-                                                    <ol class="studio-detected-regions__list">
+                                                    <div class="studio-detected-regions__badges" role="list" aria-label="Regions in document order">
                                                         <template for:each={shellRegionsDisplay} for:item="region">
-                                                            <li key={region.key}>{region.label}</li>
+                                                            <span key={region.key} class="slds-badge slds-badge_lightest" role="listitem">{region.label}</span>
                                                         </template>
-                                                    </ol>
+                                                    </div>
                                                 </template>
                                                 <template lwc:else>
                                                     <p class="slds-text-color_error slds-text-body_small">{shellRegionError}</p>
@@ -225,23 +225,36 @@
                                             <div class="slds-box slds-theme_shade">Save basic properties first.</div>
                                         </template>
                                     </div>
-                                    <aside class="studio-panel-split__guide" role="note" aria-label="Shell HTML guidance">
-                                        <h2 class="studio-panel-split__guide-title">Shell HTML requirements</h2>
-                                        <ul class="studio-panel-split__guide-list">
-                                            <li>Only one HTML shell file is allowed per template definition.</li>
-                                            <li>CSS can be embedded inside the shell file.</li>
-                                            <li>Uploading a new shell file replaces the current one.</li>
-                                            <li>
-                                                Make sure you added Copy Center preview wrappers to your HTML so Copy Center can render message preview correctly.
-                                            </li>
-                                        </ul>
-                                        <p class="studio-panel-split__guide-label">Accepted wrappers:</p>
-                                        <ul class="studio-panel-split__guide-code">
-                                            <li>&lt;cc-preview type="fixed-read"&gt;YOUR HTML&lt;/cc-preview&gt;</li>
-                                            <li>&lt;cc-preview type="fixed-edit"&gt;YOUR HTML&lt;/cc-preview&gt;</li>
-                                            <li>&lt;cc-preview type="blocks"&gt;YOUR HTML&lt;/cc-preview&gt;</li>
-                                        </ul>
-                                    </aside>
+                                    <div
+                                        class="slds-notify slds-notify_alert slds-theme_info studio-panel-split__notify"
+                                        role="alert"
+                                        aria-label="Shell HTML guidance">
+                                        <span class="slds-assistive-text">Information</span>
+                                        <lightning-icon
+                                            icon-name="utility:info"
+                                            alternative-text="Information"
+                                            size="x-small"
+                                            class="slds-m-right_x-small">
+                                        </lightning-icon>
+                                        <div class="studio-panel-split__notify-body">
+                                            <h2 class="studio-panel-split__notify-title">Shell HTML requirements</h2>
+                                            <ul class="studio-panel-split__notify-list">
+                                                <li>Only one HTML shell file is allowed per template definition.</li>
+                                                <li>CSS can be embedded inside the shell file.</li>
+                                                <li>Uploading a new shell file replaces the current one.</li>
+                                                <li>
+                                                    Make sure you added Copy Center preview wrappers to your HTML so Copy Center can render message preview correctly.
+                                                </li>
+                                            </ul>
+                                            <p class="studio-panel-split__notify-label">Accepted wrappers:</p>
+                                            <ul class="studio-panel-split__notify-code">
+                                                <li>&lt;cc-preview type="fixed-read"&gt;YOUR HTML&lt;/cc-preview&gt;</li>
+                                                <li>&lt;cc-preview type="fixed-edit"&gt;YOUR HTML&lt;/cc-preview&gt;</li>
+                                                <li>&lt;cc-preview type="fixed"&gt;YOUR HTML&lt;/cc-preview&gt;</li>
+                                                <li>&lt;cc-preview type="blocks"&gt;YOUR HTML&lt;/cc-preview&gt;</li>
+                                            </ul>
+                                        </div>
+                                    </div>
                                 </div>
                             </template>
 
@@ -321,11 +334,11 @@
                                     <div><dt>Shell regions</dt>
                                         <dd>
                                             <template lwc:if={shellRegionsOk}>
-                                                <ol class="studio-detected-regions__list">
+                                                <div class="studio-detected-regions__badges" role="list" aria-label="Regions in document order">
                                                     <template for:each={shellRegionsDisplay} for:item="region">
-                                                        <li key={region.key}>{region.label}</li>
+                                                        <span key={region.key} class="slds-badge slds-badge_lightest" role="listitem">{region.label}</span>
                                                     </template>
-                                                </ol>
+                                                </div>
                                             </template>
                                             <template lwc:else>None detected</template>
                                         </dd>
