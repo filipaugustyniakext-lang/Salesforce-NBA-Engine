@@ -130,12 +130,33 @@ export default class MasterTemplateStudio extends LightningElement {
         return this._assets('SHELL_HTML');
     }
 
+    get shellFileTiles() {
+        const tiles = this._fileTiles('SHELL_HTML', 'doctype:html');
+        return tiles.length ? [tiles[0]] : [];
+    }
+
+    get hasShellFile() {
+        return this.shellFileTiles.length > 0;
+    }
+
+    get shellUploadLabel() {
+        return this.hasShellFile ? 'Replace shell HTML' : 'Upload shell HTML';
+    }
+
     get blockHtmlAssets() {
         return this._assets('CONTENT_BLOCK');
     }
 
+    get blockHtmlFileTiles() {
+        return this._fileTiles('CONTENT_BLOCK', 'doctype:html');
+    }
+
     get blockCssAssets() {
         return this._assets('SHELL_CSS');
+    }
+
+    get blockCssFileTiles() {
+        return this._fileTiles('SHELL_CSS', 'doctype:css');
     }
 
     get shellRegionsDisplay() {
@@ -399,6 +420,13 @@ export default class MasterTemplateStudio extends LightningElement {
                 ...asset,
                 deleteDisabled: source?.status === 'Active'
             }));
+    }
+
+    _fileTiles(assetType, tileIcon) {
+        return this._assets(assetType).map(asset => ({
+            ...asset,
+            tileIcon
+        }));
     }
 
     _toast(title, message, variant) {

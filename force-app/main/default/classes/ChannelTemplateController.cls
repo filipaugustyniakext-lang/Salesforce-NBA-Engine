@@ -545,12 +545,19 @@ public with sharing class ChannelTemplateController {
             if (assetType != 'CONTENT_BLOCK') {
                 Set<Id> replacedDocumentIds = new Set<Id>();
                 for (ContentDocumentLink link : [
-                    SELECT ContentDocumentId, ContentDocument.Title
+                    SELECT ContentDocumentId, ContentDocument.Title,
+                           ContentDocument.LatestPublishedVersion.FileExtension
                     FROM ContentDocumentLink
                     WHERE LinkedEntityId = :templateId
                 ]) {
-                    if (!uploadedDocumentIds.contains(link.ContentDocumentId)
-                        && link.ContentDocument.Title.startsWith(prefix)) {
+                    if (uploadedDocumentIds.contains(link.ContentDocumentId)) continue;
+                    if (link.ContentDocument.Title.startsWith(prefix)) {
+                        replacedDocumentIds.add(link.ContentDocumentId);
+                        continue;
+                    }
+                    if (assetType == 'SHELL_HTML'
+                        && !isContentBlockTitle(link.ContentDocument.Title)
+                        && isHtmlFile(link)) {
                         replacedDocumentIds.add(link.ContentDocumentId);
                     }
                 }
