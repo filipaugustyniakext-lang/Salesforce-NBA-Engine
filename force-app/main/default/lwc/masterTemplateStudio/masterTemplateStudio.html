@@ -128,7 +128,7 @@
                             </template>
                         </nav>
 
-                        <div class="studio-panel">
+                        <div class={studioPanelClass}>
                             <template lwc:if={isBasicStep}>
                                 <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
                                     Saved record name:
@@ -177,8 +177,7 @@
                             </template>
 
                             <template lwc:if={isShellStep}>
-                                <div class="studio-panel-split">
-                                    <div class="studio-panel-split__main">
+                                    <div class="studio-panel__main">
                                         <template lwc:if={hasRecordId}>
                                             <template lwc:if={hasShellFile}>
                                                 <div class="studio-file-list">
@@ -226,7 +225,7 @@
                                         </template>
                                     </div>
                                     <div
-                                        class="slds-notify slds-notify_alert slds-theme_info studio-panel-split__notify"
+                                        class="slds-notify slds-notify_alert slds-theme_info studio-panel__aside"
                                         role="alert"
                                         aria-label="Shell HTML guidance">
                                         <span class="slds-assistive-text">Information</span>
@@ -236,9 +235,9 @@
                                             size="x-small"
                                             class="slds-m-right_x-small">
                                         </lightning-icon>
-                                        <div class="studio-panel-split__notify-body">
-                                            <h2 class="studio-panel-split__notify-title">Shell HTML requirements</h2>
-                                            <ul class="studio-panel-split__notify-list">
+                                        <div class="studio-panel__aside-body">
+                                            <h2 class="studio-panel__aside-title">Shell HTML requirements</h2>
+                                            <ul class="studio-panel__aside-list">
                                                 <li>Only one HTML shell file is allowed per template definition.</li>
                                                 <li>CSS can be embedded inside the shell file.</li>
                                                 <li>Uploading a new shell file replaces the current one.</li>
@@ -246,8 +245,8 @@
                                                     Make sure you added Copy Center preview wrappers to your HTML so Copy Center can render message preview correctly.
                                                 </li>
                                             </ul>
-                                            <p class="studio-panel-split__notify-label">Accepted wrappers:</p>
-                                            <ul class="studio-panel-split__notify-code">
+                                            <p class="studio-panel__aside-label">Accepted wrappers:</p>
+                                            <ul class="studio-panel__aside-code">
                                                 <li>&lt;cc-preview type="fixed-read"&gt;YOUR HTML&lt;/cc-preview&gt;</li>
                                                 <li>&lt;cc-preview type="fixed-edit"&gt;YOUR HTML&lt;/cc-preview&gt;</li>
                                                 <li>&lt;cc-preview type="fixed"&gt;YOUR HTML&lt;/cc-preview&gt;</li>
@@ -255,7 +254,6 @@
                                             </ul>
                                         </div>
                                     </div>
-                                </div>
                             </template>
 
                             <template lwc:if={isBlocksStep}>

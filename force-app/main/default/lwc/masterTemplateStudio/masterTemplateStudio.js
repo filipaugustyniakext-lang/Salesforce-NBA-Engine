@@ -14,8 +14,7 @@ import {
     CLASSIFICATION_OPTIONS,
     WIZARD_STEPS,
     composeRecordName,
-    normalizeSlug,
-    regionLabel
+    normalizeSlug
 } from './templateStudioUtils';
 
 const EMPTY_DRAFT = () => ({
@@ -117,6 +116,12 @@ export default class MasterTemplateStudio extends LightningElement {
     get isShellStep() { return this.wizardStep === 'shell'; }
     get isBlocksStep() { return this.wizardStep === 'blocks'; }
     get isSummaryStep() { return this.wizardStep === 'summary'; }
+
+    get studioPanelClass() {
+        return this.isShellStep
+            ? 'studio-panel studio-panel--shell-columns'
+            : 'studio-panel';
+    }
 
     get navItems() {
         return WIZARD_STEPS.map(step => ({
