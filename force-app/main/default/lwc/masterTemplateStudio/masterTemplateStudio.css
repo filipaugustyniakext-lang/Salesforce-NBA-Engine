@@ -277,6 +277,11 @@
     align-items: center;
 }
 
+.studio-block-definition-tabs {
+    display: block;
+    margin-top: 1.5rem;
+}
+
 .studio-shell-layout__preview,
 .studio-blocks-layout__preview {
     min-width: 0;

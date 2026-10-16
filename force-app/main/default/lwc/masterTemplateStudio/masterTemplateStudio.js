@@ -125,7 +125,7 @@ export default class MasterTemplateStudio extends LightningElement {
             packageValidationBadge,
             supplementalValidationIssues,
             hasSupplementalValidationIssues: supplementalValidationIssues.length > 0,
-            showValidationPending: !packageValidationBadge && supplementalValidationIssues.length === 0,
+            showValidationPending: false,
             copyCenterUsageClass: 'slds-badge slds-badge_lightest',
             variantLabel: item.messageVariantCount === 1
                 ? '1 message variant'
