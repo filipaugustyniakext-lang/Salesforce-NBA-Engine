@@ -256,10 +256,17 @@ export default class MasterTemplateStudio extends LightningElement {
     }
 
     get navItems() {
+        const definedBlockCount = this._savedBlockDefinitions().length;
+        const activeBlockCount = this._savedBlockDefinitions().filter(
+            component => (component.status || '').toLowerCase() === 'active'
+        ).length;
         return WIZARD_STEPS.map(step => ({
             ...step,
             itemClass: 'studio-nav__item' + (this.wizardStep === step.value ? ' studio-nav__item_active' : ''),
-            ariaCurrent: this.wizardStep === step.value ? 'step' : 'false'
+            ariaCurrent: this.wizardStep === step.value ? 'step' : 'false',
+            showBlockCounts: step.value === 'blocks',
+            definedBlockCount,
+            activeBlockCount
         }));
     }
 

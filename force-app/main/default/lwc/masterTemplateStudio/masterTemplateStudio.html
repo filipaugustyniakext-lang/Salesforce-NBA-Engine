@@ -142,7 +142,15 @@
                                     aria-current={step.ariaCurrent}
                                     onclick={handleNavSelect}>
                                     <span class="studio-nav__number">{step.number}</span>
-                                    <span class="studio-nav__label">{step.label}</span>
+                                    <span class="studio-nav__label-wrap">
+                                        <span class="studio-nav__label">{step.label}</span>
+                                        <template lwc:if={step.showBlockCounts}>
+                                            <span class="studio-nav__badges" aria-label="Content block counts">
+                                                <span class="slds-badge slds-badge_lightest" title="Blocks defined">{step.definedBlockCount}</span>
+                                                <span class="slds-badge slds-theme_success" title="Blocks activated">{step.activeBlockCount}</span>
+                                            </span>
+                                        </template>
+                                    </span>
                                 </button>
                             </template>
                         </nav>
