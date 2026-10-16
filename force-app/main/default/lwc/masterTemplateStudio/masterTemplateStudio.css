@@ -238,6 +238,12 @@
     min-height: 3rem;
 }
 
+.studio-block-definition-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
 .studio-shell-layout__preview,
 .studio-blocks-layout__preview {
     min-width: 0;

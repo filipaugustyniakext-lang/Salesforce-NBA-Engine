@@ -10,6 +10,7 @@ import getTemplateRenderSource from '@salesforce/apex/ChannelTemplateController.
 import { scanCcPreviewRegionLabelsInOrder } from 'c/copyTemplatePreview';
 import syncDraftBlockCatalog from '@salesforce/apex/ChannelTemplateController.syncDraftBlockCatalog';
 import saveComponentCatalog from '@salesforce/apex/ChannelTemplateController.saveComponentCatalog';
+import validateContentBlockDefinition from '@salesforce/apex/ChannelTemplateController.validateContentBlockDefinition';
 import activateTemplatePackage from '@salesforce/apex/ChannelTemplateController.activateTemplatePackage';
 import {
     COUNTRY_OPTIONS,
@@ -42,7 +43,13 @@ export default class MasterTemplateStudio extends LightningElement {
     @track shellRegions = [];
     @track shellRegionError = '';
     @track showNewBlockDefinitionForm = false;
-    @track pendingBlockDraft = { label: '', description: '', fileName: '' };
+    @track pendingBlockDraft = {
+        label: '',
+        description: '',
+        fileName: '',
+        draftKey: '',
+        validated: false
+    };
     @track blockBindingTab = 'content';
     acceptedHtml = ['.html'];
     acceptedCss = ['.css'];
@@ -169,7 +176,17 @@ export default class MasterTemplateStudio extends LightningElement {
         const source = this._templateRecord();
         const components = source?.components || [];
         return components
-            .filter(component => component.fileName)
+            .filter(component => {
+                if (!component.fileName && !component.label) return false;
+                if (
+                    this.showNewBlockDefinitionForm
+                    && this.pendingBlockDraft.draftKey
+                    && component.type === this.pendingBlockDraft.draftKey
+                ) {
+                    return false;
+                }
+                return true;
+            })
             .map((component, index) => ({
                 key: `${component.fileName}-${index}`,
                 fileName: component.fileName,
@@ -192,7 +209,20 @@ export default class MasterTemplateStudio extends LightningElement {
     }
 
     get saveBlockDefinitionDisabled() {
-        return !this.pendingBlockDraft.fileName || !this.pendingBlockDraft.label?.trim();
+        return this.isSaving || !this.pendingBlockDraft.label?.trim();
+    }
+
+    get validateBlockDefinitionDisabled() {
+        return (
+            this.isSaving
+            || !this.pendingBlockDraft.label?.trim()
+            || !this.pendingBlockDraft.draftKey
+            || !this.pendingBlockDraft.fileName
+        );
+    }
+
+    get activateBlockDefinitionDisabled() {
+        return this.isSaving || !this.pendingBlockDraft.validated;
     }
 
     get isBasicStep() { return this.wizardStep === 'basic'; }
@@ -430,7 +460,7 @@ export default class MasterTemplateStudio extends LightningElement {
     handlePendingBlockFieldChange(event) {
         const field = event.currentTarget.dataset.field;
         const value = event.detail?.value ?? event.target?.value ?? '';
-        this.pendingBlockDraft = { ...this.pendingBlockDraft, [field]: value };
+        this.pendingBlockDraft = { ...this.pendingBlockDraft, [field]: value, validated: false };
     }
 
     async handleBlockDefinitionUpload(event) {
@@ -439,51 +469,61 @@ export default class MasterTemplateStudio extends LightningElement {
         if (uploaded?.name) {
             this.pendingBlockDraft = {
                 ...this.pendingBlockDraft,
-                fileName: this._normalizeUploadedBlockFileName(uploaded.name)
+                fileName: this._normalizeUploadedBlockFileName(uploaded.name),
+                validated: false
             };
         } else {
             await refreshApex(this._wiredTemplates);
             const latest = this.blockHtmlAssets[this.blockHtmlAssets.length - 1];
             if (latest?.name) {
-                this.pendingBlockDraft = { ...this.pendingBlockDraft, fileName: latest.name };
+                this.pendingBlockDraft = {
+                    ...this.pendingBlockDraft,
+                    fileName: latest.name,
+                    validated: false
+                };
             }
         }
     }
 
     async handleSaveBlockDefinition() {
-        if (!this.draft.Id || this.saveBlockDefinitionDisabled) return;
+        await this._persistBlockDefinition('Draft');
+    }
+
+    async handleValidateBlockDefinition() {
+        if (!this.draft.Id || this.validateBlockDefinitionDisabled) return;
         this.isSaving = true;
         try {
-            const rows = this._componentCatalogRows();
-            const fileName = this.pendingBlockDraft.fileName;
-            const label = (this.pendingBlockDraft.label || '').trim();
-            const description = (this.pendingBlockDraft.description || '').trim();
-            const existing = rows.find(row => row.fileName === fileName);
-            if (existing) {
-                existing.label = label;
-                existing.description = description;
-            } else {
-                rows.push({
-                    type: '',
-                    label,
-                    description,
-                    icon: '',
-                    fileName,
-                    status: 'Draft'
-                });
-            }
-            await saveComponentCatalog({
+            await this._persistBlockDefinition('Draft', { silent: true });
+            const blockKey = this._pendingBlockKey();
+            const result = await validateContentBlockDefinition({
                 templateId: this.draft.Id,
-                componentsJson: JSON.stringify(rows)
+                blockKey
             });
-            await refreshApex(this._wiredTemplates);
+            if (!result?.valid) {
+                this.pendingBlockDraft = { ...this.pendingBlockDraft, validated: false };
+                this._toast('Validation', result?.message || 'Content block validation failed.', 'warning');
+                return;
+            }
+            await this._persistBlockDefinition('Ready', { silent: true });
+            this.pendingBlockDraft = { ...this.pendingBlockDraft, validated: true };
+            this._toast('Validated', result.message, 'success');
+        } catch (error) {
+            this._toast('Validation failed', this._apexErrorMessage(error), 'error');
+        } finally {
+            this.isSaving = false;
+        }
+    }
+
+    async handleActivateBlockDefinition() {
+        if (!this.draft.Id || this.activateBlockDefinitionDisabled) return;
+        this.isSaving = true;
+        try {
+            await this._persistBlockDefinition('Active');
             this.showNewBlockDefinitionForm = false;
             this._resetPendingBlockDraft();
-            // eslint-disable-next-line @lwc/lwc/no-async-operation
-            requestAnimationFrame(() => this._refreshStudioPreviews());
-            this._toast('Saved', 'Content block definition saved.', 'success');
+            this._toast('Activated', 'Content block definition is active.', 'success');
         } catch (error) {
-            this._toast('Error', this._apexErrorMessage(error), 'error');
+            this._toast('Activation failed', this._apexErrorMessage(error), 'error');
         } finally {
             this.isSaving = false;
         }
@@ -640,8 +680,103 @@ export default class MasterTemplateStudio extends LightningElement {
     }
 
     _resetPendingBlockDraft() {
-        this.pendingBlockDraft = { label: '', description: '', fileName: '' };
+        this.pendingBlockDraft = {
+            label: '',
+            description: '',
+            fileName: '',
+            draftKey: '',
+            validated: false
+        };
         this.blockBindingTab = 'content';
+    }
+
+    _pendingBlockKey() {
+        return this.pendingBlockDraft.fileName || this.pendingBlockDraft.draftKey;
+    }
+
+    _componentTypeToken(label, fileName) {
+        const seed = String(label || fileName || 'block')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '_')
+            .replace(/^_+|_+$/g, '');
+        const token = seed || 'block';
+        return /^[a-z]/.test(token) ? token : `block_${token}`;
+    }
+
+    async _persistBlockDefinition(status, options = {}) {
+        const { silent = false } = options;
+        if (!this.draft.Id) return;
+        if (status === 'Draft' && this.saveBlockDefinitionDisabled) return;
+        if (status !== 'Draft' && !this.pendingBlockDraft.validated && status === 'Active') return;
+
+        const label = (this.pendingBlockDraft.label || '').trim();
+        let description = (this.pendingBlockDraft.description || '').trim();
+        const fileName = (this.pendingBlockDraft.fileName || '').trim();
+        const draftKey = this.pendingBlockDraft.draftKey
+            || this._componentTypeToken(label, fileName);
+        const publishable = status === 'Ready' || status === 'Active';
+        if (publishable && !description) {
+            description = label;
+        }
+
+        if (!silent) {
+            this.isSaving = true;
+        }
+        try {
+            const rows = this._componentCatalogRows();
+            let row = rows.find(entry => entry.type === draftKey);
+            if (!row && fileName) {
+                row = rows.find(entry => entry.fileName === fileName);
+            }
+            if (row) {
+                row.label = label;
+                row.description = description;
+                row.fileName = fileName;
+                row.status = status;
+                if (!row.type) row.type = draftKey;
+                if (publishable && !row.icon) row.icon = 'utility:component';
+            } else {
+                rows.push({
+                    type: draftKey,
+                    label,
+                    description,
+                    icon: publishable ? 'utility:component' : '',
+                    fileName,
+                    status,
+                    placeholders: [],
+                    blockSettings: [],
+                    bindings: []
+                });
+            }
+            await saveComponentCatalog({
+                templateId: this.draft.Id,
+                componentsJson: JSON.stringify(rows)
+            });
+            await refreshApex(this._wiredTemplates);
+            this.pendingBlockDraft = {
+                ...this.pendingBlockDraft,
+                draftKey,
+                validated: status === 'Ready' || status === 'Active'
+            };
+            // eslint-disable-next-line @lwc/lwc/no-async-operation
+            requestAnimationFrame(() => this._refreshStudioPreviews());
+            if (!silent) {
+                const title = status === 'Active' ? 'Activated' : 'Saved';
+                const message = status === 'Active'
+                    ? 'Content block definition is active.'
+                    : 'Content block definition saved as Draft.';
+                this._toast(title, message, 'success');
+            }
+        } catch (error) {
+            if (!silent) {
+                this._toast('Error', this._apexErrorMessage(error), 'error');
+            }
+            throw error;
+        } finally {
+            if (!silent) {
+                this.isSaving = false;
+            }
+        }
     }
 
     _normalizeUploadedBlockFileName(rawName) {

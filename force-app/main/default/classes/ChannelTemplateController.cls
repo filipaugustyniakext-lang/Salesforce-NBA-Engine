@@ -72,6 +72,14 @@ public with sharing class ChannelTemplateController {
         @AuraEnabled public List<String> placeholders = new List<String>();
     }
 
+    public class ContentBlockValidationResult {
+        @AuraEnabled public Boolean valid = false;
+        @AuraEnabled public Boolean htmlValid = false;
+        @AuraEnabled public Boolean contentBindingsConfigured = false;
+        @AuraEnabled public Boolean settingsBindingsConfigured = false;
+        @AuraEnabled public String message;
+    }
+
     public class ValidationResponse {
         @AuraEnabled public Boolean valid;
         @AuraEnabled public String message;
@@ -442,6 +450,56 @@ public with sharing class ChannelTemplateController {
     }
 
     @AuraEnabled
+    public static ContentBlockValidationResult validateContentBlockDefinition(
+        Id templateId,
+        String blockKey
+    ) {
+        ContentBlockValidationResult result = new ContentBlockValidationResult();
+        if (templateId == null || String.isBlank(blockKey)) {
+            result.message = 'Content block definition is required.';
+            return result;
+        }
+        CatalogComponent component = findCatalogComponent(templateId, blockKey);
+        if (component == null) {
+            result.message = 'Save the content block definition before validating.';
+            return result;
+        }
+        String fileName = component.fileName;
+        Map<String, String> blockHtmlByName = contentBlockBodies(templateId);
+        String blockHtml = lookupBlockHtml(blockHtmlByName, fileName);
+        result.htmlValid = String.isNotBlank(fileName) && String.isNotBlank(blockHtml);
+        if (!result.htmlValid) {
+            result.message = 'Upload valid content block HTML before validating.';
+            return result;
+        }
+        List<PlaceholderBinding> bindings = component.bindings == null
+            ? new List<PlaceholderBinding>()
+            : component.bindings;
+        List<String> blockSettings = component.blockSettings == null
+            ? new List<String>()
+            : component.blockSettings;
+        List<String> placeholders = extractPlaceholders(blockHtml);
+        result.contentBindingsConfigured = bindingsConfiguredForContent(placeholders, bindings);
+        result.settingsBindingsConfigured = bindingsConfiguredForSettings(blockSettings, bindings);
+        result.valid = result.htmlValid
+            && result.contentBindingsConfigured
+            && result.settingsBindingsConfigured;
+        if (!result.valid) {
+            List<String> missing = new List<String>();
+            if (!result.contentBindingsConfigured) {
+                missing.add('Blocks Content Binding');
+            }
+            if (!result.settingsBindingsConfigured) {
+                missing.add('Block Settings Binding');
+            }
+            result.message = 'Configure ' + String.join(missing, ' and ') + ' before validation passes.';
+        } else {
+            result.message = 'Content block definition is valid and ready to activate.';
+        }
+        return result;
+    }
+
+    @AuraEnabled
     public static void saveComponentCatalog(Id templateId, String componentsJson) {
         if (templateId == null) throw new AuraHandledException('Template is required.');
         Channel_Template__c template = [
@@ -465,11 +523,11 @@ public with sharing class ChannelTemplateController {
             if (!(rawRow instanceof Map<String, Object>)) continue;
             Map<String, Object> row = (Map<String, Object>) rawRow;
             String fileName = textValue(row.get('fileName'));
-            if (String.isBlank(fileName)) {
+            String status = textValue(row.get('status'));
+            if (String.isBlank(status)) status = 'Draft';
+            if (String.isBlank(fileName) && status != 'Draft') {
                 throw new AuraHandledException('Each content block requires an HTML file.');
             }
-            String status = textValue(row.get('status'));
-            if (String.isBlank(status)) status = 'Active';
             if (status != 'Draft' && status != 'Ready' && status != 'Active') status = 'Draft';
             Boolean publishable = status == 'Ready' || status == 'Active';
             String label = textValue(row.get('label'));
@@ -1503,5 +1561,56 @@ public with sharing class ChannelTemplateController {
             );
         }
         return issues;
+    }
+
+    private static CatalogComponent findCatalogComponent(Id templateId, String blockKey) {
+        if (templateId == null || String.isBlank(blockKey)) return null;
+        Channel_Template__c template = [
+            SELECT Manifest_JSON__c
+            FROM Channel_Template__c
+            WHERE Id = :templateId
+            LIMIT 1
+        ];
+        for (CatalogComponent component : readCatalog(template.Manifest_JSON__c)) {
+            if (blockKey.equalsIgnoreCase(component.fileName) || blockKey.equalsIgnoreCase(component.type)) {
+                return component;
+            }
+        }
+        return null;
+    }
+
+    private static Boolean bindingsConfiguredForContent(
+        List<String> placeholders,
+        List<PlaceholderBinding> bindings
+    ) {
+        if (bindings == null || bindings.isEmpty()) return false;
+        if (placeholders == null || placeholders.isEmpty()) return true;
+        Set<String> bound = new Set<String>();
+        for (PlaceholderBinding binding : bindings) {
+            if (String.isNotBlank(binding.placeholder)) bound.add(binding.placeholder);
+        }
+        for (String placeholder : placeholders) {
+            if (!bound.contains(placeholder)) return false;
+        }
+        return true;
+    }
+
+    private static Boolean bindingsConfiguredForSettings(
+        List<String> blockSettings,
+        List<PlaceholderBinding> bindings
+    ) {
+        if (blockSettings == null || blockSettings.isEmpty()) return false;
+        if (bindings == null || bindings.isEmpty()) return false;
+        for (String setting : blockSettings) {
+            Boolean mapped = false;
+            for (PlaceholderBinding binding : bindings) {
+                if (setting == binding.source) {
+                    mapped = true;
+                    break;
+                }
+            }
+            if (!mapped) return false;
+        }
+        return true;
     }
 }
