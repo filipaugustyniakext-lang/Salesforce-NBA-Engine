@@ -5,7 +5,14 @@ import getMessageById from '@salesforce/apex/CopyCockpitController.getMessageByI
 import saveMessageEditor from '@salesforce/apex/CopyCockpitController.saveMessageEditor';
 import getVersionsByMessageId from '@salesforce/apex/CopyCockpitController.getVersionsByMessageId';
 import getTemplateRenderSource from '@salesforce/apex/ChannelTemplateController.getTemplateRenderSource';
-import { renderTemplatePreview, scopePreviewDocument, pinPreviewWidths } from './templatePreview';
+import {
+    renderTemplatePreview,
+    scopePreviewDocument,
+    pinPreviewWidths,
+    parsePreviewLayoutFromShell,
+    previewPanelWidthPx,
+    previewFrameWidthPx
+} from './templatePreview';
 import { parseBlockTemplate, alignLayout } from 'c/contentBindingModel';
 
 const STATUS_OPTIONS = [
@@ -688,6 +695,24 @@ export default class CopyCockpitEditor extends LightningElement {
         const device = this._previewDevice === 'mobile' ? ' editor-panel-right_mobile' : ' editor-panel-right_desktop';
         return 'slds-panel slds-size_medium slds-panel_docked slds-panel_docked-right slds-panel_drawer editor-panel-right'
             + device + (this._rightOpen ? ' slds-is-open' : '');
+    }
+
+    get _previewLayout() {
+        return parsePreviewLayoutFromShell(this._renderSource?.shellHtml || '');
+    }
+
+    get rightPanelStyle() {
+        if (!this._rightOpen) return '';
+        const width = previewPanelWidthPx(this._previewDevice, this._previewLayout);
+        return `width: ${width}px;`;
+    }
+
+    get previewFrameStyle() {
+        const frameWidth = previewFrameWidthPx(this._previewDevice, this._previewLayout);
+        if (this._previewDevice === 'mobile') {
+            return `width: ${frameWidth}px;`;
+        }
+        return `width: 100%; max-width: ${frameWidth}px;`;
     }
     get rightPanelAriaHidden() { return this._rightOpen ? 'false' : 'true'; }
     get rightPanelOpen()       { return this._rightOpen ? 'true' : 'false'; }

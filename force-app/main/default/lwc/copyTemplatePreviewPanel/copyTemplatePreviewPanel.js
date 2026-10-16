@@ -4,7 +4,10 @@ import {
     renderTemplatePreview,
     scopePreviewDocument,
     buildSamplePreviewBlocks,
-    pinPreviewWidths
+    pinPreviewWidths,
+    parsePreviewLayoutFromShell,
+    previewPanelWidthPx,
+    previewFrameWidthPx
 } from 'c/copyTemplatePreview';
 
 export default class CopyTemplatePreviewPanel extends LightningElement {
@@ -87,21 +90,32 @@ export default class CopyTemplatePreviewPanel extends LightningElement {
         return this._previewTheme === 'dark';
     }
 
-    get panelClass() {
-        const device = this.isDesktop ? ' preview-panel_device-desktop' : ' preview-panel_device-mobile';
-        const theme = this.isDarkTheme ? ' preview-panel_theme-dark' : '';
-        return `preview-panel${device}${theme}`;
+    get _previewLayout() {
+        return parsePreviewLayoutFromShell(this._renderSource?.shellHtml || '');
     }
 
-    get previewBodyClass() {
-        const theme = this.isDarkTheme ? ' preview-panel__body_dark' : '';
-        return `preview-panel__body${theme}`;
+    get panelClass() {
+        const device = this.isMobile ? ' preview-panel_device-mobile' : ' preview-panel_device-desktop';
+        return `preview-panel${device}`;
+    }
+
+    get panelStyle() {
+        const width = previewPanelWidthPx(this._previewDevice, this._previewLayout);
+        return `width: ${width}px; max-width: 100%;`;
     }
 
     get previewFrameClass() {
         const device = this.isMobile ? 'preview-panel__frame_mobile' : 'preview-panel__frame_desktop';
         const theme = this.isDarkTheme ? 'preview-panel__frame_dark' : 'preview-panel__frame_light';
         return `preview-panel__frame ${device} ${theme}`;
+    }
+
+    get previewFrameStyle() {
+        const frameWidth = previewFrameWidthPx(this._previewDevice, this._previewLayout);
+        if (this.isMobile) {
+            return `width: ${frameWidth}px;`;
+        }
+        return `width: 100%; max-width: ${frameWidth}px;`;
     }
 
     get deviceDesktopClass() {
@@ -166,7 +180,10 @@ export default class CopyTemplatePreviewPanel extends LightningElement {
         this.dispatchEvent(new CustomEvent('previewlayoutchange', {
             bubbles: true,
             composed: true,
-            detail: { device: this._previewDevice }
+            detail: {
+                device: this._previewDevice,
+                panelWidth: previewPanelWidthPx(this._previewDevice, this._previewLayout)
+            }
         }));
     }
 

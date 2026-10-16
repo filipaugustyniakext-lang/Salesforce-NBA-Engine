@@ -40,8 +40,6 @@ export default class MasterTemplateStudio extends LightningElement {
     @track pendingDelete = null;
     @track shellRegions = [];
     @track shellRegionError = '';
-    @track summaryPreviewDevice = 'desktop';
-
     acceptedHtml = ['.html'];
     acceptedCss = ['.css'];
 
@@ -109,13 +107,6 @@ export default class MasterTemplateStudio extends LightningElement {
                 ? 'View active template (create a new version to edit files).'
                 : 'Edit'
         }));
-    }
-
-    get summaryLayoutClass() {
-        const wide = this.summaryPreviewDevice === 'desktop'
-            ? ' studio-summary-layout--desktop-preview'
-            : '';
-        return `studio-summary-layout${wide}`;
     }
 
     get modalTitle() {
@@ -238,15 +229,7 @@ export default class MasterTemplateStudio extends LightningElement {
         this.wizardStep = 'basic';
         this.shellRegions = [];
         this.shellRegionError = '';
-        this.summaryPreviewDevice = 'desktop';
         this.isModalOpen = true;
-    }
-
-    handlePreviewLayoutChange(event) {
-        const device = event.detail?.device;
-        if (device === 'desktop' || device === 'mobile') {
-            this.summaryPreviewDevice = device;
-        }
     }
 
     async handleNewVersion(event) {
@@ -443,7 +426,6 @@ export default class MasterTemplateStudio extends LightningElement {
         this.draft = EMPTY_DRAFT();
         this.wizardStep = 'basic';
         this.shellRegions = [];
-        this.summaryPreviewDevice = 'desktop';
     }
 
     async _classifyUpload(event, assetType) {

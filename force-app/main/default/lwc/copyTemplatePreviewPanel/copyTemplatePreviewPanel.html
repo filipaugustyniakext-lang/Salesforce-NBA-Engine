@@ -1,11 +1,8 @@
 <template>
-    <section class={panelClass}>
-        <div class="preview-panel__header">
-            <div>
-                <h3 class="slds-text-heading_small">{heading}</h3>
-                <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">{helpText}</p>
-            </div>
-            <div class="preview-panel__toolbar" role="toolbar" aria-label="Preview options">
+    <article class={panelClass} style={panelStyle}>
+        <header class="preview-panel__header">
+            <h2 class="preview-panel__title slds-text-heading_small slds-truncate" title={heading}>{heading}</h2>
+            <div class="preview-panel__header-actions" role="toolbar" aria-label="Preview options">
                 <div class="slds-button-group" role="group" aria-label="Device">
                     <button class={deviceDesktopClass} type="button" onclick={handleDeviceDesktop} title="Desktop preview" aria-pressed={isDesktop}>
                         <lightning-icon icon-name="utility:desktop" size="x-small" variant={deviceDesktopVariant} class="slds-button__icon"></lightning-icon>
@@ -27,18 +24,22 @@
                     </button>
                 </div>
             </div>
-        </div>
+        </header>
 
-        <template lwc:if={renderSourceLoading}>
-            <div class="preview-panel__loading">
-                <lightning-spinner alternative-text="Loading preview" size="small"></lightning-spinner>
-            </div>
+        <template lwc:if={helpText}>
+            <p class="preview-panel__help slds-text-body_small slds-text-color_weak">{helpText}</p>
         </template>
 
-        <template lwc:elseif={hasShellPreview}>
-            <div class={previewBodyClass}>
+        <div class="preview-panel__body">
+            <template lwc:if={renderSourceLoading}>
+                <div class="preview-panel__loading">
+                    <lightning-spinner alternative-text="Loading preview" size="small"></lightning-spinner>
+                </div>
+            </template>
+
+            <template lwc:elseif={hasShellPreview}>
                 <div class="preview-panel__mock-wrap">
-                    <div class={previewFrameClass}>
+                    <div class={previewFrameClass} style={previewFrameStyle}>
                         <template lwc:if={isMobile}>
                             <div class="preview-panel__notch"></div>
                         </template>
@@ -52,13 +53,13 @@
                         <div class="preview-panel__document" data-preview-host lwc:dom="manual"></div>
                     </div>
                 </div>
-            </div>
-        </template>
+            </template>
 
-        <template lwc:elseif={previewIsEmpty}>
-            <div class="preview-panel__empty slds-box slds-theme_shade">
-                <p class="slds-text-body_small slds-text-color_weak">{previewStatusMessage}</p>
-            </div>
-        </template>
-    </section>
+            <template lwc:elseif={previewIsEmpty}>
+                <div class="preview-panel__empty slds-box slds-theme_shade">
+                    <p class="slds-text-body_small slds-text-color_weak">{previewStatusMessage}</p>
+                </div>
+            </template>
+        </div>
+    </article>
 </template>

@@ -4,6 +4,13 @@ const CC_PREVIEW_OPEN = /<cc-preview\b([^>]*)>/gi;
 const CC_PREVIEW_CLOSE = /<\/cc-preview\s*>/gi;
 const EMPTY_BLOCKS_PLACEHOLDER = '<div class="cc-preview-blocks-empty" style="border:2px dashed #939393;padding:48px 24px;text-align:center;color:#444444;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;max-width:100%;box-sizing:border-box;">No content blocks yet. Start adding content blocks using the editor canvas.</div>';
 
+export const PREVIEW_PANEL_PADDING_PX = 20;
+export const PREVIEW_MOBILE_FRAME_WIDTH_PX = 288;
+export const PREVIEW_MOBILE_FRAME_HEIGHT_PX = 600;
+/** Browser chrome above the email canvas on desktop mockups. */
+export const PREVIEW_DESKTOP_FRAME_CHROME_PX = 48;
+export const PREVIEW_DESKTOP_BODY_MAX_PX = 600;
+
 export function normalizeCcPreviewType(rawType) {
     const value = String(rawType || '').trim().toLowerCase();
     if (value === 'fixed' || value === 'fixed-read' || value === 'preview-fixed') return 'fixed-read';
@@ -13,7 +20,7 @@ export function normalizeCcPreviewType(rawType) {
 }
 
 export function renderTemplatePreview(source, blocks, device) {
-    const shell = String(source?.shellHtml || '');
+    const shell = unwrapTemplateStartWrapper(String(source?.shellHtml || ''));
     if (!shell) return '';
     const definitions = new Map((source.blocks || []).map(block => [block.type, block]));
     const visible = (blocks || []).filter(block => isVisibleOnDevice(block, device, definitions.get(block.blockType)));
@@ -237,9 +244,10 @@ function findCcPreviewRegions(html) {
     CC_PREVIEW_OPEN.lastIndex = 0;
     let match = CC_PREVIEW_OPEN.exec(source);
     while (match) {
+        const attrs = match[1];
         const openStart = match.index;
         const openEnd = openStart + match[0].length;
-        const type = normalizeCcPreviewType(parseCcPreviewTypeAttr(match[1]));
+        const type = normalizeCcPreviewType(parseCcPreviewTypeAttr(attrs));
         CC_PREVIEW_CLOSE.lastIndex = openEnd;
         const closeMatch = CC_PREVIEW_CLOSE.exec(source);
         if (!closeMatch) {
@@ -248,6 +256,8 @@ function findCcPreviewRegions(html) {
         }
         regions.push({
             type,
+            attrs,
+            dataAction: parseCcPreviewDataAction(attrs),
             openStart,
             openEnd,
             closeStart: closeMatch.index,
@@ -259,6 +269,70 @@ function findCcPreviewRegions(html) {
     CC_PREVIEW_OPEN.lastIndex = 0;
     CC_PREVIEW_CLOSE.lastIndex = 0;
     return regions;
+}
+
+function parseCcPreviewAttr(attrs, name) {
+    const pattern = new RegExp(`\\b${name}\\s*=\\s*(['"])([^'"]+)\\1`, 'i');
+    const match = pattern.exec(String(attrs || ''));
+    return match ? match[2] : '';
+}
+
+export function parseCcPreviewDataAction(attrs) {
+    return parseCcPreviewAttr(attrs, 'data-action').trim().toLowerCase();
+}
+
+function clampPreviewDimension(value, min, max, fallback) {
+    const parsed = parseInt(value, 10);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.min(max, Math.max(min, parsed));
+}
+
+/** Reads desktop-width / mobile-width from the template-start cc-preview wrapper. */
+export function parsePreviewLayoutFromShell(shellHtml) {
+    const fallback = {
+        desktopWidth: PREVIEW_DESKTOP_BODY_MAX_PX,
+        mobileWidth: PREVIEW_MOBILE_FRAME_WIDTH_PX
+    };
+    const regions = findCcPreviewRegions(String(shellHtml || ''));
+    const wrapper = regions.find(region => region.dataAction === 'template-start');
+    if (!wrapper) return fallback;
+    return {
+        desktopWidth: clampPreviewDimension(
+            parseCcPreviewAttr(wrapper.attrs, 'desktop-width'),
+            320,
+            PREVIEW_DESKTOP_BODY_MAX_PX,
+            PREVIEW_DESKTOP_BODY_MAX_PX
+        ),
+        mobileWidth: clampPreviewDimension(
+            parseCcPreviewAttr(wrapper.attrs, 'mobile-width'),
+            240,
+            400,
+            PREVIEW_MOBILE_FRAME_WIDTH_PX
+        )
+    };
+}
+
+export function previewFrameWidthPx(device, layout) {
+    const config = layout || {
+        desktopWidth: PREVIEW_DESKTOP_BODY_MAX_PX,
+        mobileWidth: PREVIEW_MOBILE_FRAME_WIDTH_PX
+    };
+    if (device === 'mobile') return PREVIEW_MOBILE_FRAME_WIDTH_PX;
+    const chrome = PREVIEW_DESKTOP_FRAME_CHROME_PX;
+    return Math.min(config.desktopWidth + chrome, PREVIEW_DESKTOP_BODY_MAX_PX + chrome);
+}
+
+export function previewPanelWidthPx(device, layout) {
+    return previewFrameWidthPx(device, layout) + (PREVIEW_PANEL_PADDING_PX * 2);
+}
+
+function unwrapTemplateStartWrapper(shell) {
+    const source = String(shell || '');
+    if (!source) return '';
+    const regions = findCcPreviewRegions(source);
+    const wrapper = regions.find(region => region.dataAction === 'template-start');
+    if (!wrapper) return source;
+    return source.slice(0, wrapper.openStart) + wrapper.innerHtml + source.slice(wrapper.closeEnd);
 }
 
 function parseCcPreviewTypeAttr(attrs) {
@@ -273,6 +347,7 @@ function applyCcPreviewRegions(shell, blockHtml) {
     const ordered = regions.slice().sort((left, right) => right.openStart - left.openStart);
     let blocksPlaced = false;
     ordered.forEach(region => {
+        if (region.dataAction === 'template-start') return;
         let inner = region.innerHtml;
         if (region.type === 'blocks') {
             const trimmed = String(blockHtml || '').trim();

@@ -1086,6 +1086,7 @@
                 <div
                     id="editor-right-panel"
                     class={rightPanelClass}
+                    style={rightPanelStyle}
                     aria-hidden={rightPanelAriaHidden}
                 >
                     <div class="slds-panel__header">
@@ -1124,7 +1125,7 @@
 
                     <div class="slds-panel__body editor-preview-body">
                         <div class="editor-preview__mock-wrap">
-                            <div class={previewFrameClass}>
+                            <div class={previewFrameClass} style={previewFrameStyle}>
 
                                 <template lwc:if={isMobile}>
                                     <div class="editor-preview__notch"></div>

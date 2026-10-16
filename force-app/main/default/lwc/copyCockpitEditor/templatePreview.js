@@ -1,1 +1,9 @@
-export { renderTemplatePreview, scopePreviewDocument, buildSamplePreviewBlocks, pinPreviewWidths } from 'c/copyTemplatePreview';
+export {
+    renderTemplatePreview,
+    scopePreviewDocument,
+    buildSamplePreviewBlocks,
+    pinPreviewWidths,
+    parsePreviewLayoutFromShell,
+    previewPanelWidthPx,
+    previewFrameWidthPx
+} from 'c/copyTemplatePreview';
