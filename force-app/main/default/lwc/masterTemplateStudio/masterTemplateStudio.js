@@ -253,6 +253,10 @@ export default class MasterTemplateStudio extends LightningElement {
         if (step === 'shell' || step === 'summary') {
             this._refreshShellRegions(this.draft.Id);
         }
+        if (step === 'summary') {
+            // eslint-disable-next-line @lwc/lwc/no-async-operation
+            requestAnimationFrame(() => this._refreshSummaryPreview());
+        }
     }
 
     handleFieldChange(event) {
@@ -359,7 +363,7 @@ export default class MasterTemplateStudio extends LightningElement {
             this._toast('Activated', 'Template definition is active.', 'success');
             this.closeModal();
         } catch (error) {
-            this._toast('Activation', error.body?.message || error.message, 'error');
+            this._toast('Activation failed', this._apexErrorMessage(error), 'error');
         } finally {
             this.isSaving = false;
         }
@@ -451,6 +455,23 @@ export default class MasterTemplateStudio extends LightningElement {
             ...asset,
             tileIcon
         }));
+    }
+
+    _refreshSummaryPreview() {
+        const panel = this.template.querySelector('c-copy-template-preview-panel');
+        if (panel) {
+            panel.refreshPreview();
+        }
+    }
+
+    _apexErrorMessage(error) {
+        if (Array.isArray(error?.body)) {
+            return error.body.map(item => item.message).filter(Boolean).join(' ');
+        }
+        return error?.body?.message
+            || error?.body?.pageErrors?.[0]?.message
+            || error?.message
+            || 'Activation failed. Check permissions and shell HTML, then try again.';
     }
 
     _toast(title, message, variant) {

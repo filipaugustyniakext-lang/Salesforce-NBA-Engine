@@ -195,6 +195,10 @@
     margin-top: 0.25rem;
 }
 
+.studio-detected-regions__badges .slds-badge + .slds-badge {
+    margin-left: 0;
+}
+
 .studio-file-list {
     display: flex;
     flex-wrap: wrap;
@@ -226,6 +230,21 @@
 
 .studio-file__name:hover {
     text-decoration: underline;
+}
+
+.studio-summary-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(18rem, 26rem);
+    gap: 1rem;
+    align-items: start;
+}
+
+.studio-summary-layout__main {
+    min-width: 0;
+}
+
+.studio-summary-layout__preview {
+    min-width: 0;
 }
 
 .studio-summary {

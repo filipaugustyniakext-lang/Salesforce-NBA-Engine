@@ -10,6 +10,8 @@ import {
 export default class CopyTemplatePreviewPanel extends LightningElement {
     @api heading = 'Copy Center preview';
     @api helpText = 'Uses the same preview compiler as the Copy Center editor. Sample copy and images stand in for author content.';
+    /** When true, blocks cc-preview regions render the empty canvas placeholder. */
+    @api emptyCanvas = false;
 
     @track _renderSource = null;
     @track _renderSourceLoading = false;
@@ -141,7 +143,7 @@ export default class CopyTemplatePreviewPanel extends LightningElement {
         getTemplateRenderSource({ templateId })
             .then(source => {
                 this._renderSource = source;
-                this._canvasBlocks = buildSamplePreviewBlocks(source);
+                this._canvasBlocks = this.emptyCanvas ? [] : buildSamplePreviewBlocks(source);
                 this._previewTick += 1;
             })
             .catch(err => {

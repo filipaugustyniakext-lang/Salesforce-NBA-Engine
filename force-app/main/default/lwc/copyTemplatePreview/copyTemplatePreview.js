@@ -1,5 +1,17 @@
 import { applyBlockTemplate } from 'c/contentBindingModel';
 
+const CC_PREVIEW_OPEN = /<cc-preview\b([^>]*)>/gi;
+const CC_PREVIEW_CLOSE = /<\/cc-preview\s*>/gi;
+const EMPTY_BLOCKS_PLACEHOLDER = '<div class="cc-preview-blocks-empty" style="border:2px dashed #939393;padding:48px 24px;text-align:center;color:#444444;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;max-width:100%;box-sizing:border-box;">No content blocks yet. Start adding content blocks using the editor canvas.</div>';
+
+export function normalizeCcPreviewType(rawType) {
+    const value = String(rawType || '').trim().toLowerCase();
+    if (value === 'fixed' || value === 'fixed-read' || value === 'preview-fixed') return 'preview-fixed';
+    if (value === 'fixed-edit' || value === 'preview-edit') return 'preview-edit';
+    if (value === 'blocks') return 'blocks';
+    return '';
+}
+
 export function renderTemplatePreview(source, blocks, device) {
     const shell = String(source?.shellHtml || '');
     if (!shell) return '';
@@ -9,7 +21,11 @@ export function renderTemplatePreview(source, blocks, device) {
         const definition = definitions.get(block.blockType);
         return renderBlock(block, definition?.html || '', definition);
     }).join('');
-    return stripExecutableMarkup(applyPreviewActions(shell, rendered, visible, source?.bodySlotKey));
+    const ccApplied = applyCcPreviewRegions(shell, rendered);
+    const merged = ccApplied != null
+        ? ccApplied
+        : applyPreviewActions(shell, rendered, visible, source?.bodySlotKey);
+    return stripExecutableMarkup(merged);
 }
 
 const PREVIEW_SCOPE = '.cc-preview';
@@ -214,6 +230,61 @@ function pixelValue(value) {
 }
 
 const PREVIEW_ACTION = /<div\b[^>]*\bdata-preview-action\s*=\s*(['"])(preload|expectBlocks|expectContent)\1[^>]*>/gi;
+
+function findCcPreviewRegions(html) {
+    const regions = [];
+    const source = String(html || '');
+    CC_PREVIEW_OPEN.lastIndex = 0;
+    let match = CC_PREVIEW_OPEN.exec(source);
+    while (match) {
+        const openStart = match.index;
+        const openEnd = openStart + match[0].length;
+        const type = normalizeCcPreviewType(parseCcPreviewTypeAttr(match[1]));
+        CC_PREVIEW_CLOSE.lastIndex = openEnd;
+        const closeMatch = CC_PREVIEW_CLOSE.exec(source);
+        if (!closeMatch) {
+            match = CC_PREVIEW_OPEN.exec(source);
+            continue;
+        }
+        regions.push({
+            type,
+            openStart,
+            openEnd,
+            closeStart: closeMatch.index,
+            closeEnd: closeMatch.index + closeMatch[0].length,
+            innerHtml: source.slice(openEnd, closeMatch.index)
+        });
+        match = CC_PREVIEW_OPEN.exec(source);
+    }
+    CC_PREVIEW_OPEN.lastIndex = 0;
+    CC_PREVIEW_CLOSE.lastIndex = 0;
+    return regions;
+}
+
+function parseCcPreviewTypeAttr(attrs) {
+    const match = /\btype\s*=\s*(['"])([^'"]+)\1/i.exec(String(attrs || ''));
+    return match ? match[2] : '';
+}
+
+function applyCcPreviewRegions(shell, blockHtml) {
+    const regions = findCcPreviewRegions(shell);
+    if (!regions.length) return null;
+    let html = shell;
+    const ordered = regions.slice().sort((left, right) => right.openStart - left.openStart);
+    let blocksPlaced = false;
+    ordered.forEach(region => {
+        let inner = region.innerHtml;
+        if (region.type === 'blocks') {
+            const trimmed = String(blockHtml || '').trim();
+            inner = blocksPlaced ? '' : (trimmed || EMPTY_BLOCKS_PLACEHOLDER);
+            blocksPlaced = true;
+        } else if (region.type === 'preview-fixed' || region.type === 'preview-edit') {
+            inner = region.innerHtml;
+        }
+        html = html.slice(0, region.openStart) + inner + html.slice(region.closeEnd);
+    });
+    return html;
+}
 
 function applyPreviewActions(shell, blockHtml, blocks, slotKey) {
     const regions = findPreviewRegions(shell);

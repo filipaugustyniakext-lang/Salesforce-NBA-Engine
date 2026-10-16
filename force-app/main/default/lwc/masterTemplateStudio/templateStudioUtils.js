@@ -23,12 +23,13 @@ export const WIZARD_STEPS = [
 
 const CC_PREVIEW_TYPE_PATTERN = /<cc-preview\b[^>]*\btype\s*=\s*(['"])([^'"]+)\1/gi;
 
-const CANONICAL_REGION_ORDER = ['fixed-read', 'fixed-edit', 'blocks'];
+const CANONICAL_REGION_ORDER = ['preview-fixed', 'preview-edit', 'blocks'];
 
 export function normalizePreviewType(rawType) {
     const value = String(rawType || '').trim().toLowerCase();
-    if (value === 'fixed') return 'fixed-read';
-    if (CANONICAL_REGION_ORDER.includes(value)) return value;
+    if (value === 'fixed' || value === 'fixed-read' || value === 'preview-fixed') return 'preview-fixed';
+    if (value === 'fixed-edit' || value === 'preview-edit') return 'preview-edit';
+    if (value === 'blocks') return 'blocks';
     return '';
 }
 
@@ -62,8 +63,8 @@ export function scanCcPreviewRegions(html) {
 }
 
 export function regionLabel(type) {
-    if (type === 'fixed-read') return 'fixed-read / fixed (pre-rendered shell)';
-    if (type === 'fixed-edit') return 'fixed-edit (editable defaults)';
-    if (type === 'blocks') return 'blocks (drop zone)';
+    if (type === 'preview-fixed') return 'preview-fixed (read-only shell)';
+    if (type === 'preview-edit') return 'preview-edit (editable regions)';
+    if (type === 'blocks') return 'blocks (content canvas)';
     return type;
 }

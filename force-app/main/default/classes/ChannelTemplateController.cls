@@ -275,16 +275,20 @@ public with sharing class ChannelTemplateController {
     }
 
     @AuraEnabled
-    public static void activateTemplatePackage(Id templateId) {
+    public static String activateTemplatePackage(Id templateId) {
         if (templateId == null) {
             throw new AuraHandledException('Template is required.');
         }
-        Channel_Template__c template = [
+        List<Channel_Template__c> templates = [
             SELECT Id, Status__c, Channel__c
             FROM Channel_Template__c
             WHERE Id = :templateId
             LIMIT 1
         ];
+        if (templates.isEmpty()) {
+            throw new AuraHandledException('Template definition was not found or you do not have access.');
+        }
+        Channel_Template__c template = templates[0];
         if (template.Status__c == 'Active') {
             throw new AuraHandledException('This template is already active.');
         }
@@ -306,10 +310,17 @@ public with sharing class ChannelTemplateController {
         for (Channel_Template__c other : otherActive) {
             other.Status__c = 'Archived';
         }
-        if (!otherActive.isEmpty()) {
-            update otherActive;
+        try {
+            if (!otherActive.isEmpty()) {
+                update otherActive;
+            }
+            update template;
+        } catch (DmlException error) {
+            throw new AuraHandledException(
+                error.getNumDml() > 0 ? error.getDmlMessage(0) : error.getMessage()
+            );
         }
-        update template;
+        return template.Id;
     }
 
     @AuraEnabled
@@ -856,7 +867,10 @@ public with sharing class ChannelTemplateController {
                 }
             }
         }
-        source.shellHtml = library.shellHtml;
+        source.shellHtml = readShellHtmlForTemplate(template.Id);
+        if (String.isBlank(source.shellHtml)) {
+            source.shellHtml = library.shellHtml;
+        }
         if (String.isBlank(source.shellHtml)) {
             source.shellHtml = htmlByName.get(baseName(shellName).toLowerCase());
         }
@@ -1316,8 +1330,9 @@ public with sharing class ChannelTemplateController {
     private static String normalizeCcPreviewType(String rawType) {
         if (String.isBlank(rawType)) return '';
         String value = rawType.trim().toLowerCase();
-        if (value == 'fixed') return 'fixed-read';
-        if (value == 'fixed-read' || value == 'fixed-edit' || value == 'blocks') return value;
+        if (value == 'fixed' || value == 'fixed-read' || value == 'preview-fixed') return 'preview-fixed';
+        if (value == 'fixed-edit' || value == 'preview-edit') return 'preview-edit';
+        if (value == 'blocks') return 'blocks';
         return '';
     }
 
@@ -1346,7 +1361,7 @@ public with sharing class ChannelTemplateController {
         }
         if (definition.shellPreviewRegions == null || definition.shellPreviewRegions.isEmpty()) {
             issues.add(
-                'Shell HTML must include at least one cc-preview region (fixed-read, fixed-edit, or blocks).'
+                'Shell HTML must include at least one cc-preview region (preview-fixed, preview-edit, or blocks).'
             );
         }
         return issues;
