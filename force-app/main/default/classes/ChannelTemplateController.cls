@@ -1330,8 +1330,8 @@ public with sharing class ChannelTemplateController {
     private static String normalizeCcPreviewType(String rawType) {
         if (String.isBlank(rawType)) return '';
         String value = rawType.trim().toLowerCase();
-        if (value == 'fixed' || value == 'fixed-read' || value == 'preview-fixed') return 'preview-fixed';
-        if (value == 'fixed-edit' || value == 'preview-edit') return 'preview-edit';
+        if (value == 'fixed' || value == 'fixed-read' || value == 'preview-fixed') return 'fixed-read';
+        if (value == 'fixed-edit' || value == 'preview-edit') return 'fixed-edit';
         if (value == 'blocks') return 'blocks';
         return '';
     }
@@ -1361,7 +1361,7 @@ public with sharing class ChannelTemplateController {
         }
         if (definition.shellPreviewRegions == null || definition.shellPreviewRegions.isEmpty()) {
             issues.add(
-                'Shell HTML must include at least one cc-preview region (preview-fixed, preview-edit, or blocks).'
+                'Shell HTML must include at least one cc-preview region (fixed-read, fixed-edit, or blocks).'
             );
         }
         return issues;

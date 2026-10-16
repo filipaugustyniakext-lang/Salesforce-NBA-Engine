@@ -6,8 +6,8 @@ const EMPTY_BLOCKS_PLACEHOLDER = '<div class="cc-preview-blocks-empty" style="bo
 
 export function normalizeCcPreviewType(rawType) {
     const value = String(rawType || '').trim().toLowerCase();
-    if (value === 'fixed' || value === 'fixed-read' || value === 'preview-fixed') return 'preview-fixed';
-    if (value === 'fixed-edit' || value === 'preview-edit') return 'preview-edit';
+    if (value === 'fixed' || value === 'fixed-read' || value === 'preview-fixed') return 'fixed-read';
+    if (value === 'fixed-edit' || value === 'preview-edit') return 'fixed-edit';
     if (value === 'blocks') return 'blocks';
     return '';
 }
@@ -278,7 +278,7 @@ function applyCcPreviewRegions(shell, blockHtml) {
             const trimmed = String(blockHtml || '').trim();
             inner = blocksPlaced ? '' : (trimmed || EMPTY_BLOCKS_PLACEHOLDER);
             blocksPlaced = true;
-        } else if (region.type === 'preview-fixed' || region.type === 'preview-edit') {
+        } else if (region.type === 'fixed-read' || region.type === 'fixed-edit') {
             inner = region.innerHtml;
         }
         html = html.slice(0, region.openStart) + inner + html.slice(region.closeEnd);
