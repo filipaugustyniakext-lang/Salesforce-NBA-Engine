@@ -1,11 +1,16 @@
 import { LightningElement, track } from 'lwc';
+import { persistMainTab, resolveMainTab } from 'c/marketingDictionaryState';
 
 export default class MarketingDictionaryApp extends LightningElement {
     @track activeTab = 'person';
     _channelAvailability = {};
 
+    connectedCallback() {
+        this.activeTab = persistMainTab(resolveMainTab());
+    }
+
     handleTabChange(event) {
-        this.activeTab = event.target.value;
+        this.activeTab = persistMainTab(event.target.value);
     }
 
     handleChannelActiveChange(event) {

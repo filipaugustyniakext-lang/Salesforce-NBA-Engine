@@ -25,6 +25,11 @@ import deleteIntentTarget from '@salesforce/apex/MarketingDictionaryManagerContr
 import saveBannerIntent from '@salesforce/apex/MarketingDictionaryManagerController.saveBannerIntent';
 import saveBannerIntentsBulk from '@salesforce/apex/MarketingDictionaryManagerController.saveBannerIntentsBulk';
 import deleteBannerIntent from '@salesforce/apex/MarketingDictionaryManagerController.deleteBannerIntent';
+import {
+    persistChannelSelection,
+    resolveChannelId,
+    resolveChannelSubTab
+} from 'c/marketingDictionaryState';
 
 const CHANNEL_TYPES = ['Email', 'SMS', 'Push', 'Banner', 'In-App', 'AI Agent', 'Branch Agent', 'WhatsApp'];
 const VALID_ICON = /^[a-zA-Z0-9_]+:[a-zA-Z0-9_]+$/;
@@ -120,9 +125,23 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
                     this._chState = { ...this._chState, [ch.Id]: defaultChState() };
                 }
             });
-            // Select first channel if none active or active was deleted
-            if (!this._activeChannelId || !result.data.find(c => c.Id === this._activeChannelId)) {
-                this._activeChannelId = result.data[0]?.Id || null;
+            const restoredSubTab = resolveChannelSubTab();
+            const resolvedChannelId = resolveChannelId(result.data);
+            if (
+                !this._activeChannelId
+                || !result.data.find(c => c.Id === this._activeChannelId)
+            ) {
+                this._activeChannelId = resolvedChannelId;
+            }
+            if (this._activeChannelId && this._chState[this._activeChannelId]) {
+                this._chState = {
+                    ...this._chState,
+                    [this._activeChannelId]: {
+                        ...this._chState[this._activeChannelId],
+                        activeTab: restoredSubTab
+                    }
+                };
+                persistChannelSelection(this._activeChannelId, restoredSubTab);
             }
         } else if (result.error) {
             this._showToast('Error', result.error.body?.message || 'Failed to load channels', 'error');
@@ -299,6 +318,9 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
     _updateChState(channelId, patch) {
         const current = this._chState[channelId] || defaultChState();
         this._chState = { ...this._chState, [channelId]: { ...current, ...patch } };
+        if (patch.activeTab && channelId === this._activeChannelId) {
+            persistChannelSelection(channelId, patch.activeTab);
+        }
     }
 
     get isChannelTabCooldown() {
@@ -353,6 +375,8 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
 
     handleSelectChannel(event) {
         this._activeChannelId = event.currentTarget.dataset.id;
+        const subTab = this._chState[this._activeChannelId]?.activeTab || resolveChannelSubTab();
+        persistChannelSelection(this._activeChannelId, subTab);
     }
 
     get channelCount() { return this._rawChannels.length; }
