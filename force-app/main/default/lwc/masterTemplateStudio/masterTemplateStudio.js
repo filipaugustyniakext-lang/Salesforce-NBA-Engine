@@ -88,7 +88,7 @@ export default class MasterTemplateStudio extends LightningElement {
                 : (item.components || []).map(c => c.fileName).filter(Boolean),
             hasBlocks: (item.contentBlockNames || []).length > 0
                 || (item.components || []).length > 0,
-            regionSummary: (item.shellPreviewRegions || []).map(regionLabel).join(', ') || 'None detected',
+            regionSummary: (item.shellPreviewRegions || []).join(', ') || 'None detected',
             validationLines: item.validationIssues || [],
             hasValidationIssues: (item.validationIssues || []).length > 0,
             variantLabel: item.messageVariantCount === 1
@@ -160,9 +160,9 @@ export default class MasterTemplateStudio extends LightningElement {
     }
 
     get shellRegionsDisplay() {
-        return (this.shellRegions || []).map(type => ({
-            key: type,
-            label: regionLabel(type)
+        return (this.shellRegions || []).map((label, index) => ({
+            key: `region-${index}-${label}`,
+            label
         }));
     }
 

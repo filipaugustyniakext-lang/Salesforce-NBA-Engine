@@ -115,7 +115,7 @@ public with sharing class ChannelTemplateController {
             definition.validatedAt = record.Validated_At__c;
             definition.lastModifiedDate = record.LastModifiedDate;
             definition.components = readCatalog(record.Manifest_JSON__c);
-            definition.shellPreviewRegions = scanCcPreviewRegions(readShellHtmlForTemplate(record.Id));
+            definition.shellPreviewRegions = scanCcPreviewRegionsInOrder(readShellHtmlForTemplate(record.Id));
             byId.put(record.Id, definition);
         }
 
@@ -252,7 +252,7 @@ public with sharing class ChannelTemplateController {
 
     @AuraEnabled(cacheable=true)
     public static List<String> getShellPreviewRegions(Id templateId) {
-        return scanCcPreviewRegions(readShellHtmlForTemplate(templateId));
+        return scanCcPreviewRegionsInOrder(readShellHtmlForTemplate(templateId));
     }
 
     @AuraEnabled
@@ -1290,21 +1290,25 @@ public with sharing class ChannelTemplateController {
         return '';
     }
 
-    private static List<String> scanCcPreviewRegions(String html) {
-        List<String> regions = new List<String>();
-        if (String.isBlank(html)) return regions;
-        Set<String> found = new Set<String>();
+    private static String ccPreviewRegionDisplayLabel(String rawType) {
+        String canonical = normalizeCcPreviewType(rawType);
+        if (canonical == 'fixed-read') return 'fixed read';
+        if (canonical == 'fixed-edit') return 'fixed edit';
+        if (canonical == 'blocks') return 'blocks';
+        return '';
+    }
+
+    private static List<String> scanCcPreviewRegionsInOrder(String html) {
+        List<String> ordered = new List<String>();
+        if (String.isBlank(html)) return ordered;
         Matcher matcher = Pattern.compile(
             '(?i)<cc-preview\\b[^>]*\\btype\\s*=\\s*[\\\'\\"]([^\\\'\\"]+)[\\\'\\"]'
         ).matcher(html);
         while (matcher.find()) {
-            String canonical = normalizeCcPreviewType(matcher.group(1));
-            if (String.isNotBlank(canonical)) found.add(canonical);
+            String label = ccPreviewRegionDisplayLabel(matcher.group(1));
+            if (String.isNotBlank(label)) ordered.add(label);
         }
-        for (String region : new List<String>{ 'fixed-read', 'fixed-edit', 'blocks' }) {
-            if (found.contains(region)) regions.add(region);
-        }
-        return regions;
+        return ordered;
     }
 
     private static List<String> buildValidationIssues(TemplateDefinition definition) {
