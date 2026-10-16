@@ -266,9 +266,17 @@
     margin: 0;
 }
 
-.studio-block-definition-card,
+.studio-block-definition-card {
+    margin: 0;
+}
+
 .studio-block-summary-card {
     margin: 0;
+    cursor: pointer;
+}
+
+.studio-block-summary-card_selected {
+    box-shadow: 0 0 0 2px var(--lwc-brandPrimary, #0176d3);
 }
 
 .studio-block-summary__badges {

@@ -52,6 +52,8 @@ export default class MasterTemplateStudio extends LightningElement {
         validated: false
     };
     @track blockBindingTab = 'content';
+    /** Catalog type or uploaded file name — drives single-block preview on Content Blocks step. */
+    @track previewBlockKey = '';
     acceptedHtml = ['.html'];
     acceptedCss = ['.css'];
 
@@ -195,6 +197,8 @@ export default class MasterTemplateStudio extends LightningElement {
             .map((component, index) => {
             const status = (component.status || 'Draft').trim();
             const validated = status === 'Ready' || status === 'Active';
+            const previewKey = component.type || component.fileName || '';
+            const selected = previewKey && previewKey === this.previewBlockKey;
             return {
                 key: `${component.type || 'block'}-${index}`,
                 type: component.type,
@@ -210,7 +214,10 @@ export default class MasterTemplateStudio extends LightningElement {
                     ? 'slds-badge slds-theme_success'
                     : 'slds-badge slds-badge_lightest',
                 descriptionDisplay: component.description || 'No description provided.',
-                documentId: this._contentBlockDocumentId(component.fileName)
+                documentId: this._contentBlockDocumentId(component.fileName),
+                summaryCardClass: 'studio-block-summary-card slds-card slds-card_boundary'
+                    + (selected ? ' studio-block-summary-card_selected' : ''),
+                previewKey
             };
         });
     }
@@ -363,6 +370,7 @@ export default class MasterTemplateStudio extends LightningElement {
         this.shellRegionError = '';
         this.showNewBlockDefinitionForm = false;
         this._resetPendingBlockDraft();
+        this.previewBlockKey = '';
         this.isModalOpen = true;
     }
 
@@ -385,6 +393,7 @@ export default class MasterTemplateStudio extends LightningElement {
         this.shellRegionError = '';
         this.showNewBlockDefinitionForm = false;
         this._resetPendingBlockDraft();
+        this.previewBlockKey = '';
         this.isModalOpen = true;
         if (source.id) this._refreshShellRegions(source.id);
     }
@@ -476,13 +485,24 @@ export default class MasterTemplateStudio extends LightningElement {
     handleAddBlockDefinition() {
         this.showNewBlockDefinitionForm = true;
         this._resetPendingBlockDraft();
+        this.previewBlockKey = '';
+    }
+
+    handleBlockSummaryPreview(event) {
+        const previewKey = event.currentTarget.dataset.previewKey;
+        if (!previewKey) return;
+        this.previewBlockKey = previewKey;
+        this.showNewBlockDefinitionForm = false;
+        this._resetPendingBlockDraft();
     }
 
     handleEditBlockDefinition(event) {
+        event.stopPropagation();
         const blockType = event.currentTarget.dataset.type;
         const component = this._savedBlockDefinitions().find(item => item.type === blockType);
         if (!component) return;
         const status = (component.status || 'Draft').trim();
+        this.previewBlockKey = component.type || component.fileName || '';
         this.pendingBlockDraft = {
             label: component.label || '',
             description: component.description || '',
@@ -499,6 +519,7 @@ export default class MasterTemplateStudio extends LightningElement {
     }
 
     handleDeleteBlockDefinition(event) {
+        event.stopPropagation();
         const blockType = event.currentTarget.dataset.type;
         const component = this._savedBlockDefinitions().find(item => item.type === blockType);
         if (!component) return;
@@ -537,6 +558,9 @@ export default class MasterTemplateStudio extends LightningElement {
                 this.showNewBlockDefinitionForm = false;
                 this._resetPendingBlockDraft();
             }
+            if (this.previewBlockKey === pending.type) {
+                this.previewBlockKey = '';
+            }
             await refreshApex(this._wiredTemplates);
             // eslint-disable-next-line @lwc/lwc/no-async-operation
             requestAnimationFrame(() => this._refreshStudioPreviews());
@@ -557,22 +581,30 @@ export default class MasterTemplateStudio extends LightningElement {
     async handleBlockDefinitionUpload(event) {
         const uploaded = (event.detail.files || [])[0];
         await this._classifyUpload(event, 'CONTENT_BLOCK');
+        let fileName = '';
         if (uploaded?.name) {
+            fileName = this._normalizeUploadedBlockFileName(uploaded.name);
             this.pendingBlockDraft = {
                 ...this.pendingBlockDraft,
-                fileName: this._normalizeUploadedBlockFileName(uploaded.name),
+                fileName,
                 validated: false
             };
         } else {
             await refreshApex(this._wiredTemplates);
             const latest = this.blockHtmlAssets[this.blockHtmlAssets.length - 1];
             if (latest?.name) {
+                fileName = latest.name;
                 this.pendingBlockDraft = {
                     ...this.pendingBlockDraft,
-                    fileName: latest.name,
+                    fileName,
                     validated: false
                 };
             }
+        }
+        if (fileName) {
+            this.previewBlockKey = fileName;
+            // eslint-disable-next-line @lwc/lwc/no-async-operation
+            requestAnimationFrame(() => this._refreshStudioPreviews());
         }
     }
 
@@ -680,6 +712,7 @@ export default class MasterTemplateStudio extends LightningElement {
         this.shellRegions = [];
         this.showNewBlockDefinitionForm = false;
         this._resetPendingBlockDraft();
+        this.previewBlockKey = '';
     }
 
     async _classifyUpload(event, assetType) {
@@ -874,6 +907,7 @@ export default class MasterTemplateStudio extends LightningElement {
                 draftKey,
                 validated: status === 'Ready' || status === 'Active'
             };
+            this.previewBlockKey = draftKey || fileName || this.previewBlockKey;
             // eslint-disable-next-line @lwc/lwc/no-async-operation
             requestAnimationFrame(() => this._refreshStudioPreviews());
             if (!silent) {

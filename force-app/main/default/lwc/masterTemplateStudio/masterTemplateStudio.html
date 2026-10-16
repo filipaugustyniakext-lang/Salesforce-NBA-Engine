@@ -339,7 +339,14 @@
                                                 </lightning-empty-state>
                                             </template>
                                             <template for:each={contentBlockCards} for:item="block">
-                                                <article key={block.key} class="studio-block-summary-card slds-card slds-card_boundary">
+                                                <article
+                                                    key={block.key}
+                                                    class={block.summaryCardClass}
+                                                    data-preview-key={block.previewKey}
+                                                    role="button"
+                                                    tabindex="0"
+                                                    title="Show this block in preview"
+                                                    onclick={handleBlockSummaryPreview}>
                                                     <div class="slds-card__header slds-grid">
                                                         <header class="slds-media slds-media_center slds-has-flexi-truncate">
                                                             <div class="slds-media__body">
@@ -473,8 +480,9 @@
                                             <c-copy-template-preview-panel
                                                 template-id={draft.Id}
                                                 preview-mode="blocks"
+                                                preview-block-key={previewBlockKey}
                                                 heading="Block preview"
-                                                help-text="Uploaded blocks render inside the shell using the shell CSS from Template Shell.">
+                                                help-text="Select or upload one content block to preview it inside the template shell. Only the focused block is rendered.">
                                             </c-copy-template-preview-panel>
                                         </div>
                                     </template>

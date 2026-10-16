@@ -433,6 +433,8 @@ private class ChannelTemplateControllerTest {
             if (item.id == templateId) definition = item;
         }
         System.assertEquals(0, source.blocks.size());
+        System.assertEquals(1, source.studioBlocks.size());
+        System.assert(source.studioBlocks[0].html.contains('{{CELL_PADDING_STYLE}}'));
         System.assertEquals(1, definition.components.size());
         System.assertEquals('Draft', definition.components[0].status);
     }

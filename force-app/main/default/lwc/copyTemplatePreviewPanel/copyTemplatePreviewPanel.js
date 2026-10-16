@@ -4,7 +4,7 @@ import {
     renderTemplatePreview,
     scopePreviewDocument,
     buildSamplePreviewBlocks,
-    buildCatalogPreviewBlocks,
+    buildStudioPreviewBlocks,
     pinPreviewWidths,
     parsePreviewLayoutFromShell,
     previewPanelWidthPx,
@@ -28,6 +28,22 @@ export default class CopyTemplatePreviewPanel extends LightningElement {
 
     _templateId;
     _canvasBlocks = [];
+    _previewBlockKey = '';
+
+    @api
+    get previewBlockKey() {
+        return this._previewBlockKey;
+    }
+
+    set previewBlockKey(value) {
+        const next = String(value || '').trim();
+        if (next === this._previewBlockKey) return;
+        this._previewBlockKey = next;
+        if (this._renderSource) {
+            this._canvasBlocks = this._resolveCanvasBlocks(this._previewRenderSource());
+            this._previewTick += 1;
+        }
+    }
 
     @api
     get templateId() {
@@ -73,8 +89,9 @@ export default class CopyTemplatePreviewPanel extends LightningElement {
 
     get previewDocument() {
         const revision = this._previewTick;
-        if (!this._renderSource?.shellHtml || revision < 0) return '';
-        return renderTemplatePreview(this._renderSource, this._canvasBlocks, this._previewDevice);
+        const source = this._previewRenderSource();
+        if (!source?.shellHtml || revision < 0) return '';
+        return renderTemplatePreview(source, this._canvasBlocks, this._previewDevice);
     }
 
     get isDesktop() {
@@ -190,12 +207,27 @@ export default class CopyTemplatePreviewPanel extends LightningElement {
         }));
     }
 
+    _previewRenderSource() {
+        if (!this._renderSource) return null;
+        if (this.previewMode !== 'blocks') return this._renderSource;
+        const studio = this._renderSource.studioBlocks;
+        if (!Array.isArray(studio) || !studio.length) return this._renderSource;
+        const merged = new Map();
+        (this._renderSource.blocks || []).forEach(block => {
+            if (block?.type) merged.set(block.type, block);
+        });
+        studio.forEach(block => {
+            if (block?.type) merged.set(block.type, block);
+        });
+        return { ...this._renderSource, blocks: [...merged.values()] };
+    }
+
     _resolveCanvasBlocks(source) {
         if (this.previewMode === 'shell' || this.emptyCanvas) {
             return [];
         }
         if (this.previewMode === 'blocks') {
-            return buildCatalogPreviewBlocks(source);
+            return buildStudioPreviewBlocks(source, this._previewBlockKey);
         }
         return buildSamplePreviewBlocks(source);
     }
@@ -210,7 +242,7 @@ export default class CopyTemplatePreviewPanel extends LightningElement {
         getTemplateRenderSource({ templateId })
             .then(source => {
                 this._renderSource = source;
-                this._canvasBlocks = this._resolveCanvasBlocks(source);
+                this._canvasBlocks = this._resolveCanvasBlocks(this._previewRenderSource());
                 this._previewTick += 1;
             })
             .catch(err => {

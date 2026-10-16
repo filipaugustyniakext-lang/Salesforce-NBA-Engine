@@ -164,7 +164,11 @@ function renderBlock(block, template, definition) {
     if (!template) return '';
     const prepared = applyBlockTemplate(template, block?.layoutState, definition?.layoutJson);
     const bindings = Array.isArray(definition?.bindings) ? definition.bindings : null;
-    const values = bindings ? boundValues(block, bindings) : legacyValues(block);
+    const blockSettings = Array.isArray(definition?.blockSettings) ? definition.blockSettings : null;
+    if ((!bindings || bindings.length === 0) && (!blockSettings || blockSettings.length === 0)) {
+        return prepared;
+    }
+    const values = bindings?.length ? boundValues(block, bindings) : legacyValues(block);
     return prepared.replace(/\{\{\s*([A-Za-z0-9_.:-]+)\s*\}\}/g, (match, name) => (
         Object.prototype.hasOwnProperty.call(values, name) ? values[name] : ''
     ));
@@ -536,6 +540,58 @@ export function emptyPreviewLayoutState() {
         columnDirection: 'ltr',
         columns: []
     };
+}
+
+function normalizeStudioBlockLookupKey(value) {
+    const text = String(value || '').trim().toLowerCase();
+    if (!text) return '';
+    const base = text.replace(/^.*[/\\]/, '');
+    return base.endsWith('.html') ? base.slice(0, -5) : base;
+}
+
+function studioPreviewCatalog(renderSource) {
+    const studio = renderSource?.studioBlocks;
+    if (Array.isArray(studio) && studio.length) return studio;
+    return renderSource?.blocks || [];
+}
+
+/** Template Studio: one focused block in the shell (upload, summary tile, or edit form). */
+export function buildStudioPreviewBlocks(renderSource, blockKey) {
+    const lookup = normalizeStudioBlockLookupKey(blockKey);
+    if (!lookup) return [];
+    const catalog = studioPreviewCatalog(renderSource).filter(block => block.html);
+    const def = catalog.find(block => {
+        const typeKey = normalizeStudioBlockLookupKey(block.type);
+        const fileKey = normalizeStudioBlockLookupKey(block.fileName);
+        const fileFull = String(block.fileName || '').trim().toLowerCase();
+        return typeKey === lookup
+            || fileKey === lookup
+            || fileFull === lookup
+            || fileFull === `${lookup}.html`;
+    });
+    if (!def) return [];
+    const blockType = def.type || def.fileName;
+    return [{
+        instanceId: 'studio_focus_0',
+        blockType,
+        blockOrder: 0,
+        visDesktop: 'show',
+        visMobile: 'show',
+        padTop: '0',
+        padRight: '0',
+        padBottom: '0',
+        padLeft: '0',
+        copyText: '',
+        imageUrl: '',
+        altText: '',
+        legalText: '',
+        imageLayout: 'text-left',
+        heightDesktop: '',
+        heightMobile: '',
+        spacerHeight: '0',
+        bgValue: '',
+        layoutState: emptyPreviewLayoutState()
+    }];
 }
 
 /** Studio block step: render uploaded block HTML inside the shell without sample copy. */

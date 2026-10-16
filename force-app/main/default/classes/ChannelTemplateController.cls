@@ -1017,6 +1017,8 @@ public with sharing class ChannelTemplateController {
             if (String.isNotBlank(stringValue(injection.get('bodySlotKey')))) {
                 source.bodySlotKey = restorePlaceholder(stringValue(injection.get('bodySlotKey')));
             }
+            Map<String, String> blockBodies = contentBlockBodies(template.Id);
+            Set<String> studioCatalogFiles = new Set<String>();
             for (CatalogComponent component : readCatalog(template.Manifest_JSON__c)) {
                 RenderBlock renderBlock = new RenderBlock();
                 renderBlock.type = component.type;
@@ -1033,12 +1035,28 @@ public with sharing class ChannelTemplateController {
                 renderBlock.html = htmlByName.get(baseName(renderBlock.fileName).toLowerCase());
                 if (String.isBlank(renderBlock.html)) {
                     String withExtension = baseName(renderBlock.fileName).toLowerCase();
-                    if (!withExtension.endsWith('.html')) renderBlock.html = htmlByName.get(withExtension + '.html');
+                    if (!withExtension.endsWith('.html')) {
+                        renderBlock.html = htmlByName.get(withExtension + '.html');
+                    }
+                }
+                if (String.isBlank(renderBlock.html)) {
+                    renderBlock.html = lookupBlockHtml(blockBodies, renderBlock.fileName);
+                }
+                if (String.isBlank(renderBlock.type) && String.isNotBlank(renderBlock.fileName)) {
+                    renderBlock.type = componentTypeToken(renderBlock.label, renderBlock.fileName);
+                }
+                if (String.isNotBlank(renderBlock.html)
+                    && (String.isNotBlank(renderBlock.type) || String.isNotBlank(renderBlock.fileName))) {
+                    source.studioBlocks.add(renderBlock);
+                    studioCatalogFiles.add(catalogBlockFileKey(renderBlock.fileName));
                 }
                 if (String.isNotBlank(renderBlock.type) && 'Active'.equalsIgnoreCase(component.status)) {
                     source.blocks.add(renderBlock);
                 }
             }
+            appendOrphanStudioBlocks(source, template.Id, studioCatalogFiles);
+        } else {
+            appendOrphanStudioBlocks(source, template.Id, new Set<String>());
         }
         source.shellHtml = readShellHtmlForTemplate(template.Id);
         if (String.isBlank(source.shellHtml)) {
@@ -1075,6 +1093,8 @@ public with sharing class ChannelTemplateController {
         @AuraEnabled public String bodySlotKey;
         @AuraEnabled public List<String> previewActions = new List<String>();
         @AuraEnabled public List<RenderBlock> blocks = new List<RenderBlock>();
+        /** Draft/Ready catalog blocks and unlinked uploads for Template Studio preview (not Copy Center palette). */
+        @AuraEnabled public List<RenderBlock> studioBlocks = new List<RenderBlock>();
     }
 
     public class RenderBlock {
@@ -1456,6 +1476,42 @@ public with sharing class ChannelTemplateController {
         String normalized = String.valueOf(path).replace('\\', '/');
         Integer slash = normalized.lastIndexOf('/');
         return slash >= 0 ? normalized.substring(slash + 1) : normalized;
+    }
+
+    private static String catalogBlockFileKey(String fileName) {
+        return baseName(String.valueOf(fileName)).toLowerCase();
+    }
+
+    private static void appendOrphanStudioBlocks(
+        TemplateRenderSource source,
+        Id templateId,
+        Set<String> linkedFileKeys
+    ) {
+        if (source == null || templateId == null) return;
+        Set<String> seen = linkedFileKeys == null ? new Set<String>() : new Set<String>(linkedFileKeys);
+        Map<String, String> bodies = contentBlockBodies(templateId);
+        List<ContentDocumentLink> links = [
+            SELECT ContentDocument.Title, ContentDocument.LatestPublishedVersionId
+            FROM ContentDocumentLink
+            WHERE LinkedEntityId = :templateId
+        ];
+        for (ContentDocumentLink link : links) {
+            if (link.ContentDocument == null || !isContentBlockTitle(link.ContentDocument.Title)) continue;
+            String fileName = stripKnownPrefix(link.ContentDocument.Title);
+            if (String.isBlank(fileName)) continue;
+            if (!fileName.toLowerCase().endsWith('.html')) fileName = fileName + '.html';
+            String key = catalogBlockFileKey(fileName);
+            if (seen.contains(key)) continue;
+            String html = lookupBlockHtml(bodies, fileName);
+            if (String.isBlank(html)) continue;
+            RenderBlock orphan = new RenderBlock();
+            orphan.fileName = fileName;
+            orphan.type = componentTypeToken('', fileName);
+            orphan.html = html;
+            orphan.status = 'Draft';
+            source.studioBlocks.add(orphan);
+            seen.add(key);
+        }
     }
 
     private static String assetTypeLabel(String assetType) {
