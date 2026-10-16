@@ -238,37 +238,52 @@ function pixelValue(value) {
 
 const PREVIEW_ACTION = /<div\b[^>]*\bdata-preview-action\s*=\s*(['"])(preload|expectBlocks|expectContent)\1[^>]*>/gi;
 
+const CC_PREVIEW_TOKEN = /<cc-preview\b([^>]*)>|<\/cc-preview\s*>/gi;
+
 function findCcPreviewRegions(html) {
     const regions = [];
     const source = String(html || '');
-    CC_PREVIEW_OPEN.lastIndex = 0;
-    let match = CC_PREVIEW_OPEN.exec(source);
+    const stack = [];
+    CC_PREVIEW_TOKEN.lastIndex = 0;
+    let match = CC_PREVIEW_TOKEN.exec(source);
     while (match) {
-        const attrs = match[1];
-        const openStart = match.index;
-        const openEnd = openStart + match[0].length;
-        const type = normalizeCcPreviewType(parseCcPreviewTypeAttr(attrs));
-        CC_PREVIEW_CLOSE.lastIndex = openEnd;
-        const closeMatch = CC_PREVIEW_CLOSE.exec(source);
-        if (!closeMatch) {
-            match = CC_PREVIEW_OPEN.exec(source);
-            continue;
+        if (match[0].startsWith('</')) {
+            const open = stack.pop();
+            if (!open) {
+                match = CC_PREVIEW_TOKEN.exec(source);
+                continue;
+            }
+            regions.push({
+                type: open.type,
+                attrs: open.attrs,
+                dataAction: open.dataAction,
+                openStart: open.openStart,
+                openEnd: open.openEnd,
+                closeStart: match.index,
+                closeEnd: match.index + match[0].length,
+                innerHtml: source.slice(open.openEnd, match.index)
+            });
+        } else {
+            const attrs = match[1];
+            stack.push({
+                attrs,
+                type: normalizeCcPreviewType(parseCcPreviewTypeAttr(attrs)),
+                dataAction: parseCcPreviewDataAction(attrs),
+                openStart: match.index,
+                openEnd: match.index + match[0].length
+            });
         }
-        regions.push({
-            type,
-            attrs,
-            dataAction: parseCcPreviewDataAction(attrs),
-            openStart,
-            openEnd,
-            closeStart: closeMatch.index,
-            closeEnd: closeMatch.index + closeMatch[0].length,
-            innerHtml: source.slice(openEnd, closeMatch.index)
-        });
-        match = CC_PREVIEW_OPEN.exec(source);
+        match = CC_PREVIEW_TOKEN.exec(source);
     }
-    CC_PREVIEW_OPEN.lastIndex = 0;
-    CC_PREVIEW_CLOSE.lastIndex = 0;
+    CC_PREVIEW_TOKEN.lastIndex = 0;
     return regions;
+}
+
+/** Region type labels in document order (excludes template-start wrapper). */
+export function scanCcPreviewRegionLabelsInOrder(html) {
+    return findCcPreviewRegions(html)
+        .filter(region => region.dataAction !== 'template-start' && region.type)
+        .map(region => region.type);
 }
 
 function parseCcPreviewAttr(attrs, name) {

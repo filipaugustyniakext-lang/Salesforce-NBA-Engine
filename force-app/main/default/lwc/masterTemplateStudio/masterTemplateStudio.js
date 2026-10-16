@@ -6,7 +6,8 @@ import saveTemplate from '@salesforce/apex/ChannelTemplateController.saveTemplat
 import classifyUploadedFiles from '@salesforce/apex/ChannelTemplateController.classifyUploadedFiles';
 import deleteTemplateAsset from '@salesforce/apex/ChannelTemplateController.deleteTemplateAsset';
 import deleteTemplate from '@salesforce/apex/ChannelTemplateController.deleteTemplate';
-import getShellPreviewRegions from '@salesforce/apex/ChannelTemplateController.getShellPreviewRegions';
+import getTemplateRenderSource from '@salesforce/apex/ChannelTemplateController.getTemplateRenderSource';
+import { scanCcPreviewRegionLabelsInOrder } from 'c/copyTemplatePreview';
 import syncDraftBlockCatalog from '@salesforce/apex/ChannelTemplateController.syncDraftBlockCatalog';
 import activateTemplatePackage from '@salesforce/apex/ChannelTemplateController.activateTemplatePackage';
 import cloneTemplateVersion from '@salesforce/apex/ChannelTemplateController.cloneTemplateVersion';
@@ -459,7 +460,8 @@ export default class MasterTemplateStudio extends LightningElement {
             return;
         }
         try {
-            this.shellRegions = await getShellPreviewRegions({ templateId }) || [];
+            const source = await getTemplateRenderSource({ templateId });
+            this.shellRegions = scanCcPreviewRegionLabelsInOrder(source?.shellHtml || '');
             this.shellRegionError = this.shellRegions.length
                 ? ''
                 : 'No cc-preview regions found in the shell HTML yet.';

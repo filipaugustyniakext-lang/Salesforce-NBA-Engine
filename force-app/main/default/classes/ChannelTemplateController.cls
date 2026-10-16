@@ -364,7 +364,7 @@ public with sharing class ChannelTemplateController {
         return draft.Id;
     }
 
-    @AuraEnabled(cacheable=true)
+    @AuraEnabled
     public static List<String> getShellPreviewRegions(Id templateId) {
         return scanCcPreviewRegionsInOrder(readShellHtmlForTemplate(templateId));
     }
@@ -1463,14 +1463,41 @@ public with sharing class ChannelTemplateController {
     private static List<String> scanCcPreviewRegionsInOrder(String html) {
         List<String> ordered = new List<String>();
         if (String.isBlank(html)) return ordered;
-        Matcher matcher = Pattern.compile(
-            '(?i)<cc-preview\\b[^>]*\\btype\\s*=\\s*[\\\'\\"]([^\\\'\\"]+)[\\\'\\"]'
-        ).matcher(html);
+        Pattern tokenPattern = Pattern.compile('(?i)<cc-preview\\b([^>]*)>|</cc-preview\\s*>');
+        Matcher matcher = tokenPattern.matcher(html);
+        List<RegionOpenToken> stack = new List<RegionOpenToken>();
         while (matcher.find()) {
-            String label = ccPreviewRegionDisplayLabel(matcher.group(1));
-            if (String.isNotBlank(label)) ordered.add(label);
+            String token = matcher.group();
+            if (token.startsWith('</')) {
+                if (stack.isEmpty()) continue;
+                RegionOpenToken open = stack.remove(stack.size() - 1);
+                if (open.isTemplateStart) continue;
+                if (String.isNotBlank(open.regionType)) ordered.add(open.regionType);
+                continue;
+            }
+            String attrs = matcher.group(1);
+            stack.add(new RegionOpenToken(attrs));
         }
         return ordered;
+    }
+
+    private class RegionOpenToken {
+        public Boolean isTemplateStart;
+        public String regionType;
+
+        RegionOpenToken(String attrs) {
+            String action = ccPreviewAttrValue(attrs, 'data-action').toLowerCase();
+            isTemplateStart = action == 'template-start';
+            regionType = ccPreviewRegionDisplayLabel(ccPreviewAttrValue(attrs, 'type'));
+        }
+    }
+
+    private static String ccPreviewAttrValue(String attrs, String name) {
+        if (String.isBlank(attrs)) return '';
+        Matcher matcher = Pattern.compile(
+            '(?i)\\b' + Pattern.quote(name) + '\\s*=\\s*([\\\'\\"])([^\\\'\\"]+)\\1'
+        ).matcher(attrs);
+        return matcher.find() ? matcher.group(2) : '';
     }
 
     private static List<String> buildValidationIssues(TemplateDefinition definition) {
