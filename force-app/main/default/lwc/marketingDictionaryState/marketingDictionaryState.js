@@ -130,14 +130,17 @@ function pickValid(value, allowed, fallback) {
 }
 
 function readPersistedSnapshot() {
-    const hash = readHashState();
-    if (hash && typeof hash === 'object') {
-        return hash;
-    }
-    return {
+    const fromSession = {
         activeTab: readSession(storageKey('activeTab')),
         channelId: readSession(storageKey('channel.activeChannelId')),
         channelSubTab: readSession(storageKey('channel.activeSubTab'))
+    };
+    const hash = readHashState();
+    // Session reflects the latest tab click; hash/URL are fallbacks only.
+    return {
+        activeTab: fromSession.activeTab || hash?.activeTab || null,
+        channelId: fromSession.channelId || hash?.channelId || null,
+        channelSubTab: fromSession.channelSubTab || hash?.channelSubTab || null
     };
 }
 
