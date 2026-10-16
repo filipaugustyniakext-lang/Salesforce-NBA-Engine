@@ -34,11 +34,18 @@
 }
 
 .preview-panel__help {
-    margin: 0.5rem 1rem 0;
+    margin: 0.5rem 1rem 0.75rem;
     display: flex;
     align-items: flex-start;
     text-align: left;
     border-radius: 0.25rem;
+}
+
+/* SLDS sets width:100% on alerts, which overflows once horizontal inset margins are applied */
+.preview-panel__help.slds-notify_alert {
+    width: auto;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .preview-panel__help h2 {
