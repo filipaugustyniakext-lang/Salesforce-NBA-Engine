@@ -173,31 +173,36 @@ export default class MasterTemplateStudio extends LightningElement {
     }
 
     get contentBlockCards() {
-        const source = this._templateRecord();
-        const components = source?.components || [];
-        return components
-            .filter(component => {
-                if (!component.fileName && !component.label) return false;
-                if (
-                    this.showNewBlockDefinitionForm
-                    && this.pendingBlockDraft.draftKey
-                    && component.type === this.pendingBlockDraft.draftKey
-                ) {
-                    return false;
-                }
-                return true;
-            })
-            .map((component, index) => ({
-                key: `${component.fileName}-${index}`,
-                fileName: component.fileName,
+        return this._savedBlockDefinitions()
+            .filter(component => !(
+                this.showNewBlockDefinitionForm
+                && this.pendingBlockDraft.draftKey
+                && component.type === this.pendingBlockDraft.draftKey
+            ))
+            .map((component, index) => {
+            const status = (component.status || 'Draft').trim();
+            const validated = status === 'Ready' || status === 'Active';
+            return {
+                key: `${component.type || 'block'}-${index}`,
+                type: component.type,
+                fileName: component.fileName || '',
                 label: component.label || '',
                 description: component.description || '',
-                displayTitle: component.label || component.fileName
-            }));
+                displayTitle: component.label || component.fileName || component.type || 'Content block',
+                fileMeta: component.fileName ? component.fileName : 'HTML not uploaded yet',
+                statusLabel: status,
+                statusBadgeClass: this._blockStatusBadgeClass(status),
+                validationLabel: validated ? 'Validated' : 'Not validated',
+                validationBadgeClass: validated
+                    ? 'slds-badge slds-theme_success'
+                    : 'slds-badge slds-badge_lightest',
+                descriptionDisplay: component.description || 'No description provided.'
+            };
+        });
     }
 
     get hasContentBlockCards() {
-        return this.contentBlockCards.length > 0;
+        return this._savedBlockDefinitions().length > 0;
     }
 
     get showBlocksEmptyState() {
@@ -205,7 +210,7 @@ export default class MasterTemplateStudio extends LightningElement {
     }
 
     get showAddBlockDefinitionButton() {
-        return this.hasRecordId && this.hasContentBlockCards;
+        return this.hasRecordId && this.hasContentBlockCards && !this.showNewBlockDefinitionForm;
     }
 
     get saveBlockDefinitionDisabled() {
@@ -452,6 +457,21 @@ export default class MasterTemplateStudio extends LightningElement {
         this._resetPendingBlockDraft();
     }
 
+    handleEditBlockDefinition(event) {
+        const blockType = event.currentTarget.dataset.type;
+        const component = this._savedBlockDefinitions().find(item => item.type === blockType);
+        if (!component) return;
+        const status = (component.status || 'Draft').trim();
+        this.pendingBlockDraft = {
+            label: component.label || '',
+            description: component.description || '',
+            fileName: component.fileName || '',
+            draftKey: component.type || '',
+            validated: status === 'Ready' || status === 'Active'
+        };
+        this.showNewBlockDefinitionForm = true;
+    }
+
     handleCancelBlockDefinition() {
         this.showNewBlockDefinitionForm = false;
         this._resetPendingBlockDraft();
@@ -645,6 +665,20 @@ export default class MasterTemplateStudio extends LightningElement {
         return (this._wiredTemplates?.data || []).find(t => t.id === this.draft.Id) || null;
     }
 
+    _savedBlockDefinitions() {
+        const source = this._templateRecord();
+        return (source?.components || []).filter(
+            component => component.label || component.fileName || component.type
+        );
+    }
+
+    _blockStatusBadgeClass(status) {
+        const normalized = (status || 'Draft').toLowerCase();
+        if (normalized === 'active') return 'slds-badge slds-theme_success';
+        if (normalized === 'ready') return 'slds-badge slds-theme_info';
+        return 'slds-badge slds-badge_lightest';
+    }
+
     _assets(assetType) {
         const source = this._templateRecord();
         if (!source) return [];
@@ -766,6 +800,10 @@ export default class MasterTemplateStudio extends LightningElement {
                     ? 'Content block definition is active.'
                     : 'Content block definition saved as Draft.';
                 this._toast(title, message, 'success');
+                if (status === 'Draft') {
+                    this.showNewBlockDefinitionForm = false;
+                    this._resetPendingBlockDraft();
+                }
             }
         } catch (error) {
             if (!silent) {

@@ -229,8 +229,15 @@
     margin: 0;
 }
 
-.studio-block-definition-card {
+.studio-block-definition-card,
+.studio-block-summary-card {
     margin: 0;
+}
+
+.studio-block-summary__badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
 }
 
 .studio-block-binding-placeholder {

@@ -332,33 +332,30 @@
                                                 </lightning-empty-state>
                                             </template>
                                             <template for:each={contentBlockCards} for:item="block">
-                                                <article key={block.key} class="studio-block-definition-card slds-card slds-card_boundary">
+                                                <article key={block.key} class="studio-block-summary-card slds-card slds-card_boundary">
                                                     <div class="slds-card__header slds-grid">
                                                         <header class="slds-media slds-media_center slds-has-flexi-truncate">
                                                             <div class="slds-media__body">
                                                                 <h3 class="slds-card__header-title">
                                                                     <span class="slds-truncate" title={block.displayTitle}>{block.displayTitle}</span>
                                                                 </h3>
-                                                                <p class="slds-text-body_small slds-text-color_weak slds-truncate" title={block.fileName}>{block.fileName}</p>
+                                                                <p class="slds-text-body_small slds-text-color_weak slds-truncate" title={block.fileMeta}>{block.fileMeta}</p>
                                                             </div>
                                                         </header>
+                                                        <div class="slds-no-flex">
+                                                            <lightning-button
+                                                                label="Edit"
+                                                                data-type={block.type}
+                                                                onclick={handleEditBlockDefinition}>
+                                                            </lightning-button>
+                                                        </div>
                                                     </div>
                                                     <div class="slds-card__body slds-card__body_inner">
-                                                        <template lwc:if={block.description}>
-                                                            <p class="slds-text-body_small slds-m-bottom_small">{block.description}</p>
-                                                        </template>
-                                                        <lightning-tabset variant="scoped" active-tab-value={blockBindingTab}>
-                                                            <lightning-tab label="Blocks Content Binding" value="content">
-                                                                <p class="studio-block-binding-placeholder slds-text-body_small slds-text-color_weak">
-                                                                    Binding mapping for editable HTML regions will be configured here.
-                                                                </p>
-                                                            </lightning-tab>
-                                                            <lightning-tab label="Block Settings Binding" value="settings">
-                                                                <p class="studio-block-binding-placeholder slds-text-body_small slds-text-color_weak">
-                                                                    Binding mapping for block settings will be configured here.
-                                                                </p>
-                                                            </lightning-tab>
-                                                        </lightning-tabset>
+                                                        <div class="studio-block-summary__badges" role="list" aria-label="Block status">
+                                                            <span class={block.statusBadgeClass} role="listitem">{block.statusLabel}</span>
+                                                            <span class={block.validationBadgeClass} role="listitem">{block.validationLabel}</span>
+                                                        </div>
+                                                        <p class="slds-text-body_small slds-m-top_small">{block.descriptionDisplay}</p>
                                                     </div>
                                                 </article>
                                             </template>
