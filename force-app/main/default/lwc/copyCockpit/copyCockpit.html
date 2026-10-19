@@ -192,8 +192,6 @@
                                     <span class="cockpit-col-name">Message / Variant</span>
                                     <span class="cockpit-col-status">Status</span>
                                     <span class="cockpit-col-weight">Weight</span>
-                                    <span class="cockpit-col-schedule">Schedule</span>
-                                    <span class="cockpit-col-blocks">Blocks</span>
                                     <span class="cockpit-col-versions">Versions</span>
                                     <span class="cockpit-col-modified">Last Modified</span>
                                     <span class="cockpit-col-spacer" aria-hidden="true"></span>
@@ -269,8 +267,6 @@
                                                     <span class={grp.masterStatusSummaryClass}>{grp.masterStatusSummary}</span>
                                                 </div>
                                                 <div class="cockpit-col-weight"></div>
-                                                <div class="cockpit-col-schedule"></div>
-                                                <div class="cockpit-col-blocks"></div>
                                                 <div class="cockpit-col-versions"></div>
                                                 <div class="cockpit-col-modified"></div>
                                                 <div class="cockpit-col-spacer" aria-hidden="true"></div>
@@ -324,7 +320,7 @@
 
                                                         <!-- Indent + name / label -->
                                                         <div class="cockpit-variant-name-cell">
-                                                            <span class="slds-badge cockpit-variant-badge" title="Variant number">{v.variantBadgeLabel}</span>
+                                                            <span class="slds-badge slds-badge_lightest cockpit-variant-badge" title={v.variantBadgeTitle}>{v.variantBadgeLabel}</span>
                                                             <template lwc:if={v.sourceTemplateBadge}>
                                                                 <span
                                                                     class="slds-badge slds-theme_lightest cockpit-source-template-badge"
@@ -337,7 +333,21 @@
                                                         </div>
 
                                                         <!-- Status (dropdown) -->
-                                                        <div class="cockpit-col-status">
+                                                        <div class="cockpit-col-status cockpit-status-cell">
+                                                            <template lwc:if={v.hasSchedule}>
+                                                                <button
+                                                                    type="button"
+                                                                    class={v.scheduleIconClass}
+                                                                    title={v.scheduleBadgeTitle}
+                                                                    aria-label={v.scheduleBadgeTitle}
+                                                                    onclick={handleCheckboxClick}>
+                                                                    <lightning-icon
+                                                                        icon-name={v.scheduleBadgeIcon}
+                                                                        size="xx-small"
+                                                                        alternative-text="">
+                                                                    </lightning-icon>
+                                                                </button>
+                                                            </template>
                                                             <div class={v.statusPickerClass} data-id={v.Id}>
                                                                 <lightning-combobox
                                                                     value={v.Status__c}
@@ -383,33 +393,6 @@
                                                             </template>
                                                         </div>
 
-                                                        <!-- Schedule badge -->
-                                                        <div class="cockpit-col-schedule">
-                                                            <template lwc:if={v.scheduleBadge}>
-                                                                <span class={v.scheduleBadgeClass} title={v.scheduleBadgeTitle}>
-                                                                    <lightning-icon
-                                                                        icon-name={v.scheduleBadgeIcon}
-                                                                        size="xx-small"
-                                                                        class="slds-m-right_xx-small"
-                                                                    ></lightning-icon>
-                                                                    {v.scheduleBadge}
-                                                                </span>
-                                                            </template>
-                                                            <template lwc:else>
-                                                                <span class="cockpit-stat-none">—</span>
-                                                            </template>
-                                                        </div>
-
-                                                        <!-- Block count -->
-                                                        <div class="cockpit-col-blocks">
-                                                            <template lwc:if={v.Block_Count__c}>
-                                                                <span class="cockpit-num-chip">{v.Block_Count__c}</span>
-                                                            </template>
-                                                            <template lwc:else>
-                                                                <span class="cockpit-stat-none">—</span>
-                                                            </template>
-                                                        </div>
-
                                                         <!-- Saved versions count -->
                                                         <div class="cockpit-col-versions">
                                                             <template lwc:if={v.versionCount}>
@@ -433,62 +416,37 @@
 
                                                         <div class="cockpit-col-spacer" aria-hidden="true"></div>
 
-                                                        <!-- Always-visible quick actions -->
                                                         <div class="cockpit-col-actions cockpit-col-actions_sticky cockpit-variant-actions">
-                                                            <template lwc:if={v.canSyncFromMCE}>
+                                                            <template for:each={v.primaryQuickActions} for:item="act">
                                                                 <button
+                                                                    key={act.key}
                                                                     type="button"
                                                                     class="slds-button slds-button_icon slds-button_icon-border slds-button_icon-small cockpit-quick-action"
-                                                                    title="Sync this variant from MCE"
+                                                                    title={act.title}
                                                                     data-id={v.Id}
-                                                                    disabled={isSyncingMCE}
-                                                                    onclick={handleVariantSyncMCE}
-                                                                >
-                                                                    <lightning-icon icon-name="utility:sync" size="xx-small" alternative-text="Sync from MCE"></lightning-icon>
+                                                                    data-action={act.key}
+                                                                    disabled={act.isDisabled}
+                                                                    onclick={handleVariantQuickAction}>
+                                                                    <lightning-icon icon-name={act.icon} size="xx-small" alternative-text={act.title}></lightning-icon>
                                                                 </button>
                                                             </template>
-                                                            <button
-                                                                type="button"
-                                                                class="slds-button slds-button_icon slds-button_icon-border slds-button_icon-small cockpit-quick-action cockpit-template-action"
-                                                                title={v.sourceTemplateButtonTitle}
-                                                                data-id={v.Id}
-                                                                disabled={v.sourceTemplateButtonDisabled}
-                                                                onclick={handleVariantChangeSourceTemplate}
-                                                            >
-                                                                <lightning-icon icon-name="utility:insert_template" size="xx-small" alternative-text="Change Source Template"></lightning-icon>
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                class="slds-button slds-button_icon slds-button_icon-border slds-button_icon-small cockpit-quick-action"
-                                                                title="Edit"
-                                                                data-id={v.Id}
-                                                                onclick={handleEdit}
-                                                            >
-                                                                <lightning-icon icon-name="utility:edit" size="xx-small" alternative-text="Edit"></lightning-icon>
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                class="slds-button slds-button_icon slds-button_icon-border slds-button_icon-small cockpit-quick-action"
-                                                                title="Clone variant"
-                                                                data-id={v.Id}
-                                                                data-name={v.Name}
-                                                                data-stem={grp.messageName}
-                                                                data-message-name={v.MessageName__c}
-                                                                onclick={handleClonePrompt}
-                                                            >
-                                                                <lightning-icon icon-name="utility:copy" size="xx-small" alternative-text="Clone"></lightning-icon>
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                class="slds-button slds-button_icon slds-button_icon-border slds-button_icon-small cockpit-quick-action"
-                                                                title="Delete variant"
-                                                                data-id={v.Id}
-                                                                data-name={v.Name}
-                                                                data-version={v.Version__c}
-                                                                onclick={handleDeletePrompt}
-                                                            >
-                                                                <lightning-icon icon-name="utility:delete" size="xx-small" alternative-text="Delete"></lightning-icon>
-                                                            </button>
+                                                            <template lwc:if={v.hasOverflowQuickActions}>
+                                                                <lightning-button-menu
+                                                                    alternative-text="More actions"
+                                                                    icon-size="x-small"
+                                                                    menu-alignment="right"
+                                                                    class="cockpit-quick-action-menu"
+                                                                    onselect={handleVariantOverflowAction}>
+                                                                    <template for:each={v.overflowQuickActions} for:item="act">
+                                                                        <lightning-menu-item
+                                                                            key={act.menuValue}
+                                                                            value={act.menuValue}
+                                                                            label={act.title}
+                                                                            disabled={act.isDisabled}>
+                                                                        </lightning-menu-item>
+                                                                    </template>
+                                                                </lightning-button-menu>
+                                                            </template>
                                                         </div>
 
                                                     </div>

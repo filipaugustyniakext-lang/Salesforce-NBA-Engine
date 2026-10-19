@@ -172,29 +172,25 @@
 .cockpit-bulk-clear:hover { background: #c9e0f5; color: #0176d3; }
 
 /* ─── List column grid
-     Columns: check | name | status | weight | schedule | blocks | versions | actions
+     Columns: check | name | status | weight | versions | modified | actions
      ─────────────────────────────────────────────────────────────────────────────── */
 
 :host {
     --col-check:    32px;
-    --col-name:     240px;
-    --col-status:   112px;
+    --col-name:     280px;
+    --col-status:   128px;
     --col-weight:   72px;
-    --col-schedule: 140px;
-    --col-blocks:   56px;
     --col-versions: 64px;
     --col-modified: 168px;
-    --col-actions:  168px;
+    --col-actions:  112px;
 }
 
 .cockpit-list {
     width: 100%;
     overflow-x: auto;
-    --col-name: 240px;
-    --col-status: 112px;
+    --col-name: 280px;
+    --col-status: 128px;
     --col-weight: 72px;
-    --col-schedule: 140px;
-    --col-blocks: 56px;
     --col-versions: 64px;
     --col-modified: 168px;
 }
@@ -206,8 +202,6 @@
         var(--col-name)
         var(--col-status)
         var(--col-weight)
-        var(--col-schedule)
-        var(--col-blocks)
         var(--col-versions)
         var(--col-modified)
         minmax(0, 1fr)
@@ -243,9 +237,19 @@
     padding-bottom: 0.125rem;
 }
 .cockpit-col-weight   { text-align: center; }
-.cockpit-col-schedule { text-align: left; }
-.cockpit-col-blocks   { text-align: center; }
 .cockpit-col-versions { text-align: center; }
+
+.cockpit-status-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-width: 0;
+}
+
+.cockpit-status-cell .cockpit-variant-status-combobox {
+    flex: 1 1 auto;
+    min-width: 0;
+}
 .cockpit-col-modified { min-width: 0; max-width: var(--col-modified); overflow: hidden; }
 .cockpit-col-spacer { min-width: 0; }
 .cockpit-col-actions  {
@@ -327,8 +331,6 @@
         var(--col-name)
         var(--col-status)
         var(--col-weight)
-        var(--col-schedule)
-        var(--col-blocks)
         var(--col-versions)
         var(--col-modified)
         minmax(0, 1fr)
@@ -393,8 +395,6 @@
         var(--col-name)
         var(--col-status)
         var(--col-weight)
-        var(--col-schedule)
-        var(--col-blocks)
         var(--col-versions)
         var(--col-modified)
         minmax(0, 1fr)
@@ -491,9 +491,34 @@
     min-width: 1.35rem;
     text-align: center;
     padding: 0.125rem 0.4rem;
-    background: #0176d3;
-    color: #ffffff;
+    flex-shrink: 0;
+}
+
+.cockpit-schedule-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.35rem;
+    height: 1.35rem;
     border: none;
+    border-radius: 0.25rem;
+    padding: 0;
+    flex-shrink: 0;
+    cursor: default;
+}
+
+.cockpit-schedule-icon_activate,
+.cockpit-schedule-icon_update {
+    background: #d8edff;
+    color: #0176d3;
+}
+
+.cockpit-schedule-icon_deactivate {
+    background: #fff3d0;
+    color: #8c6900;
+}
+
+.cockpit-quick-action-menu {
     flex-shrink: 0;
 }
 

@@ -48,38 +48,32 @@ const ICON_MAP = {
 };
 
 const COLUMN_WIDTH_DEFAULTS = {
-    name: 240,
-    status: 112,
+    name: 280,
+    status: 128,
     weight: 72,
-    schedule: 140,
-    blocks: 56,
     versions: 64,
     modified: 168,
 };
 
 const COLUMN_FIT_MIN = {
-    name: 120,
-    status: 88,
+    name: 160,
+    status: 96,
     weight: 56,
-    schedule: 96,
-    blocks: 44,
     versions: 44,
     modified: 108,
 };
 
 /** Relative share of flexible width when auto-fitting columns. */
 const COLUMN_FIT_WEIGHTS = {
-    name: 2.4,
-    status: 1.1,
+    name: 3.2,
+    status: 1.35,
     weight: 0.75,
-    schedule: 1.25,
-    blocks: 0.6,
     versions: 0.65,
     modified: 1.5,
 };
 
 const COL_CHECK_PX = 32;
-const COL_ACTIONS_PX = 168;
+const COL_ACTIONS_PX = 112;
 
 const STATUS_BADGE_CLASS = {
     draft:     'slds-badge slds-theme_lightest',
@@ -273,31 +267,66 @@ function buildScheduleBadge(record) {
 
     if (!action || status === 'executed' || status === 'cancelled') return null;
 
+    const at = fmtDate(record.Scheduled_At__c) || '?';
     if (action === 'publish' || toStatus === 'published') {
         return {
             label:     'Scheduled: Activate',
-            cssClass:  'cockpit-schedule-badge cockpit-schedule-badge_activate',
+            tone:      'activate',
+            iconClass: 'cockpit-schedule-icon cockpit-schedule-icon_activate',
             icon:      'utility:clock',
-            title:     `Scheduled to Publish on ${fmtDate(record.Scheduled_At__c) || '?'}`,
+            title:     `Scheduled to activate on ${at}`,
         };
     }
     if (action === 'deactivate' || toStatus === 'archived') {
         return {
             label:     'Scheduled: Deactivate',
-            cssClass:  'cockpit-schedule-badge cockpit-schedule-badge_deactivate',
+            tone:      'deactivate',
+            iconClass: 'cockpit-schedule-icon cockpit-schedule-icon_deactivate',
             icon:      'utility:ban',
-            title:     `Scheduled to Deactivate on ${fmtDate(record.Scheduled_At__c) || '?'}`,
+            title:     `Scheduled to deactivate on ${at}`,
         };
     }
     return {
-        label:    `Sched: ${record.Scheduled_Action__c}`,
-        cssClass: 'cockpit-schedule-badge cockpit-schedule-badge_other',
-        icon:     'utility:clock',
-        title:    record.Scheduled_Action__c,
+        label:     `Scheduled: ${record.Scheduled_Action__c}`,
+        tone:      'update',
+        iconClass: 'cockpit-schedule-icon cockpit-schedule-icon_update',
+        icon:      'utility:clock',
+        title:     `${record.Scheduled_Action__c} — ${at}`,
     };
 }
 
-function buildGroups(records, expandedSet, editingGroupName, selectedIds, versionCounts, editingWeightId) {
+function buildVariantQuickActions(v, isSyncingMCE = false) {
+    const ordered = [
+        { key: 'edit', title: 'Edit', icon: 'utility:edit' },
+        { key: 'clone', title: 'Clone variant', icon: 'utility:copy' },
+        { key: 'delete', title: 'Delete variant', icon: 'utility:delete' },
+    ];
+    if (v.canSyncFromMCE) {
+        ordered.splice(2, 0, { key: 'sync', title: 'Sync from MCE', icon: 'utility:sync' });
+    }
+    ordered.push({
+        key: 'template',
+        title: v.sourceTemplateButtonTitle || 'Change Source Template',
+        icon: 'utility:insert_template',
+        disabled: v.sourceTemplateButtonDisabled === true,
+    });
+    const withDisabled = ordered.map(a => ({
+        ...a,
+        isDisabled: a.key === 'sync' ? isSyncingMCE : !!a.disabled,
+    }));
+    const primaryQuickActions = withDisabled.slice(0, 3);
+    const overflowQuickActions = withDisabled.slice(3).map(a => ({
+        ...a,
+        menuValue: `${a.key}:${v.Id}`,
+    }));
+    return {
+        primaryQuickActions,
+        overflowQuickActions,
+        hasOverflowQuickActions: overflowQuickActions.length > 0,
+    };
+}
+
+function buildGroups(records, expandedSet, editingGroupName, selectedIds, versionCounts, editingWeightId, isSyncingMCE = false) {
     const map = new Map();
     for (const r of records) {
         const key = masterGroupKey(r);
@@ -343,10 +372,22 @@ function buildGroups(records, expandedSet, editingGroupName, selectedIds, versio
                 weightAriaLabel:    `Weight (0–100) for ${v.Name || 'variant'}`,
                 mceVariantKey,
                 canSyncFromMCE:     !!mceVariantKey,
-                scheduleBadge:      sched?.label || null,
-                scheduleBadgeClass: sched?.cssClass || null,
-                scheduleBadgeIcon:  sched?.icon || null,
-                scheduleBadgeTitle: sched?.title || null,
+                hasSchedule:        !!sched,
+                scheduleBadgeIcon:  sched?.icon || 'utility:clock',
+                scheduleIconClass:  sched?.iconClass || '',
+                scheduleBadgeTitle: sched?.title || sched?.label || '',
+                variantBadgeTitle:  variantNum > 0
+                    ? `Variant ${variantNum}${v.Block_Count__c ? ` · ${v.Block_Count__c} block(s)` : ''}`
+                    : 'Variant',
+                ...buildVariantQuickActions({
+                    Id: v.Id,
+                    canSyncFromMCE: !!mceVariantKey,
+                    sourceTemplateButtonDisabled: (v.Status__c || '').toLowerCase() === 'published',
+                    sourceTemplateButtonTitle:
+                        (v.Status__c || '').toLowerCase() === 'published'
+                            ? 'Published variants must be set to Inactive before changing the source template'
+                            : 'Change Source Template',
+                }, isSyncingMCE),
                 versionCount:       versionCounts?.[v.Id] || null,
                 lastModifiedFmt:    fmtDateTime(v.MCE_Updated_At__c || v.LastModifiedDate),
                 lastModifiedBy:     modBy,
@@ -581,6 +622,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             this._selectedIds,
             this._versionCounts,
             this._editingWeightId,
+            this.isSyncingMCE,
         );
     }
 
@@ -749,8 +791,6 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             `--col-name: ${w.name}px`,
             `--col-status: ${w.status}px`,
             `--col-weight: ${w.weight}px`,
-            `--col-schedule: ${w.schedule}px`,
-            `--col-blocks: ${w.blocks}px`,
             `--col-versions: ${w.versions}px`,
             `--col-modified: ${w.modified}px`,
         ].join('; ');
@@ -804,7 +844,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         const nameNeed = this._estimateNameColumnWidthPx();
         if (next.name < nameNeed) {
             const deficit = nameNeed - next.name;
-            const donors = ['schedule', 'modified', 'status', 'versions', 'blocks', 'weight'];
+            const donors = ['modified', 'status', 'versions', 'weight'];
             let remaining = deficit;
             for (const donor of donors) {
                 if (remaining <= 0) {
@@ -860,6 +900,24 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         if (selectAllCheckbox) {
             selectAllCheckbox.indeterminate = this.someVisibleVariantsSelected;
         }
+        if (this.hasGroups && !this._isMessagesLoading) {
+            this._scheduleColumnFit();
+        }
+    }
+
+    _scheduleColumnFit() {
+        if (this._columnFitScheduled) {
+            return;
+        }
+        this._columnFitScheduled = true;
+        // eslint-disable-next-line @lwc/lwc/no-async-operation
+        requestAnimationFrame(() => {
+            // eslint-disable-next-line @lwc/lwc/no-async-operation
+            requestAnimationFrame(() => {
+                this._columnFitScheduled = false;
+                this._fitColumnsToAvailableSpace();
+            });
+        });
     }
 
     // ── handlers: channel ──────────────────────────────────────────────────
@@ -872,6 +930,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         this._statusFilter = 'All';
         this._expandedGroups = new Set();
         this._allExpanded = false;
+        this._columnWidths = { ...COLUMN_WIDTH_DEFAULTS };
         this._selectedIds = new Set();
         this._cancelWeightEdit();
         this._loadMessages(e.currentTarget.dataset.channeltype);
@@ -1381,6 +1440,57 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             return;
         }
         this._executeMceVariantSync([recordId]);
+    }
+
+    handleVariantQuickAction(event) {
+        event.stopPropagation();
+        const action = event.currentTarget.dataset.action;
+        const id = event.currentTarget.dataset.id;
+        if (!action || !id) return;
+        this._runVariantQuickAction(action, id);
+    }
+
+    handleVariantOverflowAction(event) {
+        event.stopPropagation();
+        const value = event.detail.value || '';
+        const sep = value.indexOf(':');
+        if (sep < 0) return;
+        this._runVariantQuickAction(value.substring(0, sep), value.substring(sep + 1));
+    }
+
+    _runVariantQuickAction(action, recordId) {
+        switch (action) {
+            case 'sync':
+                this._executeMceVariantSync([recordId]);
+                break;
+            case 'template':
+                this.handleVariantChangeSourceTemplate({
+                    stopPropagation: () => {},
+                    currentTarget: { dataset: { id: recordId } }
+                });
+                break;
+            case 'edit':
+                this._openEditor(recordId);
+                break;
+            case 'clone': {
+                const row = this._messageRecordById(recordId);
+                if (!row) return;
+                this.cloneSourceId = recordId;
+                this.cloneSourceName = row.Name;
+                this.cloneMasterStem = masterGroupKey(row);
+                this.cloneProposedVersion = this._nextVersionForStem(this.cloneMasterStem);
+                this.isCloneModalOpen = true;
+                break;
+            }
+            case 'delete':
+                this.handleDeletePrompt({
+                    stopPropagation: () => {},
+                    currentTarget: { dataset: { id: recordId, name: '', version: '' } }
+                });
+                break;
+            default:
+                break;
+        }
     }
 
     // ── handlers: channel header ──────────────────────────────────────────
@@ -2123,6 +2233,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             })
             .finally(() => {
                 this._isMessagesLoading = false;
+                this._scheduleColumnFit();
             });
     }
 
