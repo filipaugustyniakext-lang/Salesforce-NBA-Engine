@@ -23,12 +23,18 @@ public with sharing class CopyCockpitController {
                    Scheduled_Status__c,
                    Scheduled_From_Status__c,
                    Scheduled_To_Status__c,
-                   MessageName__c,
                    Message_Variant_Id__c,
                    Message_Variant__c,
+                   MessageVariantId__c,
+                   MessageName__c,
+                   MessageVariant__c,
+                   Source_Template__c, Source_Template__r.Name,
                    Published_At__c,
                    MCE_Updated_At__c,
                    MCE_Last_Modified_By__c,
+                   LastModifiedBy__c,
+                   LastModifiedAt__c,
+                   UpdatedAt__c,
                    CreatedDate, LastModifiedDate
             FROM CC_Message_Metadata__c
             WHERE Channel_Type__c = :channelType
@@ -135,26 +141,138 @@ public with sharing class CopyCockpitController {
             Map<String, Object> data = (Map<String, Object>) JSON.deserializeUntyped(settingsJson);
             String offerId = (String) data.get('offerId');
             String familyId = (String) data.get('productFamilyId');
-            List<Object> variantsList = (List<Object>) data.get('variants');
+            String sourceTemplateId = (String) data.get('sourceTemplateId');
+            Id validatedTemplateId = resolveActiveValidatedTemplateId(sourceTemplateId);
+            if (String.isNotBlank(sourceTemplateId) && validatedTemplateId == null) {
+                throw new AuraHandledException('Select an active, validated source template.');
+            }
+            List<Object> variantIds = (List<Object>) data.get('variantIds');
+            if (variantIds == null) {
+                List<Object> variantsList = (List<Object>) data.get('variants');
+                variantIds = new List<Object>();
+                if (variantsList != null) {
+                    for (Object varObj : variantsList) {
+                        Map<String, Object> varData = (Map<String, Object>) varObj;
+                        variantIds.add(varData.get('id'));
+                    }
+                }
+            }
 
             List<CC_Message_Metadata__c> toUpdate = new List<CC_Message_Metadata__c>();
-            for (Object varObj : variantsList) {
-                Map<String, Object> varData = (Map<String, Object>) varObj;
+            for (Object idObj : variantIds) {
+                if (idObj == null) {
+                    continue;
+                }
                 CC_Message_Metadata__c rec = new CC_Message_Metadata__c();
-                rec.Id = (Id) varData.get('id');
+                rec.Id = (Id) idObj;
                 rec.Product_Family__c = String.isNotBlank(familyId) ? (Id) familyId : null;
                 rec.Offer__c = String.isNotBlank(offerId) ? (Id) offerId : null;
-                Object prob = varData.get('probability');
-                rec.Display_Probability_Manual__c = prob != null
-                    ? Decimal.valueOf(String.valueOf(prob))
-                    : null;
+                if (validatedTemplateId != null) {
+                    rec.Source_Template__c = validatedTemplateId;
+                }
                 toUpdate.add(rec);
             }
 
-            if (!toUpdate.isEmpty()) update toUpdate;
+            if (!toUpdate.isEmpty()) {
+                if (validatedTemplateId != null) {
+                    Set<Id> idsToValidate = new Set<Id>();
+                    for (CC_Message_Metadata__c rec : toUpdate) {
+                        idsToValidate.add(rec.Id);
+                    }
+                    assertCanAssignSourceTemplate(idsToValidate);
+                }
+                CopyCockpitModificationService.updateMetadata(toUpdate);
+            }
         } catch (Exception e) {
             throw new AuraHandledException('Save failed: ' + e.getMessage());
         }
+    }
+
+    /**
+     * Assigns one active, validated Channel Template to many message variants.
+     */
+    @AuraEnabled(cacheable=false)
+    public static Integer updateMessageSourceTemplates(List<Id> messageIds, Id sourceTemplateId) {
+        if (messageIds == null || messageIds.isEmpty()) {
+            throw new AuraHandledException('Select at least one message variant.');
+        }
+        Id templateId = resolveActiveValidatedTemplateId(sourceTemplateId);
+        if (templateId == null) {
+            throw new AuraHandledException('Select an active, validated source template.');
+        }
+
+        Set<Id> uniqueIds = new Set<Id>(messageIds);
+        assertCanAssignSourceTemplate(uniqueIds);
+        List<CC_Message_Metadata__c> updates = new List<CC_Message_Metadata__c>();
+        for (Id messageId : uniqueIds) {
+            if (messageId == null) {
+                continue;
+            }
+            updates.add(new CC_Message_Metadata__c(
+                Id = messageId,
+                Source_Template__c = templateId
+            ));
+        }
+        if (updates.isEmpty()) {
+            throw new AuraHandledException('Select at least one message variant.');
+        }
+        CopyCockpitModificationService.updateMetadata(updates);
+        return updates.size();
+    }
+
+    @TestVisible
+    private static void assertCanAssignSourceTemplate(Set<Id> messageIds) {
+        if (messageIds == null || messageIds.isEmpty()) {
+            return;
+        }
+        for (CC_Message_Metadata__c msg : [
+            SELECT Id, Status__c
+            FROM CC_Message_Metadata__c
+            WHERE Id IN :messageIds
+        ]) {
+            if (msg.Status__c == 'Published') {
+                throw new AuraHandledException(
+                    'Cannot change source template for Published variants. ' +
+                    'Set the variant to Inactive first, change the template, then validate and publish again.'
+                );
+            }
+        }
+    }
+
+    private static Id resolveActiveValidatedTemplateId(String sourceTemplateId) {
+        if (String.isBlank(sourceTemplateId)) {
+            return null;
+        }
+        List<Channel_Template__c> templates = [
+            SELECT Id
+            FROM Channel_Template__c
+            WHERE Id = :sourceTemplateId
+            AND Status__c = 'Active'
+            AND Validation_Status__c = 'Valid'
+            LIMIT 1
+        ];
+        return templates.isEmpty() ? null : templates[0].Id;
+    }
+
+    /**
+     * Persists manual display weight for a single variant (0–100 → Display_Probability_Manual__c).
+     */
+    @AuraEnabled(cacheable=false)
+    public static void saveVariantDisplayWeight(Id recordId, Decimal weightPercent) {
+        if (recordId == null) {
+            throw new AuraHandledException('Variant Id is required.');
+        }
+        if (weightPercent == null) {
+            throw new AuraHandledException('Weight is required.');
+        }
+        if (weightPercent < 0 || weightPercent > 100) {
+            throw new AuraHandledException('Weight must be between 0 and 100.');
+        }
+        Decimal manual = (weightPercent / 100).setScale(4, System.RoundingMode.HALF_UP);
+        CopyCockpitModificationService.updateMetadata(new CC_Message_Metadata__c(
+            Id = recordId,
+            Display_Probability_Manual__c = manual
+        ));
     }
 
     /**
@@ -173,7 +291,7 @@ public with sharing class CopyCockpitController {
         List<Decimal> variants = new List<Decimal>();
         String language = null;
         for (CC_Message_Metadata__c r : rows) {
-            Decimal v = resolveVariantNumber(r.Name, r.Version__c, nameStem.trim());
+            Decimal v = resolveVariantNumber(r, nameStem.trim());
             if (v != null) variants.add(v);
             if (language == null && String.isNotBlank(r.Language__c)) {
                 language = r.Language__c;
@@ -211,6 +329,8 @@ public with sharing class CopyCockpitController {
                    Campaign__c, Campaign__r.Name,
                    Source_Template__c, Source_Template__r.Name,
                    Canvas_Blocks_JSON__c,
+                   MCE_Last_Modified_By__c, MCE_Updated_At__c,
+                   LastModifiedBy__c, LastModifiedAt__c, UpdatedAt__c,
                    CreatedDate, LastModifiedDate
             FROM CC_Message_Metadata__c
             WHERE Id = :recordId
@@ -245,7 +365,7 @@ public with sharing class CopyCockpitController {
             Set<Decimal> taken = new Set<Decimal>();
             String masterLanguage = null;
             for (CC_Message_Metadata__c r : existing) {
-                Decimal v = resolveVariantNumber(r.Name, r.Version__c, stem);
+                Decimal v = resolveVariantNumber(r, stem);
                 if (v != null) taken.add(v);
                 if (masterLanguage == null && String.isNotBlank(r.Language__c)) {
                     masterLanguage = r.Language__c;
@@ -279,7 +399,7 @@ public with sharing class CopyCockpitController {
             if (data.get('messageSubtype') != null) {
                 rec.Subject__c = (String) data.get('messageSubtype');
             }
-            insert rec;
+            CopyCockpitModificationService.insertMetadata(rec);
             return rec.Id;
         } catch (AuraHandledException e) {
             throw e;
@@ -296,9 +416,75 @@ public with sharing class CopyCockpitController {
         CC_Message_Metadata__c rec = [
             SELECT Id FROM CC_Message_Metadata__c WHERE Id = :recordId LIMIT 1
         ];
-        if (String.isNotBlank(status)) rec.Status__c = status;
+        if (String.isNotBlank(status)) {
+            rec.Status__c = status;
+        }
         rec.Canvas_Blocks_JSON__c = canvasJson;
-        update rec;
+        if (String.isNotBlank(canvasJson)) {
+            try {
+                List<Object> blocks = (List<Object>) JSON.deserializeUntyped(canvasJson);
+                rec.Block_Count__c = blocks == null ? 0 : blocks.size();
+            } catch (Exception ignored) {
+                // Keep existing block count when canvas JSON is not a list.
+            }
+        }
+        CopyCockpitModificationService.updateMetadata(rec);
+    }
+
+    private static final Set<String> ALLOWED_MESSAGE_STATUSES = new Set<String>{
+        'Draft', 'Ready', 'Published', 'Inactive', 'Archived'
+    };
+
+    @AuraEnabled
+    public static void updateMessageStatus(Id recordId, String status) {
+        if (recordId == null) {
+            throw new AuraHandledException('Message variant is required.');
+        }
+        if (String.isBlank(status) || !ALLOWED_MESSAGE_STATUSES.contains(status)) {
+            throw new AuraHandledException(
+                'Status must be one of: Draft, Ready, Published, Inactive, or Archived.'
+            );
+        }
+        CC_Message_Metadata__c existing = [
+            SELECT Status__c
+            FROM CC_Message_Metadata__c
+            WHERE Id = :recordId
+            LIMIT 1
+        ];
+        assertAllowedStatusTransition(existing.Status__c, status);
+        CopyCockpitModificationService.updateMetadata(
+            new CC_Message_Metadata__c(Id = recordId, Status__c = status)
+        );
+    }
+
+    @TestVisible
+    private static void assertAllowedStatusTransition(String fromStatus, String toStatus) {
+        String currentStatus = String.isBlank(fromStatus) ? 'Draft' : fromStatus.trim();
+        String targetStatus = toStatus.trim();
+        if (currentStatus == targetStatus) {
+            return;
+        }
+        if (currentStatus == 'Published'
+            && targetStatus != 'Archived'
+            && targetStatus != 'Inactive') {
+            throw new AuraHandledException(
+                'Published messages can only be changed to Inactive or Archived.'
+            );
+        }
+        if (currentStatus == 'Inactive'
+            && targetStatus != 'Draft'
+            && targetStatus != 'Ready'
+            && targetStatus != 'Published'
+            && targetStatus != 'Inactive') {
+            throw new AuraHandledException(
+                'Inactive messages can be set to Draft, Ready, or Published.'
+            );
+        }
+        if (currentStatus == 'Archived' && targetStatus != 'Published') {
+            throw new AuraHandledException(
+                'Archived messages can only be restored to Published.'
+            );
+        }
     }
 
     @AuraEnabled
@@ -313,7 +499,7 @@ public with sharing class CopyCockpitController {
                        Source_Template__c, Canvas_Blocks_JSON__c,
                        Offer__c, Product_Family__c, Campaign__c,
                        Valid_From__c, Valid_To__c, Version__c,
-                       Message_Variant__c
+                       Message_Variant__c, MessageVariant__c
                 FROM CC_Message_Metadata__c
                 WHERE Id = :sourceId
                 LIMIT 1
@@ -321,7 +507,7 @@ public with sharing class CopyCockpitController {
             String stem = resolveMasterStem(src, masterStem);
             List<CC_Message_Metadata__c> existing = queryByStem(stem, src.Channel_Type__c);
             for (CC_Message_Metadata__c r : existing) {
-                Decimal v = resolveVariantNumber(r.Name, r.Version__c, stem);
+                Decimal v = resolveVariantNumber(r, stem);
                 if (v == newVersion) {
                     throw new AuraHandledException(
                         'Variant ' + String.valueOf(newVersion.intValue()) + ' already exists for this message.'
@@ -333,6 +519,7 @@ public with sharing class CopyCockpitController {
             copy.Version__c = newVersion;
             copy.Name = stem + '_' + String.valueOf(newVersion.intValue());
             copy.Message_Variant__c = 'Variant ' + String.valueOf(newVersion.intValue());
+            copy.MessageVariant__c = newVersion;
             copy.Status__c  = 'Draft';
             copy.Message_Variant_Id__c = null;
             copy.MessageVariantId__c = null;
@@ -347,7 +534,7 @@ public with sharing class CopyCockpitController {
                 masterMessageName = stem;
             }
             copy.MessageName__c = masterMessageName;
-            insert copy;
+            CopyCockpitModificationService.insertMetadata(copy);
             return copy.Id;
         } catch (AuraHandledException e) {
             throw e;
@@ -400,7 +587,7 @@ public with sharing class CopyCockpitController {
         }
 
         for (CC_Message_Metadata__c r : rows) {
-            Decimal v = resolveVariantNumber(r.Name, r.Version__c, oldStem.trim());
+            Decimal v = resolveVariantNumber(r, oldStem.trim());
             if (v == null) v = 1;
             r.Name = newStem + '_' + String.valueOf(v.intValue());
             r.Version__c = v;
@@ -408,7 +595,7 @@ public with sharing class CopyCockpitController {
             r.Language__c = lang;
         }
         try {
-            update rows;
+            CopyCockpitModificationService.updateMetadata(rows);
         } catch (DmlException e) {
             throw new AuraHandledException('Update failed: ' + e.getDmlMessage(0));
         }
@@ -433,13 +620,128 @@ public with sharing class CopyCockpitController {
         updateMessageMaster(stemOld, cc, mn, lang, channelType);
     }
 
+    /**
+     * Deletes Copy Center variants and their CC_Message_Blocks_All__c rows.
+     */
     @AuraEnabled
-    public static void deleteMessage(Id recordId) {
+    public static Integer deleteMessageVariants(List<Id> metadataIds) {
+        if (metadataIds == null || metadataIds.isEmpty()) {
+            throw new AuraHandledException('Select at least one message variant.');
+        }
+        Set<Id> idSet = new Set<Id>();
+        for (Id metadataId : metadataIds) {
+            if (metadataId != null) {
+                idSet.add(metadataId);
+            }
+        }
+        if (idSet.isEmpty()) {
+            throw new AuraHandledException('Select at least one message variant.');
+        }
+
+        List<CC_Message_Metadata__c> rows = [
+            SELECT Id, MessageVariantId__c, Message_Variant_Id__c,
+                   MessageName__c, MessageVariant__c, Version__c
+            FROM CC_Message_Metadata__c
+            WHERE Id IN :idSet
+        ];
+        if (rows.isEmpty()) {
+            throw new AuraHandledException('Message variant(s) not found.');
+        }
+
         try {
-            delete new CC_Message_Metadata__c(Id = recordId);
+            deleteBlocksForMetadataRows(rows);
+            delete rows;
         } catch (DmlException e) {
             throw new AuraHandledException('Delete failed: ' + e.getDmlMessage(0));
         }
+        return rows.size();
+    }
+
+    /** Deletes every variant in a master message group for the given channel. */
+    @AuraEnabled
+    public static Integer deleteMasterMessageGroup(String masterStem, String channelType) {
+        if (String.isBlank(masterStem)) {
+            throw new AuraHandledException('Message name is required.');
+        }
+        if (String.isBlank(channelType)) {
+            throw new AuraHandledException('Channel type is required.');
+        }
+        List<CC_Message_Metadata__c> rows = queryByStem(masterStem.trim(), channelType);
+        if (rows.isEmpty()) {
+            throw new AuraHandledException('No variants found for this message.');
+        }
+        List<Id> ids = new List<Id>();
+        for (CC_Message_Metadata__c row : rows) {
+            ids.add(row.Id);
+        }
+        return deleteMessageVariants(ids);
+    }
+
+    /** @deprecated Prefer deleteMessageVariants — kept for older clients. */
+    @AuraEnabled
+    public static void deleteMessage(Id recordId) {
+        deleteMessageVariants(new List<Id>{ recordId });
+    }
+
+    private static void deleteBlocksForMetadataRows(List<CC_Message_Metadata__c> rows) {
+        if (rows == null || rows.isEmpty()) {
+            return;
+        }
+        Set<String> variantKeys = new Set<String>();
+        Set<Decimal> variantNumbers = new Set<Decimal>();
+        Set<String> messageNames = new Set<String>();
+
+        for (CC_Message_Metadata__c row : rows) {
+            String variantKey = resolveExternalVariantId(row);
+            if (String.isNotBlank(variantKey)) {
+                variantKeys.add(variantKey.trim());
+            }
+            Decimal variantNum = row.MessageVariant__c != null ? row.MessageVariant__c : row.Version__c;
+            if (variantNum != null) {
+                variantNumbers.add(variantNum);
+            }
+            if (String.isNotBlank(row.MessageName__c)) {
+                messageNames.add(row.MessageName__c.trim());
+            }
+        }
+
+        Set<Id> blockIds = new Set<Id>();
+        if (!variantKeys.isEmpty()) {
+            for (CC_Message_Blocks_All__c block : [
+                SELECT Id
+                FROM CC_Message_Blocks_All__c
+                WHERE MessageVariantId__c IN :variantKeys
+            ]) {
+                blockIds.add(block.Id);
+            }
+        }
+        if (!messageNames.isEmpty() && !variantNumbers.isEmpty()) {
+            for (CC_Message_Blocks_All__c block : [
+                SELECT Id
+                FROM CC_Message_Blocks_All__c
+                WHERE MessageName__c IN :messageNames
+                  AND MessageVariant__c IN :variantNumbers
+            ]) {
+                blockIds.add(block.Id);
+            }
+        }
+        if (blockIds.isEmpty()) {
+            return;
+        }
+        delete [SELECT Id FROM CC_Message_Blocks_All__c WHERE Id IN :blockIds];
+    }
+
+    private static String resolveExternalVariantId(CC_Message_Metadata__c row) {
+        if (row == null) {
+            return null;
+        }
+        if (String.isNotBlank(row.MessageVariantId__c)) {
+            return row.MessageVariantId__c.trim();
+        }
+        if (String.isNotBlank(row.Message_Variant_Id__c)) {
+            return row.Message_Variant_Id__c.trim();
+        }
+        return null;
     }
 
     // ── Naming helpers ────────────────────────────────────────────────────────
@@ -498,12 +800,12 @@ public with sharing class CopyCockpitController {
         if (src == null) {
             return '';
         }
+        if (String.isNotBlank(src.MessageName__c)) {
+            return src.MessageName__c.trim();
+        }
         String stem = stripVariantSuffix(src.Name);
         if (String.isNotBlank(stem) && !looksLikeExternalMessageId(stem)) {
             return stem;
-        }
-        if (String.isNotBlank(src.MessageName__c)) {
-            return src.MessageName__c.trim();
         }
         return String.isNotBlank(stem) ? stem : src.Name;
     }
@@ -534,6 +836,9 @@ public with sharing class CopyCockpitController {
     }
 
     private static Decimal resolveVariantNumber(String fullName, Decimal versionField, String stem) {
+        if (versionField != null) {
+            return versionField;
+        }
         if (String.isNotBlank(fullName) && String.isNotBlank(stem) && fullName.startsWith(stem + '_')) {
             String suffix = fullName.substring(stem.length() + 1);
             if (suffix.isNumeric()) return Decimal.valueOf(suffix);
@@ -543,21 +848,33 @@ public with sharing class CopyCockpitController {
         return versionField;
     }
 
+    private static Decimal resolveVariantNumber(CC_Message_Metadata__c row, String stem) {
+        if (row == null) return null;
+        if (String.isNotBlank(row.MessageName__c) && String.isNotBlank(stem)
+            && row.MessageName__c.trim().equalsIgnoreCase(stem.trim())) {
+            if (row.MessageVariant__c != null) return row.MessageVariant__c;
+            if (row.Version__c != null) return row.Version__c;
+        }
+        return resolveVariantNumber(row.Name, row.Version__c, stem);
+    }
+
     private static List<CC_Message_Metadata__c> queryByStem(String stem, String channelType) {
         if (String.isBlank(stem) || String.isBlank(channelType)) {
             return new List<CC_Message_Metadata__c>();
         }
         String likePattern = stem + '_%';
         List<CC_Message_Metadata__c> candidates = [
-            SELECT Id, Name, Version__c, Language__c, MessageName__c
+            SELECT Id, Name, Version__c, Language__c, MessageName__c, MessageVariant__c,
+                   MessageVariantId__c, Message_Variant_Id__c
             FROM CC_Message_Metadata__c
             WHERE Channel_Type__c = :channelType
-              AND (Name = :stem OR Name LIKE :likePattern OR MessageName__c = :stem)
+              AND (MessageName__c = :stem OR Name = :stem OR Name LIKE :likePattern)
             LIMIT 500
         ];
         List<CC_Message_Metadata__c> matched = new List<CC_Message_Metadata__c>();
+        String stemTrim = stem.trim();
         for (CC_Message_Metadata__c r : candidates) {
-            if (r.MessageName__c != null && r.MessageName__c.trim() == stem.trim()) {
+            if (String.isNotBlank(r.MessageName__c) && r.MessageName__c.trim() == stemTrim) {
                 matched.add(r);
                 continue;
             }
@@ -571,6 +888,75 @@ public with sharing class CopyCockpitController {
             }
         }
         return matched;
+    }
+
+    /**
+     * Published Copy Center variants for the campaign wizard (step 3).
+     * Matches channel(s) from step 1 and product family name and/or offer from step 2.
+     */
+    @AuraEnabled(cacheable=false)
+    public static List<CC_Message_Metadata__c> getPublishedVariantsForWizard(
+        List<String> channelTypes,
+        List<String> productFamilyNames,
+        List<String> offerIds
+    ) {
+        List<String> channels = new List<String>();
+        if (channelTypes != null) {
+            for (String channelType : channelTypes) {
+                if (String.isNotBlank(channelType)) {
+                    channels.add(channelType.trim());
+                }
+            }
+        }
+        if (channels.isEmpty()) {
+            return new List<CC_Message_Metadata__c>();
+        }
+
+        Set<String> familyNames = new Set<String>();
+        if (productFamilyNames != null) {
+            for (String familyName : productFamilyNames) {
+                if (String.isNotBlank(familyName)) {
+                    familyNames.add(familyName.trim());
+                }
+            }
+        }
+
+        Set<Id> offerIdSet = new Set<Id>();
+        if (offerIds != null) {
+            for (String offerId : offerIds) {
+                if (String.isNotBlank(offerId)) {
+                    offerIdSet.add((Id) offerId);
+                }
+            }
+        }
+
+        if (familyNames.isEmpty() && offerIdSet.isEmpty()) {
+            return new List<CC_Message_Metadata__c>();
+        }
+
+        List<String> offeringFilters = new List<String>();
+        if (!familyNames.isEmpty()) {
+            offeringFilters.add('Product_Family__r.Name IN :familyNames');
+        }
+        if (!offerIdSet.isEmpty()) {
+            offeringFilters.add('Offer__c IN :offerIdSet');
+        }
+
+        String offeringClause = String.join(offeringFilters, ' OR ');
+        String soql =
+            'SELECT Id, Name, Channel_Type__c, Status__c, Language__c,' +
+            ' Offer__c, Offer__r.Name, Product_Family__c, Product_Family__r.Name,' +
+            ' MessageName__c, MessageVariant__c, MessageType__c,' +
+            ' Message_Variant_Id__c, Message_Variant__c, Message_Type__c, Version__c,' +
+            ' Display_Probability__c, Display_Probability_Manual__c' +
+            ' FROM CC_Message_Metadata__c' +
+            ' WHERE Status__c = \'Published\'' +
+            ' AND Channel_Type__c IN :channels' +
+            ' AND (' + offeringClause + ')' +
+            ' ORDER BY Name ASC, Version__c ASC NULLS LAST' +
+            ' LIMIT 2000';
+
+        return Database.query(soql);
     }
 
     // ── Version History ───────────────────────────────────────────────────────

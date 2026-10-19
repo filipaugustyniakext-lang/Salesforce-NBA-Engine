@@ -76,15 +76,25 @@
                                     <h2 class="slds-text-heading_small">{activeChannel.Name}</h2>
                                     <span class="slds-text-body_small slds-text-color_weak">{activeChannel.Channel_Type__c}</span>
                                 </div>
+                                <div>
+                                    <span class="slds-badge">{messageGroupCountLabel}</span>
+                                </div>
                             </div>
                             <div class="cockpit-panel-header__right">
-                                <lightning-button
-                                    label={syncButtonLabel}
+                                <lightning-button-group>
+                                    <lightning-button
+                                    label={syncMCEButtonLabel}
                                     icon-name="utility:sync"
-                                    onclick={handleSyncFromMce}
-                                    disabled={isSyncing}
+                                    onclick={handleSyncWithMCE}
+                                    disabled={isSyncingMCE}
                                 ></lightning-button>
-                                <span class="slds-badge">{messageGroupCountLabel}</span>
+                                 <lightning-button
+                                    label={syncD360ButtonLabel}
+                                    icon-name="utility:data_cloud"
+                                    onclick={handleSyncWithD360}
+                                    disabled={isSyncingD360}
+                                ></lightning-button>
+                                </lightning-button-group>
                             </div>
                         </div>
 
@@ -92,30 +102,22 @@
                         <div class="cockpit-toolbar">
                             <lightning-input
                                 type="search"
+                                variant="label-hidden"
+                                label="Search messages"
                                 placeholder="Search messages..."
                                 value={searchTerm}
                                 onchange={handleSearch}
                                 class="cockpit-search"
                             ></lightning-input>
                             <div class="cockpit-toolbar__right">
-                                <div class="cockpit-status-filters">
-                                    <template for:each={statusFilters} for:item="sf">
-                                        <button
-                                            key={sf.value}
-                                            class={sf.pillClass}
-                                            data-value={sf.value}
-                                            onclick={handleStatusFilter}
-                                        >{sf.label}</button>
-                                    </template>
-                                </div>
-                                <button class="cockpit-expand-btn" onclick={handleToggleAll}>
-                                    <lightning-icon
-                                        icon-name={expandAllIcon}
-                                        size="x-small"
-                                        class="slds-m-right_xx-small"
-                                    ></lightning-icon>
-                                    {expandAllLabel}
-                                </button>
+                                <lightning-combobox
+                                    variant="label-hidden"
+                                    value={_statusFilter}
+                                    options={statusFilterOptions}
+                                    onchange={handleStatusFilterChange}
+                                    class="cockpit-status-dropdown"
+                                ></lightning-combobox>
+                                
                                 <lightning-button
                                     label="Add Copy"
                                     icon-name="utility:add"
@@ -130,6 +132,17 @@
                             <div class="cockpit-bulk-bar" role="toolbar" aria-label="Bulk actions">
                                 <span class="cockpit-bulk-count">{selectionCountLabel}</span>
                                 <div class="cockpit-bulk-actions">
+                                    <lightning-button
+                                        label="Change Source Template"
+                                        icon-name="utility:insert_template"
+                                        onclick={handleBulkChangeSourceTemplate}
+                                    ></lightning-button>
+                                    <lightning-button
+                                        label="Sync with MCE"
+                                        icon-name="utility:sync"
+                                        onclick={handleBulkSyncMCE}
+                                        disabled={isSyncingMCE}
+                                    ></lightning-button>
                                     <lightning-button
                                         label="Publish"
                                         icon-name="utility:upload"
@@ -162,11 +175,20 @@
 
                         <!-- Message groups -->
                         <template lwc:elseif={hasGroups}>
-                            <div class="cockpit-list" role="list">
+                            <div class="cockpit-list" style={columnWidthStyle} role="list">
 
                                 <!-- Column header -->
-                                <div class="cockpit-list-header" aria-hidden="true">
-                                    <span class="cockpit-col-check"></span>
+                                <div class="cockpit-list-header">
+                                    <span class="cockpit-col-check" onclick={handleSelectAllCheckboxClick}>
+                                        <input
+                                            type="checkbox"
+                                            class="cockpit-checkbox cockpit-checkbox_select-all"
+                                            data-select-all-variants
+                                            checked={allVisibleVariantsSelected}
+                                            aria-label={selectAllVisibleLabel}
+                                            onchange={handleSelectAllVisible}
+                                        />
+                                    </span>
                                     <span class="cockpit-col-name">Message / Variant</span>
                                     <span class="cockpit-col-status">Status</span>
                                     <span class="cockpit-col-weight">Weight</span>
@@ -174,7 +196,25 @@
                                     <span class="cockpit-col-blocks">Blocks</span>
                                     <span class="cockpit-col-versions">Versions</span>
                                     <span class="cockpit-col-modified">Last Modified</span>
-                                    <span class="cockpit-col-actions"></span>
+                                    <span class="cockpit-col-spacer" aria-hidden="true"></span>
+                                    <span class="cockpit-col-actions cockpit-col-actions_sticky cockpit-list-header-actions">
+                                        <lightning-button-icon
+                                            onclick={handleAutoFitColumns}
+                                            icon-name="utility:metrics"
+                                            size="medium"
+                                            label={fitColumnsLabel}
+                                            title={fitColumnsLabel}
+                                            variant="bare"
+                                        ></lightning-button-icon>
+                                        <lightning-button-icon 
+                                            onclick={handleToggleAll}
+                                            icon-name={expandAllIcon}
+                                            size="medium"
+                                            label={expandAllLabel} 
+                                            title={expandAllLabel}
+                                            variant="bare"                                       
+                                        ></lightning-button-icon>
+                                    </span>
                                 </div>
 
                                 <template for:each={filteredGroups} for:item="grp">
@@ -221,42 +261,45 @@
                                                         <span class="cockpit-copy-lang">{grp.language}</span>
                                                     </template>
                                                     <span class="cockpit-master-counts">
-                                                        <span class="cockpit-stat-chip">{grp.totalVariants}v</span>
-                                                        <template lwc:if={grp.publishedCount}>
-                                                            <span class="cockpit-stat-chip cockpit-stat-chip_live">{grp.publishedCount} live</span>
-                                                        </template>
+                                                        <span class="cockpit-stat-chip">{grp.totalVariants}</span>
                                                     </span>
                                                 </div>
-                                                <!-- status summary badges on master row -->
+                                                <!-- Single status summary on master row (e.g. N Published) -->
                                                 <div class="cockpit-col-status">
-                                                    <template lwc:if={grp.hasPublished}>
-                                                        <span class="slds-badge cockpit-badge-published">Published</span>
-                                                    </template>
-                                                    <template lwc:if={grp.hasReady}>
-                                                        <span class="slds-badge cockpit-badge-ready">Ready</span>
-                                                    </template>
-                                                    <template lwc:if={grp.hasDraft}>
-                                                        <span class="slds-badge slds-badge_lightest">Draft</span>
-                                                    </template>
-                                                    <template lwc:if={grp.hasArchived}>
-                                                        <span class="slds-badge cockpit-badge-archived">Archived</span>
-                                                    </template>
+                                                    <span class={grp.masterStatusSummaryClass}>{grp.masterStatusSummary}</span>
                                                 </div>
                                                 <div class="cockpit-col-weight"></div>
                                                 <div class="cockpit-col-schedule"></div>
                                                 <div class="cockpit-col-blocks"></div>
                                                 <div class="cockpit-col-versions"></div>
                                                 <div class="cockpit-col-modified"></div>
-                                                <div class="cockpit-col-actions">
-                                                    <button
-                                                        type="button"
-                                                        class="slds-button slds-button_icon slds-button_icon-border slds-button_icon-small cockpit-quick-action"
-                                                        title="Edit settings"
+                                                <div class="cockpit-col-spacer" aria-hidden="true"></div>
+                                                <div class="cockpit-col-actions cockpit-col-actions_sticky">
+                                                    <lightning-button-icon 
+                                                        icon-name="utility:insert_template" 
+                                                        variant="border-filled" 
+                                                        onclick={handleMasterChangeSourceTemplate} 
+                                                        alternative-text="Change Source Template" 
+                                                        title="Change Source Template"
                                                         data-name={grp.messageName}
-                                                        onclick={handleMasterEdit}
-                                                    >
-                                                        <lightning-icon icon-name="utility:settings" size="xx-small" alternative-text="Edit settings"></lightning-icon>
-                                                    </button>
+                                                        size="small" >    
+                                                    </lightning-button-icon>
+                                                    <lightning-button-icon 
+                                                        icon-name="utility:settings" 
+                                                        variant="border-filled" 
+                                                        onclick={handleMasterEdit} 
+                                                        alternative-text="Edit Settings" 
+                                                        data-name={grp.messageName}
+                                                        size="small" >    
+                                                    </lightning-button-icon>
+                                                     <lightning-button-icon 
+                                                        icon-name="utility:delete" 
+                                                        variant="border-filled" 
+                                                        onclick={handleMasterDelete} 
+                                                        alternative-text="Delete Message" 
+                                                        data-name={grp.messageName}
+                                                        size="small" >    
+                                                    </lightning-button-icon>
                                                 </div>
                                             </div>
                                         </div>
@@ -281,24 +324,62 @@
 
                                                         <!-- Indent + name / label -->
                                                         <div class="cockpit-variant-name-cell">
-                                                            <span class="cockpit-variant-num">{v.versionLabel}</span>
+                                                            <span class="cockpit-variant-num">Variant {v.versionLabel}</span>
+                                                            <template lwc:if={v.sourceTemplateBadge}>
+                                                                <span
+                                                                    class="slds-badge slds-theme_lightest cockpit-source-template-badge"
+                                                                    title="Assigned source template"
+                                                                >{v.sourceTemplateBadge}</span>
+                                                            </template>
                                                             <template lwc:if={v.Subject__c}>
                                                                 <span class="cockpit-variant-subject">{v.Subject__c}</span>
                                                             </template>
                                                         </div>
 
-                                                        <!-- Status -->
+                                                        <!-- Status (dropdown) -->
                                                         <div class="cockpit-col-status">
-                                                            <span class={v.statusClass}>{v.Status__c}</span>
+                                                            <div class={v.statusPickerClass} data-id={v.Id}>
+                                                                <lightning-combobox
+                                                                    value={v.Status__c}
+                                                                    options={v.variantStatusOptions}
+                                                                    variant="label-hidden"
+                                                                    dropdown-alignment="auto"
+                                                                    data-id={v.Id}
+                                                                    aria-label={v.statusAriaLabel}
+                                                                    class="cockpit-variant-status-combobox"
+                                                                    onchange={handleVariantStatusChange}>
+                                                                </lightning-combobox>
+                                                            </div>
                                                         </div>
 
-                                                        <!-- Display weight -->
-                                                        <div class="cockpit-col-weight">
-                                                            <template lwc:if={v.weightDisplay}>
-                                                                <span class="cockpit-weight">{v.weightDisplay}</span>
+                                                        <!-- Weight: text until click, then compact inline edit (0–100) -->
+                                                        <div class="cockpit-col-weight cockpit-weight-cell" onclick={handleCheckboxClick}>
+                                                            <template lwc:if={v.weightIsEditing}>
+                                                                <input
+                                                                    type="text"
+                                                                    inputmode="numeric"
+                                                                    pattern="[0-9]*"
+                                                                    maxlength="3"
+                                                                    class="cockpit-weight-input-native"
+                                                                    value={weightEditValue}
+                                                                    data-id={v.Id}
+                                                                    aria-label={v.weightAriaLabel}
+                                                                    onclick={handleCheckboxClick}
+                                                                    oninput={handleWeightEditInput}
+                                                                    onkeydown={handleWeightEditKeydown}
+                                                                    onblur={handleWeightEditBlur}
+                                                                />
                                                             </template>
                                                             <template lwc:else>
-                                                                <span class="cockpit-stat-none">—</span>
+                                                                <button
+                                                                    type="button"
+                                                                    class="cockpit-weight-display"
+                                                                    data-id={v.Id}
+                                                                    title="Click to edit weight (0–100)"
+                                                                    aria-label={v.weightAriaLabel}
+                                                                    onclick={handleWeightDisplayClick}>
+                                                                    {v.weightDisplayText}
+                                                                </button>
                                                             </template>
                                                         </div>
 
@@ -350,8 +431,32 @@
                                                             </template>
                                                         </div>
 
+                                                        <div class="cockpit-col-spacer" aria-hidden="true"></div>
+
                                                         <!-- Always-visible quick actions -->
-                                                        <div class="cockpit-variant-actions">
+                                                        <div class="cockpit-col-actions cockpit-col-actions_sticky cockpit-variant-actions">
+                                                            <template lwc:if={v.canSyncFromMCE}>
+                                                                <button
+                                                                    type="button"
+                                                                    class="slds-button slds-button_icon slds-button_icon-border slds-button_icon-small cockpit-quick-action"
+                                                                    title="Sync this variant from MCE"
+                                                                    data-id={v.Id}
+                                                                    disabled={isSyncingMCE}
+                                                                    onclick={handleVariantSyncMCE}
+                                                                >
+                                                                    <lightning-icon icon-name="utility:sync" size="xx-small" alternative-text="Sync from MCE"></lightning-icon>
+                                                                </button>
+                                                            </template>
+                                                            <button
+                                                                type="button"
+                                                                class="slds-button slds-button_icon slds-button_icon-border slds-button_icon-small cockpit-quick-action cockpit-template-action"
+                                                                title={v.sourceTemplateButtonTitle}
+                                                                data-id={v.Id}
+                                                                disabled={v.sourceTemplateButtonDisabled}
+                                                                onclick={handleVariantChangeSourceTemplate}
+                                                            >
+                                                                <lightning-icon icon-name="utility:insert_template" size="xx-small" alternative-text="Change Source Template"></lightning-icon>
+                                                            </button>
                                                             <button
                                                                 type="button"
                                                                 class="slds-button slds-button_icon slds-button_icon-border slds-button_icon-small cockpit-quick-action"
@@ -424,9 +529,50 @@
         <c-copy-cockpit-add-modal
             channel-name={addChannelName}
             channel-type={addChannelType}
+            banner-types={addBannerTypes}
             onclose={handleAddModalClose}
             onsave={handleAddModalSave}
         ></c-copy-cockpit-add-modal>
+    </template>
+
+    <!-- Status change confirmation (Publish / Archive) -->
+    <template lwc:if={isStatusConfirmOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="status-confirm-title" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header slds-theme_warning slds-theme_alert-texture">
+                    <lightning-icon icon-name="utility:warning" size="small" class="slds-m-right_x-small"></lightning-icon>
+                    <h2 id="status-confirm-title" class="slds-modal__title">{statusConfirmTitle}</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <p>{statusConfirmMessage}</p>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={handleStatusConfirmCancel} class="slds-m-right_x-small"></lightning-button>
+                    <lightning-button label={statusConfirmProceedLabel} variant="brand" onclick={handleStatusConfirmProceed}></lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+    <!-- Source template replace confirmation -->
+    <template lwc:if={isTemplateReplaceConfirmOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="template-replace-confirm-title" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header slds-theme_warning slds-theme_alert-texture">
+                    <lightning-icon icon-name="utility:warning" size="small" class="slds-m-right_x-small"></lightning-icon>
+                    <h2 id="template-replace-confirm-title" class="slds-modal__title">Change source template?</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <p>{templateReplaceConfirmMessage}</p>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={handleTemplateReplaceConfirmCancel} class="slds-m-right_x-small"></lightning-button>
+                    <lightning-button label="Change template" variant="brand" onclick={handleTemplateReplaceConfirmProceed}></lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
     </template>
 
     <!-- Delete confirmation modal -->
@@ -438,12 +584,18 @@
                     <h2 id="delete-modal-title" class="slds-modal__title">Delete Variant</h2>
                 </header>
                 <div class="slds-modal__content slds-p-around_medium">
-                    <p>Permanently delete <strong>{deleteTargetName}</strong> – variant {deleteTargetVersion}?</p>
-                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">This cannot be undone.</p>
+                    <p>
+                        Permanently delete variant <strong>{deleteTargetVariantLabel}</strong> of
+                        <strong> {deleteTargetName}</strong>?
+                    </p>
+                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">
+                        This removes the variant from Copy Center and deletes its rows in
+                        CC_Message_Metadata__c and CC_Message_Blocks_All__c. This cannot be undone.
+                    </p>
                 </div>
                 <footer class="slds-modal__footer">
-                    <lightning-button label="Cancel" onclick={handleDeleteCancel} class="slds-m-right_x-small"></lightning-button>
-                    <lightning-button label="Delete" variant="destructive" onclick={handleDeleteConfirm}></lightning-button>
+                    <lightning-button label="Cancel" onclick={handleDeleteCancel} class="slds-m-right_x-small" disabled={isVariantDeleteSaving}></lightning-button>
+                    <lightning-button label="Delete" variant="destructive" onclick={handleDeleteConfirm} disabled={isVariantDeleteSaving}></lightning-button>
                 </footer>
             </div>
         </section>
@@ -459,11 +611,70 @@
                     <h2 id="bulk-delete-modal-title" class="slds-modal__title">Delete {selectionCountLabel}</h2>
                 </header>
                 <div class="slds-modal__content slds-p-around_medium">
-                    <p>Permanently delete {selectionCountLabel}? This cannot be undone.</p>
+                    <p>Permanently delete {selectionCountLabel}?</p>
+                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">
+                        Selected variants and their block data will be removed from
+                        CC_Message_Metadata__c and CC_Message_Blocks_All__c. This cannot be undone.
+                    </p>
                 </div>
                 <footer class="slds-modal__footer">
-                    <lightning-button label="Cancel" onclick={handleBulkDeleteCancel} class="slds-m-right_x-small"></lightning-button>
-                    <lightning-button label="Delete All" variant="destructive" onclick={handleBulkDeleteConfirm}></lightning-button>
+                    <lightning-button label="Cancel" onclick={handleBulkDeleteCancel} class="slds-m-right_x-small" disabled={isBulkDeleteSaving}></lightning-button>
+                    <lightning-button label="Delete All" variant="destructive" onclick={handleBulkDeleteConfirm} disabled={isBulkDeleteSaving}></lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+    <!-- Master message delete confirmation -->
+    <template lwc:if={isMasterDeleteModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="master-delete-modal-title" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header slds-theme_error">
+                    <lightning-icon icon-name="utility:warning" size="small" class="slds-m-right_x-small"></lightning-icon>
+                    <h2 id="master-delete-modal-title" class="slds-modal__title">Delete message and all variants</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <p>
+                        Permanently delete <strong>{masterDeleteDisplayName}</strong> and all
+                        <strong> {masterDeleteVariantCount}</strong> variant(s)?
+                    </p>
+                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">
+                        This removes every variant under this message from Copy Center and deletes related rows in
+                        CC_Message_Metadata__c and CC_Message_Blocks_All__c. This cannot be undone.
+                    </p>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={handleMasterDeleteCancel} class="slds-m-right_x-small" disabled={isMasterDeleteSaving}></lightning-button>
+                    <lightning-button label="Delete message" variant="destructive" onclick={handleMasterDeleteConfirm} disabled={isMasterDeleteSaving}></lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+    <!-- MCE Sync Warning Modal -->
+    <template lwc:if={isSyncModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="sync-modal-title" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header slds-theme_warning slds-theme_alert-texture">
+                    <lightning-icon icon-name="utility:warning" size="small" class="slds-m-right_x-small"></lightning-icon>
+                    <h2 id="sync-modal-title" class="slds-modal__title">Sync Data from MCE</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <p><strong>Warning:</strong> Any unsynced edits made here in Salesforce for this channel might be overwritten by data coming from Marketing Cloud if matching variants are found.</p>
+                    <p class="slds-m-top_medium">How much data do you want to sync?</p>
+                    <ul class="slds-list_dotted slds-m-top_xx-small slds-m-bottom_small">
+                        <li><strong>Incremental (Last 15 Mins):</strong> Retrieves only recent changes for a faster update.</li>
+                        <li><strong>Full Sync:</strong> Retrieves the entire repository for this channel (may take longer).</li>
+                    </ul>
+                </div>
+                <footer class="slds-modal__footer slds-grid slds-grid_align-spread">
+                    <lightning-button label="Cancel" onclick={handleSyncCancel}></lightning-button>
+                    <div>
+                        <lightning-button label="Incremental (Last 15 Mins)" onclick={handleSyncPartialConfirm} class="slds-m-right_x-small"></lightning-button>
+                        <lightning-button label="Confirm Full Sync" variant="brand" onclick={handleSyncFullConfirm}></lightning-button>
+                    </div>
                 </footer>
             </div>
         </section>
@@ -617,34 +828,26 @@
                         </template>
                     </div>
 
-                    <!-- Display Probability per variant -->
-                    <div class="master-edit-section">
-                        <h3 class="master-edit-section__title">Display Probability</h3>
-                        <p class="master-edit-section__desc">Set the display probability for each variant (0 = never shown, 1 = full weight).</p>
-                        <template for:each={masterEditModal.variants} for:item="mv">
-                            <div key={mv.id} class="master-edit-variant-row">
-                                <div class="master-edit-variant-info">
-                                    <span class="master-edit-variant-label">{mv.label}</span>
-                                    <span class={mv.statusClass}>{mv.status}</span>
-                                </div>
-                                <div class="master-edit-slider-wrap">
-                                    <input
-                                        type="range"
-                                        min="0"
-                                        max="1"
-                                        step="0.01"
-                                        value={mv.probability}
-                                        class="master-edit-slider"
-                                        data-var-id={mv.id}
-                                        oninput={handleMasterEditSlider}
-                                    />
-                                    <span class="master-edit-prob-pct">{mv.pctDisplay}</span>
-                                    <span class="master-edit-prob-dec">{mv.decDisplay}</span>
-                                    <button type="button" class="master-edit-reset-btn" data-var-id={mv.id} onclick={handleMasterEditReset}>
-                                        Reset to 1
-                                    </button>
-                                </div>
+                    <div class="master-edit-section slds-m-top_large">
+                        <h3 class="master-edit-section__title">Source Template</h3>
+                        <template lwc:if={masterEditModal.currentSourceTemplateName}>
+                            <div class="master-edit-current-offer slds-m-bottom_x-small">
+                                <span class="master-edit-current-offer__label">Current template:</span>
+                                <span class="master-edit-current-offer__name">{masterEditModal.currentSourceTemplateName}</span>
                             </div>
+                        </template>
+                        <template lwc:if={selectableTemplatesLoading}>
+                            <lightning-spinner size="small" alternative-text="Loading templates..."></lightning-spinner>
+                        </template>
+                        <template lwc:else>
+                            <lightning-combobox
+                                label="Source Template"
+                                placeholder="Select a validated template..."
+                                value={masterEditModal.sourceTemplateId}
+                                options={selectableTemplateOptions}
+                                field-level-help="Active, validated templates from Marketing Dictionary → Channels → Templates. Applies to all variants in this master row when you save settings."
+                                onchange={handleMasterEditSourceTemplateChange}
+                            ></lightning-combobox>
                         </template>
                     </div>
 
@@ -652,6 +855,43 @@
                 <footer class="slds-modal__footer">
                     <lightning-button label="Cancel" onclick={handleMasterEditCancel} class="slds-m-right_x-small" disabled={masterEditModal.isSaving}></lightning-button>
                     <lightning-button label="Save Settings" variant="brand" onclick={handleMasterEditSave} disabled={masterEditModal.isSaving}></lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+    <!-- Change Source Template modal (bulk / variant / master quick action) -->
+    <template lwc:if={isSourceTemplateModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="source-template-modal-title" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header">
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse" title="Close" onclick={handleSourceTemplateModalCancel}>
+                        <lightning-icon icon-name="utility:close" size="small" variant="inverse"></lightning-icon>
+                    </button>
+                    <lightning-icon icon-name="utility:insert_template" size="small" class="slds-m-right_x-small"></lightning-icon>
+                    <h2 id="source-template-modal-title" class="slds-modal__title">{sourceTemplateModal.title}</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <p class="slds-text-body_regular slds-m-bottom_medium">{sourceTemplateModal.subtitle}</p>
+                    <template lwc:if={selectableTemplatesLoading}>
+                        <lightning-spinner size="small" alternative-text="Loading templates..."></lightning-spinner>
+                    </template>
+                    <template lwc:else>
+                        <lightning-combobox
+                            label="Source Template"
+                            placeholder="Select a validated template..."
+                            value={sourceTemplateModal.selectedTemplateId}
+                            options={selectableTemplateOptions}
+                            required
+                            field-level-help="Templates are managed under Marketing Dictionary → Channels → Templates (active and validated only)."
+                            onchange={handleSourceTemplateModalChange}
+                        ></lightning-combobox>
+                    </template>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={handleSourceTemplateModalCancel} class="slds-m-right_x-small" disabled={sourceTemplateModal.isSaving}></lightning-button>
+                    <lightning-button label="Apply Template" variant="brand" onclick={handleSourceTemplateModalSave} disabled={sourceTemplateModal.isSaving}></lightning-button>
                 </footer>
             </div>
         </section>

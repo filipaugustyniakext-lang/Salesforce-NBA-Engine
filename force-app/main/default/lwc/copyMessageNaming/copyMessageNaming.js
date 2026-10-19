@@ -128,37 +128,37 @@ export function groupKeyFromName(fullName) {
     return parsed.stem || fullName || '(unnamed)';
 }
 
-/** MCE / legacy rows may store a UUID in Name while MessageName__c holds the master label. */
-export function isLikelyExternalMessageId(name) {
-    const s = String(name || '').trim();
-    if (!s) return false;
-    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)
-        || /^[0-9a-f]{32}$/i.test(s);
+/**
+ * Master row key for Copy Center grouping.
+ * MCE rows: MessageName__c (e.g. EMA_PL_Email_1, EMA_PL_Email_2) — not parsed Name suffix.
+ */
+export function masterGroupKey(record) {
+    if (record && record.MessageName__c && String(record.MessageName__c).trim()) {
+        return String(record.MessageName__c).trim();
+    }
+    return groupKeyFromName(record?.Name);
 }
 
-/**
- * Stable master-message key for Copy Cockpit grouping (one row per master, many variants).
- */
-export function groupKeyFromRecord(row) {
-    if (!row) return '(unnamed)';
-    const name = String(row.Name || '').trim();
-    if (name) {
-        const parsed = parseFullName(name);
-        if (parsed.variant != null && parsed.stem) {
-            return parsed.stem;
-        }
-        if (name === parsed.stem || nameBelongsToStem(name, parsed.stem)) {
-            return parsed.stem;
-        }
-        if (!isLikelyExternalMessageId(name) && parsed.stem) {
-            return parsed.stem;
-        }
+export function variantNumberFromRecord(record) {
+    if (!record) return 0;
+    if (record.MessageVariant__c != null && record.MessageVariant__c !== '') {
+        const fromMce = Number(record.MessageVariant__c);
+        if (!Number.isNaN(fromMce)) return fromMce;
     }
-    const messageName = String(row.MessageName__c || '').trim();
-    if (messageName) {
-        return messageName;
+    if (record.Version__c != null && record.Version__c !== '') {
+        const fromVersion = Number(record.Version__c);
+        if (!Number.isNaN(fromVersion)) return fromVersion;
     }
-    return groupKeyFromName(name);
+    const parsed = parseFullName(record.Name);
+    return parsed.variant != null ? parsed.variant : 0;
+}
+
+export function recordBelongsToMasterGroup(record, stem) {
+    if (!stem || !record) return false;
+    if (record.MessageName__c && String(record.MessageName__c).trim() === stem) {
+        return true;
+    }
+    return nameBelongsToStem(record.Name, stem) || groupKeyFromName(record.Name) === stem;
 }
 
 export function nameBelongsToStem(fullName, stem) {

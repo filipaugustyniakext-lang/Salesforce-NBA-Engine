@@ -40,7 +40,7 @@ private class MarketingCloudCopySyncUpdateTest {
         Test.setMock(HttpCalloutMock.class, new EmailMock());
 
         Test.startTest();
-        MarketingCloudCopySync.SyncResult result = MarketingCloudCopySync.syncFromMce('Email');
+        MarketingCloudCopySync.SyncResult result = MarketingCloudCopySync.syncWithMCE('Email', null);
         Test.stopTest();
 
         System.assertEquals(0, result.createdCount);
