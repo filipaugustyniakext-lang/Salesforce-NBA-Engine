@@ -1467,7 +1467,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         const steps = [
             { label: 'Campaign Properties', value: 1, key: 'properties' },
             { label: 'Topic & Offering', value: 2, key: 'topic' },
-            { label: 'Copy Assignment', value: 3, key: 'copy' }
+            { label: 'Channels & Copy', value: 3, key: 'copy' }
         ];
         let nextValue = 4;
         if (this.isScoringStepRequired) {
@@ -1740,7 +1740,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     get channelsActivationIssues() {
         const issues = [];
         if (!this.hasSelectedChannel) {
-            issues.push(this._issue('channels', 'Enable at least one channel on Copy Assignment.'));
+            issues.push(this._issue('channels', 'Enable at least one channel on Channels & Copy.'));
         }
         return issues;
     }
@@ -2613,7 +2613,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 this.copyVariantData = [];
                 this.dispatchEvent(
                     new ShowToastEvent({
-                        title: 'Copy Assignment',
+                        title: 'Channels & Copy',
                         message: 'Could not load published message variants.',
                         variant: 'error'
                     })

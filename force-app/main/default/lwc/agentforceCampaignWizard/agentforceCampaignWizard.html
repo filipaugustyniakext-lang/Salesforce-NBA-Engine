@@ -665,10 +665,10 @@
                             </div>
                         </template>
                         
-                        <!-- STEP 3: Copy Assignment -->
+                        <!-- STEP 3: Channels & Copy -->
                         <template lwc:if={isStep3}>
                                     <div class="form-module-card slds-m-bottom_large">
-                                        <span class="module-header-title">Copy Assignment</span>
+                                        <span class="module-header-title">Channels &amp; Copy</span>
                                         <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small slds-m-bottom_medium">
                                             Enable channels with the toggles, then assign published message variants per channel.
                                         </p>
@@ -679,6 +679,20 @@
                                                 <div class="copy-channel-sidebar" role="tablist" aria-orientation="vertical">
                                                     <template for:each={copyChannelTabs} for:item="tab">
                                                         <div key={tab.value} class={tab.rowClass} title={tab.label}>
+                                                            <div class="copy-channel-toggle-slot">
+                                                                <lightning-input
+                                                                    type="toggle"
+                                                                    variant="label-hidden"
+                                                                    message-toggle-active=""
+                                                                    message-toggle-inactive=""
+                                                                    label={tab.label}
+                                                                    checked={tab.enabled}
+                                                                    data-value={tab.value}
+                                                                    onchange={handleCopyChannelEnableToggle}
+                                                                    class="copy-channel-tab-toggle"
+                                                                    title="Enable channel">
+                                                                </lightning-input>
+                                                            </div>
                                                             <a class={tab.linkClass}
                                                                role="tab"
                                                                aria-selected={tab.isActiveTab}
@@ -692,20 +706,6 @@
                                                                     <span class="slds-badge slds-m-left_x-small cockpit-badge-ready">{tab.selectedCount}</span>
                                                                 </template>
                                                             </a>
-                                                            <div class="copy-channel-toggle-slot">
-                                                                <lightning-input
-                                                                    type="toggle"
-                                                                    variant="label-hidden"
-                                                                    message-toggle-active=""
-                                                                    message-toggle-inactive=""
-                                                                    label={tab.label}
-                                                                    checked={tab.enabled}
-                                                                    data-value={tab.value}
-                                                                    onchange={handleCopyChannelEnableToggle}
-                                                                    class="copy-channel-tab-toggle"
-                                                                    title="Enable channel for copy assignment">
-                                                                </lightning-input>
-                                                            </div>
                                                         </div>
                                                     </template>
                                                 </div>
@@ -1031,9 +1031,9 @@
                                         </div>
                                     </div>
 
-                                    <!-- Copy Assignment -->
+                                    <!-- Channels & Copy -->
                                     <div class={copyAssignmentSummaryState.sectionClass}>
-                                        <h4 class="summary-section-title">Copy Assignment</h4>
+                                        <h4 class="summary-section-title">Channels &amp; Copy</h4>
                                         <template lwc:if={copyAssignmentSummaryState.issues.length}>
                                             <ul class="summary-validation-list">
                                                 <template for:each={copyAssignmentSummaryState.issues} for:item="issue">
