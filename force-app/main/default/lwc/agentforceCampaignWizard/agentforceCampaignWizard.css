@@ -1483,6 +1483,33 @@
     font-weight: 600;
 }
 
+.copy-channel-tab-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.25rem;
+    padding-right: 0.35rem;
+}
+
+.copy-channel-tab-row .slds-vertical-tabs__link {
+    flex: 1;
+    min-width: 0;
+}
+
+.copy-channel-tab-toggle {
+    flex-shrink: 0;
+    transform: scale(0.85);
+}
+
+.copy-channel-tab-row-wrap_disabled {
+    opacity: 0.72;
+}
+
+.copy-channel-tab-link_disabled {
+    color: #706e6b;
+    cursor: pointer;
+}
+
 .copy-list-builder-container {
     padding: 0 !important;
     background: #ffffff;

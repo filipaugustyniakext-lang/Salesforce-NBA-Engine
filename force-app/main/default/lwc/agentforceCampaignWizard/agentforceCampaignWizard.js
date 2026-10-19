@@ -232,6 +232,10 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     // --- COPY ASSIGNMENT -- 
     @track activeCopyChannelValue = '';
+    /** Channel type → enabled for copy assignment (replaces step 1 channel selection). */
+    @track copyChannelEnabledByType = {};
+    /** Ordered Channel_Type__c values from active Marketing Dictionary channels. */
+    @track activeCopyChannelTypes = [];
     @track copyVariantData = []; // Raw fetched variants matching step 2
     @track selectedCopyVariantIds = []; // Master list of assigned variants across all channels
     @track isLoadingCopy = false;
@@ -759,6 +763,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             this.channels = allChannels;
             const enabledChannels = allChannels.filter(c => !c.disabled);
             this.selectAllChecked = enabledChannels.length > 0 && enabledChannels.every(c => c.checked);
+            this._refreshActiveCopyChannelTypes(data);
+            this._initializeCopyChannelEnables();
         } else if (error) {
             console.error('Error fetching channel dictionary records:', error);
         }
@@ -787,6 +793,65 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         }));
         const enabledChannels = this.channels.filter(c => !c.disabled);
         this.selectAllChecked = enabledChannels.length > 0 && enabledChannels.every(c => c.checked);
+        this._initializeCopyChannelEnables();
+    }
+
+    _refreshActiveCopyChannelTypes(records) {
+        const types = [];
+        const seen = new Set();
+        (records || []).forEach(rec => {
+            if (rec.Is_Active__c === false) return;
+            const type = (rec.Channel_Type__c || 'Other').trim() || 'Other';
+            if (seen.has(type)) return;
+            seen.add(type);
+            types.push(type);
+        });
+        this.activeCopyChannelTypes = types;
+    }
+
+    _initializeCopyChannelEnables() {
+        const next = { ...this.copyChannelEnabledByType };
+        (this.activeCopyChannelTypes || []).forEach(type => {
+            if (next[type] === undefined) {
+                next[type] = false;
+            }
+        });
+        if (this.editChannelValues?.length) {
+            this.channels.forEach(ch => {
+                if (!ch.disabled && ch.checked && ch.channelType) {
+                    next[ch.channelType] = true;
+                }
+            });
+        }
+        this.copyChannelEnabledByType = next;
+        this._syncChannelChecksFromCopyEnables();
+    }
+
+    _syncChannelChecksFromCopyEnables() {
+        this.channels = this.channels.map(ch => ({
+            ...ch,
+            checked: !ch.disabled && !!this.copyChannelEnabledByType[ch.channelType]
+        }));
+        this.channelGroups = this.channelGroups.map(group => ({
+            ...group,
+            items: group.items.map(ch => {
+                const active = !ch.disabled && !!this.copyChannelEnabledByType[ch.channelType];
+                return {
+                    ...ch,
+                    active,
+                    buttonClass: ch.disabled
+                        ? 'slds-button slds-button_neutral channel-btn channel-btn-disabled'
+                        : (active ? 'slds-button slds-button_neutral channel-btn channel-btn-active' : 'slds-button slds-button_neutral channel-btn channel-btn-inactive'),
+                    iconClass: active ? 'channel-icon-active' : 'channel-icon-inactive'
+                };
+            })
+        }));
+        const enabledChannels = this.channels.filter(c => !c.disabled);
+        this.selectAllChecked = enabledChannels.length > 0 && enabledChannels.every(c => c.checked);
+    }
+
+    _isCopyChannelTypeEnabled(channelType) {
+        return !!this.copyChannelEnabledByType[channelType];
     }
 
     // Topic + Product Family / FoN catalogues load imperatively (Id + Name SSOT).
@@ -1479,10 +1544,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     // --- SUMMARY GETTERS ---
     get summaryChannels() {
-        const selected = this.channels.filter(c => c.checked).map(c => c.label);
-        if (selected.length === this.channels.length) return 'All Channels';
-        if (selected.length === 0) return 'None';
-        return selected.join(', ');
+        const enabled = (this.activeCopyChannelTypes || []).filter(type => this._isCopyChannelTypeEnabled(type));
+        if (!enabled.length) return 'None';
+        return enabled.join(', ');
     }
 
     get summaryOfferingItems() {
@@ -1498,10 +1562,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         if (selected.length === 0) return 'None';
         if (selected.length <= 5) return selected.map(o => o.label).join(', ');
         return `${selected.length} Families of Needs selected`;
-    }
-
-    get showCopyAssignmentNoChannelsAlert() {
-        return !this.hasSelectedChannel;
     }
 
     get exclusionSourceOptions() {
@@ -1595,7 +1655,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get hasSelectedChannel() {
-        return this.channels.some(c => c.checked && !c.disabled);
+        return (this.activeCopyChannelTypes || []).some(type => this._isCopyChannelTypeEnabled(type));
     }
 
     get hasOfferingSelection() {
@@ -1677,7 +1737,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     get channelsActivationIssues() {
         const issues = [];
         if (!this.hasSelectedChannel) {
-            issues.push(this._issue('channels', 'Select at least one campaign channel.'));
+            issues.push(this._issue('channels', 'Enable at least one channel on Copy Assignment.'));
         }
         return issues;
     }
@@ -1696,6 +1756,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     get copyAssignmentActivationIssues() {
         const issues = [];
         if (!this.hasSelectedChannel) {
+            issues.push(this._issue('channels', 'Enable at least one channel for copy assignment.'));
             return issues;
         }
         if (!this.selectedCopyVariantIds || this.selectedCopyVariantIds.length === 0) {
@@ -1773,8 +1834,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     get isStep1Valid() {
         return this.basicPropertiesActivationIssues.length === 0
-            && this.priorityActivationIssues.length === 0
-            && this.channelsActivationIssues.length === 0;
+            && this.priorityActivationIssues.length === 0;
     }
 
     get isStep2Valid() {
@@ -1782,16 +1842,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get selectedChannelTypes() {
-        const types = [];
-        const seen = new Set();
-        this.channels.filter(c => c.checked && !c.disabled).forEach(ch => {
-            const typeKey = ch.channelType || ch.label;
-            if (!seen.has(typeKey)) {
-                seen.add(typeKey);
-                types.push(typeKey);
-            }
-        });
-        return types;
+        return (this.activeCopyChannelTypes || []).filter(type => this._isCopyChannelTypeEnabled(type));
     }
 
     get isStep3Valid() {
@@ -2362,17 +2413,12 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     // --- STEP 3: COPY ASSIGNMENT LOGIC ---
 
     _iconForChannelType(channelType) {
-        const selected = this.channels.find(
-            c => c.checked && !c.disabled && c.channelType === channelType
-        );
-        if (selected && selected.icon) {
-            return selected.icon;
-        }
         return this.channelIconByType[channelType] || 'utility:connected_apps';
     }
 
     get copyChannelTabs() {
-        return this.selectedChannelTypes.map(type => {
+        return (this.activeCopyChannelTypes || []).map(type => {
+            const enabled = this._isCopyChannelTypeEnabled(type);
             const isActive = this.activeCopyChannelValue === type;
             const selectedCount = this.copyVariantData.filter(
                 v => v.channel === type && this.selectedCopyVariantIds.includes(v.id)
@@ -2380,11 +2426,21 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             return {
                 label: type,
                 value: type,
+                enabled,
                 selectedCount: selectedCount > 0 ? selectedCount : null,
-                cssClass: `slds-vertical-tabs__nav-item ${isActive ? 'slds-is-active' : ''}`,
+                rowClass: `slds-vertical-tabs__nav-item copy-channel-tab-row-wrap${isActive ? ' slds-is-active' : ''}${enabled ? '' : ' copy-channel-tab-row-wrap_disabled'}`,
+                linkClass: `slds-vertical-tabs__link${enabled ? '' : ' copy-channel-tab-link_disabled'}`,
                 icon: this._iconForChannelType(type)
             };
         });
+    }
+
+    get isActiveCopyChannelEnabled() {
+        return this._isCopyChannelTypeEnabled(this.activeCopyChannelValue);
+    }
+
+    get copyChannelDisabledHint() {
+        return `Enable ${this.activeCopyChannelLabel} using the toggle to load published message variants.`;
     }
 
     get activeCopyChannelLabel() {
@@ -2399,6 +2455,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     get activeChannelCopyVariants() {
         const channel = this.activeCopyChannelValue;
+        if (!channel || !this._isCopyChannelTypeEnabled(channel)) {
+            return [];
+        }
         const channelVariants = this.copyVariantData.filter(v => v.channel === channel);
         const selectedInChannel = channelVariants.filter(v => this.selectedCopyVariantIds.includes(v.id));
         const selectedWeightSum = selectedInChannel.reduce(
@@ -2453,7 +2512,28 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     handleCopyChannelSelect(event) {
-        this.activeCopyChannelValue = event.currentTarget.dataset.value;
+        const value = event.currentTarget.dataset.value;
+        if (!value) return;
+        this.activeCopyChannelValue = value;
+    }
+
+    handleCopyChannelEnableToggle(event) {
+        event.stopPropagation();
+        const type = event.target.dataset.value;
+        if (!type) return;
+        const enabled = event.target.checked;
+        this.copyChannelEnabledByType = { ...this.copyChannelEnabledByType, [type]: enabled };
+        this._syncChannelChecksFromCopyEnables();
+        if (!enabled) {
+            this.selectedCopyVariantIds = this.selectedCopyVariantIds.filter(id => {
+                const variant = this.copyVariantData.find(v => v.id === id);
+                return !variant || variant.channel !== type;
+            });
+        }
+        if (enabled) {
+            this.activeCopyChannelValue = type;
+        }
+        this.fetchCopyVariantsForStep3();
     }
 
     handleCopyVariantToggle(event) {
@@ -2467,14 +2547,14 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     // Hook this into `_onStepChanged()` in your JS so it queries when Step 3 opens:
     _ensureActiveCopyChannel() {
-        const channelTypes = this.selectedChannelTypes;
-        if (channelTypes.length === 0) {
+        const catalog = this.activeCopyChannelTypes || [];
+        if (!catalog.length) {
             this.activeCopyChannelValue = '';
             return;
         }
-        const stillValid = channelTypes.includes(this.activeCopyChannelValue);
-        if (!stillValid) {
-            this.activeCopyChannelValue = channelTypes[0];
+        if (!catalog.includes(this.activeCopyChannelValue)) {
+            const firstEnabled = catalog.find(type => this._isCopyChannelTypeEnabled(type));
+            this.activeCopyChannelValue = firstEnabled || catalog[0];
         }
     }
 
@@ -2645,7 +2725,10 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             fields['Scoring_Model_Dict__c'] = null;
         }
 
-        fields['Assigned_Channels__c'] = this.channels.filter(c => c.checked).map(c => c.label).join('; ');
+        fields['Assigned_Channels__c'] = this.channels
+            .filter(c => c.checked && !c.disabled)
+            .map(c => c.label)
+            .join('; ');
 
         if (this.isOfferingProductFamily) {
             const selected = this.productFamilyOptions.filter(o => o.checked);

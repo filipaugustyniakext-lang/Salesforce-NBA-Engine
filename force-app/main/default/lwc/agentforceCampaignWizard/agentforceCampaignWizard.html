@@ -35,7 +35,7 @@
 
                     <div class="properties-vertical-stack animate-fade-in slds-m-top_large">
 
-                        <!-- STEP 1: four-tile grid (Basic | Channels / Priority | Exclusions) -->
+                        <!-- STEP 1: three-tile grid (Basic | Priority / Exclusions) -->
                         <template lwc:if={isStep1}>
                             <div class="slds-grid slds-gutters slds-wrap wizard-step1-grid slds-m-bottom_large">
 
@@ -148,40 +148,7 @@
                                 </div>
                                 </div>
 
-                                <!-- Tile 2: Channel Selection -->
-                                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
-                                <div class="slds-box wizard-section-box wizard-step1-tile wizard-step1-tile--channels">
-                                    <span class="module-header-title">
-                                        Channel Selection
-                                        <abbr class="slds-required" title="required">*</abbr>
-                                    </span>
-                                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">Select at least one channel to continue.</p>
-                                    <div class="slds-m-top_small slds-p-bottom_small select-all-row-divider">
-                                        <lightning-input type="checkbox" label="Select All" checked={selectAllChecked} onchange={handleSelectAllChange} class="custom-master-checkbox"></lightning-input>
-                                    </div>
-                                    <div class="channel-groups-container slds-m-top_small">
-                                        <template for:each={channelGroups} for:item="group">
-                                            <div key={group.type} class="channel-type-row">
-                                                <div class="slds-button-group channel-button-group" role="group">
-                                                    <template for:each={group.items} for:item="chan">
-                                                        <button key={chan.value}
-                                                                class={chan.buttonClass}
-                                                                data-value={chan.value}
-                                                                title={chan.title}
-                                                                disabled={chan.disabled}
-                                                                onclick={handleChannelTileToggle}>
-                                                            <lightning-icon icon-name={chan.icon} size="xx-small" class={chan.iconClass}></lightning-icon>
-                                                            <span class="channel-btn-label">{chan.label}</span>
-                                                        </button>
-                                                    </template>
-                                                </div>
-                                            </div>
-                                        </template>
-                                    </div>
-                                </div>
-                                </div>
-
-                                <!-- Tile 3: Priority -->
+                                <!-- Tile 2: Priority -->
                                 <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
                                 <div class="slds-box wizard-section-box wizard-step1-tile wizard-step1-tile--priority">
                                     <span class="module-header-title">Priority</span>
@@ -273,7 +240,7 @@
                                 </div>
                                 </div>
 
-                                <!-- Tile 4: Exclusions -->
+                                <!-- Tile 3: Exclusions -->
                                 <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
                                 <div class="slds-box wizard-section-box wizard-step1-tile wizard-step1-tile--exclusions">
                                     <span class="module-header-title">Exclusions</span>
@@ -702,32 +669,36 @@
                                     <div class="form-module-card slds-m-bottom_large">
                                         <span class="module-header-title">Copy Assignment</span>
                                         <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small slds-m-bottom_medium">
-                                            Select the message variants you want to assign to each active channel.
+                                            Enable channels with the toggles, then assign published message variants per channel.
                                         </p>
 
-                                        <template lwc:if={showCopyAssignmentNoChannelsAlert}>
-                                            <div class="slds-notify slds-notify_alert slds-alert_warning copy-assignment-channels-alert" role="alert">
-                                                <span class="slds-assistive-text">warning</span>
-                                                <lightning-icon icon-name="utility:warning" size="x-small" class="slds-m-right_x-small"></lightning-icon>
-                                                <h2 class="slds-text-heading_small">Choose channels first to assign content copies.</h2>
-                                            </div>
-                                        </template>
-                                        <template lwc:else>
                                         <div class="copy-assignment-layout slds-grid">
-                                            <!-- Vertical Channel Tabs -->
+                                            <!-- Vertical Channel Tabs (all active dictionary channel types) -->
                                             <div class="slds-col slds-size_1-of-6 slds-p-right_medium copy-tabs-sidebar">
                                                 <ul class="slds-vertical-tabs__nav" role="tablist" aria-orientation="vertical">
                                                     <template for:each={copyChannelTabs} for:item="tab">
-                                                        <li key={tab.value} class={tab.cssClass} title={tab.label} role="presentation">
-                                                            <a class="slds-vertical-tabs__link" role="tab" data-value={tab.value} onclick={handleCopyChannelSelect}>
-                                                                <span class="slds-vertical-tabs__left-icon">
-                                                                    <lightning-icon icon-name={tab.icon} size="x-small"></lightning-icon>
-                                                                </span>
-                                                                <span class="slds-truncate">{tab.label}</span>
-                                                                <template lwc:if={tab.selectedCount}>
-                                                                    <span class="slds-badge slds-m-left_x-small cockpit-badge-ready">{tab.selectedCount}</span>
-                                                                </template>
-                                                            </a>
+                                                        <li key={tab.value} class={tab.rowClass} title={tab.label} role="presentation">
+                                                            <div class="copy-channel-tab-row">
+                                                                <a class={tab.linkClass} role="tab" data-value={tab.value} onclick={handleCopyChannelSelect}>
+                                                                    <span class="slds-vertical-tabs__left-icon">
+                                                                        <lightning-icon icon-name={tab.icon} size="x-small"></lightning-icon>
+                                                                    </span>
+                                                                    <span class="slds-truncate">{tab.label}</span>
+                                                                    <template lwc:if={tab.selectedCount}>
+                                                                        <span class="slds-badge slds-m-left_x-small cockpit-badge-ready">{tab.selectedCount}</span>
+                                                                    </template>
+                                                                </a>
+                                                                <lightning-input
+                                                                    type="toggle"
+                                                                    variant="label-hidden"
+                                                                    label={tab.label}
+                                                                    checked={tab.enabled}
+                                                                    data-value={tab.value}
+                                                                    onchange={handleCopyChannelEnableToggle}
+                                                                    class="copy-channel-tab-toggle"
+                                                                    title="Enable channel for copy assignment">
+                                                                </lightning-input>
+                                                            </div>
                                                         </li>
                                                     </template>
                                                 </ul>
@@ -814,7 +785,8 @@
                                                                         <tr>
                                                                             <td colspan="7" class="slds-text-align_center slds-text-color_weak slds-p-vertical_medium">
                                                                                 <template lwc:if={isLoadingCopy}>Loading…</template>
-                                                                                <template lwc:else>No published variants match your offerings for this channel.</template>
+                                                                                <template lwc:elseif={isActiveCopyChannelEnabled}>No published variants match your offerings for this channel.</template>
+                                                                                <template lwc:else>{copyChannelDisabledHint}</template>
                                                                             </td>
                                                                         </tr>
                                                                     </template>
@@ -825,7 +797,6 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        </template>
                                     </div>
                         </template>
 
