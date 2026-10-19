@@ -159,7 +159,7 @@
                                                     Priority Tier
                                                     <abbr class="slds-required" title="required">*</abbr>
                                                 </legend>
-                                                <div class="slds-form-element__control priority-tier-picker-control priority-tier-scroll">
+                                                <div class="slds-form-element__control priority-tier-picker-control">
                                                     <template for:each={priorityTierOptions} for:item="tier">
                                                         <div key={tier.value} class={tier.pickerClass}>
                                                             <input type="radio"
@@ -228,16 +228,14 @@
                                                             <!-- Outside the label so it stays clickable when the option is selected -->
                                                             <template lwc:if={tier.showLearnMore}>
                                                                 <button type="button"
-                                                                        class="slds-button tier-learn-more-btn"
+                                                                        class="slds-button slds-button_icon tier-details-toggle"
                                                                         data-value={tier.value}
                                                                         title={tier.detailsToggleTitle}
                                                                         aria-expanded={tier.isDetailsExpanded}
                                                                         onclick={handleTierDetailsToggle}>
-                                                                    <span class="tier-learn-more-label">{tier.learnMoreLabel}</span>
                                                                     <lightning-icon icon-name={tier.detailsChevron}
                                                                                     size="xx-small"
-                                                                                    alternative-text=""
-                                                                                    class="tier-learn-more-icon"></lightning-icon>
+                                                                                    alternative-text={tier.detailsToggleTitle}></lightning-icon>
                                                                 </button>
                                                             </template>
                                                         </div>
