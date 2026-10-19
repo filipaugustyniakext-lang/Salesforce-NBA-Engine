@@ -16,64 +16,32 @@
             <div class="custom-modal-body">
 
                 <!-- STANDARD ACTIVATION CAMPAIGN WORKSPACE (MULTI-STEP) -->
-                    <!-- SLDS Progress Indicator (stable blueprint; not beta lightning-progress-indicator) -->
-                    <div class="slds-progress wizard-progress">
-                        <ol class="slds-progress__list">
-                            <template for:each={wizardSteps} for:item="step">
-                                <li key={step.value} class={step.itemClass}>
-                                    <template lwc:if={step.isComplete}>
-                                        <button type="button"
-                                                class="slds-button slds-progress__marker slds-progress__marker_icon"
-                                                data-step={step.value}
-                                                title={step.assistiveText}
-                                                onclick={handleStepClick}>
-                                            <lightning-icon icon-name="utility:success"
-                                                            size="xx-small"
-                                                            alternative-text=""
-                                                            class="step-check-icon"></lightning-icon>
-                                            <span class="slds-assistive-text">{step.assistiveText}</span>
-                                        </button>
-                                    </template>
-                                    <template lwc:elseif={step.isActive}>
-                                        <button type="button"
-                                                class="slds-button slds-progress__marker"
-                                                data-step={step.value}
-                                                title={step.assistiveText}
-                                                onclick={handleStepClick}>
-                                            <span class="slds-assistive-text">{step.assistiveText}</span>
-                                        </button>
-                                    </template>
-                                    <template lwc:else>
-                                        <div class="slds-progress__marker" title={step.label}>
-                                            <span class="slds-assistive-text">{step.assistiveText}</span>
-                                        </div>
-                                    </template>
-                                    <div class="slds-progress__item_content slds-grid slds-grid_align-center">
-                                        <span class="wizard-step-label" title={step.label}>{step.label}</span>
-                                    </div>
-                                </li>
-                            </template>
-                        </ol>
-                        <div class="slds-progress-bar slds-progress-bar_x-small"
-                             aria-valuemin="0"
-                             aria-valuemax="100"
-                             aria-valuenow={progressBarValue}
-                             aria-label="Campaign wizard progress"
-                             role="progressbar">
-                            <span class="slds-progress-bar__value" style={progressBarStyle}>
-                                <span class="slds-assistive-text">Progress: {progressBarValue}%</span>
-                            </span>
-                        </div>
-                    </div>
+                    <!-- https://developer.salesforce.com/docs/platform/lightning-component-reference/guide/lightning-progress-step.html -->
+                    <lightning-progress-indicator
+                        type="path"
+                        class="wizard-progress-indicator"
+                        current-step={wizardCurrentStepValue}
+                        aria-label="Campaign wizard progress">
+                        <template for:each={wizardSteps} for:item="step">
+                            <lightning-progress-step
+                                key={step.value}
+                                label={step.label}
+                                value={step.progressValue}
+                                onstepfocus={handleWizardStepFocus}
+                                onstepblur={handleWizardStepBlur}>
+                            </lightning-progress-step>
+                        </template>
+                    </lightning-progress-indicator>
 
                     <div class="properties-vertical-stack animate-fade-in slds-m-top_large">
 
-                        <!-- STEP 1: Campaign Properties -->
+                        <!-- STEP 1: four-tile grid (Basic | Channels / Priority | Exclusions) -->
                         <template lwc:if={isStep1}>
-                            <div class="form-module-card slds-m-bottom_large" style="z-index: 99;">
+                            <div class="slds-grid slds-gutters slds-wrap wizard-step1-grid slds-m-bottom_large">
 
-                                <!-- Section: Basic Properties -->
-                                <div class="slds-box wizard-section-box">
+                                <!-- Tile 1: Basic Properties -->
+                                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                                <div class="slds-box wizard-section-box wizard-step1-tile">
                                     <span class="module-header-title">Basic Properties</span>
 
                                     <!-- Activation Type + Emergency Toggle Row -->
@@ -138,42 +106,86 @@
                                     <div class="slds-m-top_medium">
                                         <lightning-input type="text" label="Campaign Name" placeholder="eg. cashloan" value={campaignName} onchange={handleNameChange} required class="custom-form-input"></lightning-input>
                                     </div>
+
                                     <div class="slds-grid slds-gutters slds-m-top_medium">
                                         <div class="slds-col slds-size_1-of-2">
                                             <lightning-input
-                                                type="date"
-                                                label="From"
-                                                value={campaignFrom}
-                                                onchange={handleCampaignFromChange}
+                                                type="datetime"
+                                                label="Active From"
+                                                value={activeFrom}
+                                                onchange={handleActiveFromChange}
                                                 required
-                                                message-when-value-missing="From is required."
                                                 class="custom-form-input">
                                             </lightning-input>
                                         </div>
                                         <div class="slds-col slds-size_1-of-2">
                                             <lightning-input
-                                                type="date"
-                                                label="To"
-                                                data-id="campaign-to"
-                                                value={campaignTo}
-                                                min={campaignToMin}
+                                                type="datetime"
+                                                label="Active To"
+                                                value={activeTo}
+                                                onchange={handleActiveToChange}
                                                 required
-                                                message-when-value-missing="To is required."
-                                                message-when-range-underflow="To cannot be earlier than From."
-                                                onchange={handleCampaignToChange}
                                                 class="custom-form-input">
                                             </lightning-input>
                                         </div>
                                     </div>
+
+                                    <template lwc:if={isAlwaysOnActivation}>
+                                        <div class="slds-m-top_medium">
+                                            <lightning-input
+                                                type="number"
+                                                label="Campaign Duration (Days)"
+                                                value={campaignDurationDays}
+                                                onchange={handleCampaignDurationChange}
+                                                min="1"
+                                                step="1"
+                                                required
+                                                field-level-help="How long a customer should keep receiving communication from this campaign before being eligible for another."
+                                                class="custom-form-input">
+                                            </lightning-input>
+                                        </div>
+                                    </template>
+                                </div>
                                 </div>
 
-                                <!-- Section: Priority & Exclusions -->
-                                <div class="slds-box wizard-section-box slds-m-top_medium">
-                                    <span class="module-header-title">Priority &amp; Exclusions</span>
+                                <!-- Tile 2: Channel Selection -->
+                                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                                <div class="slds-box wizard-section-box wizard-step1-tile wizard-step1-tile--channels">
+                                    <span class="module-header-title">
+                                        Channel Selection
+                                        <abbr class="slds-required" title="required">*</abbr>
+                                    </span>
+                                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">Select at least one channel to continue.</p>
+                                    <div class="slds-m-top_small slds-p-bottom_small select-all-row-divider">
+                                        <lightning-input type="checkbox" label="Select All" checked={selectAllChecked} onchange={handleSelectAllChange} class="custom-master-checkbox"></lightning-input>
+                                    </div>
+                                    <div class="channel-groups-container slds-m-top_small">
+                                        <template for:each={channelGroups} for:item="group">
+                                            <div key={group.type} class="channel-type-row">
+                                                <div class="slds-button-group channel-button-group" role="group">
+                                                    <template for:each={group.items} for:item="chan">
+                                                        <button key={chan.value}
+                                                                class={chan.buttonClass}
+                                                                data-value={chan.value}
+                                                                title={chan.title}
+                                                                disabled={chan.disabled}
+                                                                onclick={handleChannelTileToggle}>
+                                                            <lightning-icon icon-name={chan.icon} size="xx-small" class={chan.iconClass}></lightning-icon>
+                                                            <span class="channel-btn-label">{chan.label}</span>
+                                                        </button>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                                </div>
 
-                                    <div class="slds-grid slds-gutters priority-exclusions-layout slds-m-top_medium">
-                                        <!-- Left: Tier visual picker (vertical) -->
-                                        <div class="slds-col slds-size_1-of-2 priority-exclusions-left">
+                                <!-- Tile 3: Priority -->
+                                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                                <div class="slds-box wizard-section-box wizard-step1-tile wizard-step1-tile--priority">
+                                    <span class="module-header-title">Priority</span>
+                                    <div class="slds-m-top_medium priority-tile-body">
                                             <fieldset class="slds-form-element priority-tier-fieldset" role="radiogroup">
                                                 <legend class="slds-form-element__legend slds-form-element__label">
                                                     Priority Tier
@@ -257,101 +269,124 @@
                                                     </template>
                                                 </div>
                                             </fieldset>
-                                        </div>
+                                    </div>
+                                </div>
+                                </div>
 
-                                        <!-- Right: Exclusion settings -->
-                                        <div class="slds-col slds-size_1-of-2 priority-exclusions-right">
-                                            <span class="wizard-subsection-title">Exclusion Settings</span>
-
-                                            <div class="slds-m-top_small exclusion-option">
-                                                <lightning-input type="checkbox" label="Exclude Onboarding" checked={excludeOnboarding} onchange={handleExcludeOnboardingChange} class="custom-master-checkbox"></lightning-input>
-                                                <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small exclusion-option-help">
-                                                    Removes clients currently in the onboarding phase (Grouping Campaign: Onboarding) from this campaign's audience.
-                                                </p>
-                                            </div>
-
-                                            <template lwc:if={showExcludeOtherMarketing}>
-                                                <div class="slds-m-top_medium exclusion-option animate-fade-in">
-                                                    <lightning-input type="checkbox" label="Exclude other marketing" checked={excludeOtherMarketing} onchange={handleExcludeOtherMarketingChange} class="custom-master-checkbox"></lightning-input>
-                                                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small exclusion-option-help">
-                                                        Prevents clients from receiving any other marketing actions outside Tier 1-3 via main outbound channels. Not yet active — configuration only.
-                                                    </p>
-                                                </div>
-                                            </template>
-
-                                            <template lwc:if={showSuppressionSection}>
-                                                <div class="slds-m-top_medium suppression-section animate-fade-in">
-                                                    <fieldset class="slds-form-element" role="radiogroup">
-                                                        <legend class="slds-form-element__legend slds-form-element__label">
-                                                            Manual Suppression
-                                                        </legend>
-                                                        <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
-                                                            This tier excludes manual suppressions. Associate a suppression source:
-                                                        </p>
-                                                        <div class="slds-form-element__control">
-                                                            <div class="slds-radio_button-group">
-                                                                <template for:each={suppressionTypeOptions} for:item="opt">
-                                                                    <span key={opt.value} class="slds-button slds-radio_button">
-                                                                        <input type="radio"
-                                                                               name="campaign-manual-suppression"
-                                                                               id={opt.inputId}
-                                                                               value={opt.value}
-                                                                               checked={opt.isChecked}
-                                                                               onchange={handleSuppressionTypeChange} />
-                                                                        <label class="slds-radio_button__label" for={opt.inputId}>
-                                                                            <span class="slds-radio_faux">{opt.label}</span>
-                                                                        </label>
-                                                                    </span>
-                                                                </template>
+                                <!-- Tile 4: Exclusions -->
+                                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                                <div class="slds-box wizard-section-box wizard-step1-tile wizard-step1-tile--exclusions">
+                                    <span class="module-header-title">Exclusions</span>
+                                    <template lwc:if={showExclusionsSection}>
+                                        <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small slds-m-bottom_small">
+                                            Define audience exclusions for this campaign tier.
+                                        </p>
+                                        <div class="exclusions-tile-body animate-fade-in">
+                                                    <template for:each={exclusionDefinitionRows} for:item="row">
+                                                        <div key={row.id} class="exclusion-definition-row slds-m-bottom_medium">
+                                                            <lightning-combobox
+                                                                label="Exclusion source"
+                                                                value={row.source}
+                                                                options={exclusionSourceOptions}
+                                                                placeholder="Select source..."
+                                                                data-row-id={row.id}
+                                                                onchange={handleExclusionSourceChange}
+                                                                class="custom-form-input">
+                                                            </lightning-combobox>
+                                                            <div class="exclusion-lookup-col slds-m-top_x-small">
+                                                                    <template lwc:if={row.isCampaign}>
+                                                                        <lightning-input
+                                                                            type="search"
+                                                                            label="Salesforce Campaign"
+                                                                            placeholder="Search campaigns..."
+                                                                            value={row.searchTerm}
+                                                                            data-row-id={row.id}
+                                                                            onchange={handleExclusionSearchInput}
+                                                                            class="custom-form-input">
+                                                                        </lightning-input>
+                                                                        <lightning-combobox
+                                                                            label="Selected campaign"
+                                                                            value={row.value}
+                                                                            options={row.lookupOptions}
+                                                                            placeholder="Choose a campaign..."
+                                                                            data-row-id={row.id}
+                                                                            onchange={handleExclusionLookupSelect}
+                                                                            class="custom-form-input slds-m-top_x-small">
+                                                                        </lightning-combobox>
+                                                                    </template>
+                                                                    <template lwc:elseif={row.isReport}>
+                                                                        <lightning-input
+                                                                            type="search"
+                                                                            label="Salesforce Report"
+                                                                            placeholder="Search reports..."
+                                                                            value={row.searchTerm}
+                                                                            data-row-id={row.id}
+                                                                            onchange={handleExclusionSearchInput}
+                                                                            class="custom-form-input">
+                                                                        </lightning-input>
+                                                                        <lightning-combobox
+                                                                            label="Selected report"
+                                                                            value={row.value}
+                                                                            options={row.lookupOptions}
+                                                                            placeholder="Choose a report..."
+                                                                            data-row-id={row.id}
+                                                                            onchange={handleExclusionLookupSelect}
+                                                                            class="custom-form-input slds-m-top_x-small">
+                                                                        </lightning-combobox>
+                                                                    </template>
+                                                                    <template lwc:elseif={row.isSegment}>
+                                                                        <lightning-input
+                                                                            type="text"
+                                                                            label="Data360 Segment"
+                                                                            placeholder="Segment ID or name..."
+                                                                            value={row.value}
+                                                                            data-row-id={row.id}
+                                                                            onchange={handleExclusionSegmentChange}
+                                                                            class="custom-form-input">
+                                                                        </lightning-input>
+                                                                    </template>
+                                                                    <template lwc:elseif={row.isDmo}>
+                                                                        <lightning-combobox
+                                                                            label="Data360 DMO"
+                                                                            value={row.value}
+                                                                            options={dmoOptions}
+                                                                            placeholder="Select DMO..."
+                                                                            data-row-id={row.id}
+                                                                            onchange={handleExclusionLookupSelect}
+                                                                            class="custom-form-input">
+                                                                        </lightning-combobox>
+                                                                    </template>
                                                             </div>
+                                                            <template lwc:if={row.showRemove}>
+                                                                <div class="slds-text-align_right slds-m-top_x-small">
+                                                                    <lightning-button
+                                                                        variant="base"
+                                                                        label="Remove"
+                                                                        data-row-id={row.id}
+                                                                        onclick={handleRemoveExclusionDefinition}>
+                                                                    </lightning-button>
+                                                                </div>
+                                                            </template>
                                                         </div>
-                                                    </fieldset>
-                                                    <template lwc:if={suppressionType}>
-                                                        <lightning-input
-                                                            type="text"
-                                                            label="Suppression Source ID / Name"
-                                                            placeholder="Enter ID or name..."
-                                                            value={suppressionLookupValue}
-                                                            onchange={handleSuppressionLookupChange}
-                                                            class="custom-form-input animate-fade-in slds-m-top_small">
-                                                        </lightning-input>
                                                     </template>
-                                                </div>
-                                            </template>
+
+                                                    <lightning-button
+                                                        variant="neutral"
+                                                        label={addExclusionButtonLabel}
+                                                        icon-name="utility:add"
+                                                        onclick={handleAddExclusionDefinition}
+                                                        class="slds-m-top_x-small">
+                                                    </lightning-button>
                                         </div>
-                                    </div>
+                                    </template>
+                                    <template lwc:else>
+                                        <p class="slds-text-body_small slds-text-color_weak slds-m-top_medium exclusions-tile-empty">
+                                            Manual exclusion definitions apply when the selected priority tier supports them. Choose a tier with manual suppressions to configure exclusions here.
+                                        </p>
+                                    </template>
+                                </div>
                                 </div>
 
-                                <!-- Section: Campaign Channels -->
-                                <div class="slds-box wizard-section-box slds-m-top_medium">
-                                    <span class="module-header-title">
-                                        Campaign Channels
-                                        <abbr class="slds-required" title="required">*</abbr>
-                                    </span>
-                                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">Select at least one channel to continue.</p>
-                                    <div class="slds-m-top_small slds-p-bottom_small select-all-row-divider">
-                                        <lightning-input type="checkbox" label="Select All" checked={selectAllChecked} onchange={handleSelectAllChange} class="custom-master-checkbox"></lightning-input>
-                                    </div>
-                                    <div class="channel-groups-container slds-m-top_small">
-                                        <template for:each={channelGroups} for:item="group">
-                                            <div key={group.type} class="channel-type-row">
-                                                <div class="slds-button-group channel-button-group" role="group">
-                                                    <template for:each={group.items} for:item="chan">
-                                                        <button key={chan.value}
-                                                                class={chan.buttonClass}
-                                                                data-value={chan.value}
-                                                                title={chan.title}
-                                                                disabled={chan.disabled}
-                                                                onclick={handleChannelTileToggle}>
-                                                            <lightning-icon icon-name={chan.icon} size="xx-small" class={chan.iconClass}></lightning-icon>
-                                                            <span class="channel-btn-label">{chan.label}</span>
-                                                        </button>
-                                                    </template>
-                                                </div>
-                                            </div>
-                                        </template>
-                                    </div>
-                                </div>
                             </div>
                         </template>
 
@@ -661,26 +696,137 @@
                                 
                             </div>
                         </template>
-
                         
-
-                        <!-- STEP 3: Copy Assignment (ghost placeholder) -->
+                        <!-- STEP 3: Copy Assignment -->
                         <template lwc:if={isStep3}>
-                            <div class="form-module-card slds-m-bottom_large">
-                                <span class="module-header-title">Copy Assignment</span>
-                                <div class="copy-assignment-ghost slds-m-top_medium">
-                                    <lightning-icon icon-name="utility:preview" size="large" class="copy-assignment-ghost-icon"></lightning-icon>
-                                    <h3 class="slds-text-heading_small slds-m-top_small">Coming soon</h3>
-                                    <p class="slds-text-body_regular slds-text-color_weak slds-m-top_x-small">
-                                        Copy Center message variants that match this campaign’s offering settings
-                                        (product family, family of needs, and selected offers) will be assignable here.
-                                    </p>
-                                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_small">
-                                        This step is a placeholder so the full wizard flow is already in place.
-                                        You can continue to Scoring without selecting copy.
-                                    </p>
-                                </div>
-                            </div>
+                                    <div class="form-module-card slds-m-bottom_large">
+                                        <span class="module-header-title">Copy Assignment</span>
+                                        <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small slds-m-bottom_medium">
+                                            Select the message variants you want to assign to each active channel.
+                                        </p>
+
+                                        <template lwc:if={showCopyAssignmentNoChannelsAlert}>
+                                            <div class="slds-notify slds-notify_alert slds-alert_warning copy-assignment-channels-alert" role="alert">
+                                                <span class="slds-assistive-text">warning</span>
+                                                <lightning-icon icon-name="utility:warning" size="x-small" class="slds-m-right_x-small"></lightning-icon>
+                                                <h2 class="slds-text-heading_small">Choose channels first to assign content copies.</h2>
+                                            </div>
+                                        </template>
+                                        <template lwc:else>
+                                        <div class="copy-assignment-layout slds-grid">
+                                            <!-- Vertical Channel Tabs -->
+                                            <div class="slds-col slds-size_1-of-6 slds-p-right_medium copy-tabs-sidebar">
+                                                <ul class="slds-vertical-tabs__nav" role="tablist" aria-orientation="vertical">
+                                                    <template for:each={copyChannelTabs} for:item="tab">
+                                                        <li key={tab.value} class={tab.cssClass} title={tab.label} role="presentation">
+                                                            <a class="slds-vertical-tabs__link" role="tab" data-value={tab.value} onclick={handleCopyChannelSelect}>
+                                                                <span class="slds-vertical-tabs__left-icon">
+                                                                    <lightning-icon icon-name={tab.icon} size="x-small"></lightning-icon>
+                                                                </span>
+                                                                <span class="slds-truncate">{tab.label}</span>
+                                                                <template lwc:if={tab.selectedCount}>
+                                                                    <span class="slds-badge slds-m-left_x-small cockpit-badge-ready">{tab.selectedCount}</span>
+                                                                </template>
+                                                            </a>
+                                                        </li>
+                                                    </template>
+                                                </ul>
+                                            </div>
+
+                                            <!-- List Builder Area -->
+                                            <div class="slds-col slds-size_5-of-6 copy-list-builder-container">
+                                                <div class="offer-list-builder-card copy-assignment-list-card">
+                                                    <div class="slds-theme_shade copy-assignment-list-header">
+                                                        <div class="slds-grid slds-grid_vertical-align-center slds-m-bottom_x-small">
+                                                            <span class="module-header-title">{activeCopyChannelLabel} — Published Variants</span>
+                                                            <template lwc:if={isLoadingCopy}>
+                                                                <lightning-spinner size="x-small" alternative-text="Loading copy" variant="brand" class="slds-m-left_small"></lightning-spinner>
+                                                            </template>
+                                                        </div>
+                                                        <div class="slds-text-title">{activeChannelSelectedCopyCount} Item(s) Selected</div>
+                                                        <div class="slds-text-title offer-list-builder-note slds-m-top_xx-small" aria-live="polite">
+                                                            <lightning-icon icon-name="utility:info" size="x-small" class="slds-m-right_xx-small"></lightning-icon>
+                                                            Published Copy Center messages matching your Step 2 product families and/or selected offers.
+                                                        </div>
+                                                    </div>
+                                                    <div class="copy-assignment-list-scroll">
+                                                        <div class="slds-scrollable_none">
+                                                            <table
+                                                                aria-multiselectable="true"
+                                                                class="slds-table slds-table_cell-buffer slds-table_bordered copy-assignment-table"
+                                                                role="grid"
+                                                                aria-label={activeCopyChannelLabel}>
+                                                                <thead>
+                                                                    <tr class="slds-line-height_reset">
+                                                                        <th scope="col" class="copy-assignment-col-select" aria-label="Select"></th>
+                                                                        <th scope="col"><div class="slds-truncate" title="Message Name">Message Name</div></th>
+                                                                        <th scope="col" class="copy-assignment-col-variant"><div class="slds-truncate" title="Message Variant">Variant #</div></th>
+                                                                        <th scope="col" class="copy-assignment-col-weight"><div class="slds-truncate" title="Display Weight">Weight</div></th>
+                                                                        <th scope="col" class="copy-assignment-col-normalized"><div class="slds-truncate" title="Normalized Weight">Normalized Weight</div></th>
+                                                                        <th scope="col" class="copy-assignment-col-status"><div class="slds-truncate" title="Status">Status</div></th>
+                                                                        <th scope="col" class="copy-assignment-col-open" aria-label="Open in Copy Center"></th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    <template lwc:if={activeChannelCopyVariants.length}>
+                                                                        <template for:each={activeChannelCopyVariants} for:item="variant">
+                                                                            <tr key={variant.id} aria-selected={variant.selected} class={variant.rowClass}>
+                                                                                <td class="slds-text-align_right" role="gridcell" style="width:3.75rem">
+                                                                                    <button
+                                                                                        class="slds-button slds-button_icon slds-button_icon-border-filled offer-add-btn"
+                                                                                        data-id={variant.id}
+                                                                                        title={variant.toggleTitle}
+                                                                                        onclick={handleCopyVariantToggle}>
+                                                                                        <lightning-icon icon-name={variant.toggleIcon} size="xx-small"></lightning-icon>
+                                                                                        <span class="slds-assistive-text">{variant.toggleAssistive}</span>
+                                                                                    </button>
+                                                                                </td>
+                                                                                <td role="gridcell" class="slds-p-horizontal_small">
+                                                                                    <div class="slds-truncate" title={variant.messageName}>{variant.messageName}</div>
+                                                                                </td>
+                                                                                <td role="gridcell">
+                                                                                    <span class="slds-truncate" title={variant.variantNumber}>{variant.variantNumber}</span>
+                                                                                </td>
+                                                                                <td role="gridcell">
+                                                                                    <span class="slds-truncate" title={variant.weight}>{variant.weight}</span>
+                                                                                </td>
+                                                                                <td role="gridcell">
+                                                                                    <span class="slds-truncate" title={variant.normalizedWeight}>{variant.normalizedWeight}</span>
+                                                                                </td>
+                                                                                <td role="gridcell">
+                                                                                    <span class={variant.statusClass}>{variant.status}</span>
+                                                                                </td>
+                                                                                <td class="slds-text-align_right" role="gridcell">
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        class="slds-button slds-button_icon slds-button_icon-border"
+                                                                                        data-id={variant.id}
+                                                                                        title="Open in Copy Center"
+                                                                                        onclick={handleCopyVariantPreview}>
+                                                                                        <lightning-icon icon-name="utility:chevronright" size="xx-small" alternative-text="Open in Copy Center"></lightning-icon>
+                                                                                        <span class="slds-assistive-text">Open in Copy Center</span>
+                                                                                    </button>
+                                                                                </td>
+                                                                            </tr>
+                                                                        </template>
+                                                                    </template>
+                                                                    <template lwc:else>
+                                                                        <tr>
+                                                                            <td colspan="7" class="slds-text-align_center slds-text-color_weak slds-p-vertical_medium">
+                                                                                <template lwc:if={isLoadingCopy}>Loading…</template>
+                                                                                <template lwc:else>No published variants match your offerings for this channel.</template>
+                                                                            </td>
+                                                                        </tr>
+                                                                    </template>
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        </template>
+                                    </div>
                         </template>
 
                         <!-- STEP 4: Scoring Settings -->
@@ -689,6 +835,17 @@
                                 <span class="module-header-title">Scoring Settings</span>
 
                                 <div class="scoring-content-box slds-m-top_medium">
+                                    <lightning-radio-group
+                                        name="scoringConfigurationMethod"
+                                        label="Scoring method"
+                                        options={scoringConfigurationOptions}
+                                        value={scoringConfigurationMethod}
+                                        type="button"
+                                        onchange={handleScoringConfigurationMethodChange}
+                                        class="slds-m-bottom_medium">
+                                    </lightning-radio-group>
+
+                                    <template lwc:if={isScoringModelConfiguration}>
                                         <template lwc:if={hasScoringModels}>
                                             <lightning-combobox
                                                 name="scoringModel"
@@ -698,32 +855,79 @@
                                                 options={scoringModelOptions}
                                                 onchange={handleScoringModelChange}
                                                 required
-                                                class="custom-form-input slds-m-bottom_small">
+                                                class="custom-form-input">
                                             </lightning-combobox>
                                         </template>
                                         <template lwc:else>
-                                            <div class="slds-notify slds-notify_alert slds-alert_warning slds-m-bottom_small" role="alert">
+                                            <div class="slds-notify slds-notify_alert slds-alert_warning" role="alert">
                                                 <span class="slds-assistive-text">warning</span>
                                                 <h2>{scoringModelEmptyMessage}</h2>
                                             </div>
                                         </template>
-                                        <lightning-input
-                                            type="number"
-                                            label="Fallback A-Priori Score"
-                                            placeholder="Insert Value (1-1000)"
-                                            value={fromObjectOverallScore}
-                                            onchange={handleFromObjectChange}
-                                            min="1"
-                                            max="1000"
-                                            step="1"
-                                            message-when-range-underflow="Score must be at least 1"
-                                            message-when-range-overflow="Score cannot exceed 1000"
-                                            message-when-step-mismatch="Score must be a whole number"
-                                            field-level-help="Required. Applied to customers missing a score in the selected model’s output."
-                                            required
-                                            class="custom-form-input">
-                                        </lightning-input>
-                                    </div>
+                                    </template>
+
+                                    <template lwc:if={isAprioriScoreConfiguration}>
+                                        <div class="slds-m-vertical_medium">
+                                            <p class="slds-text-body_regular slds-m-bottom_small">{aprioriSharedStateHint}</p>
+                                            <div class="apriori-slider-anchor">
+                                                <lightning-slider
+                                                    key={aprioriSliderResetKey}
+                                                    label="Apriori Score"
+                                                    min="0"
+                                                    max="1000"
+                                                    step="1"
+                                                    value={aprioriScore}
+                                                    onchange={handleAprioriScoreChange}>
+                                                </lightning-slider>
+                                                <template lwc:if={showAprioriChangePopover}>
+                                                    <section
+                                                        aria-describedby="apriori-popover-body"
+                                                        aria-label="Update shared apriori score"
+                                                        class="slds-popover slds-nubbin_bottom-left apriori-score-popover"
+                                                        role="dialog">
+                                                        <button
+                                                            type="button"
+                                                            class="slds-button slds-button_icon slds-button_icon-small slds-float_right slds-popover__close"
+                                                            title="Close"
+                                                            onclick={handleAprioriPopoverCancel}>
+                                                            <lightning-icon icon-name="utility:close" size="x-small" alternative-text="Close"></lightning-icon>
+                                                            <span class="slds-assistive-text">Close</span>
+                                                        </button>
+                                                        <div class="slds-popover__body" id="apriori-popover-body">
+                                                            <div class="slds-media">
+                                                                <div class="slds-media__body">
+                                                                    <p class="slds-text-body_regular">
+                                                                        Change the shared apriori score to <strong>{aprioriPopoverPendingScoreLabel}</strong>?
+                                                                        This updates all campaigns with the same Topic and Product Family combination.
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <footer class="slds-popover__footer">
+                                                            <div class="slds-grid slds-grid_vertical-align-center">
+                                                                <button
+                                                                    type="button"
+                                                                    class="slds-button slds-button_neutral"
+                                                                    onclick={handleAprioriPopoverCancel}>
+                                                                    Cancel
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    class="slds-button slds-button_brand slds-col_bump-left"
+                                                                    onclick={handleAprioriPopoverConfirm}>
+                                                                    Confirm
+                                                                </button>
+                                                            </div>
+                                                        </footer>
+                                                    </section>
+                                                </template>
+                                            </div>
+                                            <p class="slds-text-body_small slds-m-top_x-small">
+                                                Current value: <strong>{summaryAprioriScore}</strong>
+                                            </p>
+                                        </div>
+                                    </template>
+                                </div>
                             </div>
                         </template>
 
@@ -731,28 +935,48 @@
                         <template lwc:if={isStep5}>
                             <div class="form-module-card slds-m-bottom_large">
                                 <span class="module-header-title">Campaign Summary</span>
-                                <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">Review all settings before saving.</p>
+                                <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">Review all settings before activating. Use Save &amp; Close anytime to keep a draft.</p>
+
+                                <template lwc:if={showSummaryActivationBlocker}>
+                                    <div class="summary-activation-banner slds-m-top_small" role="alert">
+                                        <lightning-icon icon-name="utility:warning" size="x-small" class="slds-m-right_x-small"></lightning-icon>
+                                        <span>Activation is blocked until every section below is complete. Fix the items called out in red tiles.</span>
+                                    </div>
+                                </template>
 
                                 <div class="summary-grid slds-m-top_medium">
                                     <!-- Campaign Properties -->
-                                    <div class="summary-section">
+                                    <div class={basicPropertiesSummaryState.sectionClass}>
                                         <h4 class="summary-section-title">Basic Properties</h4>
+                                        <template lwc:if={basicPropertiesSummaryState.issues.length}>
+                                            <ul class="summary-validation-list">
+                                                <template for:each={basicPropertiesSummaryState.issues} for:item="issue">
+                                                    <li key={issue.id}>{issue.message}</li>
+                                                </template>
+                                            </ul>
+                                        </template>
                                         <div class="summary-row">
                                             <span class="summary-label">Campaign Name</span>
                                             <span class="summary-value">{modalTitle}</span>
-                                        </div>
-                                        <div class="summary-row">
-                                            <span class="summary-label">From</span>
-                                            <span class="summary-value">{summaryCampaignFrom}</span>
-                                        </div>
-                                        <div class="summary-row">
-                                            <span class="summary-label">To</span>
-                                            <span class="summary-value">{summaryCampaignTo}</span>
                                         </div>
                                         <template lwc:if={showCampaignGroup}>
                                             <div class="summary-row">
                                                 <span class="summary-label">Campaign Group</span>
                                                 <span class="summary-value">{selectedCampaignGroupName}</span>
+                                            </div>
+                                        </template>
+                                        <div class="summary-row">
+                                            <span class="summary-label">Active From</span>
+                                            <span class="summary-value">{summaryActiveFrom}</span>
+                                        </div>
+                                        <div class="summary-row">
+                                            <span class="summary-label">Active To</span>
+                                            <span class="summary-value">{summaryActiveTo}</span>
+                                        </div>
+                                        <template lwc:if={isAlwaysOnActivation}>
+                                            <div class="summary-row">
+                                                <span class="summary-label">Campaign Duration (Days)</span>
+                                                <span class="summary-value">{summaryCampaignDuration}</span>
                                             </div>
                                         </template>
                                         <div class="summary-row">
@@ -768,27 +992,37 @@
                                     </div>
 
                                     <!-- Priority & Exclusions -->
-                                    <div class="summary-section">
+                                    <div class={prioritySummaryState.sectionClass}>
                                         <h4 class="summary-section-title">Priority &amp; Exclusions</h4>
+                                        <template lwc:if={prioritySummaryState.issues.length}>
+                                            <ul class="summary-validation-list">
+                                                <template for:each={prioritySummaryState.issues} for:item="issue">
+                                                    <li key={issue.id}>{issue.message}</li>
+                                                </template>
+                                            </ul>
+                                        </template>
                                         <div class="summary-row">
                                             <span class="summary-label">Priority Tier</span>
                                             <span class="summary-value">{selectedPriorityTier}</span>
                                         </div>
-                                        <div class="summary-row">
-                                            <span class="summary-label">Exclude Onboarding</span>
-                                            <span class="summary-value">{excludeOnboardingLabel}</span>
-                                        </div>
-                                        <template lwc:if={showExcludeOtherMarketing}>
+                                        <template lwc:if={summaryExclusionsLabel}>
                                             <div class="summary-row">
-                                                <span class="summary-label">Exclude Other Marketing</span>
-                                                <span class="summary-value">{excludeOtherMarketingLabel}</span>
+                                                <span class="summary-label">Exclusions</span>
+                                                <span class="summary-value">{summaryExclusionsLabel}</span>
                                             </div>
                                         </template>
                                     </div>
 
-                                    <!-- Campaign Channels -->
-                                    <div class="summary-section">
-                                        <h4 class="summary-section-title">Campaign Channels</h4>
+                                    <!-- Channel Selection -->
+                                    <div class={channelsSummaryState.sectionClass}>
+                                        <h4 class="summary-section-title">Channel Selection</h4>
+                                        <template lwc:if={channelsSummaryState.issues.length}>
+                                            <ul class="summary-validation-list">
+                                                <template for:each={channelsSummaryState.issues} for:item="issue">
+                                                    <li key={issue.id}>{issue.message}</li>
+                                                </template>
+                                            </ul>
+                                        </template>
                                         <div class="summary-row">
                                             <span class="summary-label">Channels</span>
                                             <span class="summary-value">{summaryChannels}</span>
@@ -796,8 +1030,15 @@
                                     </div>
 
                                     <!-- Topic & Offering -->
-                                    <div class="summary-section">
+                                    <div class={topicOfferingSummaryState.sectionClass}>
                                         <h4 class="summary-section-title">Topic & Offering</h4>
+                                        <template lwc:if={topicOfferingSummaryState.issues.length}>
+                                            <ul class="summary-validation-list">
+                                                <template for:each={topicOfferingSummaryState.issues} for:item="issue">
+                                                    <li key={issue.id}>{issue.message}</li>
+                                                </template>
+                                            </ul>
+                                        </template>
                                         <div class="summary-row">
                                             <span class="summary-label">Topic Name</span>
                                             <span class="summary-value">{topicName}</span>
@@ -813,26 +1054,57 @@
                                     </div>
 
                                     <!-- Copy Assignment -->
-                                    <div class="summary-section">
+                                    <div class={copyAssignmentSummaryState.sectionClass}>
                                         <h4 class="summary-section-title">Copy Assignment</h4>
+                                        <template lwc:if={copyAssignmentSummaryState.issues.length}>
+                                            <ul class="summary-validation-list">
+                                                <template for:each={copyAssignmentSummaryState.issues} for:item="issue">
+                                                    <li key={issue.id}>{issue.message}</li>
+                                                </template>
+                                            </ul>
+                                        </template>
                                         <div class="summary-row">
                                             <span class="summary-label">Assigned Copy</span>
-                                            <span class="summary-value">Not configured yet</span>
+                                            <span class="summary-value">{summaryCopyAssignment}</span>
                                         </div>
                                     </div>
 
-                                    <!-- Scoring -->
-                                    <div class="summary-section">
-                                        <h4 class="summary-section-title">Scoring</h4>
-                                        <div class="summary-row">
-                                            <span class="summary-label">Scoring Model</span>
-                                            <span class="summary-value">{summaryScoringModel}</span>
+                                    <!-- Scoring (tiers 4+ only) -->
+                                    <template lwc:if={isScoringStepRequired}>
+                                        <div class={scoringSummaryState.sectionClass}>
+                                            <h4 class="summary-section-title">Scoring</h4>
+                                            <template lwc:if={scoringSummaryState.issues.length}>
+                                                <ul class="summary-validation-list">
+                                                    <template for:each={scoringSummaryState.issues} for:item="issue">
+                                                        <li key={issue.id}>{issue.message}</li>
+                                                    </template>
+                                                </ul>
+                                            </template>
+                                            <div class="summary-row">
+                                                <span class="summary-label">Scoring Method</span>
+                                                <span class="summary-value">{summaryScoringMethod}</span>
+                                            </div>
+                                            <template lwc:if={isScoringModelConfiguration}>
+                                                <div class="summary-row">
+                                                    <span class="summary-label">Scoring Model</span>
+                                                    <span class="summary-value">{summaryScoringModel}</span>
+                                                </div>
+                                            </template>
+                                            <template lwc:if={isAprioriScoreConfiguration}>
+                                                <template lwc:if={showAprioriSummaryChangeAlert}>
+                                                    <div class="slds-notify slds-notify_alert slds-alert_warning apriori-summary-alert slds-m-vertical_x-small" role="alert">
+                                                        <span class="slds-assistive-text">warning</span>
+                                                        <lightning-icon icon-name="utility:warning" size="x-small" class="slds-m-right_x-small apriori-summary-alert-icon"></lightning-icon>
+                                                        <h2 class="apriori-summary-alert-text">{aprioriSummaryChangeAlertMessage}</h2>
+                                                    </div>
+                                                </template>
+                                                <div class="summary-row">
+                                                    <span class="summary-label">Apriori Score</span>
+                                                    <span class="summary-value">{summaryAprioriScore}</span>
+                                                </div>
+                                            </template>
                                         </div>
-                                        <div class="summary-row">
-                                            <span class="summary-label">Fallback A-Priori Score</span>
-                                            <span class="summary-value">{summaryScore}</span>
-                                        </div>
-                                    </div>
+                                    </template>
                                 </div>
 
                                 <!-- Selected offer panel: only shown when a matching offer was chosen during offering -->
@@ -902,12 +1174,11 @@
                     </template>
                     <button class="pill-action-btn secondary-pill slds-m-right_small"
                             onclick={handleSaveDraft}
-                            disabled={isDraftSaveInvalid}
-                            title="Save campaign as draft (Planned). Activation requires all wizard validations.">
+                            title="Save progress as a draft campaign. You can return and activate later.">
                         {saveButtonLabel}
                     </button>
                     <template lwc:if={showNextButton}>
-                        <button class="pill-action-btn primary-pill" onclick={handleNextStep} disabled={isCurrentStepInvalid}>Next</button>
+                        <button class="pill-action-btn primary-pill" onclick={handleNextStep}>Next</button>
                     </template>
                     <template lwc:if={isLastStep}>
                         <button class="pill-action-btn primary-pill"

@@ -16,16 +16,127 @@ import healCampaignOfferingLabels from '@salesforce/apex/MarketingDictionaryCont
 import getMatchingOffers from '@salesforce/apex/MarketingDictionaryController.getMatchingOffers';
 import getCampaignOffers from '@salesforce/apex/MarketingDictionaryController.getCampaignOffers';
 import saveCampaignOffers from '@salesforce/apex/MarketingDictionaryController.saveCampaignOffers';
+import getCampaignCopyVariants from '@salesforce/apex/MarketingDictionaryController.getCampaignCopyVariants';
+import saveCampaignCopyVariants from '@salesforce/apex/MarketingDictionaryController.saveCampaignCopyVariants';
 import getOfferSummaries from '@salesforce/apex/MarketingDictionaryController.getOfferSummaries';
+import getPublishedVariantsForWizard from '@salesforce/apex/CopyCockpitController.getPublishedVariantsForWizard';
+import getAprioriContext from '@salesforce/apex/CampaignScoringAprioriController.getAprioriContext';
+import publishAprioriScores from '@salesforce/apex/CampaignScoringAprioriController.publishAprioriScores';
+import { parseFullName } from 'c/copyMessageNaming';
 import getCampaignTiers from '@salesforce/apex/MarketingDictionaryManagerController.getCampaignTiers';
 import getCampaignTypes from '@salesforce/apex/MarketingDictionaryController.getCampaignTypes';
 import getCampaignRecords from '@salesforce/apex/MarketingDictionaryManagerController.getCampaignRecords';
+import getData360DmoOptions from '@salesforce/apex/MarketingDictionaryManagerController.getData360DmoOptions';
+import searchSuppressionCampaigns from '@salesforce/apex/MarketingDictionaryController.searchSuppressionCampaigns';
+import searchSuppressionReports from '@salesforce/apex/MarketingDictionaryController.searchSuppressionReports';
 import {
     parseSupportedCampaignTypes as parseTierCampaignTypes,
     buildTierAttrRows,
     buildTierExclusionChips,
     buildTierTypeChips
 } from 'c/nbaTierConfig';
+
+const COPY_STATUS_BADGE_CLASS = {
+    draft: 'slds-badge slds-theme_lightest',
+    ready: 'slds-badge slds-theme_info',
+    published: 'slds-badge slds-theme_success',
+    archived: 'slds-badge slds-theme_shade'
+};
+
+function copyStatusBadgeClass(status) {
+    return COPY_STATUS_BADGE_CLASS[(status || '').toLowerCase()] || 'slds-badge slds-theme_lightest';
+}
+
+const EXCLUSION_SOURCE_OPTIONS = [
+    { label: 'Salesforce Campaign', value: 'campaign' },
+    { label: 'Salesforce Report', value: 'report' },
+    { label: 'Data360 Segment', value: 'segment' },
+    { label: 'Data360 DMO', value: 'dmo' }
+];
+
+function newExclusionRow(overrides = {}) {
+    return {
+        id: `excl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        source: '',
+        value: '',
+        display: '',
+        searchTerm: '',
+        lookupOptions: [],
+        ...overrides
+    };
+}
+
+function wizardMessageNameFromRow(row) {
+    if (row.MessageName__c) {
+        return String(row.MessageName__c).trim();
+    }
+    const parsed = parseFullName(row.Name);
+    if (parsed.messageName) {
+        return parsed.messageName;
+    }
+    return row.Name || '—';
+}
+
+function wizardMessageVariantFromRow(row) {
+    if (row.MessageVariant__c != null && row.MessageVariant__c !== '') {
+        return String(row.MessageVariant__c);
+    }
+    if (row.Message_Variant__c != null && row.Message_Variant__c !== '') {
+        return String(row.Message_Variant__c);
+    }
+    if (row.Version__c != null) {
+        return String(row.Version__c);
+    }
+    const parsed = parseFullName(row.Name);
+    if (parsed.variant != null) {
+        return String(parsed.variant);
+    }
+    return '—';
+}
+
+function wizardMessageTypeFromRow(row) {
+    if (row.MessageType__c) {
+        return String(row.MessageType__c).trim();
+    }
+    if (row.Message_Type__c) {
+        return String(row.Message_Type__c).trim();
+    }
+    if (row.Channel_Type__c) {
+        return String(row.Channel_Type__c).trim();
+    }
+    return '';
+}
+
+function formatVariantWeight(manual, computed) {
+    if (manual !== null && manual !== undefined && manual !== '') {
+        return String(manual);
+    }
+    if (computed !== null && computed !== undefined && computed !== '') {
+        return String(computed);
+    }
+    return '—';
+}
+
+function variantWeightNumeric(manual, computed) {
+    const raw = manual !== null && manual !== undefined && manual !== ''
+        ? manual
+        : computed;
+    if (raw === null || raw === undefined || raw === '') {
+        return 0;
+    }
+    const n = Number(raw);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+}
+
+function formatNormalizedWeightPercent(variantWeight, selectedWeightSum, selectedCount) {
+    if (!selectedCount) {
+        return '—';
+    }
+    if (selectedWeightSum > 0) {
+        return `${((variantWeight / selectedWeightSum) * 100).toFixed(1)}%`;
+    }
+    return `${(100 / selectedCount).toFixed(1)}%`;
+}
 
 export default class AgentforceCampaignWizard extends NavigationMixin(LightningElement) {
     @api recordId;
@@ -50,14 +161,11 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     // --- STANDARD COMPONENT STATE ---
     @track campaignName = '';
-    @track campaignFrom = '';
-    @track campaignTo = '';
+    @track activeFrom = '';
+    @track activeTo = '';
+    @track campaignDurationDays = '';
     @track selectedOfferingType = 'Product Family';
     @track selectedPriorityTier = '';
-    // --- EXCLUSION SETTINGS (replaces the old timing-reference block) ---
-    @track excludeOnboarding = false;      // persisted to Campaign.Exclude_Onboarding__c
-    @track excludeOtherMarketing = false;  // visual only — no persistence yet
-
     // --- EMERGENCY STATE CONTROL ---
     @track isEmergency = false;
 
@@ -70,13 +178,23 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     // --- DYNAMIC CAMPAIGN TYPES ---
     @track _allCampaignTypes = [];
 
-    // --- SUPPRESSION ASSOCIATION (when tier has Excl_Manual_Suppressions__c) ---
-    @track suppressionType = '';   // 'campaign' | 'report' | 'segment'
-    @track suppressionLookupValue = '';
-    @track suppressionLookupDisplay = '';
+    // --- EXCLUSION DEFINITIONS (when tier has Excl_Manual_Suppressions__c) ---
+    @track exclusionDefinitions = [];
+    @track dmoOptions = [];
+    _dmoOptionsLoadAttempted = false;
+    _exclusionSearchTimers = {};
 
-    // --- SCORING: Pick a Model + fallback score ---
-    @track fromObjectOverallScore = '';
+    // --- SCORING (tiers 4+): model picklist or apriori slider ---
+    @track scoringConfigurationMethod = 'model';
+    @track aprioriScore = 500;
+    @track aprioriBaselineScore = null;
+    @track aprioriHasSharedState = false;
+    @track aprioriHasMixedSharedScores = false;
+    @track aprioriChangeConfirmed = false;
+    @track showAprioriChangePopover = false;
+    @track pendingAprioriScore = null;
+    aprioriSliderResetKey = 0;
+    _aprioriScoreCommitTimer = null;
     @track selectedScoringModelId = '';
     @track selectedScoringModelName = '';
     @track _scoringModels = [];
@@ -112,8 +230,18 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     @track offerSummaries = [];
     @track expandedOfferParams = {};
 
+    // --- COPY ASSIGNMENT -- 
+    @track activeCopyChannelValue = '';
+    @track copyVariantData = []; // Raw fetched variants matching step 2
+    @track selectedCopyVariantIds = []; // Master list of assigned variants across all channels
+    @track isLoadingCopy = false;
+
     // Offers saved on the campaign (edit mode). Restored active-only from junction.
     editSavedOfferIds = null;
+    editSavedCopyVariantIds = null;
+
+    /** Channel type → dictionary Channel_Icon__c (first row wins per type). */
+    channelIconByType = {};
 
     // --- EDIT MODE PRE-SELECTED VALUES ---
     editProductFamilyValues = null;
@@ -137,12 +265,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     offeringTypesData = [
         { label: 'Product Family', value: 'Product Family' },
         { label: 'Family of Needs', value: 'Family of Needs' }
-    ];
-
-    suppressionTypesData = [
-        { label: 'Salesforce Campaign', value: 'campaign' },
-        { label: 'Salesforce Report', value: 'report' },
-        { label: 'Data360 Segment', value: 'segment' }
     ];
 
     // --- LIFECYCLE HOOKS ---
@@ -178,6 +300,119 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         getCampaignTypes()
             .then(data => { this._allCampaignTypes = data || []; })
             .catch(err => console.error('Error loading campaign types:', err));
+    }
+
+    loadDmoOptionsIfNeeded() {
+        if (this._dmoOptionsLoadAttempted) {
+            return;
+        }
+        this._dmoOptionsLoadAttempted = true;
+        getData360DmoOptions()
+            .then(data => {
+                this.dmoOptions = (data || []).map(row => ({
+                    label: row.label,
+                    value: row.value
+                }));
+            })
+            .catch(() => {
+                // Data Cloud DMO catalogue is optional; orgs without CDP should not spam the console.
+                this.dmoOptions = [];
+            });
+    }
+
+    _tierAllowsManualExclusions(tierLabel) {
+        if (!tierLabel) return false;
+        const tier = this._allTiers.find(t => this.tierLabel(t) === tierLabel);
+        return !!(tier && tier.Excl_Manual_Suppressions__c);
+    }
+
+    _hydrateExclusionsFromCampaign(campaign) {
+        this.exclusionDefinitions = [];
+        if (!campaign) return;
+
+        let parsed = [];
+        const rawJson = campaign.Campaign_Exclusions_JSON__c;
+        if (rawJson) {
+            try {
+                const data = JSON.parse(rawJson);
+                if (Array.isArray(data)) {
+                    parsed = data.filter(row => row && row.source);
+                }
+            } catch (e) {
+                console.warn('Could not parse Campaign_Exclusions_JSON__c', e);
+            }
+        }
+
+        if (!parsed.length) {
+            if (campaign.Suppression_Campaign__c) {
+                parsed.push({
+                    source: 'campaign',
+                    value: campaign.Suppression_Campaign__c,
+                    display: campaign.Suppression_Campaign__r?.Name || campaign.Suppression_Campaign__c
+                });
+            }
+            if (campaign.Suppression_Report_Id__c) {
+                parsed.push({
+                    source: 'report',
+                    value: campaign.Suppression_Report_Id__c,
+                    display: campaign.Suppression_Report_Id__c
+                });
+            }
+            if (campaign.Suppression_Segment__c) {
+                parsed.push({
+                    source: 'segment',
+                    value: campaign.Suppression_Segment__c,
+                    display: campaign.Suppression_Segment__c
+                });
+            }
+        }
+
+        this.exclusionDefinitions = parsed.map(row => {
+            const lookupOptions = row.value
+                ? [{ label: row.display || row.value, value: row.value }]
+                : [];
+            return newExclusionRow({
+                source: row.source,
+                value: row.value || '',
+                display: row.display || row.value || '',
+                lookupOptions
+            });
+        });
+        if (this.exclusionDefinitions.some(row => row.source === 'dmo')) {
+            this.loadDmoOptionsIfNeeded();
+        }
+    }
+
+    _serializeExclusionDefinitions() {
+        return (this.exclusionDefinitions || [])
+            .filter(row => row.source && (row.value || '').toString().trim())
+            .map(row => ({
+                source: row.source,
+                value: (row.value || '').toString().trim(),
+                display: row.display || row.value
+            }));
+    }
+
+    _applyExclusionsToSaveFields(fields) {
+        const defs = this._serializeExclusionDefinitions();
+        fields['Campaign_Exclusions_JSON__c'] = defs.length ? JSON.stringify(defs) : null;
+        fields['Suppression_Campaign__c'] = null;
+        fields['Suppression_Report_Id__c'] = null;
+        fields['Suppression_Segment__c'] = null;
+
+        const first = (source) => defs.find(d => d.source === source);
+        const campaign = first('campaign');
+        const report = first('report');
+        const segment = first('segment');
+        if (campaign) {
+            fields['Suppression_Campaign__c'] = campaign.value;
+        }
+        if (report) {
+            fields['Suppression_Report_Id__c'] = report.value;
+        }
+        if (segment) {
+            fields['Suppression_Segment__c'] = segment.value;
+        }
     }
 
     loadScoringModels() {
@@ -304,8 +539,11 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             }
         }
         this.campaignName = baseName;
-        this.campaignFrom = campaign.StartDate || '';
-        this.campaignTo = campaign.EndDate || '';
+        this.activeFrom = campaign.Active_From__c || '';
+        this.activeTo = campaign.Active_To__c || '';
+        this.campaignDurationDays = campaign.Duration_Days__c != null
+            ? String(campaign.Duration_Days__c)
+            : '';
 
         this.selectedTopicId = campaign.Topic_Dict__c || '';
         this.topicName = campaign.Topic_Dict__r?.Name
@@ -319,17 +557,20 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         }
         this.selectedPriorityTier = campaign.Priority_Tier__c || '';
         this.isEmergency = campaign.Priority_Tier__c === 'Tier 1';
-        this.excludeOnboarding = campaign.Exclude_Onboarding__c === true;
+        this._hydrateExclusionsFromCampaign(campaign);
         this.selectedScoringModelId = campaign.Scoring_Model_Dict__c || '';
         this.selectedScoringModelName = campaign.Scoring_Model_Dict__r
             ? campaign.Scoring_Model_Dict__r.Name
             : '';
 
-        // Older A-priori campaigns stored the score on Overall_Score__c.
-        const fallback = campaign.Scoring_Method__c === 'A-priori'
-            ? campaign.Overall_Score__c
-            : (campaign.Fallback_Score__c != null ? campaign.Fallback_Score__c : campaign.Overall_Score__c);
-        this.fromObjectOverallScore = fallback != null ? String(fallback) : '';
+        if (campaign.Scoring_Method__c === 'A-priori') {
+            this.scoringConfigurationMethod = 'apriori';
+            const score = campaign.Overall_Score__c;
+            this.aprioriScore = this.isValidScoreValue(score) ? Number(score) : 500;
+        } else {
+            this.scoringConfigurationMethod = 'model';
+            this.aprioriScore = 500;
+        }
 
         if (campaign.Assigned_Channels__c) {
             this.editChannelValues = campaign.Assigned_Channels__c.split(';').map(c => c.trim()).filter(Boolean);
@@ -349,6 +590,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
         this.applyEditOfferingSelections();
         this.loadSavedCampaignOffers();
+        this.loadSavedCampaignCopyVariants();
         this.loadScoringModels();
     }
 
@@ -419,6 +661,16 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             .catch(err => console.error('Error loading saved campaign offers:', err));
     }
 
+    loadSavedCampaignCopyVariants() {
+        if (!this.recordId) return;
+        getCampaignCopyVariants({ campaignId: this.recordId })
+            .then(data => {
+                this.editSavedCopyVariantIds = (data || []).map(row => row.id);
+                this.selectedCopyVariantIds = [...this.editSavedCopyVariantIds];
+            })
+            .catch(err => console.error('Error loading saved campaign copy variants:', err));
+    }
+
     // --- CAMPAIGN TYPE / GROUP DERIVATION ---
     get matchedCampaignType() {
         const key = (this.parentActivationType || '').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -463,9 +715,13 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             const groupMap = {};
             const allChannels = [];
 
+            const iconByType = {};
             data.forEach(rec => {
                 const type = rec.Channel_Type__c || 'Other';
                 const icon = rec.Channel_Icon__c || 'utility:connected_apps';
+                if (!iconByType[type]) {
+                    iconByType[type] = icon;
+                }
                 const disabled = rec.Is_Active__c === false;
                 if (!groupMap[type]) {
                     groupMap[type] = { type, icon, items: [] };
@@ -475,10 +731,18 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 const isActive = this.editChannelValues
                     ? this.editChannelValues.includes(rec.Name)
                     : false;
-                allChannels.push({ label: rec.Name, value: rec.Name, checked: isActive, disabled });
+                allChannels.push({
+                    label: rec.Name,
+                    value: rec.Name,
+                    channelType: type,
+                    icon,
+                    checked: isActive,
+                    disabled
+                });
                 groupMap[type].items.push({
                     label: rec.Name,
                     value: rec.Name,
+                    channelType: type,
                     icon: rec.Channel_Icon__c || 'utility:connected_apps',
                     active: isActive,
                     disabled,
@@ -490,6 +754,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 });
             });
 
+            this.channelIconByType = iconByType;
             this.channelGroups = Object.values(groupMap);
             this.channels = allChannels;
             const enabledChannels = allChannels.filter(c => !c.disabled);
@@ -672,6 +937,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         this.buildGroupedOptions();
         this.scheduleFetchOffers();
         this.loadScoringModels();
+        if (this.scoringConfigurationMethod === 'apriori') {
+            this.loadAprioriContextFromState();
+        }
     }
 
     handleSelectAllFamilyOfNeeds(event) {
@@ -737,27 +1005,25 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             this.topicName = event.currentTarget.dataset.name || '';
         }
         this.isTopicDropdownOpen = false;
+        if (this.scoringConfigurationMethod === 'apriori') {
+            this.loadAprioriContextFromState();
+        }
     }
 
     handleNameChange(event) {
-        this.campaignName = event.target.value; 
+        this.campaignName = event.target.value;
     }
 
-    handleCampaignFromChange(event) {
-        this.campaignFrom = event.detail.value || '';
-        this._validateCampaignTo();
+    handleActiveFromChange(event) {
+        this.activeFrom = event.target.value;
     }
 
-    handleCampaignToChange(event) {
-        this.campaignTo = event.detail.value || '';
-        this._validateCampaignTo();
+    handleActiveToChange(event) {
+        this.activeTo = event.target.value;
     }
 
-    _validateCampaignTo() {
-        const input = this.template.querySelector('[data-id="campaign-to"]');
-        if (!input) return;
-        input.setCustomValidity(this.isDateRangeInvalid ? 'To cannot be earlier than From.' : '');
-        input.reportValidity();
+    handleCampaignDurationChange(event) {
+        this.campaignDurationDays = event.target.value;
     }
         
     handleOfferingTypeChange(event) {
@@ -774,6 +1040,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         this.selectAllProductFamilies = this.productFamilyOptions.every(opt => opt.checked);
         this.buildGroupedOptions();
         this.scheduleFetchOffers();
+        if (this.scoringConfigurationMethod === 'apriori') {
+            this.loadAprioriContextFromState();
+        }
     }
 
     handleCustomerTypeFilter(event) {
@@ -818,12 +1087,14 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     handleEmergencyToggle() {
         this.isEmergency = !this.isEmergency;
-        
+        const stepKey = this.currentStepKey;
+
         if (this.isEmergency) {
             this.selectedPriorityTier = this.tierLabelForNumber(1);
         } else {
             this.selectedPriorityTier = '';
         }
+        this._syncWizardStepAfterTierChange(stepKey);
     }
 
     /** Display / picklist label for a Campaign_Tier__c row (Name is AutoNumber TIER-000). */
@@ -841,10 +1112,12 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         if (!input || input.disabled) return;
         const newTier = input.value;
         if (newTier !== this.selectedPriorityTier) {
+            const stepKey = this.currentStepKey;
             this.selectedPriorityTier = newTier;
-            this.suppressionType = '';
-            this.suppressionLookupValue = '';
-            this.suppressionLookupDisplay = '';
+            if (!this._tierAllowsManualExclusions(newTier)) {
+                this.exclusionDefinitions = [];
+            }
+            this._syncWizardStepAfterTierChange(stepKey);
         }
     }
 
@@ -859,27 +1132,199 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         };
     }
 
-    handleSuppressionTypeChange(event) {
-        this.suppressionType = event.target.value;
-        this.suppressionLookupValue = '';
-        this.suppressionLookupDisplay = '';
+    handleAddExclusionDefinition() {
+        this.exclusionDefinitions = [...this.exclusionDefinitions, newExclusionRow()];
     }
 
-    handleSuppressionLookupChange(event) {
-        this.suppressionLookupValue = event.target.value;
-        this.suppressionLookupDisplay = event.target.value;
+    handleRemoveExclusionDefinition(event) {
+        const rowId = event.currentTarget.dataset.rowId;
+        this.exclusionDefinitions = this.exclusionDefinitions.filter(row => row.id !== rowId);
     }
 
-    handleExcludeOnboardingChange(event) { this.excludeOnboarding = event.target.checked; }
-    handleExcludeOtherMarketingChange(event) { this.excludeOtherMarketing = event.target.checked; }
-
-    // "Exclude other marketing" is intended to apply only to Tier 1-3 campaigns, but the
-    // tier data model is mid-change, so the checkbox is shown unconditionally for now.
-    get showExcludeOtherMarketing() {
-        return true;
+    handleExclusionSourceChange(event) {
+        const rowId = event.target.dataset.rowId;
+        const source = event.detail.value;
+        this.exclusionDefinitions = this.exclusionDefinitions.map(row => {
+            if (row.id !== rowId) return row;
+            return newExclusionRow({ id: row.id, source });
+        });
+        if (source === 'campaign' || source === 'report') {
+            this._runExclusionSearch(rowId, '');
+        } else if (source === 'dmo') {
+            this.loadDmoOptionsIfNeeded();
+        }
     }
 
-    handleFromObjectChange(event) { this.fromObjectOverallScore = event.target.value; }
+    handleExclusionSearchInput(event) {
+        const rowId = event.target.dataset.rowId;
+        const term = event.target.value || '';
+        this.exclusionDefinitions = this.exclusionDefinitions.map(row =>
+            row.id === rowId ? { ...row, searchTerm: term } : row
+        );
+        clearTimeout(this._exclusionSearchTimers[rowId]);
+        this._exclusionSearchTimers[rowId] = setTimeout(() => {
+            this._runExclusionSearch(rowId, term);
+        }, 300);
+    }
+
+    _runExclusionSearch(rowId, term) {
+        const row = this.exclusionDefinitions.find(r => r.id === rowId);
+        if (!row) return;
+        const searchFn = row.source === 'campaign'
+            ? searchSuppressionCampaigns
+            : row.source === 'report'
+                ? searchSuppressionReports
+                : null;
+        if (!searchFn) return;
+        searchFn({ searchTerm: term || '' })
+            .then(results => {
+                const lookupOptions = (results || []).map(r => ({
+                    label: r.name,
+                    value: r.id
+                }));
+                this.exclusionDefinitions = this.exclusionDefinitions.map(r =>
+                    r.id === rowId ? { ...r, lookupOptions } : r
+                );
+            })
+            .catch(err => console.error('Exclusion lookup search failed:', err));
+    }
+
+    handleExclusionLookupSelect(event) {
+        const rowId = event.target.dataset.rowId;
+        const value = event.detail.value;
+        const row = this.exclusionDefinitions.find(r => r.id === rowId);
+        let display = value;
+        if (row?.source === 'dmo') {
+            const opt = this.dmoOptions.find(o => o.value === value);
+            display = opt ? opt.label : value;
+        } else if (row) {
+            const opt = (row.lookupOptions || []).find(o => o.value === value);
+            display = opt ? opt.label : value;
+        }
+        this.exclusionDefinitions = this.exclusionDefinitions.map(r =>
+            r.id === rowId ? { ...r, value, display } : r
+        );
+    }
+
+    handleExclusionSegmentChange(event) {
+        const rowId = event.target.dataset.rowId;
+        const value = event.target.value || '';
+        this.exclusionDefinitions = this.exclusionDefinitions.map(row =>
+            row.id === rowId ? { ...row, value, display: value } : row
+        );
+    }
+
+    handleScoringConfigurationMethodChange(event) {
+        this.scoringConfigurationMethod = event.detail.value;
+        if (this.scoringConfigurationMethod === 'apriori') {
+            this.loadAprioriContextFromState();
+        }
+    }
+
+    handleAprioriScoreChange(event) {
+        const next = Number(event.detail.value);
+        if (Number.isNaN(next)) {
+            return;
+        }
+        const clamped = Math.min(1000, Math.max(0, Math.round(next)));
+        // Keep the thumb moving while dragging; confirm only after the user pauses on a new value.
+        this.aprioriScore = clamped;
+        clearTimeout(this._aprioriScoreCommitTimer);
+        // eslint-disable-next-line @lwc/lwc/no-async-operation
+        this._aprioriScoreCommitTimer = setTimeout(() => {
+            this.finalizeAprioriScoreSelection(clamped);
+        }, 400);
+    }
+
+    finalizeAprioriScoreSelection(clamped) {
+        const baseline = this.aprioriBaselineScore;
+        const needsSharedScoreConfirm = this.aprioriHasSharedState
+            && baseline !== null
+            && baseline !== undefined
+            && clamped !== baseline
+            && !this.aprioriChangeConfirmed;
+        if (!needsSharedScoreConfirm) {
+            this.showAprioriChangePopover = false;
+            this.pendingAprioriScore = null;
+            return;
+        }
+        this.pendingAprioriScore = clamped;
+        this.showAprioriChangePopover = true;
+    }
+
+    handleAprioriPopoverConfirm() {
+        if (this.pendingAprioriScore !== null && this.pendingAprioriScore !== undefined) {
+            this.aprioriScore = this.pendingAprioriScore;
+        }
+        this.aprioriChangeConfirmed = true;
+        this.showAprioriChangePopover = false;
+        this.pendingAprioriScore = null;
+    }
+
+    handleAprioriPopoverCancel() {
+        this.aprioriScore = this.aprioriBaselineScore;
+        this.aprioriSliderResetKey += 1;
+        this.showAprioriChangePopover = false;
+        this.pendingAprioriScore = null;
+    }
+
+    get aprioriPopoverPendingScoreLabel() {
+        if (this.pendingAprioriScore === null || this.pendingAprioriScore === undefined) {
+            return '';
+        }
+        return String(this.pendingAprioriScore);
+    }
+
+    get aprioriProductFamilyIds() {
+        if (!this.isOfferingProductFamily) {
+            return [];
+        }
+        return this.productFamilyOptions.filter(o => o.checked).map(o => o.value);
+    }
+
+    get aprioriContextReady() {
+        return !!this.selectedTopicId && this.aprioriProductFamilyIds.length > 0;
+    }
+
+    loadAprioriContextFromState() {
+        if (!this.isAprioriScoreConfiguration || !this.aprioriContextReady) {
+            this._resetAprioriSharedStateFlags(false);
+            return;
+        }
+        getAprioriContext({
+            topicId: this.selectedTopicId,
+            productFamilyIds: this.aprioriProductFamilyIds
+        })
+            .then(result => {
+                this.aprioriHasMixedSharedScores = !!result?.hasMixedScores;
+                this.aprioriHasSharedState = !!result?.hasExistingState;
+                this.aprioriChangeConfirmed = false;
+                if (this.aprioriHasMixedSharedScores) {
+                    this.aprioriBaselineScore = null;
+                    return;
+                }
+                if (this.aprioriHasSharedState && result.suggestedScore !== null && result.suggestedScore !== undefined) {
+                    this.aprioriBaselineScore = Number(result.suggestedScore);
+                    this.aprioriScore = this.aprioriBaselineScore;
+                } else {
+                    this.aprioriBaselineScore = null;
+                }
+            })
+            .catch(err => {
+                console.error('Apriori context load failed:', err);
+                this._resetAprioriSharedStateFlags(false);
+            });
+    }
+
+    _resetAprioriSharedStateFlags(resetScore) {
+        this.aprioriHasSharedState = false;
+        this.aprioriHasMixedSharedScores = false;
+        this.aprioriBaselineScore = null;
+        this.aprioriChangeConfirmed = false;
+        if (resetScore) {
+            this.aprioriScore = 500;
+        }
+    }
 
     handleScoringModelChange(event) {
         this.selectedScoringModelId = event.detail.value;
@@ -940,64 +1385,81 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     // --- WIZARD STEP NAVIGATION ---
-    // Priority & Exclusions lives on step 1. Copy Assignment (3) is a ghost placeholder.
-    // Flow: Properties → Topic & Offering → Copy Assignment → Scoring → Summary
-    wizardStepData = [
-        { label: 'Campaign Properties', value: 1 },
-        { label: 'Topic & Offering', value: 2 },
-        { label: 'Copy Assignment', value: 3 },
-        { label: 'Scoring', value: 4 },
-        { label: 'Summary', value: 5 }
-    ];
+    // Priority & Exclusions lives on step 1. Scoring applies only when tier number > 3.
+    get isScoringStepRequired() {
+        const tier = this.selectedTierRecord;
+        if (!tier || tier.Tier_Number__c == null) {
+            return false;
+        }
+        const tierNum = Number(tier.Tier_Number__c);
+        return !Number.isNaN(tierNum) && tierNum > 3;
+    }
+
+    get wizardStepData() {
+        const steps = [
+            { label: 'Campaign Properties', value: 1, key: 'properties' },
+            { label: 'Topic & Offering', value: 2, key: 'topic' },
+            { label: 'Copy Assignment', value: 3, key: 'copy' }
+        ];
+        let nextValue = 4;
+        if (this.isScoringStepRequired) {
+            steps.push({ label: 'Scoring', value: nextValue, key: 'scoring' });
+            nextValue += 1;
+        }
+        steps.push({ label: 'Summary', value: nextValue, key: 'summary' });
+        return steps;
+    }
+
+    get currentStepKey() {
+        const match = this.wizardStepData.find(step => step.value === this.currentStep);
+        return match ? match.key : '';
+    }
+
+    get maxWizardStep() {
+        const steps = this.wizardStepData;
+        return steps.length ? steps[steps.length - 1].value : 1;
+    }
+
+    _syncWizardStepAfterTierChange(preserveKey) {
+        if (!preserveKey) {
+            return;
+        }
+        const next = this.wizardStepData.find(step => step.key === preserveKey);
+        if (next) {
+            this.currentStep = next.value;
+            return;
+        }
+        if (preserveKey === 'scoring') {
+            const summary = this.wizardStepData.find(step => step.key === 'summary');
+            if (summary) {
+                this.currentStep = summary.value;
+            }
+        }
+    }
 
     /**
-     * SLDS progress-indicator states per step:
-     * - slds-is-completed (+ marker_icon + success icon)
-     * - slds-is-active
-     * - default incomplete
-     * @see https://v1.lightningdesignsystem.com/components/progress-indicator/
+     * lightning-progress-indicator current-step must match a progress-step value (string).
+     * @see https://developer.salesforce.com/docs/platform/lightning-component-reference/guide/lightning-progress-step.html
      */
     get wizardSteps() {
-        return this.wizardStepData.map(step => {
-            const isComplete = step.value < this.currentStep;
-            const isActive = step.value === this.currentStep;
-            let itemClass = 'slds-progress__item';
-            let assistiveText = step.label;
-            if (isComplete) {
-                itemClass += ' slds-is-completed';
-                assistiveText = `${step.label} - Completed`;
-            } else if (isActive) {
-                itemClass += ' slds-is-active';
-                assistiveText = `${step.label} - Active`;
-            }
-            return {
-                ...step,
-                itemClass,
-                isComplete,
-                isActive,
-                assistiveText
-            };
-        });
+        return this.wizardStepData.map(step => ({
+            ...step,
+            progressValue: String(step.value)
+        }));
     }
 
-    get progressBarValue() {
-        const lastIndex = this.wizardStepData.length - 1;
-        if (lastIndex <= 0) return 0;
-        return Math.round(((this.currentStep - 1) / lastIndex) * 100);
-    }
-
-    get progressBarStyle() {
-        return `width: ${this.progressBarValue}%;`;
+    get wizardCurrentStepValue() {
+        return String(this.currentStep);
     }
 
     get isStep1() { return this.currentStep === 1; }
     get isStep2() { return this.currentStep === 2; }
     get isStep3() { return this.currentStep === 3; }
-    get isStep4() { return this.currentStep === 4; }
-    get isStep5() { return this.currentStep === 5; }
-    get isLastStep() { return this.currentStep === 5; }
+    get isStep4() { return this.currentStepKey === 'scoring'; }
+    get isStep5() { return this.currentStepKey === 'summary'; }
+    get isLastStep() { return this.currentStep === this.maxWizardStep; }
     get showBackButton() { return this.currentStep > 1; }
-    get showNextButton() { return this.currentStep < 5; }
+    get showNextButton() { return this.currentStep < this.maxWizardStep; }
 
     get pfSectionChevron() {
         return this.isProductFamilySectionOpen ? 'utility:chevrondown' : 'utility:chevronright';
@@ -1038,20 +1500,98 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         return `${selected.length} Families of Needs selected`;
     }
 
-    get excludeOnboardingLabel() {
-        return this.excludeOnboarding ? 'Yes' : 'No';
+    get showCopyAssignmentNoChannelsAlert() {
+        return !this.hasSelectedChannel;
     }
 
-    get excludeOtherMarketingLabel() {
-        return this.excludeOtherMarketing ? 'Yes' : 'No';
+    get exclusionSourceOptions() {
+        return EXCLUSION_SOURCE_OPTIONS;
     }
 
-    get summaryScore() {
-        return this.fromObjectOverallScore || 'Not set';
+    get exclusionDefinitionRows() {
+        return (this.exclusionDefinitions || []).map((row, index) => ({
+            ...row,
+            isCampaign: row.source === 'campaign',
+            isReport: row.source === 'report',
+            isSegment: row.source === 'segment',
+            isDmo: row.source === 'dmo',
+            showRemove: this.exclusionDefinitions.length > 1 || index > 0
+        }));
+    }
+
+    get addExclusionButtonLabel() {
+        return this.exclusionDefinitions.length === 0
+            ? 'Add Exclusion Definition'
+            : 'Add Exclusion';
+    }
+
+    get summaryExclusionsLabel() {
+        const defs = this._serializeExclusionDefinitions();
+        if (!defs.length) return '';
+        return defs.map(d => {
+            const sourceLabel = EXCLUSION_SOURCE_OPTIONS.find(o => o.value === d.source)?.label || d.source;
+            return `${sourceLabel}: ${d.display || d.value}`;
+        }).join('; ');
+    }
+
+    get summaryAprioriScore() {
+        return this.isValidScoreValue(this.aprioriScore) ? String(this.aprioriScore) : 'Not set';
     }
 
     get summaryScoringModel() {
         return this.selectedScoringModelName || 'Not set';
+    }
+
+    get summaryScoringMethod() {
+        if (this.scoringConfigurationMethod === 'apriori') {
+            return 'Provide Apriori Score';
+        }
+        return 'Assign Scoring Model';
+    }
+
+    get isScoringModelConfiguration() {
+        return this.scoringConfigurationMethod === 'model';
+    }
+
+    get isAprioriScoreConfiguration() {
+        return this.scoringConfigurationMethod === 'apriori';
+    }
+
+    get showAprioriSummaryChangeAlert() {
+        if (!this.isAprioriScoreConfiguration || !this.isScoringStepRequired) {
+            return false;
+        }
+        const baseline = this.aprioriBaselineScore;
+        if (!this.aprioriHasSharedState || baseline === null || baseline === undefined) {
+            return false;
+        }
+        return this.aprioriScore !== baseline;
+    }
+
+    get aprioriSummaryChangeAlertMessage() {
+        const baseline = this.aprioriBaselineScore;
+        const current = this.aprioriScore;
+        if (baseline === null || baseline === undefined) {
+            return 'This apriori score will be stored for all campaigns sharing the same Topic and Product Family combination.';
+        }
+        return `Apriori score changed from ${baseline} to ${current}. Saving or activating updates the shared score for every campaign with this Topic and Product Family combination.`;
+    }
+
+    get aprioriSharedStateHint() {
+        if (this.aprioriHasMixedSharedScores) {
+            return 'Selected product families have different shared apriori scores for this topic. Resolve in Marketing Dictionary or adjust selections.';
+        }
+        if (this.aprioriHasSharedState && this.aprioriBaselineScore !== null) {
+            return `A shared apriori score (${this.aprioriBaselineScore}) already exists for this topic and product family selection. Changing it updates all campaigns using the same combination.`;
+        }
+        return 'No shared apriori score exists yet for this topic and product family selection. You can set a value from 0 to 1000.';
+    }
+
+    get scoringConfigurationOptions() {
+        return [
+            { label: 'Assign Scoring Model', value: 'model' },
+            { label: 'Provide Apriori Score', value: 'apriori' }
+        ];
     }
 
     get hasSelectedChannel() {
@@ -1069,66 +1609,213 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     isValidScoreValue(raw) {
+        if (raw === '' || raw === null || raw === undefined) {
+            return false;
+        }
         const val = Number(raw);
-        return !!raw && Number.isInteger(val) && val >= 1 && val <= 1000;
+        return Number.isInteger(val) && val >= 0 && val <= 1000;
     }
 
-    get campaignToMin() {
-        return this.campaignFrom || '';
+    get isAlwaysOnActivation() {
+        const key = (this.parentActivationType || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        return key === 'alwayson';
     }
 
-    get isDateRangeInvalid() {
-        return !!this.campaignFrom && !!this.campaignTo && this.campaignTo < this.campaignFrom;
+    get hasValidActiveWindow() {
+        if (!this.activeFrom || !this.activeTo) {
+            return false;
+        }
+        const fromMs = new Date(this.activeFrom).getTime();
+        const toMs = new Date(this.activeTo).getTime();
+        if (Number.isNaN(fromMs) || Number.isNaN(toMs)) {
+            return false;
+        }
+        return toMs >= fromMs;
     }
 
-    get summaryCampaignFrom() {
-        return this.campaignFrom || 'Not set';
+    _issue(id, message) {
+        return { id, message };
     }
 
-    get summaryCampaignTo() {
-        return this.campaignTo || 'Not set';
+    get basicPropertiesActivationIssues() {
+        const issues = [];
+        if (!this.parentActivationType) {
+            issues.push(this._issue('activation-type', 'Select an activation type.'));
+        }
+        if (!this.campaignName || this.campaignName.trim() === '') {
+            issues.push(this._issue('campaign-name', 'Enter a campaign name.'));
+        }
+        if (!this.activeFrom) {
+            issues.push(this._issue('active-from', 'Set Active From.'));
+        }
+        if (!this.activeTo) {
+            issues.push(this._issue('active-to', 'Set Active To.'));
+        }
+        if (this.activeFrom && this.activeTo && !this.hasValidActiveWindow) {
+            issues.push(this._issue('active-window', 'Active To must be on or after Active From.'));
+        }
+        if (this.isAlwaysOnActivation) {
+            const days = Number(this.campaignDurationDays);
+            if (!this.campaignDurationDays || !Number.isInteger(days) || days < 1) {
+                issues.push(this._issue('duration', 'Enter Campaign Duration (Days) for Always-on campaigns.'));
+            }
+        }
+        if (this.showCampaignGroup && !this.selectedCampaignGroupId) {
+            issues.push(this._issue('campaign-group', 'Select a campaign group.'));
+        }
+        return issues;
+    }
+
+    get priorityActivationIssues() {
+        const issues = [];
+        if (!this.selectedPriorityTier) {
+            issues.push(this._issue('priority-tier', 'Assign a priority tier.'));
+        }
+        return issues;
+    }
+
+    get channelsActivationIssues() {
+        const issues = [];
+        if (!this.hasSelectedChannel) {
+            issues.push(this._issue('channels', 'Select at least one campaign channel.'));
+        }
+        return issues;
+    }
+
+    get topicOfferingActivationIssues() {
+        const issues = [];
+        if (!this.selectedTopicId && (!this.topicName || this.topicName.trim() === '')) {
+            issues.push(this._issue('topic', 'Choose a topic name.'));
+        }
+        if (!this.selectedOfferingType) {
+            issues.push(this._issue('offering-type', 'Select an offering type.'));
+        }
+        return issues;
+    }
+
+    get copyAssignmentActivationIssues() {
+        const issues = [];
+        if (!this.hasSelectedChannel) {
+            return issues;
+        }
+        if (!this.selectedCopyVariantIds || this.selectedCopyVariantIds.length === 0) {
+            issues.push(this._issue('copy', 'Assign at least one message variant (any channel).'));
+        }
+        return issues;
+    }
+
+    get scoringActivationIssues() {
+        if (!this.isScoringStepRequired) {
+            return [];
+        }
+        const issues = [];
+        if (this.scoringConfigurationMethod === 'model') {
+            if (!this.selectedScoringModelId) {
+                issues.push(this._issue('scoring-model', 'Select a scoring model.'));
+            }
+        } else {
+            if (!this.isOfferingProductFamily || this.aprioriProductFamilyIds.length === 0) {
+                issues.push(this._issue('apriori-pf', 'Select at least one Product Family for apriori scoring.'));
+            }
+            if (!this.selectedTopicId) {
+                issues.push(this._issue('apriori-topic', 'Select a Topic for apriori scoring.'));
+            }
+            if (this.aprioriHasMixedSharedScores) {
+                issues.push(this._issue('apriori-mixed', 'Selected product families have different shared apriori scores. Align states before continuing.'));
+            }
+            if (this.aprioriHasSharedState
+                && this.aprioriBaselineScore !== null
+                && this.aprioriScore !== this.aprioriBaselineScore
+                && !this.aprioriChangeConfirmed) {
+                issues.push(this._issue('apriori-confirm', 'Confirm the shared apriori score change in the popover before activating.'));
+            }
+            if (!this.isValidScoreValue(this.aprioriScore)) {
+                issues.push(this._issue('apriori-score', 'Set an apriori score between 0 and 1000.'));
+            }
+        }
+        return issues;
+    }
+
+    _summarySectionState(issues) {
+        const isValid = !issues || issues.length === 0;
+        return {
+            isValid,
+            issues: issues || [],
+            sectionClass: isValid
+                ? 'summary-section summary-section--valid'
+                : 'summary-section summary-section--invalid'
+        };
+    }
+
+    get basicPropertiesSummaryState() {
+        return this._summarySectionState(this.basicPropertiesActivationIssues);
+    }
+
+    get prioritySummaryState() {
+        return this._summarySectionState(this.priorityActivationIssues);
+    }
+
+    get channelsSummaryState() {
+        return this._summarySectionState(this.channelsActivationIssues);
+    }
+
+    get topicOfferingSummaryState() {
+        return this._summarySectionState(this.topicOfferingActivationIssues);
+    }
+
+    get copyAssignmentSummaryState() {
+        return this._summarySectionState(this.copyAssignmentActivationIssues);
+    }
+
+    get scoringSummaryState() {
+        return this._summarySectionState(this.scoringActivationIssues);
     }
 
     get isStep1Valid() {
-        if (!this.parentActivationType) return false;
-        if (!this.campaignName || this.campaignName.trim() === '') return false;
-        if (!this.campaignFrom || !this.campaignTo || this.isDateRangeInvalid) return false;
-        if (this.showCampaignGroup && !this.selectedCampaignGroupId) return false;
-        if (!this.selectedPriorityTier) return false;
-        if (!this.hasSelectedChannel) return false;
-        return true;
+        return this.basicPropertiesActivationIssues.length === 0
+            && this.priorityActivationIssues.length === 0
+            && this.channelsActivationIssues.length === 0;
     }
 
     get isStep2Valid() {
-        if (!this.selectedTopicId && (!this.topicName || this.topicName.trim() === '')) return false;
-        if (!this.selectedOfferingType) return false;
-        if (!this.hasOfferingSelection) return false;
-        return true;
+        return this.topicOfferingActivationIssues.length === 0;
+    }
+
+    get selectedChannelTypes() {
+        const types = [];
+        const seen = new Set();
+        this.channels.filter(c => c.checked && !c.disabled).forEach(ch => {
+            const typeKey = ch.channelType || ch.label;
+            if (!seen.has(typeKey)) {
+                seen.add(typeKey);
+                types.push(typeKey);
+            }
+        });
+        return types;
     }
 
     get isStep3Valid() {
-        // Copy Assignment — required “≥1 message variant per channel” once Copy Center is wired.
-        return true;
+        return this.copyAssignmentActivationIssues.length === 0;
     }
 
     get isStep4Valid() {
-        return !!this.selectedScoringModelId && this.isValidScoreValue(this.fromObjectOverallScore);
+        if (!this.isScoringStepRequired) {
+            return true;
+        }
+        return this.scoringActivationIssues.length === 0;
     }
 
-    /** Draft save needs a name and a valid From/To range. */
-    get isDraftSaveInvalid() {
-        return !this.campaignName || this.campaignName.trim() === ''
-            || !this.campaignFrom || !this.campaignTo
-            || this.isDateRangeInvalid;
-    }
-
-    /** Full activation gate across all configured wizard rules (Copy Center pending). */
+    /** Full activation gate — all wizard steps must pass validation. */
     get isActivationReady() {
         return this.isStep1Valid && this.isStep2Valid && this.isStep3Valid && this.isStep4Valid;
     }
 
     get isActivationDisabled() {
         return !this.isActivationReady;
+    }
+
+    get showSummaryActivationBlocker() {
+        return this.isStep5 && !this.isActivationReady;
     }
 
     // Only render the offer panel when a matching offer was selected during offering
@@ -1181,7 +1868,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     maybeLoadOfferSummaries() {
-        if (this.currentStep === 5) {
+        if (this.currentStepKey === 'summary') {
             this.loadOfferSummaries();
         }
     }
@@ -1204,8 +1891,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     handleNextStep() {
-        if (this.isCurrentStepInvalid) return;
-        if (this.currentStep < 5) {
+        if (this.currentStep < this.maxWizardStep) {
             this.currentStep++;
             this._onStepChanged();
         }
@@ -1218,21 +1904,40 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         }
     }
 
-    handleStepClick(event) {
-        const step = parseInt(event.currentTarget.dataset.step, 10);
-        if (!Number.isInteger(step) || step < 1) return;
-        // Only allow navigating back to completed / current steps.
-        if (step <= this.currentStep) {
-            this.currentStep = step;
+    handleWizardStepFocus(event) {
+        const index = parseInt(event.detail.index, 10);
+        if (Number.isNaN(index)) {
+            return;
+        }
+        const step = this.wizardStepData[index];
+        if (!step) {
+            return;
+        }
+        if (step.value !== this.currentStep) {
+            this.currentStep = step.value;
             this._onStepChanged();
+        }
+    }
+
+    handleWizardStepBlur(event) {
+        const stepIndex = event.detail.index;
+        // Optional: react when a step loses focus (see progress-step docs).
+        if (stepIndex === undefined || stepIndex === null) {
+            return;
         }
     }
 
     _onStepChanged() {
         this.maybeLoadOfferSummaries();
+        if (this.currentStepKey === 'copy') {
+            this.fetchCopyVariantsForStep3();
+        }
         // Refresh Model Definitions when entering Scoring so dictionary edits are visible.
-        if (this.currentStep === 4) {
+        if (this.currentStepKey === 'scoring') {
             this.loadScoringModels();
+            if (this.scoringConfigurationMethod === 'apriori') {
+                this.loadAprioriContextFromState();
+            }
         }
     }
 
@@ -1341,6 +2046,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             let isAllowed = false;
             if (this.isEmergency) {
                 isAllowed = Number(tierNumber) === 1;
+            } else if (Number(tierNumber) === 1) {
+                // Tier 1 is reserved for emergency One-Off campaigns only.
+                isAllowed = false;
             } else if (activationType) {
                 // Empty Supported_Campaign_Types means the tier was not scoped — treat as available.
                 isAllowed = supported.length === 0 || supported.some(s => s === activationType);
@@ -1390,32 +2098,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         return this._allTiers.find(t => this.tierLabel(t) === this.selectedPriorityTier) || null;
     }
 
-    get showSuppressionSection() {
+    get showExclusionsSection() {
         const tier = this.selectedTierRecord;
         return !!(tier && tier.Excl_Manual_Suppressions__c);
-    }
-
-    get suppressionTypeOptions() {
-        return [
-            {
-                label: 'Salesforce Campaign',
-                value: 'campaign',
-                inputId: 'suppression-type-campaign',
-                isChecked: this.suppressionType === 'campaign'
-            },
-            {
-                label: 'Salesforce Report',
-                value: 'report',
-                inputId: 'suppression-type-report',
-                isChecked: this.suppressionType === 'report'
-            },
-            {
-                label: 'Data360 Segment',
-                value: 'segment',
-                inputId: 'suppression-type-segment',
-                isChecked: this.suppressionType === 'segment'
-            }
-        ];
     }
 
     get activationOptions() {
@@ -1464,7 +2149,16 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get activateButtonLabel() {
-        return 'Activate';
+        return 'Activate Campaign';
+    }
+
+    /** Campaign Name for persistence; draft save may auto-generate when empty. */
+    _resolveCampaignBaseNameForSave() {
+        const trimmed = (this.campaignName || '').trim();
+        if (trimmed) {
+            return trimmed;
+        }
+        return `Draft${Date.now()}`;
     }
 
     get offeringTypeOptions() {
@@ -1500,16 +2194,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         return this.isEditMode ? 'Edit Campaign' : `${prefix}{YourCampaignName}`;
     }
 
-    get isCurrentStepInvalid() {
-        switch (this.currentStep) {
-            case 1: return !this.isStep1Valid;
-            case 2: return !this.isStep2Valid;
-            case 3: return !this.isStep3Valid;
-            case 4: return !this.isStep4Valid;
-            case 5: return false;
-            default: return false;
-        }
-    }
 
     get filteredMatchingOffers() {
         const q = (this.offerSearchTerm || '').toLowerCase();
@@ -1675,8 +2359,234 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         this._offerFetchTimer = setTimeout(() => this.fetchMatchingOffers(), 300);
     }
 
+    // --- STEP 3: COPY ASSIGNMENT LOGIC ---
+
+    _iconForChannelType(channelType) {
+        const selected = this.channels.find(
+            c => c.checked && !c.disabled && c.channelType === channelType
+        );
+        if (selected && selected.icon) {
+            return selected.icon;
+        }
+        return this.channelIconByType[channelType] || 'utility:connected_apps';
+    }
+
+    get copyChannelTabs() {
+        return this.selectedChannelTypes.map(type => {
+            const isActive = this.activeCopyChannelValue === type;
+            const selectedCount = this.copyVariantData.filter(
+                v => v.channel === type && this.selectedCopyVariantIds.includes(v.id)
+            ).length;
+            return {
+                label: type,
+                value: type,
+                selectedCount: selectedCount > 0 ? selectedCount : null,
+                cssClass: `slds-vertical-tabs__nav-item ${isActive ? 'slds-is-active' : ''}`,
+                icon: this._iconForChannelType(type)
+            };
+        });
+    }
+
+    get activeCopyChannelLabel() {
+        return this.activeCopyChannelValue || '';
+    }
+
+    get activeChannelSelectedCopyCount() {
+        return this.copyVariantData.filter(
+            v => v.channel === this.activeCopyChannelValue && this.selectedCopyVariantIds.includes(v.id)
+        ).length;
+    }
+
+    get activeChannelCopyVariants() {
+        const channel = this.activeCopyChannelValue;
+        const channelVariants = this.copyVariantData.filter(v => v.channel === channel);
+        const selectedInChannel = channelVariants.filter(v => this.selectedCopyVariantIds.includes(v.id));
+        const selectedWeightSum = selectedInChannel.reduce(
+            (sum, v) => sum + (v.weightNumeric ?? 0),
+            0
+        );
+        const selectedCount = selectedInChannel.length;
+
+        return channelVariants.map(v => {
+            const selected = this.selectedCopyVariantIds.includes(v.id);
+            const normalizedWeight = selected
+                ? formatNormalizedWeightPercent(v.weightNumeric ?? 0, selectedWeightSum, selectedCount)
+                : '—';
+            return {
+                ...v,
+                selected,
+                normalizedWeight,
+                rowClass: selected ? 'slds-hint-parent offer-row-selected' : 'slds-hint-parent',
+                toggleIcon: selected ? 'utility:check' : 'utility:add',
+                toggleTitle: selected ? 'Remove variant' : 'Add variant',
+                toggleAssistive: selected ? `Remove ${v.messageName}` : `Add ${v.messageName}`,
+                statusClass: copyStatusBadgeClass(v.status)
+            };
+        });
+    }
+
+    handleCopyVariantPreview(event) {
+        const variantId = event.currentTarget.dataset.id;
+        if (!variantId) {
+            return;
+        }
+        const variant = this.copyVariantData.find(v => v.id === variantId);
+        const messageType = variant?.messageType || variant?.channel || '';
+        const pageRef = {
+            type: 'standard__navItemPage',
+            attributes: { apiName: 'Copy_Cockpit_Editor' },
+            state: {
+                c__RecordID: variantId,
+                c__MessageType: messageType
+            }
+        };
+        this[NavigationMixin.GenerateUrl](pageRef)
+            .then(url => {
+                const opened = window.open(url, '_blank', 'noopener,noreferrer');
+                if (!opened) {
+                    this[NavigationMixin.Navigate](pageRef);
+                }
+            })
+            .catch(() => {
+                this[NavigationMixin.Navigate](pageRef);
+            });
+    }
+
+    handleCopyChannelSelect(event) {
+        this.activeCopyChannelValue = event.currentTarget.dataset.value;
+    }
+
+    handleCopyVariantToggle(event) {
+        const variantId = event.currentTarget.dataset.id;
+        if (this.selectedCopyVariantIds.includes(variantId)) {
+            this.selectedCopyVariantIds = this.selectedCopyVariantIds.filter(id => id !== variantId);
+        } else {
+            this.selectedCopyVariantIds = [...this.selectedCopyVariantIds, variantId];
+        }
+    }
+
+    // Hook this into `_onStepChanged()` in your JS so it queries when Step 3 opens:
+    _ensureActiveCopyChannel() {
+        const channelTypes = this.selectedChannelTypes;
+        if (channelTypes.length === 0) {
+            this.activeCopyChannelValue = '';
+            return;
+        }
+        const stillValid = channelTypes.includes(this.activeCopyChannelValue);
+        if (!stillValid) {
+            this.activeCopyChannelValue = channelTypes[0];
+        }
+    }
+
+    fetchCopyVariantsForStep3() {
+        this._ensureActiveCopyChannel();
+        const channelTypes = this.selectedChannelTypes;
+        const productFamilyNames = this.productFamilyOptions.filter(o => o.checked).map(o => o.name);
+        const offerIds = this.selectedOfferIds || [];
+
+        if (channelTypes.length === 0 || (productFamilyNames.length === 0 && offerIds.length === 0)) {
+            this.copyVariantData = [];
+            this.isLoadingCopy = false;
+            return;
+        }
+
+        this.isLoadingCopy = true;
+        getPublishedVariantsForWizard({ channelTypes, productFamilyNames, offerIds })
+            .then(rows => {
+                this.copyVariantData = (rows || []).map(row => {
+                    const messageName = wizardMessageNameFromRow(row);
+                    const variantNumber = wizardMessageVariantFromRow(row);
+                    const messageType = wizardMessageTypeFromRow(row);
+                    return {
+                        id: row.Id,
+                        channel: row.Channel_Type__c,
+                        name: row.Name,
+                        messageName,
+                        messageType,
+                        variantNumber,
+                        weight: formatVariantWeight(
+                            row.Display_Probability_Manual__c,
+                            row.Display_Probability__c
+                        ),
+                        weightNumeric: variantWeightNumeric(
+                            row.Display_Probability_Manual__c,
+                            row.Display_Probability__c
+                        ),
+                        language: row.Language__c || '—',
+                        status: row.Status__c
+                    };
+                });
+                const validIds = new Set(this.copyVariantData.map(v => v.id));
+                const pending = this.editSavedCopyVariantIds || [];
+                const restored = pending.filter(id => validIds.has(id));
+                const kept = this.selectedCopyVariantIds.filter(id => validIds.has(id));
+                this.selectedCopyVariantIds = [...new Set([...restored, ...kept])];
+                if (this.editSavedCopyVariantIds) {
+                    this.editSavedCopyVariantIds = null;
+                }
+            })
+            .catch(() => {
+                this.copyVariantData = [];
+                this.dispatchEvent(
+                    new ShowToastEvent({
+                        title: 'Copy Assignment',
+                        message: 'Could not load published message variants.',
+                        variant: 'error'
+                    })
+                );
+            })
+            .finally(() => {
+                this.isLoadingCopy = false;
+            });
+    }
+
+    get summaryCopyAssignment() {
+        const channelTypes = this.selectedChannelTypes;
+        if (!this.selectedCopyVariantIds.length) {
+            return 'None selected';
+        }
+        const parts = channelTypes.map(type => {
+            const count = this.copyVariantData.filter(
+                v => v.channel === type && this.selectedCopyVariantIds.includes(v.id)
+            ).length;
+            return `${type}: ${count}`;
+        });
+        return parts.join('; ');
+    }
+
+    get summaryActiveFrom() {
+        return this.formatSummaryDateTime(this.activeFrom);
+    }
+
+    get summaryActiveTo() {
+        return this.formatSummaryDateTime(this.activeTo);
+    }
+
+    get summaryCampaignDuration() {
+        if (!this.isAlwaysOnActivation) {
+            return '—';
+        }
+        return this.campaignDurationDays || '—';
+    }
+
+    formatSummaryDateTime(value) {
+        if (!value) {
+            return '—';
+        }
+        const d = new Date(value);
+        if (Number.isNaN(d.getTime())) {
+            return value;
+        }
+        return d.toLocaleString('en-GB', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+
     handleSaveDraft() {
-        if (this.isDraftSaveInvalid) return;
         this.isLoading = true;
         this.executeSubCampaignSave({ activate: false });
     }
@@ -1696,10 +2606,10 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         const fields = {};
         const num = (v) => v === '' || v === null || v === undefined ? null : Number(v);
 
-        fields['Name'] = `${this.activationPrefix}${this.toCamelCase(this.campaignName)}`;
-        fields['StartDate'] = this.campaignFrom || null;
-        fields['EndDate'] = this.campaignTo || null;
+        const baseName = this._resolveCampaignBaseNameForSave();
+        fields['Name'] = `${this.activationPrefix}${this.toCamelCase(baseName)}`;
         fields['Type'] = 'Standard';
+        // Org picklist uses Planned for draft campaigns (no separate Draft value).
         fields['Status'] = activate ? 'Active' : 'Planned';
         fields['IsActive'] = activate === true;
         fields['Campaign_Group_Dict__c'] = this.showCampaignGroup ? (this.selectedCampaignGroupId || null) : null;
@@ -1709,12 +2619,31 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         fields['Topic_Name__c'] = this.topicName || null;
         fields['Priority_Tier__c'] = this.selectedPriorityTier || null;
         fields['Activation_Type__c'] = this.parentActivationType || null;
-        fields['Exclude_Onboarding__c'] = this.excludeOnboarding;
-        fields['Scoring_Method__c'] = 'Pick a Model';
+        fields['Active_From__c'] = this.activeFrom || null;
+        fields['Active_To__c'] = this.activeTo || null;
+        fields['Duration_Days__c'] = this.isAlwaysOnActivation
+            ? num(this.campaignDurationDays)
+            : null;
+        this._applyExclusionsToSaveFields(fields);
         fields['Offering_Type__c'] = this.selectedOfferingType || null;
-        fields['Overall_Score__c'] = null;
-        fields['Fallback_Score__c'] = num(this.fromObjectOverallScore);
-        fields['Scoring_Model_Dict__c'] = this.selectedScoringModelId || null;
+        if (this.isScoringStepRequired) {
+            if (this.scoringConfigurationMethod === 'apriori') {
+                fields['Scoring_Method__c'] = 'A-priori';
+                fields['Overall_Score__c'] = num(this.aprioriScore);
+                fields['Fallback_Score__c'] = null;
+                fields['Scoring_Model_Dict__c'] = null;
+            } else {
+                fields['Scoring_Method__c'] = 'Pick a Model';
+                fields['Overall_Score__c'] = null;
+                fields['Fallback_Score__c'] = null;
+                fields['Scoring_Model_Dict__c'] = this.selectedScoringModelId || null;
+            }
+        } else {
+            fields['Scoring_Method__c'] = null;
+            fields['Overall_Score__c'] = null;
+            fields['Fallback_Score__c'] = null;
+            fields['Scoring_Model_Dict__c'] = null;
+        }
 
         fields['Assigned_Channels__c'] = this.channels.filter(c => c.checked).map(c => c.label).join('; ');
 
@@ -1735,13 +2664,15 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
         const successMessage = activate
             ? 'Campaign activated successfully.'
-            : 'Campaign saved as draft (Planned).';
+            : 'Campaign saved as draft.';
 
         if (this.isEditMode) {
             fields['Id'] = this.recordId;
             const recordInput = { fields };
             updateRecord(recordInput)
                 .then(() => this.persistCampaignOffers(this.recordId))
+                .then(() => this.persistCampaignCopyVariants(this.recordId))
+                .then(() => this.persistAprioriScoresIfNeeded(this.recordId))
                 .then(() => {
                     this.isLoading = false;
                     this.dispatchEvent(new ShowToastEvent({ title: 'Success!', message: successMessage, variant: 'success' }));
@@ -1753,7 +2684,10 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 });
         } else {
             createRecord({ apiName: 'Campaign', fields })
-                .then(camp => this.persistCampaignOffers(camp.id).then(() => camp.id))
+                .then(camp => this.persistCampaignOffers(camp.id)
+                    .then(() => this.persistCampaignCopyVariants(camp.id))
+                    .then(() => this.persistAprioriScoresIfNeeded(camp.id))
+                    .then(() => camp.id))
                 .then(campId => {
                     this.isLoading = false;
                     this.dispatchEvent(new ShowToastEvent({ title: 'Success!', message: successMessage, variant: 'success' }));
@@ -1771,6 +2705,33 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             ? this.selectedOfferIds
             : [];
         return saveCampaignOffers({ campaignId, offerIds });
+    }
+
+    persistCampaignCopyVariants(campaignId) {
+        return saveCampaignCopyVariants({
+            campaignId,
+            messageVariantIds: this.selectedCopyVariantIds || []
+        });
+    }
+
+    persistAprioriScoresIfNeeded(campaignId) {
+        if (!this.isScoringStepRequired || this.scoringConfigurationMethod !== 'apriori') {
+            return Promise.resolve();
+        }
+        if (!this.aprioriContextReady || this.aprioriHasMixedSharedScores) {
+            return Promise.resolve();
+        }
+        if (!this.isValidScoreValue(this.aprioriScore)) {
+            return Promise.resolve();
+        }
+        const campaignName = `${this.activationPrefix}${this.toCamelCase(this._resolveCampaignBaseNameForSave())}`;
+        return publishAprioriScores({
+            topicId: this.selectedTopicId,
+            productFamilyIds: this.aprioriProductFamilyIds,
+            score: this.aprioriScore,
+            campaignId,
+            campaignName
+        });
     }
 
     navigateToRecord(recordId) {
