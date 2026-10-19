@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Excl_Other_Marketing_Activations__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>When enabled, campaigns on this tier may exclude clients who received other marketing activations.</description>
+    <label>Other Marketing Activations</label>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>

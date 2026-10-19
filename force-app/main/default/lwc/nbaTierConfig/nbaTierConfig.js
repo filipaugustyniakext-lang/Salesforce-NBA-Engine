@@ -49,9 +49,10 @@ export const TIER_ATTR_FIELDS = [
     }
 ];
 
-/** Only Manual Suppressions remains as a tier exclusion setting. */
+/** Tier-level allowed exclusion types (Campaign Dictionary → Tiers). */
 export const TIER_EXCL_FIELDS = [
-    { field: 'Excl_Manual_Suppressions__c', label: 'Manual Suppressions' }
+    { field: 'Excl_Other_Marketing_Activations__c', label: 'Other Marketing Activations' },
+    { field: 'Excl_Manual_Suppressions__c', label: 'Manual Exclusions' }
 ];
 
 export const TIER_ATTR_BADGE_CLASS = {
@@ -84,7 +85,7 @@ export function buildTierExclusionChips(tier) {
     if (!tier) return [];
     return TIER_EXCL_FIELDS
         .filter(ef => !!tier[ef.field])
-        .map(ef => ef.label.replace(/^Exclude\s+/i, ''));
+        .map(ef => ef.label);
 }
 
 export function buildTierTypeChips(tier) {

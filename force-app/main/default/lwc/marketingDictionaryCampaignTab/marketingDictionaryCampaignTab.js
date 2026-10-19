@@ -46,6 +46,7 @@ const EMPTY_TIER             = () => ({
     Override_Random_Activation_Path__c: '', Honor_Marketing_Consents__c: '',
     Includes_Control_Group__c: '', Honors_Channel_Cooldowns__c: '',
     Honors_Product_Eligibility__c: '', Allows_Random_Copy_Assignment__c: '',
+    Excl_Other_Marketing_Activations__c: false,
     Excl_Manual_Suppressions__c: false
 });
 const EMPTY_SCORING = () => ({

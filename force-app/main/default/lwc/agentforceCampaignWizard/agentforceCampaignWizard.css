@@ -721,6 +721,14 @@
     width: 100%;
 }
 
+/* ~7 compact tier rows visible; scroll for additional tiers */
+.priority-tier-scroll {
+    max-height: calc(7 * 2.625rem + 6 * 0.5rem);
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 0.15rem;
+}
+
 .priority-tier-picker-control .slds-visual-picker_vertical {
     display: block;
     position: relative;
@@ -732,13 +740,18 @@
     width: 100%;
 }
 
-.priority-tier-picker-control .slds-visual-picker__figure {
+.priority-tier-picker-control .tier-picker-compact .slds-visual-picker__figure {
     width: 100%;
-    min-height: 4.5rem;
+    min-height: 2.25rem;
     height: auto;
-    padding: 0.75rem 1rem 2rem;
+    padding: 0.45rem 6.5rem 0.45rem 0.65rem;
     justify-content: flex-start;
     text-align: left;
+}
+
+.priority-tier-picker-control .tier-picker-expanded .slds-visual-picker__figure {
+    min-height: 2.25rem;
+    padding-bottom: 0.65rem;
 }
 
 .tier-picker-content {
@@ -748,25 +761,64 @@
     width: 100%;
 }
 
-.tier-details-toggle {
+.tier-picker-inline {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    width: 100%;
+    min-width: 0;
+}
+
+.tier-picker-inline-name {
+    flex-shrink: 0;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: #181818;
+}
+
+.tier-picker-inline-desc {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.8125rem;
+    line-height: 1.35;
+    color: #706e6b;
+}
+
+.tier-learn-more-btn {
     position: absolute;
-    right: 0.5rem;
-    bottom: 0.5rem;
+    right: 0.35rem;
+    top: 50%;
+    transform: translateY(-50%);
     z-index: 6;
     background: #ffffff;
     border: 1px solid #dddbda;
     border-radius: 0.25rem;
-    width: 1.75rem;
-    height: 1.75rem;
+    min-height: 1.65rem;
+    padding: 0 0.35rem 0 0.5rem;
     display: inline-flex;
     align-items: center;
-    justify-content: center;
+    gap: 0.15rem;
+    color: #0176d3;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1;
 }
 
-.tier-details-toggle:hover,
-.tier-details-toggle:focus {
+.tier-learn-more-btn:hover,
+.tier-learn-more-btn:focus {
     background: #f3f3f3;
     border-color: #0176d3;
+}
+
+.tier-learn-more-label {
+    white-space: nowrap;
+}
+
+.tier-learn-more-icon {
+    flex-shrink: 0;
 }
 
 .tier-picker-description {
@@ -774,6 +826,10 @@
     white-space: normal;
     line-height: 1.35;
     color: #706e6b;
+}
+
+.tier-picker-description-full {
+    white-space: normal;
 }
 
 .tier-picker-details {

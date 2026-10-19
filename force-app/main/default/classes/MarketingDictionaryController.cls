@@ -43,7 +43,9 @@ public with sharing class MarketingDictionaryController {
                    Assigned_Channels__c,
                    Product_Family__c, Product_Family_Ids__c,
                    Family_of_Needs__c, Family_of_Needs_Ids__c,
-                   Exclude_Onboarding__c
+                   Exclude_Onboarding__c, Exclude_Other_Marketing_Activations__c,
+                   Campaign_Exclusions_JSON__c,
+                   Suppression_Campaign__c, Suppression_Report_Id__c, Suppression_Segment__c
             FROM Campaign
             WHERE Id = :campaignId
             LIMIT 1
@@ -279,6 +281,7 @@ public with sharing class MarketingDictionaryController {
                    Override_Random_Activation_Path__c, Honor_Marketing_Consents__c,
                    Includes_Control_Group__c, Honors_Channel_Cooldowns__c,
                    Honors_Product_Eligibility__c, Allows_Random_Copy_Assignment__c,
+                   Excl_Other_Marketing_Activations__c,
                    Excl_Manual_Suppressions__c, Excl_Deceased__c, Excl_AML_Fraud__c,
                    Excl_Debt_Collection__c, Excl_Overdue__c, Excl_KYC_Risk__c,
                    Excl_Bailiff_Seizure__c, Excl_Restricted_Client__c, Excl_Personal_Bankruptcy__c

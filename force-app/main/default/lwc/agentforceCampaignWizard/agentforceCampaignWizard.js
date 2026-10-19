@@ -178,8 +178,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     // --- DYNAMIC CAMPAIGN TYPES ---
     @track _allCampaignTypes = [];
 
-    // --- EXCLUSION DEFINITIONS (when tier has Excl_Manual_Suppressions__c) ---
+    // --- EXCLUSIONS (tier-gated: manual definitions + other marketing activations) ---
     @track exclusionDefinitions = [];
+    @track excludeOtherMarketingActivations = false;
     @track dmoOptions = [];
     _dmoOptionsLoadAttempted = false;
     _exclusionSearchTimers = {};
@@ -324,10 +325,19 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             });
     }
 
+    _tierRecordForLabel(tierLabel) {
+        if (!tierLabel) return null;
+        return this._allTiers.find(t => this.tierLabel(t) === tierLabel) || null;
+    }
+
     _tierAllowsManualExclusions(tierLabel) {
-        if (!tierLabel) return false;
-        const tier = this._allTiers.find(t => this.tierLabel(t) === tierLabel);
+        const tier = this._tierRecordForLabel(tierLabel);
         return !!(tier && tier.Excl_Manual_Suppressions__c);
+    }
+
+    _tierAllowsOtherMarketingActivations(tierLabel) {
+        const tier = this._tierRecordForLabel(tierLabel);
+        return !!(tier && tier.Excl_Other_Marketing_Activations__c);
     }
 
     _hydrateExclusionsFromCampaign(campaign) {
@@ -385,6 +395,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         if (this.exclusionDefinitions.some(row => row.source === 'dmo')) {
             this.loadDmoOptionsIfNeeded();
         }
+        this.excludeOtherMarketingActivations = !!campaign.Exclude_Other_Marketing_Activations__c;
     }
 
     _serializeExclusionDefinitions() {
@@ -417,6 +428,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         if (segment) {
             fields['Suppression_Segment__c'] = segment.value;
         }
+        fields['Exclude_Other_Marketing_Activations__c'] = this.showOtherMarketingActivationsOption
+            ? this.excludeOtherMarketingActivations === true
+            : false;
     }
 
     loadScoringModels() {
@@ -1185,8 +1199,15 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             if (!this._tierAllowsManualExclusions(newTier)) {
                 this.exclusionDefinitions = [];
             }
+            if (!this._tierAllowsOtherMarketingActivations(newTier)) {
+                this.excludeOtherMarketingActivations = false;
+            }
             this._syncWizardStepAfterTierChange(stepKey);
         }
+    }
+
+    handleOtherMarketingActivationsChange(event) {
+        this.excludeOtherMarketingActivations = event.target.checked;
     }
 
     handleTierDetailsToggle(event) {
@@ -1589,12 +1610,18 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get summaryExclusionsLabel() {
+        const parts = [];
+        if (this.showOtherMarketingActivationsOption && this.excludeOtherMarketingActivations) {
+            parts.push('Other Marketing Activations');
+        }
         const defs = this._serializeExclusionDefinitions();
-        if (!defs.length) return '';
-        return defs.map(d => {
-            const sourceLabel = EXCLUSION_SOURCE_OPTIONS.find(o => o.value === d.source)?.label || d.source;
-            return `${sourceLabel}: ${d.display || d.value}`;
-        }).join('; ');
+        if (defs.length) {
+            parts.push(...defs.map(d => {
+                const sourceLabel = EXCLUSION_SOURCE_OPTIONS.find(o => o.value === d.source)?.label || d.source;
+                return `${sourceLabel}: ${d.display || d.value}`;
+            }));
+        }
+        return parts.join('; ');
     }
 
     get summaryAprioriScore() {
@@ -2117,8 +2144,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             const exclusionChips = buildTierExclusionChips(tier);
             const hasDetails = attrRows.length > 0 || typeChips.length > 0 || exclusionChips.length > 0;
             const description = tier.Description__c || '';
+            const showLearnMore = !!description || hasDetails;
 
-            let pickerClass = 'slds-visual-picker slds-visual-picker_vertical';
+            let pickerClass = 'slds-visual-picker slds-visual-picker_vertical tier-picker-compact';
             if (!isAllowed) {
                 pickerClass += ' tier-picker-disabled';
             }
@@ -2139,7 +2167,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 hasDetails,
                 isDetailsExpanded,
                 detailsChevron: isDetailsExpanded ? 'utility:chevrondown' : 'utility:chevronright',
-                detailsToggleTitle: isDetailsExpanded ? 'Hide tier settings' : 'Show tier settings',
+                detailsToggleTitle: isDetailsExpanded ? 'Show less tier detail' : 'Learn more about this tier',
+                learnMoreLabel: isDetailsExpanded ? 'Show less' : 'Learn more',
+                showLearnMore,
                 pickerClass,
                 isDisabled: !isAllowed,
                 isSelected
@@ -2153,8 +2183,17 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get showExclusionsSection() {
+        return this.showManualExclusionDefinitions || this.showOtherMarketingActivationsOption;
+    }
+
+    get showManualExclusionDefinitions() {
         const tier = this.selectedTierRecord;
         return !!(tier && tier.Excl_Manual_Suppressions__c);
+    }
+
+    get showOtherMarketingActivationsOption() {
+        const tier = this.selectedTierRecord;
+        return !!(tier && tier.Excl_Other_Marketing_Activations__c);
     }
 
     get activationOptions() {

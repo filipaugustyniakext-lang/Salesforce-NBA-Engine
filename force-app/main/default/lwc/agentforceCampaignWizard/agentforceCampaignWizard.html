@@ -159,7 +159,7 @@
                                                     Priority Tier
                                                     <abbr class="slds-required" title="required">*</abbr>
                                                 </legend>
-                                                <div class="slds-form-element__control priority-tier-picker-control">
+                                                <div class="slds-form-element__control priority-tier-picker-control priority-tier-scroll">
                                                     <template for:each={priorityTierOptions} for:item="tier">
                                                         <div key={tier.value} class={tier.pickerClass}>
                                                             <input type="radio"
@@ -172,11 +172,16 @@
                                                             <label for={tier.inputId}>
                                                                 <span class="slds-visual-picker__figure slds-visual-picker__text">
                                                                     <span class="tier-picker-content">
-                                                                        <span class="slds-text-heading_small">{tier.label}</span>
-                                                                        <template lwc:if={tier.description}>
-                                                                            <span class="slds-text-title tier-picker-description">{tier.description}</span>
-                                                                        </template>
+                                                                        <span class="tier-picker-inline">
+                                                                            <span class="tier-picker-inline-name">{tier.label}</span>
+                                                                            <template lwc:if={tier.description}>
+                                                                                <span class="tier-picker-inline-desc" title={tier.description}>{tier.description}</span>
+                                                                            </template>
+                                                                        </span>
                                                                         <template lwc:if={tier.isDetailsExpanded}>
+                                                                            <template lwc:if={tier.description}>
+                                                                                <span class="slds-text-title tier-picker-description tier-picker-description-full slds-m-top_xx-small">{tier.description}</span>
+                                                                            </template>
                                                                             <div class="tier-picker-details slds-m-top_x-small animate-fade-in">
                                                                                 <template lwc:if={tier.hasTypes}>
                                                                                     <div class="tier-badge-row slds-m-bottom_xx-small">
@@ -221,16 +226,18 @@
                                                                 </span>
                                                             </label>
                                                             <!-- Outside the label so it stays clickable when the option is selected -->
-                                                            <template lwc:if={tier.hasDetails}>
+                                                            <template lwc:if={tier.showLearnMore}>
                                                                 <button type="button"
-                                                                        class="slds-button slds-button_icon tier-details-toggle"
+                                                                        class="slds-button tier-learn-more-btn"
                                                                         data-value={tier.value}
                                                                         title={tier.detailsToggleTitle}
                                                                         aria-expanded={tier.isDetailsExpanded}
                                                                         onclick={handleTierDetailsToggle}>
+                                                                    <span class="tier-learn-more-label">{tier.learnMoreLabel}</span>
                                                                     <lightning-icon icon-name={tier.detailsChevron}
                                                                                     size="xx-small"
-                                                                                    alternative-text={tier.detailsToggleTitle}></lightning-icon>
+                                                                                    alternative-text=""
+                                                                                    class="tier-learn-more-icon"></lightning-icon>
                                                                 </button>
                                                             </template>
                                                         </div>
@@ -247,9 +254,19 @@
                                     <span class="module-header-title">Exclusions</span>
                                     <template lwc:if={showExclusionsSection}>
                                         <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small slds-m-bottom_small">
-                                            Define audience exclusions for this campaign tier.
+                                            Configure exclusions allowed for the selected priority tier.
                                         </p>
                                         <div class="exclusions-tile-body animate-fade-in">
+                                                    <template lwc:if={showOtherMarketingActivationsOption}>
+                                                        <lightning-input
+                                                            type="checkbox"
+                                                            label="Other Marketing Activations"
+                                                            checked={excludeOtherMarketingActivations}
+                                                            onchange={handleOtherMarketingActivationsChange}
+                                                            class="slds-m-bottom_small exclusion-other-marketing-checkbox">
+                                                        </lightning-input>
+                                                    </template>
+                                                    <template lwc:if={showManualExclusionDefinitions}>
                                                     <template for:each={exclusionDefinitionRows} for:item="row">
                                                         <div key={row.id} class="exclusion-definition-row slds-m-bottom_medium">
                                                             <lightning-combobox
@@ -345,11 +362,12 @@
                                                         onclick={handleAddExclusionDefinition}
                                                         class="slds-m-top_x-small">
                                                     </lightning-button>
+                                                    </template>
                                         </div>
                                     </template>
                                     <template lwc:else>
                                         <p class="slds-text-body_small slds-text-color_weak slds-m-top_medium exclusions-tile-empty">
-                                            Manual exclusion definitions apply when the selected priority tier supports them. Choose a tier with manual suppressions to configure exclusions here.
+                                            Exclusion options appear when the selected tier allows manual exclusions or other marketing activations in Campaign Dictionary → Tiers.
                                         </p>
                                     </template>
                                 </div>
