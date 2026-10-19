@@ -139,15 +139,30 @@ export function masterGroupKey(record) {
     return groupKeyFromName(record?.Name);
 }
 
+function parseVariantToken(raw) {
+    const text = String(raw ?? '').trim();
+    if (!text) return null;
+    const direct = Number(text);
+    if (!Number.isNaN(direct)) return direct;
+    const match = text.match(/\d+/);
+    if (!match) return null;
+    const parsed = Number(match[0]);
+    return Number.isNaN(parsed) ? null : parsed;
+}
+
 export function variantNumberFromRecord(record) {
     if (!record) return 0;
     if (record.MessageVariant__c != null && record.MessageVariant__c !== '') {
-        const fromMce = Number(record.MessageVariant__c);
-        if (!Number.isNaN(fromMce)) return fromMce;
+        const fromMce = parseVariantToken(record.MessageVariant__c);
+        if (fromMce != null) return fromMce;
+    }
+    if (record.Message_Variant__c != null && record.Message_Variant__c !== '') {
+        const fromLabel = parseVariantToken(record.Message_Variant__c);
+        if (fromLabel != null) return fromLabel;
     }
     if (record.Version__c != null && record.Version__c !== '') {
-        const fromVersion = Number(record.Version__c);
-        if (!Number.isNaN(fromVersion)) return fromVersion;
+        const fromVersion = parseVariantToken(record.Version__c);
+        if (fromVersion != null) return fromVersion;
     }
     const parsed = parseFullName(record.Name);
     return parsed.variant != null ? parsed.variant : 0;

@@ -381,7 +381,7 @@ public with sharing class CopyCockpitController {
             CC_Message_Metadata__c rec = new CC_Message_Metadata__c();
             rec.Name            = composed;
             rec.Version__c      = version;
-            rec.Message_Variant__c = 'Variant ' + String.valueOf(version.intValue());
+            rec.Message_Variant__c = String.valueOf(version.intValue());
             // Language is master-scoped — new variants inherit existing master's language.
             rec.Language__c     = masterLanguage != null ? masterLanguage : (String) data.get('language');
             rec.Channel__c      = (String) data.get('channelName');
@@ -518,7 +518,7 @@ public with sharing class CopyCockpitController {
             CC_Message_Metadata__c copy = src.clone(false, false, false, false);
             copy.Version__c = newVersion;
             copy.Name = stem + '_' + String.valueOf(newVersion.intValue());
-            copy.Message_Variant__c = 'Variant ' + String.valueOf(newVersion.intValue());
+            copy.Message_Variant__c = String.valueOf(newVersion.intValue());
             copy.MessageVariant__c = newVersion;
             copy.Status__c  = 'Draft';
             copy.Message_Variant_Id__c = null;
@@ -591,7 +591,7 @@ public with sharing class CopyCockpitController {
             if (v == null) v = 1;
             r.Name = newStem + '_' + String.valueOf(v.intValue());
             r.Version__c = v;
-            r.Message_Variant__c = 'Variant ' + String.valueOf(v.intValue());
+            r.Message_Variant__c = String.valueOf(v.intValue());
             r.Language__c = lang;
         }
         try {

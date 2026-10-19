@@ -336,7 +336,7 @@ function buildGroups(records, expandedSet, editingGroupName, selectedIds, versio
                 validFromFmt:       fmtDate(v.Valid_From__c),
                 validToFmt:         fmtDate(v.Valid_To__c),
                 campaignName:       v.Campaign__r?.Name || null,
-                versionLabel:       v.Message_Variant__c || (variantNum != null ? `Variant ${variantNum}` : '—'),
+                variantBadgeLabel:  variantNum > 0 ? String(variantNum) : '—',
                 weightPercent,
                 weightDisplayText:  weightPercent != null ? String(weightPercent) : '—',
                 weightIsEditing:    editingWeightId === v.Id,
@@ -771,7 +771,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             const master = group.displayName || group.messageName || '';
             maxChars = Math.max(maxChars, master.length + 4);
             (group.variants || []).forEach(variant => {
-                const variantLabel = `Variant ${variant.versionLabel || ''}`;
+                const variantLabel = variant.variantBadgeLabel || '';
                 const badgeLen = variant.sourceTemplateBadge ? variant.sourceTemplateBadge.length + 2 : 0;
                 maxChars = Math.max(maxChars, variantLabel.length + badgeLen + 6);
             });
@@ -1175,9 +1175,9 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             return 'Unknown message';
         }
         const name = record.MessageName__c || record.Name || 'Message';
-        const variantNum = record.Message_Variant__c || record.Version__c;
-        if (variantNum != null && variantNum !== '') {
-            return `${name} (variant ${variantNum})`;
+        const variantNum = variantNumberFromRecord(record);
+        if (variantNum > 0) {
+            return `${name} (#${variantNum})`;
         }
         return name;
     }
@@ -1634,8 +1634,10 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         const row = this._messageRecordById(id);
         this.deleteTargetId = id;
         this.deleteTargetName = row?.MessageName__c || row?.Name || e.currentTarget.dataset.name || 'Message';
-        this.deleteTargetVariantLabel = row?.Message_Variant__c
-            || (row?.Version__c != null ? String(row.Version__c) : e.currentTarget.dataset.version || '—');
+        const variantNum = row ? variantNumberFromRecord(row) : 0;
+        this.deleteTargetVariantLabel = variantNum > 0
+            ? String(variantNum)
+            : (e.currentTarget.dataset.version || '—');
         this.isDeleteModalOpen = true;
     }
 
