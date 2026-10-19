@@ -721,12 +721,15 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
             const iconByType = {};
             data.forEach(rec => {
+                if (rec.Is_Active__c !== true) {
+                    return;
+                }
                 const type = rec.Channel_Type__c || 'Other';
                 const icon = rec.Channel_Icon__c || 'utility:connected_apps';
                 if (!iconByType[type]) {
                     iconByType[type] = icon;
                 }
-                const disabled = rec.Is_Active__c === false;
+                const disabled = false;
                 if (!groupMap[type]) {
                     groupMap[type] = { type, icon, items: [] };
                 }
@@ -800,7 +803,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         const types = [];
         const seen = new Set();
         (records || []).forEach(rec => {
-            if (rec.Is_Active__c === false) return;
+            if (rec.Is_Active__c !== true) return;
             const type = (rec.Channel_Type__c || 'Other').trim() || 'Other';
             if (seen.has(type)) return;
             seen.add(type);
@@ -2427,9 +2430,10 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 label: type,
                 value: type,
                 enabled,
+                isActiveTab: isActive,
                 selectedCount: selectedCount > 0 ? selectedCount : null,
-                rowClass: `slds-vertical-tabs__nav-item copy-channel-tab-row-wrap${isActive ? ' slds-is-active' : ''}${enabled ? '' : ' copy-channel-tab-row-wrap_disabled'}`,
-                linkClass: `slds-vertical-tabs__link${enabled ? '' : ' copy-channel-tab-link_disabled'}`,
+                rowClass: `copy-channel-sidebar-row${isActive ? ' slds-is-active' : ''}${enabled ? '' : ' copy-channel-sidebar-row_disabled'}`,
+                linkClass: `slds-vertical-tabs__link copy-channel-tab-link${enabled ? '' : ' copy-channel-tab-link_disabled'}`,
                 icon: this._iconForChannelType(type)
             };
         });
@@ -2519,7 +2523,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     handleCopyChannelEnableToggle(event) {
         event.stopPropagation();
-        const type = event.target.dataset.value;
+        const type = event.currentTarget.dataset.value;
         if (!type) return;
         const enabled = event.target.checked;
         this.copyChannelEnabledByType = { ...this.copyChannelEnabledByType, [type]: enabled };

@@ -7,33 +7,34 @@
             </template>
 
             <header class="custom-modal-header">
-                <template lwc:if={isEditMode}>
-                    <span class="slds-badge slds-badge_inverse slds-m-right_small">Edit Mode</span>
-                </template>
-                <h2 class="slds-text-heading_medium">{modalTitle}</h2>
+                <div class="wizard-header-title-row">
+                    <template lwc:if={isEditMode}>
+                        <span class="slds-badge slds-badge_inverse wizard-edit-mode-badge">Edit Mode</span>
+                    </template>
+                    <h2 class="slds-text-heading_medium wizard-header-title">{modalTitle}</h2>
+                </div>
+                <!-- https://developer.salesforce.com/docs/platform/lightning-component-reference/guide/lightning-progress-step.html -->
+                <lightning-progress-indicator
+                    type="path"
+                    class="wizard-progress-indicator"
+                    current-step={wizardCurrentStepValue}
+                    aria-label="Campaign wizard progress">
+                    <template for:each={wizardSteps} for:item="step">
+                        <lightning-progress-step
+                            key={step.value}
+                            label={step.label}
+                            value={step.progressValue}
+                            onstepfocus={handleWizardStepFocus}
+                            onstepblur={handleWizardStepBlur}>
+                        </lightning-progress-step>
+                    </template>
+                </lightning-progress-indicator>
             </header>
 
             <div class="custom-modal-body">
 
                 <!-- STANDARD ACTIVATION CAMPAIGN WORKSPACE (MULTI-STEP) -->
-                    <!-- https://developer.salesforce.com/docs/platform/lightning-component-reference/guide/lightning-progress-step.html -->
-                    <lightning-progress-indicator
-                        type="path"
-                        class="wizard-progress-indicator"
-                        current-step={wizardCurrentStepValue}
-                        aria-label="Campaign wizard progress">
-                        <template for:each={wizardSteps} for:item="step">
-                            <lightning-progress-step
-                                key={step.value}
-                                label={step.label}
-                                value={step.progressValue}
-                                onstepfocus={handleWizardStepFocus}
-                                onstepblur={handleWizardStepBlur}>
-                            </lightning-progress-step>
-                        </template>
-                    </lightning-progress-indicator>
-
-                    <div class="properties-vertical-stack animate-fade-in slds-m-top_large">
+                    <div class="properties-vertical-stack animate-fade-in">
 
                         <!-- STEP 1: three-tile grid (Basic | Priority / Exclusions) -->
                         <template lwc:if={isStep1}>
@@ -674,23 +675,29 @@
 
                                         <div class="copy-assignment-layout slds-grid">
                                             <!-- Vertical Channel Tabs (all active dictionary channel types) -->
-                                            <div class="slds-col slds-size_1-of-6 slds-p-right_medium copy-tabs-sidebar">
-                                                <ul class="slds-vertical-tabs__nav" role="tablist" aria-orientation="vertical">
+                                            <div class="slds-col slds-size_1-of-6 copy-tabs-sidebar">
+                                                <div class="copy-channel-sidebar" role="tablist" aria-orientation="vertical">
                                                     <template for:each={copyChannelTabs} for:item="tab">
-                                                        <li key={tab.value} class={tab.rowClass} title={tab.label} role="presentation">
-                                                            <div class="copy-channel-tab-row">
-                                                                <a class={tab.linkClass} role="tab" data-value={tab.value} onclick={handleCopyChannelSelect}>
-                                                                    <span class="slds-vertical-tabs__left-icon">
-                                                                        <lightning-icon icon-name={tab.icon} size="x-small"></lightning-icon>
-                                                                    </span>
-                                                                    <span class="slds-truncate">{tab.label}</span>
-                                                                    <template lwc:if={tab.selectedCount}>
-                                                                        <span class="slds-badge slds-m-left_x-small cockpit-badge-ready">{tab.selectedCount}</span>
-                                                                    </template>
-                                                                </a>
+                                                        <div key={tab.value} class={tab.rowClass} title={tab.label}>
+                                                            <a class={tab.linkClass}
+                                                               role="tab"
+                                                               aria-selected={tab.isActiveTab}
+                                                               data-value={tab.value}
+                                                               onclick={handleCopyChannelSelect}>
+                                                                <span class="slds-vertical-tabs__left-icon">
+                                                                    <lightning-icon icon-name={tab.icon} size="x-small"></lightning-icon>
+                                                                </span>
+                                                                <span class="slds-truncate">{tab.label}</span>
+                                                                <template lwc:if={tab.selectedCount}>
+                                                                    <span class="slds-badge slds-m-left_x-small cockpit-badge-ready">{tab.selectedCount}</span>
+                                                                </template>
+                                                            </a>
+                                                            <div class="copy-channel-toggle-slot">
                                                                 <lightning-input
                                                                     type="toggle"
                                                                     variant="label-hidden"
+                                                                    message-toggle-active=""
+                                                                    message-toggle-inactive=""
                                                                     label={tab.label}
                                                                     checked={tab.enabled}
                                                                     data-value={tab.value}
@@ -699,9 +706,9 @@
                                                                     title="Enable channel for copy assignment">
                                                                 </lightning-input>
                                                             </div>
-                                                        </li>
+                                                        </div>
                                                     </template>
-                                                </ul>
+                                                </div>
                                             </div>
 
                                             <!-- List Builder Area -->
