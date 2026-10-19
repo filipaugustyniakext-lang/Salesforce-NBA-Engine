@@ -480,8 +480,10 @@
                         data-field="Define_Campaign_Groups__c" onchange={handleCampaignTypeCheckboxChange}
                         class="slds-m-top_small">
                     </lightning-input>
-                    <lightning-input label="Campaign Type Icon" placeholder="eg. utility:send" value={editCampaignType.Icon}
-                        data-field="Icon" onchange={handleCampaignTypeFieldChange}>
+                    <lightning-input label="Campaign Type Icon" placeholder="eg. utility:send"
+                        field-level-help="SLDS icon name shown in the Campaign Creation Wizard activation tiles."
+                        value={editCampaignType.Campaign_Type_Icon__c}
+                        data-field="Campaign_Type_Icon__c" onchange={handleCampaignTypeFieldChange}>
                     </lightning-input>
                 </div>
                 <div class="slds-modal__footer">

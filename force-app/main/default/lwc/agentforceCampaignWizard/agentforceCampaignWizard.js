@@ -134,13 +134,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     @track isFonSectionOpen = true;
 
 
-    // Static Asset Structs
-    activationData = [
-        { label: 'Always-on', value: 'Always-on', icon: 'utility:real_time' },
-        { label: 'One-Off', value: 'One-Off', icon: 'utility:send' },
-        { label: 'Triggered', value: 'Triggered', icon: 'utility:events' }
-    ];
-
     offeringTypesData = [
         { label: 'Product Family', value: 'Product Family' },
         { label: 'Family of Needs', value: 'Family of Needs' }
@@ -452,7 +445,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         this.parentActivationType = value;
         this.selectedCampaignGroupId = '';
         this.selectedCampaignGroupName = '';
-        if ((value || '').toLowerCase() !== 'one-off') {
+        if (!this.matchedCampaignType?.Include_In_Emergency__c) {
             this.isEmergency = false;
         }
         this.selectedPriorityTier = this.isEmergency ? this.tierLabelForNumber(1) : '';
@@ -1316,9 +1309,12 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get showEmergencyToggle() {
-        if (!this.parentActivationType) return false;
-        const type = this.parentActivationType.toLowerCase();
-        return type === 'one-off';
+        const ct = this.matchedCampaignType;
+        return !!(ct && ct.Include_In_Emergency__c);
+    }
+
+    get hasActivationTypeOptions() {
+        return (this._allCampaignTypes || []).length > 0;
     }
 
     get emergencyButtonClass() {
@@ -1423,11 +1419,16 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get activationOptions() {
-        return this.activationData.map(opt => {
-            const typeKey = opt.value.toLowerCase().replace(/[^a-z0-9]/g, '');
-            const selected = this.parentActivationType === opt.value;
+        return (this._allCampaignTypes || []).map(ct => {
+            const label = ct.Name || '';
+            const value = ct.Name || '';
+            const typeKey = value.toLowerCase().replace(/[^a-z0-9]/g, '') || 'type';
+            const selected = this.parentActivationType === value;
+            const icon = (ct.Campaign_Type_Icon__c || 'utility:campaign').trim();
             return {
-                ...opt,
+                label,
+                value,
+                icon,
                 btnClass: `slds-button activation-btn activation-btn--${typeKey}${selected ? ' activation-btn--selected' : ''}`,
                 iconClass: `activation-btn-icon activation-btn-icon--${typeKey}`
             };

@@ -83,19 +83,26 @@
                                                 Activation Type
                                                 <abbr class="slds-required" title="required">*</abbr>
                                             </label>
-                                            <div class="slds-button-group activation-type-group slds-m-top_xx-small" role="group" aria-label="Activation Type">
-                                                <template for:each={activationOptions} for:item="option">
-                                                    <button key={option.value}
-                                                            class={option.btnClass}
-                                                            data-value={option.value}
-                                                            onclick={handleSelectActivation}
-                                                            title={option.label}
-                                                            type="button">
-                                                        <lightning-icon icon-name={option.icon} size="small" class={option.iconClass}></lightning-icon>
-                                                        <span class="activation-btn-label">{option.label}</span>
-                                                    </button>
-                                                </template>
-                                            </div>
+                                            <template lwc:if={hasActivationTypeOptions}>
+                                                <div class="slds-button-group activation-type-group slds-m-top_xx-small" role="group" aria-label="Activation Type">
+                                                    <template for:each={activationOptions} for:item="option">
+                                                        <button key={option.value}
+                                                                class={option.btnClass}
+                                                                data-value={option.value}
+                                                                onclick={handleSelectActivation}
+                                                                title={option.label}
+                                                                type="button">
+                                                            <lightning-icon icon-name={option.icon} size="small" class={option.iconClass}></lightning-icon>
+                                                            <span class="activation-btn-label">{option.label}</span>
+                                                        </button>
+                                                    </template>
+                                                </div>
+                                            </template>
+                                            <template lwc:else>
+                                                <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">
+                                                    No active campaign types in Marketing Dictionary. Add types under Campaigns → Campaign Types.
+                                                </p>
+                                            </template>
                                         </div>
 
                                         <template lwc:if={showEmergencyToggle}>

@@ -24,7 +24,13 @@ import {
     buildTierTypeChips
 } from 'c/nbaTierConfig';
 
-const EMPTY_CAMPAIGN_TYPE    = () => ({ Name: '', Dictionary_Sub_Type__c: 'Campaign Type', Include_In_Emergency__c: false, Define_Campaign_Groups__c: false });
+const EMPTY_CAMPAIGN_TYPE    = () => ({
+    Name: '',
+    Dictionary_Sub_Type__c: 'Campaign Type',
+    Include_In_Emergency__c: false,
+    Define_Campaign_Groups__c: false,
+    Campaign_Type_Icon__c: ''
+});
 const EMPTY_CAMPAIGN_GROUP   = () => ({ Name: '', Dictionary_Sub_Type__c: 'Campaign Group', Campaign_Type_Dict__c: null });
 const EMPTY_TOPIC_GROUP      = () => ({ Name: '', Dictionary_Sub_Type__c: 'Topic Group' });
 const EMPTY_TOPIC            = () => ({ Name: '', Dictionary_Sub_Type__c: 'Topic', Topic_Group_Dict__c: null, Topic_Description__c: '' });

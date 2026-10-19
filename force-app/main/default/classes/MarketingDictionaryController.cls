@@ -244,7 +244,7 @@ public with sharing class MarketingDictionaryController {
     @AuraEnabled(cacheable=true)
     public static List<Marketing_Dictionary__c> getCampaignTypes() {
         return [
-            SELECT Id, Name, Channel_Icon__c, Include_In_Emergency__c, Define_Campaign_Groups__c,
+            SELECT Id, Name, Campaign_Type_Icon__c, Include_In_Emergency__c, Define_Campaign_Groups__c,
                    (SELECT Id, Name
                     FROM Campaign_Groups_by_Type__r
                     WHERE Dictionary_Sub_Type__c = 'Campaign Group'
