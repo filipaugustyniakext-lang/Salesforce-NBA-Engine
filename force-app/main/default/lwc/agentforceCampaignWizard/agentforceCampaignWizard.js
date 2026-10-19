@@ -2198,10 +2198,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             || 'No model definitions yet. Add them in Marketing Dictionary → Scoring → Model Definitions.';
     }
 
-    get saveButtonLabel() {
-        return 'Save & Close';
-    }
-
     get activateButtonLabel() {
         return 'Activate Campaign';
     }
@@ -2670,23 +2666,23 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         });
     }
 
-    handleSaveDraft() {
+    handleSave() {
         this.isLoading = true;
-        this.executeSubCampaignSave({ activate: false });
+        this.executeSubCampaignSave({ activate: false, closeOnSuccess: false });
+    }
+
+    handleSaveAndClose() {
+        this.isLoading = true;
+        this.executeSubCampaignSave({ activate: false, closeOnSuccess: true });
     }
 
     handleActivate() {
         if (!this.isActivationReady) return;
         this.isLoading = true;
-        this.executeSubCampaignSave({ activate: true });
+        this.executeSubCampaignSave({ activate: true, closeOnSuccess: true });
     }
 
-    /** @deprecated Prefer handleSaveDraft / handleActivate */
-    handleSave() {
-        this.handleSaveDraft();
-    }
-
-    executeSubCampaignSave({ activate = false } = {}) {
+    executeSubCampaignSave({ activate = false, closeOnSuccess = true } = {}) {
         const fields = {};
         const num = (v) => v === '' || v === null || v === undefined ? null : Number(v);
 
@@ -2751,7 +2747,18 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
         const successMessage = activate
             ? 'Campaign activated successfully.'
-            : 'Campaign saved as draft.';
+            : (closeOnSuccess ? 'Campaign saved as draft.' : 'Progress saved. You can continue in the wizard.');
+
+        const finishSuccess = (campId) => {
+            this.isLoading = false;
+            this.dispatchEvent(new ShowToastEvent({ title: 'Success!', message: successMessage, variant: 'success' }));
+            if (closeOnSuccess || activate) {
+                this.navigateToRecord(campId);
+            } else {
+                this.recordId = campId;
+                this.isEditMode = true;
+            }
+        };
 
         if (this.isEditMode) {
             fields['Id'] = this.recordId;
@@ -2760,11 +2767,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 .then(() => this.persistCampaignOffers(this.recordId))
                 .then(() => this.persistCampaignCopyVariants(this.recordId))
                 .then(() => this.persistAprioriScoresIfNeeded(this.recordId))
-                .then(() => {
-                    this.isLoading = false;
-                    this.dispatchEvent(new ShowToastEvent({ title: 'Success!', message: successMessage, variant: 'success' }));
-                    this.navigateToRecord(this.recordId);
-                })
+                .then(() => finishSuccess(this.recordId))
                 .catch(err => {
                     this.isLoading = false;
                     this.showErrorToast(err);
@@ -2775,11 +2778,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                     .then(() => this.persistCampaignCopyVariants(camp.id))
                     .then(() => this.persistAprioriScoresIfNeeded(camp.id))
                     .then(() => camp.id))
-                .then(campId => {
-                    this.isLoading = false;
-                    this.dispatchEvent(new ShowToastEvent({ title: 'Success!', message: successMessage, variant: 'success' }));
-                    this.navigateToRecord(campId);
-                })
+                .then(campId => finishSuccess(campId))
                 .catch(err => {
                     this.isLoading = false;
                     this.showErrorToast(err);

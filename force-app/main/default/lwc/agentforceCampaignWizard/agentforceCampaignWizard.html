@@ -1151,9 +1151,14 @@
                         <button class="pill-action-btn secondary-pill slds-m-right_small" onclick={handlePreviousStep}>Back</button>
                     </template>
                     <button class="pill-action-btn secondary-pill slds-m-right_small"
-                            onclick={handleSaveDraft}
-                            title="Save progress as a draft campaign. You can return and activate later.">
-                        {saveButtonLabel}
+                            onclick={handleSave}
+                            title="Save progress and keep working in the wizard.">
+                        Save
+                    </button>
+                    <button class="pill-action-btn secondary-pill slds-m-right_small"
+                            onclick={handleSaveAndClose}
+                            title="Save progress as a draft campaign and close the wizard.">
+                        Save &amp; Close
                     </button>
                     <template lwc:if={showNextButton}>
                         <button class="pill-action-btn primary-pill" onclick={handleNextStep}>Next</button>
