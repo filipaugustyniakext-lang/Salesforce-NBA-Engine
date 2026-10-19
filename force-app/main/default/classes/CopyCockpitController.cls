@@ -23,6 +23,7 @@ public with sharing class CopyCockpitController {
                    Scheduled_Status__c,
                    Scheduled_From_Status__c,
                    Scheduled_To_Status__c,
+                   MessageName__c,
                    Message_Variant_Id__c,
                    Message_Variant__c,
                    Published_At__c,
@@ -301,25 +302,23 @@ public with sharing class CopyCockpitController {
     }
 
     @AuraEnabled
-    public static Id cloneMessage(Id sourceId, Decimal newVersion) {
+    public static Id cloneMessage(Id sourceId, Decimal newVersion, String masterStem) {
         try {
             if (newVersion == null || newVersion < 1) {
                 throw new AuraHandledException('A valid variant number is required.');
             }
             CC_Message_Metadata__c src = [
-                SELECT Name, Channel__c, Channel_Type__c,
+                SELECT Name, MessageName__c, Channel__c, Channel_Type__c,
                        Subject__c, Body__c, Language__c,
                        Source_Template__c, Canvas_Blocks_JSON__c,
                        Offer__c, Product_Family__c, Campaign__c,
-                       Valid_From__c, Valid_To__c, Version__c
+                       Valid_From__c, Valid_To__c, Version__c,
+                       Message_Variant__c
                 FROM CC_Message_Metadata__c
                 WHERE Id = :sourceId
                 LIMIT 1
             ];
-            String stem = stripVariantSuffix(src.Name);
-            if (String.isBlank(stem)) {
-                stem = src.Name;
-            }
+            String stem = resolveMasterStem(src, masterStem);
             List<CC_Message_Metadata__c> existing = queryByStem(stem, src.Channel_Type__c);
             for (CC_Message_Metadata__c r : existing) {
                 Decimal v = resolveVariantNumber(r.Name, r.Version__c, stem);
@@ -335,6 +334,19 @@ public with sharing class CopyCockpitController {
             copy.Name = stem + '_' + String.valueOf(newVersion.intValue());
             copy.Message_Variant__c = 'Variant ' + String.valueOf(newVersion.intValue());
             copy.Status__c  = 'Draft';
+            copy.Message_Variant_Id__c = null;
+            copy.MessageVariantId__c = null;
+            String masterMessageName = src.MessageName__c;
+            for (CC_Message_Metadata__c sibling : existing) {
+                if (String.isNotBlank(sibling.MessageName__c)) {
+                    masterMessageName = sibling.MessageName__c;
+                    break;
+                }
+            }
+            if (String.isBlank(masterMessageName)) {
+                masterMessageName = stem;
+            }
+            copy.MessageName__c = masterMessageName;
             insert copy;
             return copy.Id;
         } catch (AuraHandledException e) {
@@ -479,6 +491,37 @@ public with sharing class CopyCockpitController {
         return p;
     }
 
+    private static String resolveMasterStem(CC_Message_Metadata__c src, String masterStem) {
+        if (String.isNotBlank(masterStem)) {
+            return masterStem.trim();
+        }
+        if (src == null) {
+            return '';
+        }
+        String stem = stripVariantSuffix(src.Name);
+        if (String.isNotBlank(stem) && !looksLikeExternalMessageId(stem)) {
+            return stem;
+        }
+        if (String.isNotBlank(src.MessageName__c)) {
+            return src.MessageName__c.trim();
+        }
+        return String.isNotBlank(stem) ? stem : src.Name;
+    }
+
+    private static Boolean looksLikeExternalMessageId(String value) {
+        if (String.isBlank(value)) {
+            return false;
+        }
+        String v = value.trim();
+        if (v.length() == 36 && v.contains('-')) {
+            return true;
+        }
+        if (v.length() == 32 && v.replaceAll('[0-9a-fA-F]', '').length() == 0) {
+            return true;
+        }
+        return false;
+    }
+
     private static String stripVariantSuffix(String fullName) {
         if (String.isBlank(fullName)) return fullName;
         List<String> parts = fullName.split('_');
@@ -506,14 +549,18 @@ public with sharing class CopyCockpitController {
         }
         String likePattern = stem + '_%';
         List<CC_Message_Metadata__c> candidates = [
-            SELECT Id, Name, Version__c, Language__c
+            SELECT Id, Name, Version__c, Language__c, MessageName__c
             FROM CC_Message_Metadata__c
             WHERE Channel_Type__c = :channelType
-              AND (Name = :stem OR Name LIKE :likePattern)
+              AND (Name = :stem OR Name LIKE :likePattern OR MessageName__c = :stem)
             LIMIT 500
         ];
         List<CC_Message_Metadata__c> matched = new List<CC_Message_Metadata__c>();
         for (CC_Message_Metadata__c r : candidates) {
+            if (r.MessageName__c != null && r.MessageName__c.trim() == stem.trim()) {
+                matched.add(r);
+                continue;
+            }
             if (r.Name == stem) {
                 matched.add(r);
                 continue;

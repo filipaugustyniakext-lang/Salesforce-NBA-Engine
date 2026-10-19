@@ -128,6 +128,39 @@ export function groupKeyFromName(fullName) {
     return parsed.stem || fullName || '(unnamed)';
 }
 
+/** MCE / legacy rows may store a UUID in Name while MessageName__c holds the master label. */
+export function isLikelyExternalMessageId(name) {
+    const s = String(name || '').trim();
+    if (!s) return false;
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)
+        || /^[0-9a-f]{32}$/i.test(s);
+}
+
+/**
+ * Stable master-message key for Copy Cockpit grouping (one row per master, many variants).
+ */
+export function groupKeyFromRecord(row) {
+    if (!row) return '(unnamed)';
+    const name = String(row.Name || '').trim();
+    if (name) {
+        const parsed = parseFullName(name);
+        if (parsed.variant != null && parsed.stem) {
+            return parsed.stem;
+        }
+        if (name === parsed.stem || nameBelongsToStem(name, parsed.stem)) {
+            return parsed.stem;
+        }
+        if (!isLikelyExternalMessageId(name) && parsed.stem) {
+            return parsed.stem;
+        }
+    }
+    const messageName = String(row.MessageName__c || '').trim();
+    if (messageName) {
+        return messageName;
+    }
+    return groupKeyFromName(name);
+}
+
 export function nameBelongsToStem(fullName, stem) {
     if (!stem) return false;
     const name = String(fullName || '');

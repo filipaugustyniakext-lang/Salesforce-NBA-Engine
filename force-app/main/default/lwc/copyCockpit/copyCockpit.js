@@ -17,6 +17,7 @@ import {
     channelPrefixForType,
     composeStem,
     groupKeyFromName,
+    groupKeyFromRecord,
     nameBelongsToStem,
     nextAvailableVariant,
     parseFullName
@@ -125,7 +126,7 @@ function buildScheduleBadge(record) {
 function buildGroups(records, expandedSet, editingGroupName, selectedIds, versionCounts) {
     const map = new Map();
     for (const r of records) {
-        const key = groupKeyFromName(r.Name);
+        const key = groupKeyFromRecord(r);
         if (!map.has(key)) map.set(key, []);
         map.get(key).push(r);
     }
@@ -235,6 +236,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     @track isCloneModalOpen = false;
     @track isCloning = false;
     cloneSourceId = null;
+    cloneMasterStem = '';
     @track cloneSourceName = '';
     @track cloneProposedVersion = null;
 
@@ -402,7 +404,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     }
 
     get cloneProposedName() {
-        const stem = groupKeyFromName(this.cloneSourceName);
+        const stem = this.cloneMasterStem || groupKeyFromName(this.cloneSourceName);
         const v = this.cloneProposedVersion;
         return stem && v != null ? `${stem}_${v}` : (this.cloneSourceName || '');
     }
@@ -509,7 +511,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         const stem = e.target.dataset.name;
         const checked = e.target.checked;
         const groupIds = this._messages
-            .filter(m => nameBelongsToStem(m.Name, stem) || groupKeyFromName(m.Name) === stem)
+            .filter(m => groupKeyFromRecord(m) === stem)
             .map(m => m.Id);
         const next = new Set(this._selectedIds);
         if (checked) {
@@ -672,7 +674,13 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         e.stopPropagation();
         this.cloneSourceId = e.currentTarget.dataset.id;
         this.cloneSourceName = e.currentTarget.dataset.name;
-        this.cloneProposedVersion = this._nextVersionForName(this.cloneSourceName);
+        this.cloneMasterStem = e.currentTarget.dataset.stem || '';
+        const stemForVersion = this.cloneMasterStem || groupKeyFromRecord({
+            Name: this.cloneSourceName,
+            MessageName__c: e.currentTarget.dataset.messageName,
+            Channel_Type__c: this.activeChannel?.Channel_Type__c
+        });
+        this.cloneProposedVersion = this._nextVersionForName(stemForVersion);
         this.isCloneModalOpen = true;
     }
 
@@ -728,7 +736,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         e.stopPropagation();
         const stem = e.currentTarget.dataset.name;
         const groupRecords = this._messages.filter(
-            m => nameBelongsToStem(m.Name, stem) || groupKeyFromName(m.Name) === stem
+            m => groupKeyFromRecord(m) === stem
         );
         const first = groupRecords[0] || {};
         const familySource = groupRecords.find(m => m.Product_Family__c) || first;
@@ -1002,9 +1010,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     // ── private ────────────────────────────────────────────────────────────
 
     _messagesForStem(stem) {
-        return this._messages.filter(
-            m => nameBelongsToStem(m.Name, stem) || groupKeyFromName(m.Name) === stem
-        );
+        return this._messages.filter(m => groupKeyFromRecord(m) === stem);
     }
 
     _nextVersionForName(fullOrStemName) {
@@ -1021,7 +1027,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         const newVersion = this.cloneProposedVersion;
         const name       = this.cloneProposedName;
         this.isCloning = true;
-        cloneMessage({ sourceId, newVersion })
+        cloneMessage({ sourceId, newVersion, masterStem: this.cloneMasterStem || null })
             .then(newId => {
                 this._showToast('Copy created', `"${name}" saved as draft.`, 'success');
                 this._loadMessages(this.activeChannel?.Channel_Type__c);
@@ -1039,6 +1045,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         this.isCloneModalOpen = false;
         this.isCloning = false;
         this.cloneSourceId = null;
+        this.cloneMasterStem = '';
         this.cloneSourceName = '';
         this.cloneProposedVersion = null;
     }
