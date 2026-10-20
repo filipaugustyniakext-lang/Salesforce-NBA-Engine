@@ -65,13 +65,19 @@ public with sharing class MarketingCloudCopyDelete {
                 null
             );
         } catch (Exception ex) {
+            String detail = ex.getStackTraceString();
+            if (ex.getMessage() != null && ex.getMessage().contains('Unauthorized endpoint')) {
+                detail = 'Add Remote Site Settings for https://{subdomain}.soap.marketingcloudapis.com '
+                    + '(see MarketingCloudSoap). '
+                    + detail;
+            }
             MceDeleteLogService.logFailure(
                 source,
                 variantIds,
                 ex.getMessage(),
-                ex.getStackTraceString()
+                detail
             );
-            System.debug(LoggingLevel.WARN, 'MCE variant delete failed: ' + ex.getMessage());
+            System.debug(LoggingLevel.ERROR, 'MCE variant delete failed: ' + ex.getMessage());
         }
     }
 

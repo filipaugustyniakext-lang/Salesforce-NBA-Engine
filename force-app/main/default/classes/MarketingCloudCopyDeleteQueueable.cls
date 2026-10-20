@@ -8,6 +8,15 @@ public class MarketingCloudCopyDeleteQueueable implements Queueable, Database.Al
     }
 
     public void execute(QueueableContext context) {
+        if (messageVariantIds.isEmpty()) {
+            MceDeleteLogService.logFailure(
+                MceDeleteLogService.SOURCE_SOAP_QUEUEABLE,
+                messageVariantIds,
+                'Queueable started with no message variant ids.',
+                'JobId=' + context.getJobId()
+            );
+            return;
+        }
         MarketingCloudCopyDelete.deleteVariantsFromMce(messageVariantIds);
     }
 }
