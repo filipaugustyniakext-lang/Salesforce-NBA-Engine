@@ -39,12 +39,14 @@
                         onclick={handleOpenFonSettings}
                         class="slds-m-right_x-small">
                     </lightning-button-icon>
-                    <lightning-button label="Bulk edit" variant="neutral" size="small"
-                        onclick={handleOpenBulkEdit} disabled={bulkActionsDisabled} class="slds-m-right_x-small">
-                    </lightning-button>
-                    <lightning-button label="Delete selected" variant="destructive-text" size="small"
-                        onclick={handleBulkDeleteRequest} disabled={bulkActionsDisabled} class="slds-m-right_small">
-                    </lightning-button>
+                    <template lwc:if={hasPfSelection}>
+                        <lightning-button label="Edit" variant="neutral" size="small"
+                            onclick={handleOpenBulkEdit} class="slds-m-right_x-small">
+                        </lightning-button>
+                        <lightning-button label="Delete" variant="destructive-text" size="small"
+                            onclick={handleBulkDeleteRequest} class="slds-m-right_small">
+                        </lightning-button>
+                    </template>
                     <lightning-button label="Add" icon-name="utility:add" variant="brand"
                         data-subtype="Product Family" onclick={handleNewRecord}>
                     </lightning-button>
