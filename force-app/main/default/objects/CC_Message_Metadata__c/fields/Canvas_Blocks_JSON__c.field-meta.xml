@@ -4,6 +4,8 @@
     <description>Editor content-block values used to fill the source template preview.</description>
     <label>Canvas Blocks JSON</label>
     <length>131072</length>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
     <trackTrending>false</trackTrending>
     <type>LongTextArea</type>
     <visibleLines>3</visibleLines>

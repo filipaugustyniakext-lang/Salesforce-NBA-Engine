@@ -6,7 +6,6 @@
     <inlineHelpText>Link this message to a campaign (optional).</inlineHelpText>
     <label>Campaign</label>
     <referenceTo>Campaign</referenceTo>
-    <relationshipLabel>CC Message Metadata</relationshipLabel>
     <relationshipName>CC_Message_Metadata</relationshipName>
     <required>false</required>
     <trackFeedHistory>false</trackFeedHistory>

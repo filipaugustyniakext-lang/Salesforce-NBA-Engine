@@ -2,6 +2,7 @@
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Account_Id__c</fullName>
     <description>Marketing Cloud business unit MID sent as account_id.</description>
+    <externalId>false</externalId>
     <fieldManageability>DeveloperControlled</fieldManageability>
     <label>Account Id</label>
     <length>20</length>

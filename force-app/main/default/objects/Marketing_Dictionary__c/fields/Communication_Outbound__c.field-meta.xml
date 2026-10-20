@@ -4,6 +4,7 @@
     <defaultValue>false</defaultValue>
     <description>When checked, this channel supports outbound (marketer-initiated) communication.</description>
     <label>Outbound</label>
+    <trackHistory>false</trackHistory>
     <trackTrending>false</trackTrending>
     <type>Checkbox</type>
 </CustomField>

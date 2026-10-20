@@ -5,6 +5,8 @@
 # Salesforce cache
 .sf/
 .sfdx/
+.org-sync/
+.org-snapshot-backup-*/
 .localdevserver/
 deploy-options.json
 

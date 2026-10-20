@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Template_Classification__c</fullName>
+    <description>Commercial vs transactional classification suffix in the template name.</description>
+    <label>Template Classification</label>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Commercial</fullName>
+                <default>true</default>
+                <label>Commercial</label>
+            </value>
+            <value>
+                <fullName>Transactional</fullName>
+                <default>false</default>
+                <label>Transactional</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

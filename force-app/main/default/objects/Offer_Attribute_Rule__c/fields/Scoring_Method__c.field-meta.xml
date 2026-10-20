@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Scoring_Method__c</fullName>
+    <description>How this attribute contributes to attractiveness for the family. Categorical uses picklist scores. Min Max normalizes against the family reference minimum and maximum. Rate and amount methods use the score bands.</description>
+    <label>Scoring Method</label>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Categorical</fullName>
+                <default>false</default>
+                <label>Categorical</label>
+            </value>
+            <value>
+                <fullName>Min Max</fullName>
+                <default>false</default>
+                <label>Min Max</label>
+            </value>
+            <value>
+                <fullName>Loan Rate Gap</fullName>
+                <default>false</default>
+                <label>Loan Rate Gap</label>
+            </value>
+            <value>
+                <fullName>Deposit Rate Gap</fullName>
+                <default>false</default>
+                <label>Deposit Rate Gap</label>
+            </value>
+            <value>
+                <fullName>Amount Buckets</fullName>
+                <default>false</default>
+                <label>Amount Buckets</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

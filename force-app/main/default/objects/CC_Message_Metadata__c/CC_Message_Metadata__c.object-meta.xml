@@ -154,14 +154,14 @@
     <enableSharing>true</enableSharing>
     <enableStreamingApi>true</enableStreamingApi>
     <externalSharingModel>Private</externalSharingModel>
-    <label>CC Message Metadata</label>
+    <label>CC_Message_Metadata</label>
     <nameField>
         <label>Message Name</label>
         <trackFeedHistory>false</trackFeedHistory>
         <trackHistory>false</trackHistory>
         <type>Text</type>
     </nameField>
-    <pluralLabel>CC Message Metadata</pluralLabel>
+    <pluralLabel>CC_Message_Metadata</pluralLabel>
     <searchLayouts>
         <searchResultsAdditionalFields>MessageVariantId__c</searchResultsAdditionalFields>
         <searchResultsAdditionalFields>CurrentMessageVariantVersionId__c</searchResultsAdditionalFields>

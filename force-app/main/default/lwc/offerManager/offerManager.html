@@ -87,13 +87,21 @@
                                 <lightning-icon icon-name="utility:warning" size="medium" variant="warning"></lightning-icon>
                             </div>
                             <h3 class="confirm-dialog-title">Date Overlap Detected</h3>
-                            <p class="confirm-dialog-body">
-                                A version is currently <strong>Active</strong> with validity <strong>{overlapCurrentValidFrom}</strong> to <strong>{overlapCurrentValidTo}</strong>, which overlaps with your selected <strong>Valid From: {validFrom}</strong>.<br/><br/>
-                                Is the <strong>Valid From</strong> date a mistake, or do you intentionally want to overwrite the active version? If you confirm, the active version's <strong>Valid To</strong> will automatically be set to one day before your new Valid From.
-                            </p>
+                            <template lwc:if={isActiveValidToOverlap}>
+                                <p class="confirm-dialog-body">
+                                    The new <strong>Valid To ({validTo})</strong> overlaps the scheduled version <strong>{overlapScheduledName}</strong> (<strong>{overlapCurrentValidFrom}</strong> – <strong>{overlapCurrentValidTo}</strong>).<br/><br/>
+                                    If you confirm, that version will start the day after the new Valid To, and <strong>Scheduled for Deactivation</strong> will use the new Valid To.
+                                </p>
+                            </template>
+                            <template lwc:else>
+                                <p class="confirm-dialog-body">
+                                    A version is currently <strong>Active</strong> with validity <strong>{overlapCurrentValidFrom}</strong> to <strong>{overlapCurrentValidTo}</strong>, which overlaps with your selected <strong>Valid From: {validFrom}</strong>.<br/><br/>
+                                    Is the <strong>Valid From</strong> date a mistake, or do you intentionally want to overwrite the active version? If you confirm, the active version's <strong>Valid To</strong> will automatically be set to one day before your new Valid From.
+                                </p>
+                            </template>
                             <div class="confirm-dialog-actions">
                                 <button class="pill-action-btn secondary-pill" onclick={handleOverlapCancel}>Go Back (fix date)</button>
-                                <button class="pill-action-btn warning-pill" onclick={handleOverlapConfirmAndContinue}>Overwrite — Continue</button>
+                                <button class="pill-action-btn warning-pill" onclick={handleOverlapConfirmAndContinue}>{overlapConfirmLabel}</button>
                             </div>
                         </div>
                     </div>
@@ -685,9 +693,15 @@
                         <button class="pill-action-btn primary-pill" onclick={handleNextStep}>Next</button>
                     </template>
                     <template lwc:if={isLastStep}>
-                        <button class="pill-action-btn secondary-pill slds-m-right_small" onclick={handleSaveDraft}>Save as Draft</button>
-                        <button class="pill-action-btn secondary-pill slds-m-right_small" onclick={handleSaveAsReady}>Save as Ready</button>
-                        <button class="pill-action-btn primary-pill" onclick={handleSaveAndActivate}>Save and Activate</button>
+                        <template lwc:if={canSaveAsDraft}>
+                            <button class="pill-action-btn secondary-pill slds-m-right_small" onclick={handleSaveDraft}>Save as Draft</button>
+                        </template>
+                        <template lwc:if={canSaveAsReady}>
+                            <button class="pill-action-btn secondary-pill slds-m-right_small" onclick={handleSaveAsReady}>Save as Ready</button>
+                        </template>
+                        <template lwc:if={canSaveAndActivate}>
+                            <button class="pill-action-btn primary-pill" onclick={handleSaveAndActivate}>Save and Activate</button>
+                        </template>
                     </template>
                 </div>
             </footer>

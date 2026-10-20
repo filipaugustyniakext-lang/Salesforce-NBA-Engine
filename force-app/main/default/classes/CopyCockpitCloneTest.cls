@@ -9,7 +9,7 @@ private class CopyCockpitCloneTest {
             Channel_Type__c = 'Banner',
             Channel__c = 'Banner',
             Version__c = 1,
-            Message_Variant__c = '1',
+            Message_Variant__c = 'Variant 1',
             Status__c = 'Draft'
         );
         insert source;
@@ -27,7 +27,7 @@ private class CopyCockpitCloneTest {
         System.assertEquals('BAN_PL_TEST_2', clone.Name);
         System.assertEquals('BAN_PL_TEST', clone.MessageName__c);
         System.assertEquals(2, clone.Version__c.intValue());
-        System.assertEquals('2', clone.Message_Variant__c);
+        System.assertEquals('Variant 2', clone.Message_Variant__c);
         System.assertEquals(null, clone.Message_Variant_Id__c);
         System.assertEquals(null, clone.MessageVariantId__c);
     }

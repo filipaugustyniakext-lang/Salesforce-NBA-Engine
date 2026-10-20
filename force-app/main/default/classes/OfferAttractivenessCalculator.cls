@@ -96,13 +96,24 @@ public with sharing class OfferAttractivenessCalculator {
     }
 
     public static Decimal calculate(String family, Map<String, Object> data) {
-        if (family == null || !WEIGHTS.containsKey(family) || data == null) {
+        if (family == null || data == null) {
             return null;
         }
-        Map<String, Decimal> weights = WEIGHTS.get(family);
-        FamilyRef ref = REFERENCE.get(family);
-        Boolean isDepositLike = family.startsWith('Term Deposit') || family.startsWith('Saving Account');
+        Decimal parameterized = scoreFromDictionary(family, data);
+        if (parameterized != null) {
+            return parameterized;
+        }
+        FamilyConfig fromDictionary = dictionaryConfig(family);
+        if (fromDictionary != null) {
+            return score(fromDictionary.weights, fromDictionary.ref, fromDictionary.depositLike, data);
+        }
+        if (!WEIGHTS.containsKey(family)) {
+            return null;
+        }
+        return score(WEIGHTS.get(family), REFERENCE.get(family), isDepositFamily(family), data);
+    }
 
+    private static Decimal score(Map<String, Decimal> weights, FamilyRef ref, Boolean isDepositLike, Map<String, Object> data) {
         Decimal total = 0;
         for (String field : weights.keySet()) {
             Decimal sub = subScore(field, data.get(field), ref, isDepositLike);
@@ -112,6 +123,241 @@ public with sharing class OfferAttractivenessCalculator {
             total += weights.get(field) * sub;
         }
         return total.setScale(6, System.RoundingMode.HALF_UP);
+    }
+
+    private static Boolean isDepositFamily(String family) {
+        return family.startsWith('Term Deposit') || family.startsWith('Saving Account');
+    }
+
+    /**
+     * Scores from the Marketing Dictionary when every non-test rule on the family
+     * has a scoring method and the weights sum to 1. Returns null when that
+     * setup is missing, so the built-in table remains the fallback.
+     */
+    private static Decimal scoreFromDictionary(String family, Map<String, Object> data) {
+        List<Offer_Attribute_Rule__c> rules = [
+            SELECT Attractiveness_Weight__c, Scoring_Method__c, Picklist_Power_Values__c,
+                   Offer_Attribute__r.Parameter_API_Name__c,
+                   Reference_Value__r.Reference_Value__c, Reference_Value__r.Value_Type__c
+            FROM Offer_Attribute_Rule__c
+            WHERE Impacts_Attractiveness__c = true
+              AND Product_Family__r.Name = :family
+              AND (NOT Offer_Attribute__r.Name LIKE '(TEST)%')
+        ];
+        if (rules.isEmpty()) return null;
+
+        Decimal sum = 0;
+        Set<Id> ruleIds = new Set<Id>();
+        for (Offer_Attribute_Rule__c rule : rules) {
+            if (String.isBlank(rule.Scoring_Method__c) || rule.Attractiveness_Weight__c == null
+                    || rule.Offer_Attribute__r == null || String.isBlank(rule.Offer_Attribute__r.Parameter_API_Name__c)) {
+                return null;
+            }
+            sum += rule.Attractiveness_Weight__c;
+            ruleIds.add(rule.Id);
+        }
+        if (sum.setScale(4, System.RoundingMode.HALF_UP) != 1) return null;
+
+        Map<Id, List<Offer_Attractiveness_Score_Band__c>> bandsByRule = new Map<Id, List<Offer_Attractiveness_Score_Band__c>>();
+        for (Offer_Attractiveness_Score_Band__c band : [
+            SELECT Rule__c, Value_Key__c, Lower_Bound__c, Upper_Bound__c, Lower_Inclusive__c, Upper_Inclusive__c, Score__c
+            FROM Offer_Attractiveness_Score_Band__c
+            WHERE Rule__c IN :ruleIds AND Is_Active__c = true
+            ORDER BY Sort_Order__c ASC NULLS LAST
+        ]) {
+            if (!bandsByRule.containsKey(band.Rule__c)) bandsByRule.put(band.Rule__c, new List<Offer_Attractiveness_Score_Band__c>());
+            bandsByRule.get(band.Rule__c).add(band);
+        }
+
+        Map<String, Decimal> refs = new Map<String, Decimal>();
+        for (Offer_Reference_Value__c ref : [
+            SELECT Name, Reference_Value__c FROM Offer_Reference_Value__c
+            WHERE Product_Family__r.Name = :family
+              AND (NOT Name LIKE '(TEST)%')
+              AND Reference_Value__c != null
+        ]) {
+            if (!refs.containsKey(ref.Name)) refs.put(ref.Name, ref.Reference_Value__c);
+        }
+
+        Decimal total = 0;
+        for (Offer_Attribute_Rule__c rule : rules) {
+            String field = rule.Offer_Attribute__r.Parameter_API_Name__c;
+            Decimal sub = parameterScore(rule, data.get(field), bandsByRule.get(rule.Id), refs);
+            total += rule.Attractiveness_Weight__c * sub;
+        }
+        return total.setScale(6, System.RoundingMode.HALF_UP);
+    }
+
+    private static Decimal parameterScore(Offer_Attribute_Rule__c rule, Object raw, List<Offer_Attractiveness_Score_Band__c> bands, Map<String, Decimal> refs) {
+        String method = rule.Scoring_Method__c;
+        if (method == 'Categorical') {
+            String key = toStr(raw);
+            if (key == null) return 0;
+            if (bands != null) {
+                for (Offer_Attractiveness_Score_Band__c band : bands) {
+                    if (band.Value_Key__c == key && band.Score__c != null) return band.Score__c;
+                }
+            }
+            if (String.isBlank(rule.Picklist_Power_Values__c)) return 0;
+            Map<String, Object> powers = (Map<String, Object>) JSON.deserializeUntyped(rule.Picklist_Power_Values__c);
+            if (powers == null || !powers.containsKey(key) || powers.get(key) == null) return 0;
+            return Decimal.valueOf(String.valueOf(powers.get(key)));
+        }
+        Decimal value = toDecimal(raw);
+        if (value == null) return 0;
+        if (method == 'Min Max') {
+            Decimal lo = refs.get('Minimal Amount');
+            Decimal hi = refs.get('Maximum Amount');
+            if (rule.Offer_Attribute__r.Parameter_API_Name__c == 'Maximum_Tenure__c') {
+                lo = refs.containsKey('Minimal Tenure') ? refs.get('Minimal Tenure') : 0;
+                hi = refs.get('Maximum Tenure');
+            }
+            return minMax(value, lo, hi);
+        }
+        if (method == 'Loan Rate Gap' || method == 'Deposit Rate Gap') {
+            Decimal reference = rule.Reference_Value__r != null && rule.Reference_Value__r.Value_Type__c == 'Percent'
+                ? rule.Reference_Value__r.Reference_Value__c : refs.get('Nominal Interest Rate');
+            if (reference == null) return 0;
+            Decimal gap = method == 'Deposit Rate Gap' ? (value - reference) : (reference - value);
+            return matchBand(gap, bands);
+        }
+        if (method == 'Amount Buckets') return matchBand(value, bands);
+        return 0;
+    }
+
+    private static Decimal matchBand(Decimal value, List<Offer_Attractiveness_Score_Band__c> bands) {
+        if (value == null || bands == null) return 0;
+        for (Offer_Attractiveness_Score_Band__c band : bands) {
+            Boolean above = band.Lower_Bound__c == null || (band.Lower_Inclusive__c == true ? value >= band.Lower_Bound__c : value > band.Lower_Bound__c);
+            Boolean below = band.Upper_Bound__c == null || (band.Upper_Inclusive__c == true ? value <= band.Upper_Bound__c : value < band.Upper_Bound__c);
+            if (above && below && band.Score__c != null) return band.Score__c;
+        }
+        return 0;
+    }
+
+    /**
+     * A dictionary config is usable only when every scored rule is a known
+     * parameter and the weights sum to 1. Partial or test rows stay on the
+     * built-in table so an unfinished family cannot change live scores.
+     */
+    private static FamilyConfig dictionaryConfig(String family) {
+        List<Offer_Attribute_Rule__c> rules = [
+            SELECT Attractiveness_Weight__c,
+                   Offer_Attribute__r.Parameter_API_Name__c,
+                   Reference_Value__r.Value_Type__c,
+                   Reference_Value__r.Reference_Value__c,
+                   Reference_Value__r.Range_Key__c,
+                   Reference_Value__r.Range_Bound__c
+            FROM Offer_Attribute_Rule__c
+            WHERE Impacts_Attractiveness__c = true
+              AND Product_Family__r.Name = :family
+        ];
+        if (rules.isEmpty()) {
+            return null;
+        }
+
+        Map<String, Decimal> weights = new Map<String, Decimal>();
+        Map<String, Offer_Reference_Value__c> refByField = new Map<String, Offer_Reference_Value__c>();
+        Set<String> rangeKeys = new Set<String>();
+        Decimal sum = 0;
+        for (Offer_Attribute_Rule__c rule : rules) {
+            String field = rule.Offer_Attribute__r == null ? null : rule.Offer_Attribute__r.Parameter_API_Name__c;
+            if (String.isBlank(field) || !isScorableField(field) || rule.Attractiveness_Weight__c == null || weights.containsKey(field)) {
+                return null;
+            }
+            weights.put(field, rule.Attractiveness_Weight__c);
+            sum += rule.Attractiveness_Weight__c;
+            if (rule.Reference_Value__r != null) {
+                refByField.put(field, rule.Reference_Value__r);
+                if (rule.Reference_Value__r.Value_Type__c == 'Range' && String.isNotBlank(rule.Reference_Value__r.Range_Key__c)) {
+                    rangeKeys.add(rule.Reference_Value__r.Range_Key__c);
+                }
+            }
+        }
+        if (sum.setScale(4, System.RoundingMode.HALF_UP) != 1) {
+            return null;
+        }
+
+        FamilyRef base = REFERENCE.containsKey(family) ? REFERENCE.get(family) : new FamilyRef(null, null, null, null, null);
+        FamilyRef ref = new FamilyRef(base.amountMin, base.amountMax, base.tenureMin, base.tenureMax, base.refRate);
+        applyDictionaryRefs(ref, refByField, rangeBounds(rangeKeys));
+
+        FamilyConfig cfg = new FamilyConfig();
+        cfg.weights = weights;
+        cfg.ref = ref;
+        cfg.depositLike = isDepositFamily(family);
+        return cfg;
+    }
+
+    private class FamilyConfig {
+        Map<String, Decimal> weights;
+        FamilyRef ref;
+        Boolean depositLike;
+    }
+
+    private static Boolean isScorableField(String field) {
+        return field == 'Earlier_Repayment_Fee__c'
+            || field == 'Interest_Type__c'
+            || field == 'Sales_Process__c'
+            || field == 'Grace_Period_Days__c'
+            || field == 'Additional_VAS__c'
+            || field == 'NO_Fees_Conditions_Simplicity__c'
+            || field == 'Own_Input_Percentage__c'
+            || field == 'Nominal_Interest_Rate__c'
+            || field == 'Maximum_Amount__c'
+            || field == 'Maximum_Tenure__c'
+            || field == 'Maximum_Promotional_Amount__c';
+    }
+
+    private class RangePair {
+        Decimal min;
+        Decimal max;
+    }
+
+    private static Map<String, RangePair> rangeBounds(Set<String> rangeKeys) {
+        Map<String, RangePair> pairs = new Map<String, RangePair>();
+        if (rangeKeys.isEmpty()) {
+            return pairs;
+        }
+        for (Offer_Reference_Value__c bound : [
+            SELECT Range_Key__c, Range_Bound__c, Reference_Value__c
+            FROM Offer_Reference_Value__c
+            WHERE Range_Key__c IN :rangeKeys
+        ]) {
+            if (!pairs.containsKey(bound.Range_Key__c)) {
+                pairs.put(bound.Range_Key__c, new RangePair());
+            }
+            RangePair pair = pairs.get(bound.Range_Key__c);
+            if (bound.Range_Bound__c == 'Min') pair.min = bound.Reference_Value__c;
+            if (bound.Range_Bound__c == 'Max') pair.max = bound.Reference_Value__c;
+        }
+        return pairs;
+    }
+
+    private static void applyDictionaryRefs(FamilyRef ref, Map<String, Offer_Reference_Value__c> refByField, Map<String, RangePair> pairs) {
+        Offer_Reference_Value__c rate = refByField.get('Nominal_Interest_Rate__c');
+        if (rate != null && rate.Value_Type__c == 'Percent' && rate.Reference_Value__c != null) {
+            ref.refRate = rate.Reference_Value__c;
+        }
+        applyRange(ref, refByField.get('Maximum_Amount__c'), pairs, true);
+        applyRange(ref, refByField.get('Maximum_Tenure__c'), pairs, false);
+    }
+
+    private static void applyRange(FamilyRef ref, Offer_Reference_Value__c source, Map<String, RangePair> pairs, Boolean amount) {
+        if (source == null || source.Value_Type__c != 'Range' || String.isBlank(source.Range_Key__c)) {
+            return;
+        }
+        RangePair pair = pairs.get(source.Range_Key__c);
+        if (pair == null || pair.min == null || pair.max == null || pair.max <= pair.min) {
+            return;
+        }
+        if (amount) {
+            ref.amountMin = pair.min;
+            ref.amountMax = pair.max;
+        } else {
+            ref.tenureMin = pair.min;
+            ref.tenureMax = pair.max;
+        }
     }
 
     private static Decimal subScore(String field, Object raw, FamilyRef ref, Boolean isDepositLike) {

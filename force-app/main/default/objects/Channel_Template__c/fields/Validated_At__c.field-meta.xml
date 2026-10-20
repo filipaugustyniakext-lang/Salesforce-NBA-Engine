@@ -4,7 +4,6 @@
     <description>Date and time of the latest package validation.</description>
     <label>Validated At</label>
     <required>false</required>
-    <trackHistory>false</trackHistory>
     <trackTrending>false</trackTrending>
     <type>DateTime</type>
 </CustomField>

@@ -4,6 +4,7 @@
     <defaultValue>false</defaultValue>
     <description>When checked, this channel supports inbound (customer-initiated) communication.</description>
     <label>Inbound</label>
+    <trackHistory>false</trackHistory>
     <trackTrending>false</trackTrending>
     <type>Checkbox</type>
 </CustomField>

@@ -5,6 +5,7 @@
     <inlineHelpText>Select which channels should pause marketing communications on this blackout date. Leave intrusive channels selected and omit softer ones (e.g. banners) when they may stay live.</inlineHelpText>
     <label>Assigned Channels</label>
     <length>4000</length>
+    <trackTrending>false</trackTrending>
     <type>LongTextArea</type>
     <visibleLines>3</visibleLines>
 </CustomField>

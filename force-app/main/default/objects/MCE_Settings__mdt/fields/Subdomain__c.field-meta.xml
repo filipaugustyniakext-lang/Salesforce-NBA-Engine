@@ -2,6 +2,7 @@
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Subdomain__c</fullName>
     <description>Marketing Cloud subdomain, the host prefix before .auth.marketingcloudapis.com.</description>
+    <externalId>false</externalId>
     <fieldManageability>DeveloperControlled</fieldManageability>
     <label>Subdomain</label>
     <length>80</length>

@@ -3,8 +3,8 @@
     <fullName>For_Tagging_Only__c</fullName>
     <defaultValue>false</defaultValue>
     <description>When set on a Product Family, the family is used for tagging/metadata only and not as a full offering catalogue entry.</description>
-    <externalId>false</externalId>
     <label>For Tagging Only</label>
+    <trackHistory>false</trackHistory>
     <trackTrending>false</trackTrending>
     <type>Checkbox</type>
 </CustomField>

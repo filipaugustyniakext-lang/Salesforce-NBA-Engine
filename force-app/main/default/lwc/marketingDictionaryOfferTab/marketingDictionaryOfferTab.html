@@ -822,6 +822,28 @@
                                         <div class="fm-config-band">
                                             <div class="slds-grid slds-gutters_xx-small slds-wrap">
 
+                                                <template lwc:if={row.impactsAttractiveness}>
+                                                    <div class="slds-col slds-size_1-of-1 slds-m-bottom_xx-small">
+                                                        <lightning-combobox label="Scoring method"
+                                                            value={row.scoringMethod}
+                                                            options={scoringMethodOptions}
+                                                            placeholder="Select how this attribute is scored"
+                                                            data-key={row._key}
+                                                            onchange={handleFmScoringMethod}>
+                                                        </lightning-combobox>
+                                                    </div>
+                                                    <template lwc:if={row.showBandEditor}>
+                                                        <div class="slds-col slds-size_1-of-1 slds-m-bottom_xx-small">
+                                                            <lightning-textarea label="Score bands"
+                                                                value={row.bandText}
+                                                                placeholder="YES=0&#10;NO=1&#10;or&#10;&lt;=1=0.1&#10;(1..2]=0.2&#10;&gt;9=1"
+                                                                data-key={row._key}
+                                                                onchange={handleFmBandText}>
+                                                            </lightning-textarea>
+                                                        </div>
+                                                    </template>
+                                                </template>
+
                                                 <!-- Creation method -->
                                                 <div class="slds-col slds-size_1-of-1 slds-m-bottom_xx-small">
                                                     <lightning-radio-group
@@ -1162,6 +1184,13 @@
             </div>
         </section>
         <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+    <template lwc:if={isDependencyDialogOpen}>
+        <c-marketing-dictionary-dependency-dialog
+            report={dependencyReport}
+            onclose={handleCloseDependencyDialog}>
+        </c-marketing-dictionary-dependency-dialog>
     </template>
 
 </template>

@@ -467,7 +467,7 @@ public with sharing class OfferController {
         if (versionId == null) throw new AuraHandledException('Version Id is required.');
 
         Offer_Version__c v = [
-            SELECT Id, Version_Status__c FROM Offer_Version__c WHERE Id = :versionId LIMIT 1
+            SELECT Id, Version_Status__c, Offer_Lookup__c FROM Offer_Version__c WHERE Id = :versionId LIMIT 1
         ];
         if (v.Version_Status__c == 'Deactivated') {
             throw new AuraHandledException('Deactivated versions cannot be edited. Clone it to create a new version.');
@@ -479,6 +479,10 @@ public with sharing class OfferController {
         if (ctaDurl    != null) v.CTA_DURL__c    = ctaDurl;
         if (ctaIntent  != null) v.CTA_Intent__c  = ctaIntent;
         if (regUrl     != null) v.REG_URL__c     = regUrl;
+
+        if (v.Version_Status__c == 'Active' && validTo != null) {
+            realignScheduledVersion(v.Offer_Lookup__c, v, Date.valueOf(validTo));
+        }
 
         try {
             update v;
@@ -840,6 +844,31 @@ public with sharing class OfferController {
         return result;
     }
 
+    /**
+     * Overlap between a new Valid To on the Active version and the earliest
+     * version scheduled for activation. Used before saving an in-place date edit.
+     */
+    @AuraEnabled
+    public static Map<String, Object> checkActiveValidToOverlap(Id offerId, Date newValidTo) {
+        Map<String, Object> result = new Map<String, Object>{
+            'hasOverlap' => false,
+            'scheduledName' => null,
+            'scheduledValidFrom' => null,
+            'scheduledValidTo' => null
+        };
+        if (offerId == null || newValidTo == null) return result;
+
+        List<Offer_Version__c> scheduled = earliestScheduledVersion(offerId);
+        if (scheduled.isEmpty() || scheduled[0].Valid_From__c == null) return result;
+
+        Offer_Version__c s = scheduled[0];
+        result.put('scheduledName', s.Name);
+        result.put('scheduledValidFrom', s.Valid_From__c);
+        result.put('scheduledValidTo', s.Valid_To__c);
+        result.put('hasOverlap', newValidTo >= s.Valid_From__c);
+        return result;
+    }
+
     @AuraEnabled
     public static void resolveDateOverlap(Id offerId, Date newValidFrom) {
         if (offerId == null || newValidFrom == null) throw new AuraHandledException('Offer Id and new valid from date are required.');
@@ -868,6 +897,46 @@ public with sharing class OfferController {
      */
     public static void refreshDeactivationSchedulePublic(Id offerId) {
         refreshDeactivationSchedule(offerId);
+    }
+
+    /**
+     * Keep the scheduled version and the deactivation badge in step with an
+     * Active version's new Valid To. The scheduled version starts the next day,
+     * and Scheduled for Deactivation uses that Valid To.
+     */
+    private static void realignScheduledVersion(Id offerId, Offer_Version__c activeVersion, Date activeValidTo) {
+        List<Offer_Version__c> scheduled = earliestScheduledVersion(offerId);
+        if (scheduled.isEmpty()) {
+            activeVersion.Schedule_Status__c = null;
+            activeVersion.Schedule_Date__c = null;
+            return;
+        }
+
+        Offer_Version__c incoming = scheduled[0];
+        Date nextStart = activeValidTo.addDays(1);
+        if (incoming.Valid_To__c != null && nextStart > incoming.Valid_To__c) {
+            throw new AuraHandledException(
+                'Valid To leaves no room for the scheduled version, which ends on ' + String.valueOf(incoming.Valid_To__c) + '.'
+            );
+        }
+        incoming.Valid_From__c = nextStart;
+        incoming.Schedule_Date__c = nextStart;
+        update incoming;
+
+        activeVersion.Schedule_Status__c = 'Scheduled for Deactivation';
+        activeVersion.Schedule_Date__c = activeValidTo;
+    }
+
+    private static List<Offer_Version__c> earliestScheduledVersion(Id offerId) {
+        return [
+            SELECT Id, Name, Valid_From__c, Valid_To__c, Schedule_Date__c
+            FROM Offer_Version__c
+            WHERE Offer_Lookup__c = :offerId
+              AND Version_Status__c = 'Scheduled'
+              AND Schedule_Status__c = 'Scheduled for Activation'
+            ORDER BY Valid_From__c ASC NULLS LAST
+            LIMIT 1
+        ];
     }
 
     private static void refreshDeactivationSchedule(Id offerId) {

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Campaign_Exclusions_JSON__c</fullName>
+    <description>JSON array of manual exclusion definitions (source + value) configured in the campaign wizard.</description>
+    <inlineHelpText>Stores multiple exclusion sources (campaign, report, segment, DMO) for activation processing.</inlineHelpText>
+    <label>Campaign Exclusions JSON</label>
+    <length>131072</length>
+    <type>LongTextArea</type>
+    <visibleLines>3</visibleLines>
+</CustomField>

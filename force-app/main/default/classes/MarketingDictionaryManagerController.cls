@@ -1064,12 +1064,14 @@ public with sharing class MarketingDictionaryManagerController {
                    Parameter_Help_Text__c, Picklist_Values__c, Attribute_Description__c, Value_Source__c, Default_Value__c,
                 (SELECT Id, Product_Family__c, Product_Family__r.Name,
                         Is_Required__c, Is_Visible__c, Display_Order__c,
-                        Impacts_Attractiveness__c, Attractiveness_Weight__c,
+                        Impacts_Attractiveness__c, Attractiveness_Weight__c, Scoring_Method__c,
                         Picklist_Power_Values__c,
                         Reference_Value__c, Reference_Value__r.Name,
                         Reference_Value__r.Product_Family__r.Name,
                         Reference_Value__r.Reference_Value__c, Reference_Value__r.Value_Type__c,
-                        Reference_Value__r.Reference_Value_Pairs__c
+                        Reference_Value__r.Reference_Value_Pairs__c,
+                        (SELECT Value_Key__c, Lower_Bound__c, Upper_Bound__c, Lower_Inclusive__c, Upper_Inclusive__c, Score__c, Sort_Order__c
+                         FROM Score_Bands__r WHERE Is_Active__c = true ORDER BY Sort_Order__c ASC NULLS LAST)
                  FROM Offer_Attribute_Rules__r
                  ORDER BY Display_Order__c ASC NULLS LAST, Product_Family__r.Name ASC)
             FROM Marketing_Dictionary__c
@@ -1112,6 +1114,51 @@ public with sharing class MarketingDictionaryManagerController {
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());
         }
+    }
+
+    @AuraEnabled
+    public static void saveScoreBandText(Id ruleId, String bandText) {
+        if (ruleId == null) return;
+        delete [SELECT Id FROM Offer_Attractiveness_Score_Band__c WHERE Rule__c = :ruleId];
+        if (String.isBlank(bandText)) return;
+        List<Offer_Attractiveness_Score_Band__c> bands = new List<Offer_Attractiveness_Score_Band__c>();
+        Integer order = 1;
+        for (String rawLine : bandText.split('\\n')) {
+            String line = rawLine == null ? '' : rawLine.trim();
+            if (String.isBlank(line) || !line.contains('=')) continue;
+            Integer eq = line.lastIndexOf('=');
+            String left = line.substring(0, eq).trim();
+            Decimal score = Decimal.valueOf(line.substring(eq + 1).trim());
+            Offer_Attractiveness_Score_Band__c band = new Offer_Attractiveness_Score_Band__c(
+                Rule__c = ruleId, Score__c = score, Sort_Order__c = order++, Is_Active__c = true
+            );
+            if (left.startsWith('<=')) {
+                band.Upper_Bound__c = Decimal.valueOf(left.substring(2).trim());
+                band.Upper_Inclusive__c = true;
+            } else if (left.startsWith('>=')) {
+                band.Lower_Bound__c = Decimal.valueOf(left.substring(2).trim());
+                band.Lower_Inclusive__c = true;
+            } else if (left.startsWith('<')) {
+                band.Upper_Bound__c = Decimal.valueOf(left.substring(1).trim());
+                band.Upper_Inclusive__c = false;
+            } else if (left.startsWith('>')) {
+                band.Lower_Bound__c = Decimal.valueOf(left.substring(1).trim());
+                band.Lower_Inclusive__c = false;
+            } else if (left.contains('..')) {
+                Boolean lowerInclusive = !left.startsWith('(');
+                Boolean upperInclusive = !left.endsWith(')');
+                String body = left.replace('(', '').replace('[', '').replace(')', '').replace(']', '');
+                List<String> parts = body.split('\\.\\.');
+                band.Lower_Bound__c = Decimal.valueOf(parts[0].trim());
+                band.Upper_Bound__c = Decimal.valueOf(parts[1].trim());
+                band.Lower_Inclusive__c = lowerInclusive;
+                band.Upper_Inclusive__c = upperInclusive;
+            } else {
+                band.Value_Key__c = left;
+            }
+            bands.add(band);
+        }
+        if (!bands.isEmpty()) insert bands;
     }
 
     @AuraEnabled

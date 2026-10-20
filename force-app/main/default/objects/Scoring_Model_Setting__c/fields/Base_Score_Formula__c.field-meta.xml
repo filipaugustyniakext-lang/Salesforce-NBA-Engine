@@ -6,6 +6,7 @@
     <label>Base Score Formula</label>
     <length>255</length>
     <required>true</required>
+    <trackTrending>false</trackTrending>
     <type>Text</type>
     <unique>false</unique>
 </CustomField>

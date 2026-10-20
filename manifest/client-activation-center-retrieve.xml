@@ -1,0 +1,253 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+    <types>
+        <members>AIAgentPayloadBuilderTest</members>
+        <members>BannerContentAPITest</members>
+        <members>BannerDataGraphTransformerTest</members>
+        <members>CampaignCopyVariantHandler</members>
+        <members>CampaignCopyVariantHandlerTest</members>
+        <members>CampaignOfferingLabelSync</members>
+        <members>CampaignPathController</members>
+        <members>ChangePasswordControllerTest</members>
+        <members>ChannelCooldownController</members>
+        <members>ChannelTemplateController</members>
+        <members>ChannelTemplateControllerTest</members>
+        <members>ChannelTemplateFileLinkGuard</members>
+        <members>ChannelTemplateFileVersionGuard</members>
+        <members>ChannelTemplateManifestService</members>
+        <members>ChannelTemplateTriggerHandler</members>
+        <members>CommunitiesLandingControllerTest</members>
+        <members>CommunitiesLoginControllerTest</members>
+        <members>CommunitiesSelfRegConfirmControllerTest</members>
+        <members>CommunitiesSelfRegControllerTest</members>
+        <members>CopyCockpitController</members>
+        <members>CopyCockpitSettingsTest</members>
+        <members>DataCloudTransformManagerTest</members>
+        <members>DataGraphRefreshSchedulerTest</members>
+        <members>DynamicScenarioPickerTest</members>
+        <members>FlowInit_TriggerDataSourceObjectRefresh</members>
+        <members>FlowJSONParserTest</members>
+        <members>ForgotPasswordControllerTest</members>
+        <members>FunnelAbandonmentExitFlowSchedulerTest</members>
+        <members>LightningForgotPasswordControllerTest</members>
+        <members>LightningLoginFormControllerTest</members>
+        <members>LightningSelfRegisterControllerTest</members>
+        <members>MCEContentCenterHourlySyncQueueable</members>
+        <members>MCEContentCenterHourlySyncScheduler</members>
+        <members>MCEContentCenterHourlySyncTest</members>
+        <members>MCE_DataExtensionCallout</members>
+        <members>MCE_DataExtensionCalloutTest</members>
+        <members>MCE_Exit_DataExtensionCallout</members>
+        <members>MCE_Exit_DataExtensionCalloutTest</members>
+        <members>MCE_HttpMockFactory</members>
+        <members>MarketingCloudCopySync</members>
+        <members>MarketingCloudCopySyncTest</members>
+        <members>MarketingCloudCopySyncUpdateTest</members>
+        <members>MarketingCloudDERequest</members>
+        <members>MarketingDictionaryController</members>
+        <members>MarketingDictionaryControllerTest</members>
+        <members>MarketingDictionaryManagerController</members>
+        <members>MarketingDictionaryManagerControllerTest</members>
+        <members>MicrobatchSelfRegControllerTest</members>
+        <members>MyProfilePageControllerTest</members>
+        <members>OfferAttractivenessCalculator</members>
+        <members>OfferAttributeController</members>
+        <members>OfferController</members>
+        <members>OfferVersionScheduler</members>
+        <members>ProductBulkUpdateController</members>
+        <members>ProductMassUpdateController</members>
+        <members>ProductMassUpdateControllerTest</members>
+        <members>SiteLoginControllerTest</members>
+        <members>SiteRegisterControllerTest</members>
+        <members>TopicManagerController</members>
+        <name>ApexClass</name>
+    </types>
+    <types>
+        <members>MassUpdateCustomerType</members>
+        <members>MassUpdateFamilyOfNeeds</members>
+        <members>MassUpdateProductFamily</members>
+        <members>MassUpdateProductType</members>
+        <name>ApexPage</name>
+    </types>
+    <types>
+        <members>CC_Message_Metadata_Trigger</members>
+        <members>CampaignOfferingLabelSyncTrigger</members>
+        <members>ChannelTemplateFileLinkTrigger</members>
+        <members>ChannelTemplateFileVersionTrigger</members>
+        <members>ChannelTemplateTrigger</members>
+        <members>Product2DictSync</members>
+        <name>ApexTrigger</name>
+    </types>
+    <types>
+        <members>agentforceCampaignWizardAction</members>
+        <members>Marketing_Campaign_Record_Page</members>
+        <members>offerManagerAction</members>
+        <members>productManagerAction</members>
+        <name>AuraDefinitionBundle</name>
+    </types>
+    <types>
+        <members>Copy_Cockpit_Editor</members>
+        <name>CustomApplication</name>
+    </types>
+    <types>
+        <members>MCE_Settings.Default</members>
+        <name>CustomMetadata</name>
+    </types>
+    <types>
+        <members>Blackout_Day_Rule__c</members>
+        <members>Blackout_Window__c</members>
+        <members>CC_Message_Blocks_All__c</members>
+        <members>CC_Message_Metadata__c</members>
+        <members>Campaign</members>
+        <members>Campaign_Copy_Variant__c</members>
+        <members>Campaign_Offer__c</members>
+        <members>Campaign_Tier__c</members>
+        <members>Channel_Banner_Intent_Target__c</members>
+        <members>Channel_Banner_Intent__c</members>
+        <members>Channel_Banner_Placement__c</members>
+        <members>Channel_Banner_Type__c</members>
+        <members>Channel_Cooldown__c</members>
+        <members>Channel_Template__c</members>
+        <members>FamilyOfNeeds_CustomerType__c</members>
+        <members>MCE_Settings__mdt</members>
+        <members>Marketing_Dictionary__c</members>
+        <members>Offer_Attribute_Rule__c</members>
+        <members>Offer_Reference_Value__c</members>
+        <members>Offer_Version_Customer_Type__c</members>
+        <members>Offer_Version__c</members>
+        <members>Offer__c</members>
+        <members>Product2</members>
+        <members>Product_Customer_Type__c</members>
+        <members>Scoring_Model_Setting__c</members>
+        <name>CustomObject</name>
+    </types>
+    <types>
+        <members>Copy_Cockpit_Editor</members>
+        <members>Marketing_Dictionary</members>
+        <name>CustomTab</name>
+    </types>
+    <types>
+        <members>Account_Record_Page_Three_Column</members>
+        <members>Activation_Paths</members>
+        <members>AdvertisingInventoryCalendar_UtilityBar</members>
+        <members>Channel_Cooldown_Period_Record_Page</members>
+        <members>Client_Activation_Cockpit</members>
+        <members>CommandCenterApp_UtilityBar</members>
+        <members>Contact_Record_Page_Three_Column</members>
+        <members>Copy_Center_Editor</members>
+        <members>DataGovernanceConsole_UtilityBar</members>
+        <members>EasyConsole_UtilityBar</members>
+        <members>EasyHome_UtilityBar</members>
+        <members>ExpressionSetConsole_UtilityBar</members>
+        <members>FlowsApp_UtilityBar</members>
+        <members>Getting_Started_Home</members>
+        <members>HVSConsole_UtilityBar</members>
+        <members>IndustriesEcm_UtilityBar</members>
+        <members>Integration_UtilityBar</members>
+        <members>Lead_Generation_UtilityBar</members>
+        <members>Lead_Record_Page_Three_Column</members>
+        <members>LightningBolt_UtilityBar</members>
+        <members>LightningSalesConsole_UtilityBar</members>
+        <members>LightningSales_UtilityBar</members>
+        <members>LightningService_UtilityBar</members>
+        <members>Marketing_Dictionaries</members>
+        <members>MediaAdSalesManagement_UtilityBar</members>
+        <members>Offer_Record_Page</members>
+        <members>Opportunity_Record_Page_Three_Column</members>
+        <members>Personalization_UtilityBar</members>
+        <members>Product_Record_Page</members>
+        <members>Relationship_Management_UtilityBar</members>
+        <members>SalesCloudMobile_UtilityBar</members>
+        <members>Sales_Leadership_UtilityBar</members>
+        <members>Sales_Operations_UtilityBar</members>
+        <members>Sales_UtilityBar</members>
+        <name>FlexiPage</name>
+    </types>
+    <types>
+        <members>FL_Trigger_DataStreamObject_Refresh</members>
+        <name>Flow</name>
+    </types>
+    <types>
+        <members>Blackout_Day_Rule__c-Blackout Day Rule Layout</members>
+        <members>Blackout_Window__c-Blackout Window Layout</members>
+        <members>CC_Message_Blocks_All__c-CC_Message_Blocks_All Layout</members>
+        <members>CC_Message_Blocks__c-CC_Message_Blocks Layout</members>
+        <members>CC_Message_Metadata__c-CC_Message_Metadata Layout</members>
+        <members>CC_Message_VersionHistoryLog__c-CC_Message_VersionHistoryLog Layout</members>
+        <members>CC_Staging_Changes__c-CC_Staging_Changes Layout</members>
+        <members>Campaign-Campaign Layout</members>
+        <members>Campaign-Marketing Campaign Layout</members>
+        <members>CampaignInfluenceModel-Campaign Influence Model Layout</members>
+        <members>CampaignMember-Campaign Member Page Layout</members>
+        <members>CampaignMember-Topic Layout</members>
+        <members>CampaignMemberStatus-Campaign Member Status Layout</members>
+        <members>Campaign_Offer__c-Campaign Offer Layout</members>
+        <members>Campaign_Path_Allocation__c-Campaign Path Allocation Layout</members>
+        <members>Campaign_Tier__c-Campaign Tier Layout</members>
+        <members>Channel_Banner_Intent_Target__c-Channel Banner Intent Target Layout</members>
+        <members>Channel_Banner_Intent__c-Channel Banner Intent Layout</members>
+        <members>Channel_Banner_Placement__c-Channel Banner Placement Layout</members>
+        <members>Channel_Banner_Type__c-Channel Banner Type Layout</members>
+        <members>Channel_Cooldown_Period__c-Channel Cooldown Period Layout</members>
+        <members>Channel_Cooldown__c-Channel Cooldown Layout</members>
+        <members>Channel_Template__c-Channel Template Layout</members>
+        <members>FamilyOfNeeds_CustomerType__c-Family of Needs Customer Type Layout</members>
+        <members>MCE_Settings__mdt-MCE Settings Layout</members>
+        <members>Marketing_Dictionary__c-Channels</members>
+        <members>Marketing_Dictionary__c-Sales Process</members>
+        <members>Marketing_Dictionary__c-Topics %28Goals%29</members>
+        <members>Offer_Attribute_Rule__c-Offer Attribute Rule Layout</members>
+        <members>Offer_Reference_Value__c-Offer Reference Value Layout</members>
+        <members>Offer_Settings__c-Offer Settings Layout</members>
+        <members>Offer_Version_Customer_Type__c-Offer Version Customer Type Layout</members>
+        <members>Offer_Version__c-Offer Version Layout</members>
+        <members>Offer__c-Offer Layout</members>
+        <members>Product2-Product Layout</members>
+        <members>Product_Customer_Type__c-Product Customer Type Layout</members>
+        <members>Scoring_Model_Setting__c-Scoring Model Setting Layout</members>
+        <name>Layout</name>
+    </types>
+    <types>
+        <members>agentforceCampaignWizard</members>
+        <members>attractivenessRing</members>
+        <members>campaignPathManager</members>
+        <members>contentBindingModel</members>
+        <members>copyCockpit</members>
+        <members>copyCockpitAddModal</members>
+        <members>copyCockpitEditor</members>
+        <members>copyTemplatePreview</members>
+        <members>copyTemplatePreviewPanel</members>
+        <members>copyMessageNaming</members>
+        <members>createMarketingDictionaryModal</members>
+        <members>deactivateOfferAction</members>
+        <members>decommissionOfferAction</members>
+        <members>marketingDictionaryApp</members>
+        <members>marketingDictionaryBlackoutTab</members>
+        <members>marketingDictionaryCampaignTab</members>
+        <members>marketingDictionaryChannelTab</members>
+        <members>masterTemplateStudio</members>
+        <members>marketingDictionaryManager</members>
+        <members>marketingDictionaryOfferTab</members>
+        <members>marketingDictionaryPersonTab</members>
+        <members>marketingDictionaryProductTab</members>
+        <members>marketingDictionaryScoringTab</members>
+        <members>nbaTierConfig</members>
+        <members>offerAttractivenessHeader</members>
+        <members>offerManager</members>
+        <members>offerStatusActions</members>
+        <members>offerVersionPanel</members>
+        <members>productManager</members>
+        <members>topicManager</members>
+        <name>LightningComponentBundle</name>
+    </types>
+    <types>
+        <members>ClientActivationCenter</members>
+        <name>PermissionSet</name>
+    </types>
+    <types>
+        <members>MarketingCloudAuth</members>
+        <members>MarketingCloudRest</members>
+        <name>RemoteSiteSetting</name>
+    </types>
+    <version>66.0</version>
+</Package>
