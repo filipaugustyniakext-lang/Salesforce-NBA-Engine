@@ -6,3 +6,13 @@
 .dependency-dialog__group {
     background: var(--slds-g-color-neutral-base-95, #f3f3f3);
 }
+
+.dependency-dialog__link {
+    color: var(--slds-c-link-text-color, #0176d3);
+    text-decoration: none;
+}
+
+.dependency-dialog__link:hover,
+.dependency-dialog__link:focus {
+    text-decoration: underline;
+}

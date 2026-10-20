@@ -29,8 +29,14 @@
                                 </span>
                             </h3>
                             <ul class="slds-list_dotted slds-m-left_medium">
-                                <template for:each={group.names} for:item="name">
-                                    <li key={name} class="slds-item">{name}</li>
+                                <template for:each={group.entries} for:item="entry">
+                                    <li key={entry.key} class="slds-item">
+                                        <template lwc:if={entry.isLink}>
+                                            <a href={entry.url} target="_blank" rel="noopener noreferrer"
+                                               class="dependency-dialog__link">{entry.label}</a>
+                                        </template>
+                                        <template lwc:else>{entry.label}</template>
+                                    </li>
                                 </template>
                             </ul>
                         </article>

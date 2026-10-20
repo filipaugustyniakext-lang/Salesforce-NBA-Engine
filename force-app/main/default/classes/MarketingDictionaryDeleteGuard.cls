@@ -6,17 +6,31 @@ public with sharing class MarketingDictionaryDeleteGuard {
 
     private static final Integer MAX_DEPENDENCY_LABELS = 12;
 
+    public class DependencyReference {
+        @AuraEnabled public String label { get; set; }
+        @AuraEnabled public Id recordId { get; set; }
+        @AuraEnabled public String objectApiName { get; set; }
+    }
+
     public class DependencyGroup {
         @AuraEnabled public String category { get; set; }
         @AuraEnabled public List<String> recordNames { get; set; }
+        @AuraEnabled public List<DependencyReference> references { get; set; }
 
         public DependencyGroup() {
             this.recordNames = new List<String>();
+            this.references = new List<DependencyReference>();
         }
 
-        public DependencyGroup(String category, List<String> recordNames) {
+        public DependencyGroup(String category, List<DependencyReference> refs) {
             this.category = category;
-            this.recordNames = recordNames != null ? recordNames : new List<String>();
+            this.references = refs != null ? refs : new List<DependencyReference>();
+            this.recordNames = new List<String>();
+            for (DependencyReference ref : this.references) {
+                if (ref != null && String.isNotBlank(ref.label)) {
+                    this.recordNames.add(ref.label);
+                }
+            }
         }
     }
 
@@ -37,11 +51,11 @@ public with sharing class MarketingDictionaryDeleteGuard {
     }
 
     private class DependencyCollector {
-        private Map<String, List<String>> byCategory = new Map<String, List<String>>();
+        private Map<String, List<DependencyReference>> byCategory = new Map<String, List<DependencyReference>>();
         private Integer totalCount = 0;
         public Boolean truncated = false;
 
-        void add(String category, String recordName) {
+        void add(String category, String recordName, Id recordId, String objectApiName) {
             if (totalCount >= MAX_DEPENDENCY_LABELS) {
                 truncated = true;
                 return;
@@ -49,9 +63,13 @@ public with sharing class MarketingDictionaryDeleteGuard {
             String cat = String.isBlank(category) ? 'Related record' : category;
             String name = String.isBlank(recordName) ? 'record' : recordName;
             if (!byCategory.containsKey(cat)) {
-                byCategory.put(cat, new List<String>());
+                byCategory.put(cat, new List<DependencyReference>());
             }
-            byCategory.get(cat).add(name);
+            DependencyReference ref = new DependencyReference();
+            ref.label = name;
+            ref.recordId = recordId;
+            ref.objectApiName = objectApiName;
+            byCategory.get(cat).add(ref);
             totalCount++;
         }
 
@@ -62,8 +80,8 @@ public with sharing class MarketingDictionaryDeleteGuard {
         List<String> toFlatList() {
             List<String> flat = new List<String>();
             for (String cat : sortedCategoryKeys()) {
-                for (String entry : byCategory.get(cat)) {
-                    flat.add(cat + ': ' + entry);
+                for (DependencyReference entry : byCategory.get(cat)) {
+                    flat.add(cat + ': ' + (entry != null ? entry.label : 'record'));
                 }
             }
             return flat;
@@ -74,7 +92,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
             report.recordName = recordLabel;
             report.truncated = truncated;
             for (String cat : sortedCategoryKeys()) {
-                report.groups.add(new DependencyGroup(cat, new List<String>(byCategory.get(cat))));
+                report.groups.add(new DependencyGroup(cat, new List<DependencyReference>(byCategory.get(cat))));
             }
             List<String> flat = toFlatList();
             if (!flat.isEmpty()) {
@@ -806,12 +824,18 @@ public with sharing class MarketingDictionaryDeleteGuard {
             return;
         }
         for (Campaign camp : [
-            SELECT Name, Assigned_Channels__c
+            SELECT Id, Name, Assigned_Channels__c
             FROM Campaign
             LIMIT 5000
         ]) {
             if (semicolonListContainsLabel(camp.Assigned_Channels__c, channelName)) {
-                addDependency(dependencies, 'Campaign (channel selection)', camp.Name);
+                addDependency(
+                    dependencies,
+                    'Campaign (channel selection)',
+                    camp.Name,
+                    camp.Id,
+                    'Campaign'
+                );
             }
         }
     }
@@ -825,8 +849,88 @@ public with sharing class MarketingDictionaryDeleteGuard {
         DependencyCollector dependencies
     ) {
         for (CC_Message_Metadata__c row : queryCopyCenterMessagesForChannel(channelName, channelType)) {
-            addDependency(dependencies, 'Copy Center message variant', row.Name);
+            addDependency(
+                dependencies,
+                'Copy Center message variant',
+                copyCenterMessageDependencyLabel(row),
+                row.Id,
+                'CC_Message_Metadata__c'
+            );
         }
+    }
+
+    @TestVisible
+    private static String copyCenterMessageDependencyLabel(CC_Message_Metadata__c row) {
+        if (row == null) {
+            return 'Message variant';
+        }
+        String messageName = String.isNotBlank(row.MessageName__c)
+            ? row.MessageName__c.trim()
+            : null;
+        Integer variantNum = resolveCopyCenterVariantNumber(row);
+        if (String.isNotBlank(messageName) && variantNum != null && variantNum > 0) {
+            return messageName + ' · Variant ' + variantNum;
+        }
+        if (String.isNotBlank(messageName)) {
+            return messageName;
+        }
+        if (String.isNotBlank(row.Name) && !looksLikeUuid(row.Name)) {
+            return row.Name;
+        }
+        return 'Message variant ' + String.valueOf(row.Id).substring(0, 8) + '…';
+    }
+
+    @TestVisible
+    private static Integer resolveCopyCenterVariantNumber(CC_Message_Metadata__c row) {
+        Integer fromToken = parseVariantToken(row.MessageVariant__c);
+        if (fromToken != null) {
+            return fromToken;
+        }
+        fromToken = parseVariantToken(row.Message_Variant__c);
+        if (fromToken != null) {
+            return fromToken;
+        }
+        fromToken = parseVariantToken(row.Version__c);
+        if (fromToken != null) {
+            return fromToken;
+        }
+        if (String.isNotBlank(row.Name)) {
+            List<String> parts = row.Name.split('_');
+            if (!parts.isEmpty()) {
+                String last = parts[parts.size() - 1];
+                if (last.isNumeric()) {
+                    return Integer.valueOf(last);
+                }
+            }
+        }
+        return null;
+    }
+
+    private static Integer parseVariantToken(Object raw) {
+        if (raw == null) {
+            return null;
+        }
+        String text = String.valueOf(raw).trim();
+        if (String.isBlank(text)) {
+            return null;
+        }
+        if (text.isNumeric()) {
+            return Integer.valueOf(text);
+        }
+        Matcher m = Pattern.compile('(\\d+)').matcher(text);
+        if (m.find()) {
+            return Integer.valueOf(m.group(1));
+        }
+        return null;
+    }
+
+    private static Boolean looksLikeUuid(String value) {
+        if (String.isBlank(value)) {
+            return false;
+        }
+        return Pattern.compile(
+            '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+        ).matcher(value.trim()).matches();
     }
 
     @TestVisible
@@ -839,7 +943,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
         }
         if (String.isBlank(channelName)) {
             return [
-                SELECT Name
+                SELECT Id, Name, MessageName__c, Version__c, MessageVariant__c, Message_Variant__c
                 FROM CC_Message_Metadata__c
                 WHERE Channel_Type__c = :channelType
                 ORDER BY Name ASC
@@ -856,7 +960,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
             ];
         if (typeChannelCount <= 1 && String.isNotBlank(channelType)) {
             return [
-                SELECT Name
+                SELECT Id, Name, MessageName__c, Version__c, MessageVariant__c, Message_Variant__c
                 FROM CC_Message_Metadata__c
                 WHERE Channel__c = :channelName
                    OR (
@@ -868,7 +972,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
             ];
         }
         return [
-            SELECT Name
+            SELECT Id, Name, MessageName__c, Version__c, MessageVariant__c, Message_Variant__c
             FROM CC_Message_Metadata__c
             WHERE Channel__c = :channelName
             ORDER BY Name ASC
@@ -981,9 +1085,19 @@ public with sharing class MarketingDictionaryDeleteGuard {
     }
 
     private static void addDependency(DependencyCollector dependencies, String category, String recordName) {
+        addDependency(dependencies, category, recordName, null, null);
+    }
+
+    private static void addDependency(
+        DependencyCollector dependencies,
+        String category,
+        String recordName,
+        Id recordId,
+        String objectApiName
+    ) {
         if (dependencies == null) {
             return;
         }
-        dependencies.add(category, recordName);
+        dependencies.add(category, recordName, recordId, objectApiName);
     }
 }

@@ -10,12 +10,40 @@ export default class MarketingDictionaryDependencyDialog extends LightningElemen
     }
 
     get groups() {
-        return (this.report?.groups || []).map((group, index) => ({
-            key: `${group.category}-${index}`,
-            category: group.category,
-            names: group.recordNames || [],
-            count: (group.recordNames || []).length
+        return (this.report?.groups || []).map((group, index) => {
+            const entries = this._entriesForGroup(group);
+            return {
+                key: `${group.category}-${index}`,
+                category: group.category,
+                entries,
+                count: entries.length
+            };
+        });
+    }
+
+    _entriesForGroup(group) {
+        const refs = group.references || [];
+        if (refs.length) {
+            return refs.map((ref, idx) => this._mapReference(ref, `${group.category}-${idx}`));
+        }
+        return (group.recordNames || []).map((name, idx) => ({
+            key: `${group.category}-${idx}`,
+            label: name,
+            isLink: false,
+            url: null
         }));
+    }
+
+    _mapReference(ref, key) {
+        const recordId = ref?.recordId;
+        const objectApiName = ref?.objectApiName;
+        const hasLink = recordId && objectApiName;
+        return {
+            key,
+            label: ref?.label || 'Related record',
+            isLink: hasLink,
+            url: hasLink ? `/lightning/r/${objectApiName}/${recordId}/view` : null
+        };
     }
 
     get showTruncatedNote() {

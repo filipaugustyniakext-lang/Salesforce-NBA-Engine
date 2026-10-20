@@ -19,8 +19,16 @@ export function formatDependencyReportForClipboard(report) {
     lines.push('');
     for (const group of report.groups || []) {
         lines.push(group.category || 'Related records');
-        for (const name of group.recordNames || []) {
-            lines.push(`  • ${name}`);
+        const refs = group.references || [];
+        if (refs.length) {
+            for (const ref of refs) {
+                const idSuffix = ref.recordId ? ` (${ref.recordId})` : '';
+                lines.push(`  • ${ref.label || 'Related record'}${idSuffix}`);
+            }
+        } else {
+            for (const name of group.recordNames || []) {
+                lines.push(`  • ${name}`);
+            }
         }
         lines.push('');
     }
