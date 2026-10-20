@@ -421,51 +421,6 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
         this._showTabScrollNext = overflow && scrollLeft + clientWidth < scrollWidth - 2;
     }
 
-    get isChannelTabCooldown() {
-        return this.activeChannel?.activeTab === 'cooldown';
-    }
-    get isChannelTabWeekly() {
-        return this.activeChannel?.activeTab === 'weekly';
-    }
-    get isChannelTabTemplates() {
-        return this.activeChannel?.activeTab === 'templates';
-    }
-    get isChannelTabPlacements() {
-        return this.activeChannel?.activeTab === 'placements';
-    }
-    get isChannelTabIntents() {
-        return this.activeChannel?.activeTab === 'intents';
-    }
-    get showTabScrollPrev() {
-        return this._showTabScrollPrev;
-    }
-    get showTabScrollNext() {
-        return this._showTabScrollNext;
-    }
-
-    renderedCallback() {
-        const scrollEl = this.template.querySelector('.ch-tab-nav__scroll');
-        if (scrollEl !== this._tabNavScrollEl) {
-            this._tabNavScrollEl = scrollEl;
-        }
-        if (scrollEl) {
-            this._updateTabNavOverflow();
-        }
-    }
-
-    _updateTabNavOverflow() {
-        const el = this._tabNavScrollEl;
-        if (!el) {
-            this._showTabScrollPrev = false;
-            this._showTabScrollNext = false;
-            return;
-        }
-        const { scrollLeft, scrollWidth, clientWidth } = el;
-        const overflow = scrollWidth > clientWidth + 2;
-        this._showTabScrollPrev = overflow && scrollLeft > 2;
-        this._showTabScrollNext = overflow && scrollLeft + clientWidth < scrollWidth - 2;
-    }
-
     get activeChannel() {
         if (!this._activeChannelId) return null;
         return this.channels.find(ch => ch.Id === this._activeChannelId) || null;

@@ -605,25 +605,6 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         return !this._wiredSelectableTemplates?.data && !this._wiredSelectableTemplates?.error;
     }
 
-    get activeChannelName() {
-        return this.activeChannel?.Name || '';
-    }
-
-    get activeChannelType() {
-        return this.activeChannel?.Channel_Type__c || '';
-    }
-
-    get selectableTemplateOptions() {
-        return (this._wiredSelectableTemplates?.data || []).map(template => ({
-            value: template.id,
-            label: template.packageLabel ? `${template.name} (${template.packageLabel})` : template.name
-        }));
-    }
-
-    get selectableTemplatesLoading() {
-        return !this._wiredSelectableTemplates?.data && !this._wiredSelectableTemplates?.error;
-    }
-
     get addChannelName() { return this._addChannelName; }
     get addChannelType() { return this._addChannelType; }
     get addBannerTypes() { return this._addBannerTypes; }
@@ -922,97 +903,6 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     }
 
     // ── lifecycle ──────────────────────────────────────────────────────────
-
-    connectedCallback() {
-        this._columnWidths = this._loadColumnWidths();
-        this._boundColResizeMove = this._handleColResizeMove.bind(this);
-        this._boundColResizeEnd = this._handleColResizeEnd.bind(this);
-    }
-
-    disconnectedCallback() {
-        this._teardownColResizeListeners();
-    }
-
-    _loadColumnWidths() {
-        try {
-            const raw = window.localStorage.getItem(COLUMN_WIDTH_STORAGE_KEY);
-            if (!raw) {
-                return { ...COLUMN_WIDTH_DEFAULTS };
-            }
-            const parsed = JSON.parse(raw);
-            const merged = { ...COLUMN_WIDTH_DEFAULTS };
-            Object.keys(COLUMN_WIDTH_DEFAULTS).forEach(key => {
-                const value = Number(parsed[key]);
-                if (!Number.isFinite(value)) {
-                    return;
-                }
-                const min = COLUMN_WIDTH_MIN[key];
-                const max = COLUMN_WIDTH_MAX[key];
-                merged[key] = Math.min(max, Math.max(min, Math.round(value)));
-            });
-            return merged;
-        } catch (e) {
-            return { ...COLUMN_WIDTH_DEFAULTS };
-        }
-    }
-
-    _saveColumnWidths() {
-        try {
-            window.localStorage.setItem(
-                COLUMN_WIDTH_STORAGE_KEY,
-                JSON.stringify(this._columnWidths || COLUMN_WIDTH_DEFAULTS)
-            );
-        } catch (e) {
-            // Ignore storage failures (private mode, quota, etc.).
-        }
-    }
-
-    _teardownColResizeListeners() {
-        window.removeEventListener('mousemove', this._boundColResizeMove);
-        window.removeEventListener('mouseup', this._boundColResizeEnd);
-    }
-
-    handleColResizeStart(event) {
-        event.preventDefault();
-        event.stopPropagation();
-        const col = event.currentTarget.dataset.col;
-        if (!col || this._columnWidths[col] == null) {
-            return;
-        }
-        this._colResize = {
-            col,
-            startX: event.clientX,
-            startWidth: this._columnWidths[col],
-        };
-        this._isColumnResizing = true;
-        window.addEventListener('mousemove', this._boundColResizeMove);
-        window.addEventListener('mouseup', this._boundColResizeEnd);
-    }
-
-    _handleColResizeMove(event) {
-        if (!this._colResize) {
-            return;
-        }
-        const { col, startX, startWidth } = this._colResize;
-        const delta = event.clientX - startX;
-        const min = COLUMN_WIDTH_MIN[col];
-        const max = COLUMN_WIDTH_MAX[col];
-        const nextWidth = Math.min(max, Math.max(min, startWidth + delta));
-        this._columnWidths = {
-            ...this._columnWidths,
-            [col]: nextWidth,
-        };
-    }
-
-    _handleColResizeEnd() {
-        if (!this._colResize) {
-            return;
-        }
-        this._colResize = null;
-        this._isColumnResizing = false;
-        this._teardownColResizeListeners();
-        this._saveColumnWidths();
-    }
 
     renderedCallback() {
         if (this._channelsRefreshPending && this._wiredChannels) {

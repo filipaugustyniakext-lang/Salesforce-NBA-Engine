@@ -2,9 +2,6 @@
 # If you are not using git, you can delete this file. For more information see: https://git-scm.com/docs/gitignore
 # For useful gitignore templates see: https://github.com/github/gitignore
 
-# Org snapshot script backups (local only)
-.org-snapshot-backup-*/
-
 # Salesforce cache
 .sf/
 .sfdx/

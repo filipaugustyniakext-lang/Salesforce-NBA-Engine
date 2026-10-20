@@ -277,7 +277,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         this.loadTiers();
         this.loadCampaignTypes();
         this.loadScoringModels();
-        this.loadDmoOptions();
         this.loadTopicDictionary();
         this.loadProductOfferingCatalogue();
         // Migrate any Campaign rows still showing Ids in display fields → Names.
