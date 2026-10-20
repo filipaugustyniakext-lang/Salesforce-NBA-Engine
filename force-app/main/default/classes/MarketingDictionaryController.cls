@@ -293,16 +293,50 @@ public with sharing class MarketingDictionaryController {
 
     @AuraEnabled(cacheable=false)
     public static List<Map<String, String>> searchSuppressionCampaigns(String searchTerm) {
-        String q = '%' + String.escapeSingleQuotes(searchTerm) + '%';
+        String term = searchTerm == null ? '' : searchTerm.trim();
+        String likeQ = '%' + String.escapeSingleQuotes(term) + '%';
+        List<Campaign> campaigns = String.isBlank(term)
+            ? [
+                SELECT Id, Name, Status, Campaign_Group_Dict__c, Campaign_Group_Dict__r.Name
+                FROM Campaign
+                WHERE IsActive = true
+                LIMIT 500
+            ]
+            : [
+                SELECT Id, Name, Status, Campaign_Group_Dict__c, Campaign_Group_Dict__r.Name
+                FROM Campaign
+                WHERE IsActive = true AND Name LIKE :likeQ
+                ORDER BY Name ASC
+                LIMIT 200
+            ];
+
+        campaigns.sort(new SuppressionCampaignComparator());
+
         List<Map<String, String>> results = new List<Map<String, String>>();
-        for (Campaign c : [
-            SELECT Id, Name FROM Campaign
-            WHERE Name LIKE :q AND IsActive = true
-            ORDER BY Name ASC LIMIT 20
-        ]) {
-            results.add(new Map<String, String>{ 'id' => c.Id, 'name' => c.Name });
+        for (Campaign c : campaigns) {
+            String groupName = c.Campaign_Group_Dict__r != null ? c.Campaign_Group_Dict__r.Name : null;
+            results.add(new Map<String, String>{
+                'id' => c.Id,
+                'name' => c.Name,
+                'status' => c.Status,
+                'groupId' => c.Campaign_Group_Dict__c,
+                'groupName' => groupName,
+                'groupKey' => String.isBlank(c.Campaign_Group_Dict__c)
+                    ? ''
+                    : String.valueOf(c.Campaign_Group_Dict__c)
+            });
         }
         return results;
+    }
+
+    private class SuppressionCampaignComparator implements System.Comparator<Campaign> {
+        public Integer compare(Campaign a, Campaign b) {
+            String groupA = a.Campaign_Group_Dict__r != null ? a.Campaign_Group_Dict__r.Name : null;
+            String groupB = b.Campaign_Group_Dict__r != null ? b.Campaign_Group_Dict__r.Name : null;
+            String sortA = String.isBlank(groupA) ? '\uFFFF' + (a.Name == null ? '' : a.Name) : groupA + '|' + (a.Name == null ? '' : a.Name);
+            String sortB = String.isBlank(groupB) ? '\uFFFF' + (b.Name == null ? '' : b.Name) : groupB + '|' + (b.Name == null ? '' : b.Name);
+            return sortA.toLowerCase().compareTo(sortB.toLowerCase());
+        }
     }
 
     @AuraEnabled(cacheable=false)

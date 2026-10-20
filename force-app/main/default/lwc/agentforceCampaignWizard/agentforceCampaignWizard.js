@@ -55,6 +55,9 @@ const EXCLUSION_SOURCE_OPTIONS = [
 ];
 
 function newExclusionRow(overrides = {}) {
+    const selectedCampaignIds = overrides.selectedCampaignIds
+        ? [...overrides.selectedCampaignIds]
+        : [];
     return {
         id: `excl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         source: '',
@@ -62,8 +65,46 @@ function newExclusionRow(overrides = {}) {
         display: '',
         searchTerm: '',
         lookupOptions: [],
-        ...overrides
+        campaignOptions: [],
+        selectedCampaignIds,
+        campaignSearchTerm: '',
+        campaignPickerOpen: false,
+        ...overrides,
+        selectedCampaignIds
     };
+}
+
+function campaignMetaLine(status, groupName) {
+    const parts = [];
+    if (status) parts.push(status);
+    if (groupName) parts.push(groupName);
+    return parts.join(' · ');
+}
+
+function mapCampaignOptionsFromApex(results) {
+    return (results || []).map(r => ({
+        id: r.id,
+        name: r.name,
+        status: r.status || '',
+        groupId: r.groupId || '',
+        groupName: r.groupName || '',
+        groupKey: r.groupKey || ''
+    }));
+}
+
+function campaignDisplayLabel(c) {
+    if (!c) return '';
+    const meta = campaignMetaLine(c.status, c.groupName);
+    return meta ? `${c.name} (${meta})` : c.name;
+}
+
+function buildCampaignExclusionDisplay(selectedIds, campaignOptions) {
+    const options = campaignOptions || [];
+    const labels = (selectedIds || []).map(id => {
+        const match = options.find(o => o.id === id);
+        return match ? campaignDisplayLabel(match) : id;
+    });
+    return labels.join('; ');
 }
 
 function wizardMessageNameFromRow(row) {
@@ -385,27 +426,60 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             const lookupOptions = row.value
                 ? [{ label: row.display || row.value, value: row.value }]
                 : [];
+            let selectedCampaignIds = [];
+            if (row.source === 'campaign') {
+                if (Array.isArray(row.values) && row.values.length) {
+                    selectedCampaignIds = row.values.map(v => String(v));
+                } else if (row.value) {
+                    selectedCampaignIds = String(row.value)
+                        .split(',')
+                        .map(v => v.trim())
+                        .filter(Boolean);
+                }
+            }
             return newExclusionRow({
                 source: row.source,
                 value: row.value || '',
                 display: row.display || row.value || '',
-                lookupOptions
+                lookupOptions,
+                selectedCampaignIds
             });
         });
         if (this.exclusionDefinitions.some(row => row.source === 'dmo')) {
             this.loadDmoOptionsIfNeeded();
+        }
+        if (this.exclusionDefinitions.some(row => row.source === 'campaign')) {
+            this._loadCampaignOptionsForAllRows();
         }
         this.excludeOtherMarketingActivations = !!campaign.Exclude_Other_Marketing_Activations__c;
     }
 
     _serializeExclusionDefinitions() {
         return (this.exclusionDefinitions || [])
-            .filter(row => row.source && (row.value || '').toString().trim())
-            .map(row => ({
-                source: row.source,
-                value: (row.value || '').toString().trim(),
-                display: row.display || row.value
-            }));
+            .filter(row => {
+                if (!row.source) return false;
+                if (row.source === 'campaign') {
+                    return (row.selectedCampaignIds || []).length > 0;
+                }
+                return (row.value || '').toString().trim();
+            })
+            .map(row => {
+                if (row.source === 'campaign') {
+                    const ids = [...(row.selectedCampaignIds || [])];
+                    const display = buildCampaignExclusionDisplay(ids, row.campaignOptions);
+                    return {
+                        source: 'campaign',
+                        value: ids.join(','),
+                        values: ids,
+                        display
+                    };
+                }
+                return {
+                    source: row.source,
+                    value: (row.value || '').toString().trim(),
+                    display: row.display || row.value
+                };
+            });
     }
 
     _applyExclusionsToSaveFields(fields) {
@@ -420,7 +494,10 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         const report = first('report');
         const segment = first('segment');
         if (campaign) {
-            fields['Suppression_Campaign__c'] = campaign.value;
+            const firstId = Array.isArray(campaign.values) && campaign.values.length
+                ? campaign.values[0]
+                : (campaign.value || '').split(',')[0];
+            fields['Suppression_Campaign__c'] = firstId || null;
         }
         if (report) {
             fields['Suppression_Report_Id__c'] = report.value;
@@ -1039,6 +1116,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         if (!event.target.closest('.slds-combobox_container')) {
             this.isTopicDropdownOpen = false;
         }
+        if (!event.target.closest('.exclusion-campaign-picker')) {
+            this._closeAllCampaignPickers();
+        }
     }
 
     // Place this method next to your other event handlers (e.g., near handleFamilyOfNeedsChange)
@@ -1237,7 +1317,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             if (row.id !== rowId) return row;
             return newExclusionRow({ id: row.id, source });
         });
-        if (source === 'campaign' || source === 'report') {
+        if (source === 'campaign') {
+            this._ensureCampaignCatalogForRow(rowId);
+        } else if (source === 'report') {
             this._runExclusionSearch(rowId, '');
         } else if (source === 'dmo') {
             this.loadDmoOptionsIfNeeded();
@@ -1258,14 +1340,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     _runExclusionSearch(rowId, term) {
         const row = this.exclusionDefinitions.find(r => r.id === rowId);
-        if (!row) return;
-        const searchFn = row.source === 'campaign'
-            ? searchSuppressionCampaigns
-            : row.source === 'report'
-                ? searchSuppressionReports
-                : null;
-        if (!searchFn) return;
-        searchFn({ searchTerm: term || '' })
+        if (!row || row.source !== 'report') return;
+        searchSuppressionReports({ searchTerm: term || '' })
             .then(results => {
                 const lookupOptions = (results || []).map(r => ({
                     label: r.name,
@@ -1278,10 +1354,135 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             .catch(err => console.error('Exclusion lookup search failed:', err));
     }
 
+    _loadCampaignOptionsForAllRows() {
+        searchSuppressionCampaigns({ searchTerm: '' })
+            .then(results => {
+                const campaignOptions = mapCampaignOptionsFromApex(results);
+                this.exclusionDefinitions = this.exclusionDefinitions.map(row =>
+                    row.source === 'campaign' ? { ...row, campaignOptions } : row
+                );
+            })
+            .catch(err => console.error('Campaign exclusion catalogue load failed:', err));
+    }
+
+    _ensureCampaignCatalogForRow(rowId) {
+        const row = this.exclusionDefinitions.find(r => r.id === rowId);
+        if (!row) return;
+        if ((row.campaignOptions || []).length) {
+            this._updateExclusionRow(rowId, { campaignPickerOpen: true });
+            return;
+        }
+        searchSuppressionCampaigns({ searchTerm: '' })
+            .then(results => {
+                const campaignOptions = mapCampaignOptionsFromApex(results);
+                this.exclusionDefinitions = this.exclusionDefinitions.map(r =>
+                    r.id === rowId ? { ...r, campaignOptions, campaignPickerOpen: true } : r
+                );
+            })
+            .catch(err => console.error('Campaign exclusion catalogue load failed:', err));
+    }
+
+    _closeAllCampaignPickers() {
+        if (!(this.exclusionDefinitions || []).some(row => row.campaignPickerOpen)) {
+            return;
+        }
+        this.exclusionDefinitions = this.exclusionDefinitions.map(row =>
+            row.campaignPickerOpen ? { ...row, campaignPickerOpen: false } : row
+        );
+    }
+
+    _updateExclusionRow(rowId, patch) {
+        this.exclusionDefinitions = this.exclusionDefinitions.map(row =>
+            row.id === rowId ? { ...row, ...patch } : row
+        );
+    }
+
+    handleCampaignPickerToggle(event) {
+        event.stopPropagation();
+        const rowId = event.currentTarget.dataset.rowId;
+        const row = this.exclusionDefinitions.find(r => r.id === rowId);
+        if (!row) return;
+        const opening = !row.campaignPickerOpen;
+        this.exclusionDefinitions = this.exclusionDefinitions.map(r => {
+            if (r.id !== rowId) {
+                return r.campaignPickerOpen ? { ...r, campaignPickerOpen: false } : r;
+            }
+            return { ...r, campaignPickerOpen: opening };
+        });
+        if (opening) {
+            this._ensureCampaignCatalogForRow(rowId);
+        }
+    }
+
+    handleCampaignPickerSearch(event) {
+        event.stopPropagation();
+        const rowId = event.currentTarget.dataset.rowId;
+        const term = event.target.value || '';
+        this._updateExclusionRow(rowId, { campaignSearchTerm: term, campaignPickerOpen: true });
+    }
+
+    handleCampaignExclusionToggle(event) {
+        event.stopPropagation();
+        const rowId = event.currentTarget.dataset.rowId;
+        const campaignId = event.currentTarget.dataset.campaignId;
+        const checked = event.target.checked;
+        const row = this.exclusionDefinitions.find(r => r.id === rowId);
+        if (!row || !campaignId) return;
+        const selected = new Set(row.selectedCampaignIds || []);
+        if (checked) {
+            selected.add(campaignId);
+        } else {
+            selected.delete(campaignId);
+        }
+        const selectedCampaignIds = [...selected];
+        this._updateExclusionRow(rowId, {
+            selectedCampaignIds,
+            value: selectedCampaignIds.join(','),
+            display: buildCampaignExclusionDisplay(selectedCampaignIds, row.campaignOptions)
+        });
+    }
+
+    handleSelectAllCampaignsInGroup(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        const rowId = event.currentTarget.dataset.rowId;
+        const groupKey = event.currentTarget.dataset.groupKey;
+        const row = this.exclusionDefinitions.find(r => r.id === rowId);
+        if (!row || !groupKey) return;
+        const selected = new Set(row.selectedCampaignIds || []);
+        (row.campaignOptions || []).forEach(c => {
+            if (c.groupKey === groupKey) {
+                selected.add(c.id);
+            }
+        });
+        const selectedCampaignIds = [...selected];
+        this._updateExclusionRow(rowId, {
+            selectedCampaignIds,
+            value: selectedCampaignIds.join(','),
+            display: buildCampaignExclusionDisplay(selectedCampaignIds, row.campaignOptions)
+        });
+    }
+
+    handleRemoveCampaignExclusionPill(event) {
+        const rowId = event.currentTarget.dataset.rowId;
+        const campaignId = event.currentTarget.dataset.campaignId;
+        const row = this.exclusionDefinitions.find(r => r.id === rowId);
+        if (!row) return;
+        const selectedCampaignIds = (row.selectedCampaignIds || []).filter(id => id !== campaignId);
+        this._updateExclusionRow(rowId, {
+            selectedCampaignIds,
+            value: selectedCampaignIds.join(','),
+            display: buildCampaignExclusionDisplay(selectedCampaignIds, row.campaignOptions)
+        });
+    }
+
     handleExclusionLookupSelect(event) {
         const rowId = event.target.dataset.rowId;
         const value = event.detail.value;
         const row = this.exclusionDefinitions.find(r => r.id === rowId);
+        if (row?.source === 'campaign') {
+            return;
+        }
         let display = value;
         if (row?.source === 'dmo') {
             const opt = this.dmoOptions.find(o => o.value === value);
@@ -1593,14 +1794,53 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get exclusionDefinitionRows() {
-        return (this.exclusionDefinitions || []).map((row, index) => ({
-            ...row,
-            isCampaign: row.source === 'campaign',
-            isReport: row.source === 'report',
-            isSegment: row.source === 'segment',
-            isDmo: row.source === 'dmo',
-            showRemove: this.exclusionDefinitions.length > 1 || index > 0
-        }));
+        return (this.exclusionDefinitions || []).map((row, index) => {
+            const base = {
+                ...row,
+                isCampaign: row.source === 'campaign',
+                isReport: row.source === 'report',
+                isSegment: row.source === 'segment',
+                isDmo: row.source === 'dmo',
+                showRemove: this.exclusionDefinitions.length > 1 || index > 0
+            };
+            if (row.source !== 'campaign') {
+                return base;
+            }
+            const term = (row.campaignSearchTerm || '').trim().toLowerCase();
+            const options = row.campaignOptions || [];
+            const filtered = options.filter(c => {
+                if (!term) return true;
+                return (c.name || '').toLowerCase().includes(term)
+                    || (c.status || '').toLowerCase().includes(term)
+                    || (c.groupName || '').toLowerCase().includes(term);
+            });
+            const selectedSet = new Set(row.selectedCampaignIds || []);
+            const filteredCampaignPickerRows = filtered.map(c => ({
+                id: c.id,
+                name: c.name,
+                metaLine: campaignMetaLine(c.status, c.groupName),
+                groupKey: c.groupKey,
+                isSelected: selectedSet.has(c.id),
+                showGroupAction: !!c.groupKey
+            }));
+            const selectedCampaignPills = (row.selectedCampaignIds || []).map(id => {
+                const match = options.find(o => o.id === id);
+                return {
+                    id,
+                    label: match ? campaignDisplayLabel(match) : id
+                };
+            });
+            return {
+                ...base,
+                campaignPickerContainerClass: `custom-dropdown-container exclusion-campaign-picker ${row.campaignPickerOpen ? 'slds-is-open' : ''}`,
+                filteredCampaignPickerRows,
+                selectedCampaignPills,
+                hasSelectedCampaigns: selectedCampaignPills.length > 0,
+                campaignPickerSummary: selectedCampaignPills.length
+                    ? `${selectedCampaignPills.length} campaign(s) selected`
+                    : 'Select campaigns...'
+            };
+        });
     }
 
     get addExclusionButtonLabel() {

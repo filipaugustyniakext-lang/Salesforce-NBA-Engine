@@ -278,24 +278,87 @@
                                                             </lightning-combobox>
                                                             <div class="exclusion-lookup-col slds-m-top_x-small">
                                                                     <template lwc:if={row.isCampaign}>
-                                                                        <lightning-input
-                                                                            type="search"
-                                                                            label="Salesforce Campaign"
-                                                                            placeholder="Search campaigns..."
-                                                                            value={row.searchTerm}
-                                                                            data-row-id={row.id}
-                                                                            onchange={handleExclusionSearchInput}
-                                                                            class="custom-form-input">
-                                                                        </lightning-input>
-                                                                        <lightning-combobox
-                                                                            label="Selected campaign"
-                                                                            value={row.value}
-                                                                            options={row.lookupOptions}
-                                                                            placeholder="Choose a campaign..."
-                                                                            data-row-id={row.id}
-                                                                            onchange={handleExclusionLookupSelect}
-                                                                            class="custom-form-input slds-m-top_x-small">
-                                                                        </lightning-combobox>
+                                                                        <div class={row.campaignPickerContainerClass} data-row-id={row.id}>
+                                                                            <label class="slds-form-element__label" for={row.id}>Salesforce Campaigns</label>
+                                                                            <div class="slds-form-element__control">
+                                                                                <div class="slds-combobox_container">
+                                                                                    <div class="slds-combobox slds-dropdown-trigger slds-dropdown-trigger_click">
+                                                                                        <div class="slds-combobox__form-element slds-input-has-icon slds-input-has-icon_right" role="none">
+                                                                                            <input
+                                                                                                type="text"
+                                                                                                id={row.id}
+                                                                                                class="slds-input slds-combobox__input custom-form-input"
+                                                                                                placeholder="Search campaigns..."
+                                                                                                autocomplete="off"
+                                                                                                value={row.campaignSearchTerm}
+                                                                                                data-row-id={row.id}
+                                                                                                onclick={handleCampaignPickerToggle}
+                                                                                                oninput={handleCampaignPickerSearch}
+                                                                                            />
+                                                                                            <span class="slds-icon_container slds-icon-utility-search slds-input__icon slds-input__icon_right">
+                                                                                                <lightning-icon icon-name="utility:search" size="x-small"></lightning-icon>
+                                                                                            </span>
+                                                                                        </div>
+                                                                                        <template lwc:if={row.campaignPickerOpen}>
+                                                                                            <div class="custom-picklist-dropdown exclusion-campaign-dropdown" role="listbox">
+                                                                                                <div class="dropdown-scrollable-list">
+                                                                                                    <template for:each={row.filteredCampaignPickerRows} for:item="camp">
+                                                                                                        <div key={camp.id} class="exclusion-campaign-option-row">
+                                                                                                            <label class="exclusion-campaign-option-label custom-dropdown-row">
+                                                                                                                <input
+                                                                                                                    type="checkbox"
+                                                                                                                    class="exclusion-campaign-checkbox"
+                                                                                                                    checked={camp.isSelected}
+                                                                                                                    data-row-id={row.id}
+                                                                                                                    data-campaign-id={camp.id}
+                                                                                                                    onchange={handleCampaignExclusionToggle}
+                                                                                                                />
+                                                                                                                <span class="exclusion-campaign-option-text">
+                                                                                                                    <span class="list-campaign-title">{camp.name}</span>
+                                                                                                                    <template lwc:if={camp.metaLine}>
+                                                                                                                        <span class="exclusion-campaign-meta">{camp.metaLine}</span>
+                                                                                                                    </template>
+                                                                                                                </span>
+                                                                                                            </label>
+                                                                                                            <template lwc:if={camp.showGroupAction}>
+                                                                                                                <button
+                                                                                                                    type="button"
+                                                                                                                    class="exclusion-campaign-group-link"
+                                                                                                                    data-row-id={row.id}
+                                                                                                                    data-group-key={camp.groupKey}
+                                                                                                                    onclick={handleSelectAllCampaignsInGroup}>
+                                                                                                                    Select all in group
+                                                                                                                </button>
+                                                                                                            </template>
+                                                                                                        </div>
+                                                                                                    </template>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        </template>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                            <template lwc:if={row.hasSelectedCampaigns}>
+                                                                                <ul class="exclusion-campaign-pills slds-listbox slds-listbox_horizontal slds-m-top_x-small" role="listbox" aria-label="Selected campaigns">
+                                                                                    <template for:each={row.selectedCampaignPills} for:item="pill">
+                                                                                        <li key={pill.id} class="slds-listbox-item" role="presentation">
+                                                                                            <span class="slds-pill">
+                                                                                                <span class="slds-pill__label" title={pill.label}>{pill.label}</span>
+                                                                                                <button
+                                                                                                    type="button"
+                                                                                                    class="slds-button slds-button_icon slds-button_icon slds-pill__remove"
+                                                                                                    title="Remove"
+                                                                                                    data-row-id={row.id}
+                                                                                                    data-campaign-id={pill.id}
+                                                                                                    onclick={handleRemoveCampaignExclusionPill}>
+                                                                                                    <lightning-icon icon-name="utility:close" size="x-small" alternative-text="Remove"></lightning-icon>
+                                                                                                </button>
+                                                                                            </span>
+                                                                                        </li>
+                                                                                    </template>
+                                                                                </ul>
+                                                                            </template>
+                                                                        </div>
                                                                     </template>
                                                                     <template lwc:elseif={row.isReport}>
                                                                         <lightning-input

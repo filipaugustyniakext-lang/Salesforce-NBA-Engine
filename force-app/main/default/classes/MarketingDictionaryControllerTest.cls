@@ -165,4 +165,23 @@ private class MarketingDictionaryControllerTest {
         System.assertEquals(1, loaded.size());
         System.assertEquals(published.Id, loaded[0].get('id'));
     }
+
+    @isTest
+    static void searchSuppressionCampaigns_returnsActiveWithStatus() {
+        insert new List<Campaign>{
+            new Campaign(Name = 'Alpha Active', IsActive = true, Status = 'In Progress'),
+            new Campaign(Name = 'Solo Active', IsActive = true, Status = 'Completed'),
+            new Campaign(Name = 'Inactive Campaign', IsActive = false, Status = 'Completed')
+        };
+
+        Test.startTest();
+        List<Map<String, String>> allActive = MarketingDictionaryController.searchSuppressionCampaigns('');
+        List<Map<String, String>> filtered = MarketingDictionaryController.searchSuppressionCampaigns('Solo');
+        Test.stopTest();
+
+        System.assert(allActive.size() >= 2, 'Active campaigns are returned');
+        System.assertEquals('In Progress', allActive[0].get('status'));
+        System.assertEquals(1, filtered.size());
+        System.assertEquals('Solo Active', filtered[0].get('name'));
+    }
 }
