@@ -25,10 +25,17 @@ public with sharing class MarketingCloudCopyDelete {
     }
 
     public static void deleteVariantsFromMce(List<String> messageVariantIds) {
+        deleteVariantsFromMce(messageVariantIds, MceDeleteLogService.SOURCE_SOAP_QUEUEABLE);
+    }
+
+    public static void deleteVariantsFromMce(List<String> messageVariantIds, String logSource) {
         List<String> variantIds = normalizeVariantIds(messageVariantIds);
         if (variantIds.isEmpty()) {
             return;
         }
+        String source = String.isBlank(logSource)
+            ? MceDeleteLogService.SOURCE_SOAP_QUEUEABLE
+            : logSource;
         try {
             MCE_Settings__mdt settings = loadSettings();
             String token = requestToken(settings);
@@ -37,8 +44,30 @@ public with sharing class MarketingCloudCopyDelete {
             String blocksDeId = (String) blocksDe.get('id');
 
             deleteMetadataRowsSoap(settings, token, metadataDeKey, variantIds);
-            deleteBlockRowsSoap(settings, token, blocksDeId, BLOCKS_DE_KEY, variantIds);
+            Integer blockDeleteCount = deleteBlockRowsSoap(
+                settings,
+                token,
+                blocksDeId,
+                BLOCKS_DE_KEY,
+                variantIds
+            );
+            MceDeleteLogService.logSuccess(
+                source,
+                variantIds,
+                'SOAP delete completed for '
+                    + variantIds.size()
+                    + ' metadata variant(s) and '
+                    + blockDeleteCount
+                    + ' block row(s).',
+                null
+            );
         } catch (Exception ex) {
+            MceDeleteLogService.logFailure(
+                source,
+                variantIds,
+                ex.getMessage(),
+                ex.getStackTraceString()
+            );
             System.debug(LoggingLevel.WARN, 'MCE variant delete failed: ' + ex.getMessage());
         }
     }
@@ -56,7 +85,7 @@ public with sharing class MarketingCloudCopyDelete {
         sendSoapDeleteBatches(settings, token, soapObjects);
     }
 
-    private static void deleteBlockRowsSoap(
+    private static Integer deleteBlockRowsSoap(
         MCE_Settings__mdt settings,
         String token,
         String blocksDeId,
@@ -85,9 +114,10 @@ public with sharing class MarketingCloudCopyDelete {
             }
         }
         if (soapObjects.isEmpty()) {
-            return;
+            return 0;
         }
         sendSoapDeleteBatches(settings, token, soapObjects);
+        return soapObjects.size();
     }
 
     private static void sendSoapDeleteBatches(

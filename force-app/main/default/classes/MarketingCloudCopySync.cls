@@ -214,21 +214,20 @@ public with sharing class MarketingCloudCopySync {
 
     @future(callout=true)
     public static void deleteVariantsFromMCEAsync(List<String> variantIds) {
+        List<String> ids = normalizeVariantIds(variantIds);
+        if (ids.isEmpty()) {
+            return;
+        }
+        String source = MceDeleteLogService.SOURCE_REST_FUTURE;
+        List<String> failures = new List<String>();
         try {
-            if (variantIds == null || variantIds.isEmpty()) {
-                return;
-            }
-            
-            MCE_Settings__mdt settings = loadSettings(); //[cite: 3]
-            String token = requestToken(settings); //[cite: 3]
+            MCE_Settings__mdt settings = loadSettings();
+            String token = requestToken(settings);
 
-            // Note: @future methods allow up to 100 callouts per transaction.
-            for (String variantId : variantIds) {
-                if (String.isBlank(variantId)) continue;
-                
-                String endpoint = 'https://' + settings.Subdomain__c //[cite: 3]
+            for (String variantId : ids) {
+                String endpoint = 'https://' + settings.Subdomain__c
                     + '.rest.marketingcloudapis.com/data/v1/customobjectdata/key/'
-                    + EncodingUtil.urlEncode(settings.Data_Extension_Key__c, 'UTF-8') //[cite: 3]
+                    + EncodingUtil.urlEncode(settings.Data_Extension_Key__c, 'UTF-8')
                     + '/row/MessageVariantId:' + EncodingUtil.urlEncode(variantId, 'UTF-8');
 
                 HttpRequest req = new HttpRequest();
@@ -238,13 +237,41 @@ public with sharing class MarketingCloudCopySync {
                 req.setTimeout(120000);
 
                 HttpResponse res = new Http().send(req);
-                
-                // 200-level codes indicate success. 404 means it's already gone.
+
                 if (res.getStatusCode() >= 300 && res.getStatusCode() != 404) {
+                    String line = variantId + ' (' + res.getStatusCode() + '): ' + res.getBody();
+                    failures.add(line);
                     System.debug('Failed to delete variant ' + variantId + ' from MCE (' + res.getStatusCode() + '): ' + res.getBody());
                 }
             }
+
+            Integer failureCount = failures.size();
+            Integer successCount = ids.size() - failureCount;
+            String detail = failures.isEmpty() ? null : String.join(failures, '\n');
+            if (failureCount == 0) {
+                MceDeleteLogService.logSuccess(
+                    source,
+                    ids,
+                    'REST metadata delete OK for ' + successCount + ' variant(s).',
+                    detail
+                );
+            } else if (successCount == 0) {
+                MceDeleteLogService.logFailure(
+                    source,
+                    ids,
+                    'REST metadata delete failed for all ' + ids.size() + ' variant(s).',
+                    detail
+                );
+            } else {
+                MceDeleteLogService.logPartial(
+                    source,
+                    ids,
+                    successCount + ' variant(s) OK, ' + failureCount + ' failed (REST metadata only).',
+                    detail
+                );
+            }
         } catch (Exception ex) {
+            MceDeleteLogService.logFailure(source, ids, ex.getMessage(), ex.getStackTraceString());
             System.debug('Error in MCE Delete Async: ' + ex.getMessage());
         }
     }

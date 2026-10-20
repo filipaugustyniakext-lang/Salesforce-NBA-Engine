@@ -18,6 +18,9 @@ private class MarketingCloudCopyDeleteTest {
             } else if (endpoint.contains('/rowset') && endpoint.contains('blocks-de-id')) {
                 res.setStatusCode(200);
                 res.setBody('{"count":1,"page":1,"pageSize":2500,"items":[{"keys":{"messagevariantid":"variant-del-1","contentblockorder":"1"},"values":{"blocktype":"Content"}}]}');
+            } else if (req.getMethod() == 'DELETE' && endpoint.contains('customobjectdata/key')) {
+                res.setStatusCode(204);
+                res.setBody('');
             } else if (endpoint.contains('Service.asmx')) {
                 res.setStatusCode(200);
                 System.assert(req.getBody().contains('DeleteRequest'), 'Expected SOAP Delete');
@@ -56,6 +59,16 @@ private class MarketingCloudCopyDeleteTest {
         Test.startTest();
         MarketingCloudCopyDelete.deleteVariantsFromMce(new List<String>{ 'variant-del-1' });
         Test.stopTest();
+
+        List<MCE_Delete_Log__c> logs = [
+            SELECT Status__c, Source__c, Summary__c, Message_Variant_Ids__c
+            FROM MCE_Delete_Log__c
+            WHERE Source__c = :MceDeleteLogService.SOURCE_SOAP_QUEUEABLE
+        ];
+        System.assertEquals(1, logs.size(), 'Expected one SOAP delete log row');
+        System.assertEquals('Success', logs[0].Status__c);
+        System.assert(logs[0].Summary__c.contains('1 metadata variant'), logs[0].Summary__c);
+        System.assertEquals('variant-del-1', logs[0].Message_Variant_Ids__c);
     }
 
     @IsTest
