@@ -1,8 +1,25 @@
 /* lightning-progress-indicator (base): spacing in modal header area */
+.wizard-header-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.wizard-header-title-row .wizard-header-title {
+    margin: 0;
+}
+
+.wizard-edit-mode-badge {
+    flex-shrink: 0;
+}
+
 .wizard-progress-indicator {
     display: block;
     width: 100%;
-    margin-bottom: 1.25rem;
+    margin: 0;
 }
 
 .emergency-inline-toggle {
@@ -23,6 +40,37 @@
 
 .slds-section__content {
     padding-top: 0;
+}
+
+.apriori-slider-anchor {
+    position: relative;
+    padding-top: 0.25rem;
+}
+
+.apriori-score-popover {
+    position: absolute;
+    left: 0;
+    bottom: calc(100% + 0.75rem);
+    width: min(22rem, 100%);
+    z-index: 10000;
+}
+
+.apriori-summary-alert {
+    display: flex;
+    align-items: flex-start;
+    text-align: left;
+}
+
+.apriori-summary-alert-text {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    line-height: 1.4;
+    margin: 0;
+}
+
+.apriori-summary-alert-icon {
+    flex-shrink: 0;
+    margin-top: 0.125rem;
 }
 
 /* --- BASE DIALOG LAYOUT --- */
@@ -283,6 +331,10 @@
 
 .activation-btn--selected .activation-btn-label {
     color: #0176d3;
+}
+
+.activation-btn-icon {
+    --slds-c-icon-color-foreground-default: #0176d3;
 }
 
 .activation-btn-icon--alwayson {
@@ -629,6 +681,9 @@
 .priority-tile-body,
 .exclusions-tile-body {
     flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 }
 
 .exclusions-tile-empty {
@@ -665,8 +720,11 @@
     display: flex;
     flex-direction: column;
     flex: 1 1 auto;
+    min-height: 0;
     gap: 0.5rem;
     width: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 .priority-tier-picker-control .slds-visual-picker_vertical {
@@ -680,13 +738,18 @@
     width: 100%;
 }
 
-.priority-tier-picker-control .slds-visual-picker__figure {
+.priority-tier-picker-control .tier-picker-compact .slds-visual-picker__figure {
     width: 100%;
-    min-height: 4.5rem;
+    min-height: 2.25rem;
     height: auto;
-    padding: 0.75rem 1rem 2rem;
+    padding: 0.45rem 2.35rem 0.45rem 0.65rem;
     justify-content: flex-start;
     text-align: left;
+}
+
+.priority-tier-picker-control .tier-picker-expanded .slds-visual-picker__figure {
+    min-height: 2.25rem;
+    padding-bottom: 0.65rem;
 }
 
 .tier-picker-content {
@@ -696,10 +759,37 @@
     width: 100%;
 }
 
+.tier-picker-inline {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    width: 100%;
+    min-width: 0;
+}
+
+.tier-picker-inline-name {
+    flex-shrink: 0;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: #181818;
+}
+
+.tier-picker-inline-desc {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.8125rem;
+    line-height: 1.35;
+    color: #706e6b;
+}
+
 .tier-details-toggle {
     position: absolute;
-    right: 0.5rem;
-    bottom: 0.5rem;
+    right: 0.35rem;
+    top: 50%;
+    transform: translateY(-50%);
     z-index: 6;
     background: #ffffff;
     border: 1px solid #dddbda;
@@ -722,6 +812,10 @@
     white-space: normal;
     line-height: 1.35;
     color: #706e6b;
+}
+
+.tier-picker-description-full {
+    white-space: normal;
 }
 
 .tier-picker-details {
@@ -1438,14 +1532,58 @@
     padding: 0 !important;
 }
 
-.copy-tabs-sidebar .slds-vertical-tabs__nav-item {
-    border-bottom: 1px solid #e8ecf0;
+.copy-channel-sidebar {
+    display: flex;
+    flex-direction: column;
 }
 
-.copy-tabs-sidebar .slds-is-active {
+.copy-channel-sidebar-row {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: stretch;
+    border-bottom: 1px solid #e8ecf0;
+    min-height: 2.75rem;
+}
+
+.copy-channel-sidebar-row .copy-channel-tab-link {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    padding: 0.65rem 0.75rem;
+    text-decoration: none;
+    color: inherit;
+    border-left: 3px solid transparent;
+}
+
+.copy-channel-sidebar-row.slds-is-active .copy-channel-tab-link {
     background: #ffffff;
-    border-left: 3px solid #0176d3;
+    border-left-color: #0176d3;
     font-weight: 600;
+}
+
+.copy-channel-toggle-slot {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.5rem;
+    background: #f3f4f6;
+    border-right: 1px solid #e8ecf0;
+}
+
+.copy-channel-tab-toggle {
+    flex-shrink: 0;
+    transform: scale(0.72);
+    transform-origin: center center;
+}
+
+
+.copy-channel-sidebar-row_disabled .copy-channel-tab-link {
+    opacity: 0.85;
+}
+
+.copy-channel-tab-link_disabled {
+    color: #706e6b;
+    cursor: pointer;
 }
 
 .copy-list-builder-container {
@@ -1492,6 +1630,10 @@
 
 .copy-assignment-col-weight {
     width: 5rem;
+}
+
+.copy-assignment-col-normalized {
+    width: 7rem;
 }
 
 .copy-assignment-col-status {

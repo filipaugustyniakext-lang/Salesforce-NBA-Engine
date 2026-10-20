@@ -44,10 +44,9 @@ public with sharing class MarketingDictionaryController {
                    Assigned_Channels__c,
                    Product_Family__c, Product_Family_Ids__c,
                    Family_of_Needs__c, Family_of_Needs_Ids__c,
-                   Exclude_Onboarding__c,
-                   Suppression_Campaign__c, Suppression_Campaign__r.Name,
-                   Suppression_Report_Id__c, Suppression_Segment__c,
-                   Campaign_Exclusions_JSON__c
+                   Exclude_Onboarding__c, Exclude_Other_Marketing_Activations__c,
+                   Campaign_Exclusions_JSON__c,
+                   Suppression_Campaign__c, Suppression_Report_Id__c, Suppression_Segment__c
             FROM Campaign
             WHERE Id = :campaignId
             LIMIT 1
@@ -266,7 +265,7 @@ public with sharing class MarketingDictionaryController {
     @AuraEnabled(cacheable=true)
     public static List<Marketing_Dictionary__c> getCampaignTypes() {
         return [
-            SELECT Id, Name, Channel_Icon__c, Include_In_Emergency__c, Define_Campaign_Groups__c,
+            SELECT Id, Name, Campaign_Type_Icon__c, Include_In_Emergency__c, Define_Campaign_Groups__c,
                    (SELECT Id, Name
                     FROM Campaign_Groups_by_Type__r
                     WHERE Dictionary_Sub_Type__c = 'Campaign Group'
@@ -301,6 +300,7 @@ public with sharing class MarketingDictionaryController {
                    Override_Random_Activation_Path__c, Honor_Marketing_Consents__c,
                    Includes_Control_Group__c, Honors_Channel_Cooldowns__c,
                    Honors_Product_Eligibility__c, Allows_Random_Copy_Assignment__c,
+                   Excl_Other_Marketing_Activations__c,
                    Excl_Manual_Suppressions__c, Excl_Deceased__c, Excl_AML_Fraud__c,
                    Excl_Debt_Collection__c, Excl_Overdue__c, Excl_KYC_Risk__c,
                    Excl_Bailiff_Seizure__c, Excl_Restricted_Client__c, Excl_Personal_Bankruptcy__c
@@ -363,31 +363,6 @@ public with sharing class MarketingDictionaryController {
     @AuraEnabled
     public static void saveCampaignCopyVariants(Id campaignId, List<Id> messageVariantIds) {
         new CopyVariantQuery().replaceCampaignCopyVariants(campaignId, messageVariantIds);
-    }
-
-    /**
-     * Read-only campaign configuration grouped for the Marketing Campaign record page
-     * (mirrors wizard steps: properties, topic/offering, copy, scoring).
-     */
-    @AuraEnabled(cacheable=true)
-    public static Map<String, Object> getCampaignConfigurationView(Id campaignId) {
-        Map<String, Object> view = new Map<String, Object>();
-        if (campaignId == null) {
-            return view;
-        }
-
-        Campaign campaign = getCampaignById(campaignId);
-        if (campaign == null) {
-            return view;
-        }
-
-        CopyVariantQuery copyQuery = new CopyVariantQuery();
-        OfferQuery offerQuery = new OfferQuery();
-
-        view.put('campaign', campaign);
-        view.put('offers', offerQuery.fetchCampaignOffers(campaignId));
-        view.put('copyVariants', copyQuery.fetchCampaignCopyVariantDetails(campaignId));
-        return view;
     }
 
     /**
@@ -644,48 +619,6 @@ public with sharing class MarketingDictionaryController {
                 results.add(new Map<String, String>{
                     'id' => row.Message_Variant__c,
                     'status' => row.Message_Variant__r.Status__c
-                });
-            }
-            return results;
-        }
-
-        List<Map<String, Object>> fetchCampaignCopyVariantDetails(Id campaignId) {
-            List<Map<String, Object>> results = new List<Map<String, Object>>();
-            if (campaignId == null) {
-                return results;
-            }
-
-            for (Campaign_Copy_Variant__c row : [
-                SELECT Is_Eligible__c,
-                       Message_Variant__c,
-                       Message_Variant__r.Name,
-                       Message_Variant__r.Channel_Type__c,
-                       Message_Variant__r.Status__c,
-                       Message_Variant__r.Version__c,
-                       Message_Variant__r.Display_Probability__c,
-                       Message_Variant__r.Display_Probability_Manual__c
-                FROM Campaign_Copy_Variant__c
-                WHERE Campaign__c = :campaignId
-                ORDER BY Message_Variant__r.Channel_Type__c, Message_Variant__r.Name
-                LIMIT 500
-            ]) {
-                if (row.Message_Variant__c == null) {
-                    continue;
-                }
-                Decimal manual = row.Message_Variant__r.Display_Probability_Manual__c;
-                Decimal computed = row.Message_Variant__r.Display_Probability__c;
-                String weight = manual != null
-                    ? String.valueOf(manual)
-                    : (computed != null ? String.valueOf(computed) : '—');
-
-                results.add(new Map<String, Object>{
-                    'id' => row.Message_Variant__c,
-                    'name' => row.Message_Variant__r.Name,
-                    'channel' => row.Message_Variant__r.Channel_Type__c,
-                    'status' => row.Message_Variant__r.Status__c,
-                    'version' => row.Message_Variant__r.Version__c,
-                    'weight' => weight,
-                    'eligible' => row.Is_Eligible__c == true
                 });
             }
             return results;

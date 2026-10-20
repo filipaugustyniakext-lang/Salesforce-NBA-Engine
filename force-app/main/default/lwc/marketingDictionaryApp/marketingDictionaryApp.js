@@ -1,11 +1,39 @@
 import { LightningElement, track } from 'lwc';
+import {
+    MAIN_TAB_VALUES,
+    persistMainTab,
+    resolveMainTab
+} from 'c/marketingDictionaryState';
 
 export default class MarketingDictionaryApp extends LightningElement {
     @track activeTab = 'person';
     _channelAvailability = {};
+    _readyForUserTabChanges = false;
+    _restoredTab = 'person';
 
-    handleTabChange(event) {
-        this.activeTab = event.target.value;
+    connectedCallback() {
+        this._restoredTab = resolveMainTab();
+        this.activeTab = this._restoredTab;
+        // eslint-disable-next-line @lwc/lwc/no-async-operation
+        requestAnimationFrame(() => {
+            this._readyForUserTabChanges = true;
+        });
+    }
+
+    handleMainTabActive(event) {
+        const nextTab = event?.target?.value;
+        if (!nextTab || !MAIN_TAB_VALUES.includes(nextTab)) {
+            return;
+        }
+
+        if (!this._readyForUserTabChanges) {
+            if (nextTab === this._restoredTab) {
+                this.activeTab = nextTab;
+            }
+            return;
+        }
+
+        this.activeTab = persistMainTab(nextTab);
     }
 
     handleChannelActiveChange(event) {

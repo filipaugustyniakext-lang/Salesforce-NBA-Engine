@@ -2,7 +2,113 @@ public with sharing class CopyCockpitController {
 
     @AuraEnabled(cacheable=false)
     public static List<CC_Message_Metadata__c> getMessagesByChannelType(String channelType) {
-        if (String.isBlank(channelType)) return new List<CC_Message_Metadata__c>();
+        return getMessagesForDictionaryChannel(null, channelType);
+    }
+
+    /**
+     * Messages for one Marketing Dictionary channel (Copy Center sidebar tab).
+     * Matches {@link MarketingDictionaryDeleteGuard} dependency scoping.
+     */
+    @AuraEnabled(cacheable=false)
+    public static List<CC_Message_Metadata__c> getMessagesForDictionaryChannel(
+        String channelName,
+        String channelType
+    ) {
+        if (String.isBlank(channelName) && String.isBlank(channelType)) {
+            return new List<CC_Message_Metadata__c>();
+        }
+        if (String.isBlank(channelName)) {
+            return [
+                SELECT Id, Name,
+                       Channel__c, Channel_Type__c,
+                       Status__c,
+                       Subject__c,
+                       Version__c,
+                       Language__c,
+                       Valid_From__c, Valid_To__c,
+                       Offer__c, Offer__r.Name,
+                       Product_Family__c, Product_Family__r.Name,
+                       Campaign__c, Campaign__r.Name,
+                       Is_Active__c,
+                       Block_Count__c,
+                       Display_Probability__c,
+                       Display_Probability_Manual__c,
+                       Scheduled_Action__c,
+                       Scheduled_At__c,
+                       Scheduled_Status__c,
+                       Scheduled_From_Status__c,
+                       Scheduled_To_Status__c,
+                       Message_Variant_Id__c,
+                       Message_Variant__c,
+                       MessageVariantId__c,
+                       MessageName__c,
+                       MessageVariant__c,
+                       Source_Template__c, Source_Template__r.Name,
+                       Published_At__c,
+                       MCE_Updated_At__c,
+                       MCE_Last_Modified_By__c,
+                       LastModifiedBy__c,
+                       LastModifiedAt__c,
+                       UpdatedAt__c,
+                       CreatedDate, LastModifiedDate
+                FROM CC_Message_Metadata__c
+                WHERE Channel_Type__c = :channelType
+                ORDER BY Name ASC, Version__c ASC NULLS LAST
+                LIMIT 2000
+            ];
+        }
+        Integer typeChannelCount = String.isBlank(channelType)
+            ? 0
+            : [
+                SELECT COUNT()
+                FROM Marketing_Dictionary__c
+                WHERE RecordType.DeveloperName = 'Channel'
+                AND Channel_Type__c = :channelType
+            ];
+        if (typeChannelCount <= 1 && String.isNotBlank(channelType)) {
+            return [
+                SELECT Id, Name,
+                       Channel__c, Channel_Type__c,
+                       Status__c,
+                       Subject__c,
+                       Version__c,
+                       Language__c,
+                       Valid_From__c, Valid_To__c,
+                       Offer__c, Offer__r.Name,
+                       Product_Family__c, Product_Family__r.Name,
+                       Campaign__c, Campaign__r.Name,
+                       Is_Active__c,
+                       Block_Count__c,
+                       Display_Probability__c,
+                       Display_Probability_Manual__c,
+                       Scheduled_Action__c,
+                       Scheduled_At__c,
+                       Scheduled_Status__c,
+                       Scheduled_From_Status__c,
+                       Scheduled_To_Status__c,
+                       Message_Variant_Id__c,
+                       Message_Variant__c,
+                       MessageVariantId__c,
+                       MessageName__c,
+                       MessageVariant__c,
+                       Source_Template__c, Source_Template__r.Name,
+                       Published_At__c,
+                       MCE_Updated_At__c,
+                       MCE_Last_Modified_By__c,
+                       LastModifiedBy__c,
+                       LastModifiedAt__c,
+                       UpdatedAt__c,
+                       CreatedDate, LastModifiedDate
+                FROM CC_Message_Metadata__c
+                WHERE Channel__c = :channelName
+                   OR (
+                       (Channel__c = null OR Channel__c = '')
+                       AND Channel_Type__c = :channelType
+                   )
+                ORDER BY Name ASC, Version__c ASC NULLS LAST
+                LIMIT 2000
+            ];
+        }
         return [
             SELECT Id, Name,
                    Channel__c, Channel_Type__c,
@@ -37,7 +143,7 @@ public with sharing class CopyCockpitController {
                    UpdatedAt__c,
                    CreatedDate, LastModifiedDate
             FROM CC_Message_Metadata__c
-            WHERE Channel_Type__c = :channelType
+            WHERE Channel__c = :channelName
             ORDER BY Name ASC, Version__c ASC NULLS LAST
             LIMIT 2000
         ];
@@ -381,7 +487,7 @@ public with sharing class CopyCockpitController {
             CC_Message_Metadata__c rec = new CC_Message_Metadata__c();
             rec.Name            = composed;
             rec.Version__c      = version;
-            rec.Message_Variant__c = 'Variant ' + String.valueOf(version.intValue());
+            rec.Message_Variant__c = String.valueOf(version.intValue());
             // Language is master-scoped — new variants inherit existing master's language.
             rec.Language__c     = masterLanguage != null ? masterLanguage : (String) data.get('language');
             rec.Channel__c      = (String) data.get('channelName');
@@ -488,25 +594,23 @@ public with sharing class CopyCockpitController {
     }
 
     @AuraEnabled
-    public static Id cloneMessage(Id sourceId, Decimal newVersion) {
+    public static Id cloneMessage(Id sourceId, Decimal newVersion, String masterStem) {
         try {
             if (newVersion == null || newVersion < 1) {
                 throw new AuraHandledException('A valid variant number is required.');
             }
             CC_Message_Metadata__c src = [
-                SELECT Name, Channel__c, Channel_Type__c,
+                SELECT Name, MessageName__c, Channel__c, Channel_Type__c,
                        Subject__c, Body__c, Language__c,
                        Source_Template__c, Canvas_Blocks_JSON__c,
                        Offer__c, Product_Family__c, Campaign__c,
-                       Valid_From__c, Valid_To__c, Version__c
+                       Valid_From__c, Valid_To__c, Version__c,
+                       Message_Variant__c, MessageVariant__c
                 FROM CC_Message_Metadata__c
                 WHERE Id = :sourceId
                 LIMIT 1
             ];
-            String stem = stripVariantSuffix(src.Name);
-            if (String.isBlank(stem)) {
-                stem = src.Name;
-            }
+            String stem = resolveMasterStem(src, masterStem);
             List<CC_Message_Metadata__c> existing = queryByStem(stem, src.Channel_Type__c);
             for (CC_Message_Metadata__c r : existing) {
                 Decimal v = resolveVariantNumber(r, stem);
@@ -520,8 +624,22 @@ public with sharing class CopyCockpitController {
             CC_Message_Metadata__c copy = src.clone(false, false, false, false);
             copy.Version__c = newVersion;
             copy.Name = stem + '_' + String.valueOf(newVersion.intValue());
-            copy.Message_Variant__c = 'Variant ' + String.valueOf(newVersion.intValue());
+            copy.Message_Variant__c = String.valueOf(newVersion.intValue());
+            copy.MessageVariant__c = newVersion;
             copy.Status__c  = 'Draft';
+            copy.Message_Variant_Id__c = null;
+            copy.MessageVariantId__c = null;
+            String masterMessageName = src.MessageName__c;
+            for (CC_Message_Metadata__c sibling : existing) {
+                if (String.isNotBlank(sibling.MessageName__c)) {
+                    masterMessageName = sibling.MessageName__c;
+                    break;
+                }
+            }
+            if (String.isBlank(masterMessageName)) {
+                masterMessageName = stem;
+            }
+            copy.MessageName__c = masterMessageName;
             CopyCockpitModificationService.insertMetadata(copy);
             return copy.Id;
         } catch (AuraHandledException e) {
@@ -579,7 +697,7 @@ public with sharing class CopyCockpitController {
             if (v == null) v = 1;
             r.Name = newStem + '_' + String.valueOf(v.intValue());
             r.Version__c = v;
-            r.Message_Variant__c = 'Variant ' + String.valueOf(v.intValue());
+            r.Message_Variant__c = String.valueOf(v.intValue());
             r.Language__c = lang;
         }
         try {
@@ -779,6 +897,37 @@ public with sharing class CopyCockpitController {
             }
         }
         return p;
+    }
+
+    private static String resolveMasterStem(CC_Message_Metadata__c src, String masterStem) {
+        if (String.isNotBlank(masterStem)) {
+            return masterStem.trim();
+        }
+        if (src == null) {
+            return '';
+        }
+        if (String.isNotBlank(src.MessageName__c)) {
+            return src.MessageName__c.trim();
+        }
+        String stem = stripVariantSuffix(src.Name);
+        if (String.isNotBlank(stem) && !looksLikeExternalMessageId(stem)) {
+            return stem;
+        }
+        return String.isNotBlank(stem) ? stem : src.Name;
+    }
+
+    private static Boolean looksLikeExternalMessageId(String value) {
+        if (String.isBlank(value)) {
+            return false;
+        }
+        String v = value.trim();
+        if (v.length() == 36 && v.contains('-')) {
+            return true;
+        }
+        if (v.length() == 32 && v.replaceAll('[0-9a-fA-F]', '').length() == 0) {
+            return true;
+        }
+        return false;
     }
 
     private static String stripVariantSuffix(String fullName) {

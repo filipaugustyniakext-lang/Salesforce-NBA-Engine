@@ -31,7 +31,14 @@
                                 alternative-text={ch.Name} class="slds-m-right_x-small">
                             </lightning-icon>
                         </template>
-                        <span class="ch-sidebar__name">{ch.Name}</span>
+                        <div class="ch-sidebar__name-row">
+                            <span class="ch-sidebar__name">{ch.displayName}</span>
+                            <span class="ch-sidebar__comm-badges">
+                                <template for:each={ch.commBadges} for:item="badge">
+                                    <span key={badge.key} class="slds-badge slds-badge_lightest ch-sidebar__comm-badge">{badge.label}</span>
+                                </template>
+                            </span>
+                        </div>
                         <span class="ch-sidebar__type slds-text-body_small">{ch.Channel_Type__c}</span>
                         <span class={ch.statusClass}>{ch.statusLabel}</span>
                     </button>
@@ -102,11 +109,12 @@
                                 type="toggle"
                                 label="Channel availability"
                                 variant="label-hidden"
-                                message-toggle-active="Active"
-                                message-toggle-inactive="Inactive"
+                                message-toggle-active=""
+                                message-toggle-inactive=""
+                                title={activeChannelToggleTitle}
                                 checked={activeChannel.Is_Active__c}
                                 data-id={activeChannel.Id}
-                                data-name={activeChannel.Name}
+                                data-name={activeChannel.displayName}
                                 onchange={handleChannelActiveToggle}
                                 class="ch-detail__active-toggle">
                             </lightning-input>
@@ -121,12 +129,12 @@
                             </lightning-button-icon>
                             <lightning-button-icon
                                 icon-name="utility:delete"
-                                variant="border-filled"
+                                variant="destructive"
                                 size="small"
                                 alternative-text="Delete channel"
                                 title="Delete channel"
                                 data-id={activeChannel.Id}
-                                data-name={activeChannel.Name}
+                                data-name={activeChannel.displayName}
                                 onclick={handleDeleteChannel}>
                             </lightning-button-icon>
                         </div>
@@ -139,7 +147,8 @@
                                         <div class="slds-col"></div>
                                         <div class="slds-col slds-no-flex">
                                             <lightning-button label="Add Rule" icon-name="utility:add" variant="neutral"
-                                                size="x-small" data-channelid={activeChannel.Id} onclick={handleNewCooldown}>
+                                                size="x-small" data-channelid={activeChannel.Id} onclick={handleNewCooldown}
+                                                disabled={activeChannel.cooldownAddDisabled}>
                                             </lightning-button>
                                         </div>
                                     </div>
@@ -230,10 +239,10 @@
 
                             <template lwc:if={isChannelTabTemplates}>
                                 <div class="tab-content slds-p-around_small">
-                                    <c-channel-template-manager
+                                    <c-master-template-studio
                                         channel-id={activeChannel.Id}
-                                        channel-name={activeChannel.Name}>
-                                    </c-channel-template-manager>
+                                        channel-name={activeChannel.displayName}>
+                                    </c-master-template-studio>
                                 </div>
                             </template>
 
@@ -464,6 +473,29 @@
                             </div>
                         </template>
                     </div>
+                    <fieldset class="slds-form-element slds-m-top_medium">
+                        <legend class="slds-form-element__legend slds-form-element__label">Communication Type</legend>
+                        <div class="slds-form-element__control slds-grid slds-gutters_small">
+                            <div class="slds-col">
+                                <lightning-input
+                                    type="checkbox"
+                                    label="Inbound"
+                                    checked={editChannel.Communication_Inbound__c}
+                                    data-field="Communication_Inbound__c"
+                                    onchange={handleChannelFieldChange}>
+                                </lightning-input>
+                            </div>
+                            <div class="slds-col">
+                                <lightning-input
+                                    type="checkbox"
+                                    label="Outbound"
+                                    checked={editChannel.Communication_Outbound__c}
+                                    data-field="Communication_Outbound__c"
+                                    onchange={handleChannelFieldChange}>
+                                </lightning-input>
+                            </div>
+                        </div>
+                    </fieldset>
                 </div>
                 <footer class="slds-modal__footer">
                     <lightning-button label="Cancel" onclick={handleCloseChannelModal}></lightning-button>
@@ -491,7 +523,7 @@
                 <div class="slds-modal__content slds-p-around_medium">
                     <lightning-combobox label="Audience Type"
                         value={editCooldown.Audience_Type_Dict__c}
-                        options={audienceTypeOptions}
+                        options={cooldownModalAudienceOptions}
                         placeholder="Select an Audience Type..."
                         required
                         data-field="Audience_Type_Dict__c"
@@ -822,5 +854,12 @@
             </div>
         </section>
         <div class="slds-backdrop slds-backdrop_open" role="presentation"></div>
+    </template>
+
+    <template lwc:if={isDependencyDialogOpen}>
+        <c-marketing-dictionary-dependency-dialog
+            report={dependencyReport}
+            onclose={handleCloseDependencyDialog}>
+        </c-marketing-dictionary-dependency-dialog>
     </template>
 </template>

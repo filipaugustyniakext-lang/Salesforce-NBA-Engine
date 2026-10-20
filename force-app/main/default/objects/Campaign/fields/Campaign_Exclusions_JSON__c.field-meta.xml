@@ -5,7 +5,6 @@
     <inlineHelpText>Stores multiple exclusion sources (campaign, report, segment, DMO) for activation processing.</inlineHelpText>
     <label>Campaign Exclusions JSON</label>
     <length>131072</length>
-    <trackHistory>false</trackHistory>
     <type>LongTextArea</type>
     <visibleLines>3</visibleLines>
 </CustomField>

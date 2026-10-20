@@ -35,7 +35,7 @@ private class MarketingDictionaryManagerControllerTest {
         Test.stopTest();
 
         System.assertEquals(true, blocked, 'Delete should be rejected while products reference the type.');
-        System.assert(message.contains('Please remove dependencies first'), message);
+        System.assert(message.contains('must be removed before it can be deleted'), message);
         System.assert(message.contains('Everyday Checking'), message);
         System.assert(message.contains('Savings'), message);
         System.assertEquals(1, [SELECT COUNT() FROM Marketing_Dictionary__c WHERE Id = :typeRecord.Id]);

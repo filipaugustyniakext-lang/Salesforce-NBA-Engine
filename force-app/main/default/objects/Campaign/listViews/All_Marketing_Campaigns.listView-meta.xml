@@ -14,6 +14,8 @@
     <columns>Family_of_Needs__c</columns>
     <columns>Product_Family__c</columns>
     <columns>Assigned_Channels__c</columns>
+    <columns>Active_From__c</columns>
+    <columns>Active_To__c</columns>
     <filterScope>Everything</filterScope>
     <filters>
         <field>CAMPAIGN.RECORDTYPE</field>

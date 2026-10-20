@@ -1,0 +1,53 @@
+<template>
+    <section role="alertdialog" tabindex="-1" aria-modal="true" aria-labelledby="dependency-dialog-title"
+             class="slds-modal slds-fade-in-open slds-modal_medium">
+        <div class="slds-modal__container">
+            <header class="slds-modal__header slds-theme_warning">
+                <lightning-icon icon-name="utility:warning" variant="inverse" size="small"
+                    class="slds-m-right_x-small" alternative-text="Warning"></lightning-icon>
+                <h2 id="dependency-dialog-title" class="slds-modal__title">
+                    Cannot delete {recordLabel}
+                </h2>
+            </header>
+            <div class="slds-modal__content slds-p-around_medium dependency-dialog__body">
+                <p class="slds-m-bottom_small">
+                    NBA components still reference this dictionary value. Remove or reassign the
+                    dependencies below before deleting <strong>{recordLabel}</strong>.
+                </p>
+                <template lwc:if={showTruncatedNote}>
+                    <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
+                        Showing the first references returned by the system; there may be more.
+                    </p>
+                </template>
+                <div class="dependency-dialog__groups">
+                    <template for:each={groups} for:item="group">
+                        <article key={group.key} class="dependency-dialog__group slds-box slds-box_x-small slds-m-bottom_small">
+                            <h3 class="slds-text-heading_small slds-m-bottom_xx-small">
+                                {group.category}
+                                <span class="slds-text-body_small slds-text-color_weak slds-m-left_x-small">
+                                    ({group.count})
+                                </span>
+                            </h3>
+                            <ul class="slds-list_dotted slds-m-left_medium">
+                                <template for:each={group.entries} for:item="entry">
+                                    <li key={entry.key} class="slds-item">
+                                        <template lwc:if={entry.isLink}>
+                                            <a href={entry.url} target="_blank" rel="noopener noreferrer"
+                                               class="dependency-dialog__link">{entry.label}</a>
+                                        </template>
+                                        <template lwc:else>{entry.label}</template>
+                                    </li>
+                                </template>
+                            </ul>
+                        </article>
+                    </template>
+                </div>
+            </div>
+            <footer class="slds-modal__footer">
+                <lightning-button label="Copy list" icon-name="utility:copy" onclick={handleCopy}></lightning-button>
+                <lightning-button label="Close" variant="brand" onclick={handleClose} class="slds-m-left_x-small"></lightning-button>
+            </footer>
+        </div>
+    </section>
+    <div class="slds-backdrop slds-backdrop_open" role="presentation"></div>
+</template>

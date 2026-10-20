@@ -20,8 +20,10 @@ import decommissionOffer from '@salesforce/apex/OfferController.decommissionOffe
 import markVersionReady from '@salesforce/apex/OfferController.markVersionReady';
 import revertVersionToDraft from '@salesforce/apex/OfferController.revertVersionToDraft';
 import checkDateOverlap from '@salesforce/apex/OfferController.checkDateOverlap';
+import checkActiveValidToOverlap from '@salesforce/apex/OfferController.checkActiveValidToOverlap';
 import resolveDateOverlap from '@salesforce/apex/OfferController.resolveDateOverlap';
 import getOfferAttributesForFamily from '@salesforce/apex/OfferAttributeController.getOfferAttributesForFamily';
+import scoreOffer from '@salesforce/apex/OfferAttractivenessCalculator.scoreOffer';
 
 // Offer_Version__c parameter fields copied into offerParams when prefilling an
 // existing version (edit / clone / new-version). This is NOT a rendering catalog:
@@ -38,40 +40,6 @@ const VERSION_PARAM_FIELDS = [
     'Sales_Process__c', 'NO_Fees_Conditions_Simplicity__c', 'Additional_VAS__c',
     'Own_Input_Percentage__c', 'Product_Id__c'
 ];
-
-const SCORE_REFERENCE = {
-    'Cash Loan': { amountMin: 1000, amountMax: 250000, tenureMin: 0, tenureMax: 120, refRate: 14.5 },
-    'Consolidation Loan': { amountMin: 1000, amountMax: 250000, tenureMin: 0, tenureMax: 120, refRate: 14.5 },
-    'Credit Card': { amountMin: 0, amountMax: 100000, tenureMin: 0, tenureMax: 0, refRate: 14.5 },
-    'Mortgage': { amountMin: 0, amountMax: 0, tenureMin: 0, tenureMax: 360, refRate: 14.5 },
-    'Home Equity Loan': { amountMin: 0, amountMax: 0, tenureMin: 0, tenureMax: 360, refRate: 14.5 },
-    'Term Deposit': { amountMin: 0, amountMax: 0, tenureMin: 0, tenureMax: 0, refRate: 3.75 },
-    'Term Deposit FX': { amountMin: 0, amountMax: 0, tenureMin: 0, tenureMax: 0, refRate: 3.75 },
-    'Saving Account': { amountMin: 0, amountMax: 0, tenureMin: 0, tenureMax: 0, refRate: 3.75 },
-    'Saving Account FX': { amountMin: 0, amountMax: 0, tenureMin: 0, tenureMax: 0, refRate: 3.75 }
-};
-
-const SCORE_WEIGHTS = {
-    'Cash Loan': { Nominal_Interest_Rate__c: 0.45, Sales_Process__c: 0.15, Maximum_Amount__c: 0.10, Maximum_Tenure__c: 0.10, Earlier_Repayment_Fee__c: 0.10, Interest_Type__c: 0.10 },
-    'Consolidation Loan': { Nominal_Interest_Rate__c: 0.45, Sales_Process__c: 0.15, Maximum_Amount__c: 0.10, Maximum_Tenure__c: 0.10, Earlier_Repayment_Fee__c: 0.10, Interest_Type__c: 0.10 },
-    'Credit Card': { NO_Fees_Conditions_Simplicity__c: 0.35, Grace_Period_Days__c: 0.20, Sales_Process__c: 0.15, Additional_VAS__c: 0.15, Nominal_Interest_Rate__c: 0.10, Maximum_Amount__c: 0.05 },
-    'Mortgage': { Nominal_Interest_Rate__c: 0.50, Earlier_Repayment_Fee__c: 0.15, Own_Input_Percentage__c: 0.15, Interest_Type__c: 0.10, Sales_Process__c: 0.05, Maximum_Tenure__c: 0.05 },
-    'Home Equity Loan': { Nominal_Interest_Rate__c: 0.65, Earlier_Repayment_Fee__c: 0.15, Interest_Type__c: 0.10, Sales_Process__c: 0.05, Maximum_Tenure__c: 0.05 },
-    'Term Deposit': { Nominal_Interest_Rate__c: 0.65, Maximum_Promotional_Amount__c: 0.25, Interest_Type__c: 0.10 },
-    'Term Deposit FX': { Nominal_Interest_Rate__c: 0.65, Maximum_Promotional_Amount__c: 0.25, Interest_Type__c: 0.10 },
-    'Saving Account': { Nominal_Interest_Rate__c: 0.65, Maximum_Promotional_Amount__c: 0.35 },
-    'Saving Account FX': { Nominal_Interest_Rate__c: 0.65, Maximum_Promotional_Amount__c: 0.35 }
-};
-
-const SCORE_CATEGORICAL = {
-    Earlier_Repayment_Fee__c: { YES: 0, NO: 1 },
-    Interest_Type__c: { variable: 0.5, fixed: 1 },
-    Sales_Process__c: { branch: 0.5, omnichannel: 0.75, online: 1 },
-    Grace_Period_Days__c: { short: 0.25, standard: 0.5, long: 0.75 },
-    Additional_VAS__c: { none: 0, poor: 0.2, fair: 0.4, good: 0.6, excellent: 0.8, outstanding: 1 },
-    NO_Fees_Conditions_Simplicity__c: { 'no fee': 1, easy: 0.75, medium: 0.5, difficult: 0.25, 'not possible': 0 },
-    Own_Input_Percentage__c: { '10%': 1, '10-20%': 0.75, '20%+': 0.25 }
-};
 
 export default class OfferManager extends NavigationMixin(LightningElement) {
     /** Set to true when embedded inside another component (e.g. offerVersionPanel).
@@ -145,6 +113,8 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
     @track showOverlapConfirm = false;
     @track overlapCurrentValidFrom = '';
     @track overlapCurrentValidTo = '';
+    @track overlapMode = '';
+    @track overlapScheduledName = '';
 
     // selectedCustomerTypes holds Marketing_Dictionary__c Ids (Id-based junction selection).
     @track selectedCustomerTypes = [];
@@ -782,6 +752,20 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
         return this.mdAttributeViewModels.length > 0;
     }
     get isLastStep() { return this.currentStep === this.totalSteps; }
+
+    // A Draft can be saved as Draft again. Ready and later statuses cannot move back to Draft.
+    get canSaveAsDraft() {
+        return this.isVersionDraft;
+    }
+
+    // Draft promotes to Ready. An already Ready version can be saved again without changing status.
+    get canSaveAsReady() {
+        return this.isVersionDraft || this.isVersionReady;
+    }
+
+    get canSaveAndActivate() {
+        return this.isVersionDraft || this.isVersionReady;
+    }
     get showBackButton() { return this.currentStep > 1; }
     get showNextButton() { return this.currentStep < this.totalSteps; }
 
@@ -800,89 +784,29 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
         return s === null ? '0' : s.toFixed(6);
     }
 
+    @track _dictionaryScore = null;
+
     computeAttractiveness() {
+        return this._dictionaryScore;
+    }
+
+    scheduleScoreRefresh() {
+        clearTimeout(this._scoreTimer);
+        this._scoreTimer = setTimeout(() => this.refreshScore(), 300);
+    }
+
+    async refreshScore() {
         const family = this.selectedProductFamily;
-        const weights = SCORE_WEIGHTS[family];
-        if (!weights) return null;
-        const ref = SCORE_REFERENCE[family];
-        const isDepositLike = family.startsWith('Term Deposit') || family.startsWith('Saving Account');
-
-        let total = 0;
-        Object.keys(weights).forEach(field => {
-            let sub = this.scoreSubField(field, this.offerParams[field], ref, isDepositLike);
-            if (sub === null || sub === undefined) sub = 0;
-            total += weights[field] * sub;
-        });
-        return Math.round(total * 1e6) / 1e6;
-    }
-
-    scoreSubField(field, raw, ref, isDepositLike) {
-        const CAT = SCORE_CATEGORICAL;
-        if (CAT[field]) {
-            const v = raw === null || raw === undefined ? null : String(raw);
-            return v !== null && v in CAT[field] ? CAT[field][v] : 0;
+        if (!family) {
+            this._dictionaryScore = null;
+            return;
         }
-        const num = this.toNumberOrNull(raw);
-        if (field === 'Nominal_Interest_Rate__c') return this.rateScore(num, ref, isDepositLike);
-        if (field === 'Maximum_Amount__c') return this.minMax(num, ref.amountMin, ref.amountMax);
-        if (field === 'Maximum_Tenure__c') return this.minMax(num, ref.tenureMin, ref.tenureMax);
-        if (field === 'Maximum_Promotional_Amount__c') return this.depositAmountBucket(num);
-        return 0;
-    }
-
-    minMax(x, lo, hi) {
-        if (x === null || hi === null || lo === null || hi <= lo) return 0;
-        const z = (x - lo) / (hi - lo);
-        return z < 0 ? 0 : (z > 1 ? 1 : z);
-    }
-
-    rateScore(offered, ref, isDepositLike) {
-        if (offered === null || !ref) return 0;
-        const diff = isDepositLike ? (offered - ref.refRate) : (ref.refRate - offered);
-        return isDepositLike ? this.depositRateBucket(diff) : this.loanRateBucket(diff);
-    }
-
-    loanRateBucket(d) {
-        if (d <= 1) return 0.1;
-        if (d <= 2) return 0.2;
-        if (d <= 3) return 0.3;
-        if (d <= 4) return 0.4;
-        if (d <= 5) return 0.5;
-        if (d <= 6) return 0.6;
-        if (d <= 7) return 0.7;
-        if (d <= 8) return 0.8;
-        if (d <= 9) return 0.9;
-        return 1;
-    }
-
-    depositRateBucket(d) {
-        if (d < 0) return 0;
-        if (d === 0) return 0.1;
-        if (d <= 1) return 0.2;
-        if (d <= 2) return 0.3;
-        if (d <= 3) return 0.4;
-        if (d <= 4) return 0.6;
-        if (d <= 5) return 0.8;
-        return 1;
-    }
-
-    depositAmountBucket(a) {
-        if (a === null) return 0;
-        if (a <= 25000) return 0.1;
-        if (a <= 50000) return 0.2;
-        if (a <= 100000) return 0.3;
-        if (a <= 150000) return 0.4;
-        if (a <= 200000) return 0.5;
-        if (a <= 300000) return 0.6;
-        if (a <= 400000) return 0.7;
-        if (a <= 500000) return 0.8;
-        return 1;
-    }
-
-    toNumberOrNull(raw) {
-        if (raw === null || raw === undefined || raw === '') return null;
-        const n = Number(raw);
-        return isNaN(n) ? null : n;
+        try {
+            const score = await scoreOffer({ family, params: { ...this.offerParams } });
+            this._dictionaryScore = score === null || score === undefined ? null : Number(score);
+        } catch (e) {
+            this._dictionaryScore = null;
+        }
     }
 
     get progressBarValue() {
@@ -1267,13 +1191,29 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
 
     handleOverlapCancel() {
         this.showOverlapConfirm = false;
+        this.overlapMode = '';
+        this._activeOverlapConfirmed = false;
     }
 
     handleOverlapConfirmAndContinue() {
         this.showOverlapConfirm = false;
+        if (this.overlapMode === 'active-valid-to') {
+            this.overlapMode = '';
+            this._activeOverlapConfirmed = true;
+            this.handleSave(this._pendingActivate, this._pendingCloseAfter, this._pendingSaveAsReady);
+            return;
+        }
         if (this.currentStep < this.totalSteps) {
             this.currentStep++;
         }
+    }
+
+    get isActiveValidToOverlap() {
+        return this.overlapMode === 'active-valid-to';
+    }
+
+    get overlapConfirmLabel() {
+        return this.isActiveValidToOverlap ? 'Confirm — update schedule' : 'Overwrite — Continue';
     }
 
     // --- HANDLERS: Navigation ---
@@ -1366,6 +1306,7 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
         this.offerParams = {};
         this.autoSelectProducts();
         this.loadMdAttributes();
+        this.scheduleScoreRefresh();
     }
 
     loadMdAttributes() {
@@ -1444,6 +1385,7 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
             value = event.target.value;
         }
         this.offerParams = { ...this.offerParams, [field]: value };
+        this.scheduleScoreRefresh();
     }
 
     // RANGE: the dual slider emits { min, max }; persist each bound to its dedicated
@@ -1457,6 +1399,7 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
         if (minField) next[minField] = min;
         if (maxField) next[maxField] = max;
         this.offerParams = next;
+        this.scheduleScoreRefresh();
     }
 
     handleToggleOptionalParams() {
@@ -1490,6 +1433,7 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
         this.offerParams = filled;
 
         this.hydrateAdditionalParams(version.Additional_Parameters__c);
+        this.scheduleScoreRefresh();
     }
 
     // Merge saved custom-attribute values (Additional_Parameters__c JSON) back into
@@ -1572,7 +1516,12 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
     }
 
     saveSuccessMessage(isEditMode, activated, asReady) {
-        if (this.wizardMode === 'edit')        return 'Version updated successfully.';
+        if (this.wizardMode === 'edit') {
+            if (activated) return 'Version saved and activated.';
+            if (asReady || this.isVersionReady) return 'Version saved as Ready.';
+            if (this.isVersionInUse || this.isVersionScheduledActivation) return 'Version updated.';
+            return 'Version saved as draft.';
+        }
         if (this.wizardMode === 'new-version') return activated ? 'New version created and activated.' : asReady ? 'New version saved as Ready.' : 'New version saved as draft.';
         if (this.wizardMode === 'clone')       return activated ? 'Clone created and activated.' : asReady ? 'Clone saved as Ready.' : 'Clone saved as draft.';
         if (isEditMode)                        return activated ? 'New version created and activated.' : asReady ? 'New version saved as Ready.' : 'New version saved as draft.';
@@ -1588,6 +1537,29 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
             }));
             return;
         }
+
+        if (this.isActiveModifyMode && this._recordId && this.validTo && !this._activeOverlapConfirmed) {
+            try {
+                const overlap = await checkActiveValidToOverlap({
+                    offerId: this._recordId,
+                    newValidTo: this.validTo
+                });
+                if (overlap && overlap.hasOverlap) {
+                    this.overlapMode = 'active-valid-to';
+                    this.overlapScheduledName = overlap.scheduledName || 'the scheduled version';
+                    this.overlapCurrentValidFrom = overlap.scheduledValidFrom || '';
+                    this.overlapCurrentValidTo = overlap.scheduledValidTo || '';
+                    this._pendingActivate = activateImmediately;
+                    this._pendingCloseAfter = closeAfter;
+                    this._pendingSaveAsReady = saveAsReady;
+                    this.showOverlapConfirm = true;
+                    return;
+                }
+            } catch (e) {
+                // non-blocking: the save still realigns the scheduled version
+            }
+        }
+        this._activeOverlapConfirmed = false;
 
         this.isLoading = true;
         let _step = 'init';
@@ -1630,6 +1602,7 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
 
             let offerId;
             let savedVersionSfId = null;
+            let didActivate = false;
 
             if (this.wizardMode === 'edit' && this._sourceVersionId && (this.isLimitedEditMode || this.isActiveModifyMode)) {
                 // Limited/active-modify edit: only dates + URLs overwritten in place, no new version
@@ -1644,6 +1617,13 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
                     regUrl:     this.regUrl     || null
                 });
                 offerId = this.recordId;
+                if (activateImmediately === true && this.isVersionReady) {
+                    _step = 'activateVersion';
+                    await activateVersion({ offerId, versionId: this._sourceVersionId });
+                    didActivate = true;
+                } else if (activateImmediately === true && this.isVersionScheduledActivation) {
+                    throw new Error('This version is already scheduled for activation.');
+                }
             } else if (this.wizardMode === 'edit' && this._sourceVersionId) {
                 // Full edit: Draft version — all fields
                 _step = 'updateVersion';
@@ -1655,6 +1635,7 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
                 if (activateImmediately === true) {
                     _step = 'activateVersion';
                     await activateVersion({ offerId, versionId: this._sourceVersionId });
+                    didActivate = true;
                 } else if (saveAsReady === true) {
                     _step = 'markVersionReady';
                     await markVersionReady({ versionId: this._sourceVersionId });
@@ -1709,7 +1690,11 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
             _step = 'dispatch-toast';
             this.dispatchEvent(new ShowToastEvent({
                 title: 'Success',
-                message: this.saveSuccessMessage(isEditMode, activateImmediately === true, saveAsReady === true),
+                message: this.saveSuccessMessage(
+                    isEditMode,
+                    didActivate || (activateImmediately === true && this.wizardMode !== 'edit'),
+                    saveAsReady === true
+                ),
                 variant: 'success'
             }));
 

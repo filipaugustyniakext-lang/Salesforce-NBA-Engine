@@ -8,6 +8,26 @@ import toggleOfferActive from '@salesforce/apex/MarketingDictionaryManagerContro
 import getProductFamilyOptions from '@salesforce/apex/MarketingDictionaryManagerController.getProductFamilyOptions';
 import saveAttributeRule from '@salesforce/apex/MarketingDictionaryManagerController.saveAttributeRule';
 import saveAttributeRulesBulk from '@salesforce/apex/MarketingDictionaryManagerController.saveAttributeRulesBulk';
+import saveScoreBandText from '@salesforce/apex/MarketingDictionaryManagerController.saveScoreBandText';
+
+function formatScoreBands(raw) {
+    const bands = Array.isArray(raw) ? raw : (raw && raw.records) || [];
+    return bands.map(b => {
+        const score = b.Score__c;
+        if (b.Value_Key__c) return `${b.Value_Key__c}=${score}`;
+        const lo = b.Lower_Bound__c;
+        const hi = b.Upper_Bound__c;
+        if ((lo === null || lo === undefined) && hi !== null && hi !== undefined) {
+            return `${b.Upper_Inclusive__c ? '<=' : '<'}${hi}=${score}`;
+        }
+        if ((hi === null || hi === undefined) && lo !== null && lo !== undefined) {
+            return `${b.Lower_Inclusive__c ? '>=' : '>'}${lo}=${score}`;
+        }
+        const left = b.Lower_Inclusive__c ? '' : '(';
+        const right = b.Upper_Inclusive__c ? '' : ')';
+        return `${left}${lo}..${hi}${right}=${score}`;
+    }).join('\n');
+}
 import deleteAttributeRule from '@salesforce/apex/MarketingDictionaryManagerController.deleteAttributeRule';
 import getReferenceValues from '@salesforce/apex/MarketingDictionaryManagerController.getReferenceValues';
 import saveReferenceValue from '@salesforce/apex/MarketingDictionaryManagerController.saveReferenceValue';
@@ -17,6 +37,14 @@ import updateRangeReferenceValue from '@salesforce/apex/MarketingDictionaryManag
 import deleteReferenceValue from '@salesforce/apex/MarketingDictionaryManagerController.deleteReferenceValue';
 import toggleReferenceValueActive from '@salesforce/apex/MarketingDictionaryManagerController.toggleReferenceValueActive';
 import updateReferenceAttributeMaster from '@salesforce/apex/MarketingDictionaryManagerController.updateReferenceAttributeMaster';
+import {
+    runDictionaryDeleteWithDependencyCheck,
+    runOfferReferenceDeleteWithDependencyCheck,
+    isDependencyBlockedMessage,
+    fetchDictionaryDeleteReport,
+    fetchOfferReferenceValueDeleteReport,
+    reportHasDependencies
+} from 'c/marketingDictionaryDeleteHelper';
 
 const PARAM_TYPES = [
     { label: 'Text', value: 'Text' },
@@ -89,6 +117,7 @@ export default class MarketingDictionaryOfferTab extends LightningElement {
     // ─── Shared ───────────────────────────────────────────────────────────────
     @track isSaving = false;
     @track isDeleteModalOpen = false;
+    @track dependencyReport = null;
     _deleteId = null;
     _deleteType = null;
     _deleteAttrId = null;
@@ -952,6 +981,8 @@ export default class MarketingDictionaryOfferTab extends LightningElement {
                 Is_Required__c: rule.Is_Required__c || false,
                 weight: rule.Attractiveness_Weight__c != null
                     ? String(Math.round(Number(rule.Attractiveness_Weight__c) * 100)) : '',
+                scoringMethod: rule.Scoring_Method__c || '',
+                bandText: formatScoreBands(rule.Score_Bands__r),
                 Display_Order__c: rule.Display_Order__c ?? null,
                 _label: attr.Name,
                 _fmActive: attr.Is_Active__c,
@@ -1194,6 +1225,28 @@ export default class MarketingDictionaryOfferTab extends LightningElement {
         );
     }
 
+    get scoringMethodOptions() {
+        return [
+            { label: 'Categorical', value: 'Categorical' },
+            { label: 'Min Max', value: 'Min Max' },
+            { label: 'Loan Rate Gap', value: 'Loan Rate Gap' },
+            { label: 'Deposit Rate Gap', value: 'Deposit Rate Gap' },
+            { label: 'Amount Buckets', value: 'Amount Buckets' }
+        ];
+    }
+
+    handleFmScoringMethod(e) {
+        const key = e.target.dataset.key;
+        const value = e.detail.value;
+        this.fmPendingList = this.fmPendingList.map(r => r._key === key ? { ...r, scoringMethod: value } : r);
+    }
+
+    handleFmBandText(e) {
+        const key = e.target.dataset.key;
+        const value = e.detail.value;
+        this.fmPendingList = this.fmPendingList.map(r => r._key === key ? { ...r, bandText: value } : r);
+    }
+
     handleFmAttractiveness(e) {
         const key = e.currentTarget.dataset.key;
         const checked = e.target.checked !== undefined ? e.target.checked : e.detail.checked;
@@ -1244,6 +1297,7 @@ export default class MarketingDictionaryOfferTab extends LightningElement {
                 requiredSelectValue: (r.impactsAttractiveness || r.Is_Required__c) ? 'required' : 'optional',
                 requiredSelectClass: (r.impactsAttractiveness || r.Is_Required__c) ? 'fm-hdr-select fm-hdr-select_required' : 'fm-hdr-select fm-hdr-select_optional',
                 showRequiredSelect: !r.impactsAttractiveness,
+                showBandEditor: r.impactsAttractiveness && r.scoringMethod && r.scoringMethod !== 'Min Max',
                 isRequiredLocked: r.impactsAttractiveness,
                 creationMethod: r.creationMethod,
                 valueMode: r.valueMode
@@ -1545,12 +1599,18 @@ export default class MarketingDictionaryOfferTab extends LightningElement {
                     Attractiveness_Weight__c: p.impactsAttractiveness
                         ? parseFloat((parseInt(p.weight, 10) / 100).toFixed(4)) : null,
                     Picklist_Power_Values__c: powerJson,
+                    Scoring_Method__c: p.impactsAttractiveness ? (p.scoringMethod || null) : null,
                     Display_Order__c: p.Display_Order__c ?? null
                 };
                 if (p._ruleId) ruleRecord.Id = p._ruleId;
                 rules.push(ruleRecord);
             }
             if (rules.length > 0) await saveAttributeRulesBulk({ rules });
+            for (const p of this.fmPendingList) {
+                if (p._ruleId && p.impactsAttractiveness && p.scoringMethod && p.scoringMethod !== 'Min Max') {
+                    await saveScoreBandText({ ruleId: p._ruleId, bandText: p.bandText || '' });
+                }
+            }
             const newCount = this.fmPendingList.filter(p => !p._attrId).length;
             const updCount = this.fmPendingList.filter(p => p._attrId).length;
             const parts = [];
@@ -1569,19 +1629,33 @@ export default class MarketingDictionaryOfferTab extends LightningElement {
     async handleConfirmDelete() {
         this.isDeleteModalOpen = false;
         this.isSaving = true;
+        const deleteType = this._deleteType;
+        const deleteId = this._deleteId;
         try {
-            if (this._deleteType === 'attr') {
-                await deleteDictionaryRecord({ recordId: this._deleteId });
+            if (deleteType === 'attr') {
+                const deleted = await runDictionaryDeleteWithDependencyCheck({
+                    recordId: deleteId,
+                    deleteFn: () => deleteDictionaryRecord({ recordId: deleteId }),
+                    onBlocked: (report) => { this.dependencyReport = report; }
+                });
+                if (!deleted) {
+                    return;
+                }
                 this._showToast('Success', 'Attribute deleted.', 'success');
                 await refreshApex(this._wiredResult);
-            } else if (this._deleteType === 'attrFromModal') {
-                // Delete saved attribute from inside the family modal
-                await deleteDictionaryRecord({ recordId: this._deleteId });
-                // Also remove from pending list so modal reflects the change
+            } else if (deleteType === 'attrFromModal') {
+                const deleted = await runDictionaryDeleteWithDependencyCheck({
+                    recordId: deleteId,
+                    deleteFn: () => deleteDictionaryRecord({ recordId: deleteId }),
+                    onBlocked: (report) => { this.dependencyReport = report; }
+                });
+                if (!deleted) {
+                    return;
+                }
                 this.fmPendingList = this.fmPendingList.filter(r => r._key !== this._deleteKey);
                 this._showToast('Success', 'Attribute deleted.', 'success');
                 await refreshApex(this._wiredResult);
-            } else if (this._deleteType === 'familyConfig') {
+            } else if (deleteType === 'familyConfig') {
                 // Delete all rule assignments for this family (and orphaned attributes)
                 const familyId = this._deleteFamilyId;
                 const ruleIds = this._rawRecords
@@ -1593,19 +1667,63 @@ export default class MarketingDictionaryOfferTab extends LightningElement {
                 }
                 this._showToast('Success', `Removed ${ruleIds.length} attribute assignment(s) for this family.`, 'success');
                 await refreshApex(this._wiredResult);
-            } else if (this._deleteType === 'rule') {
-                await deleteAttributeRule({ ruleId: this._deleteId });
+            } else if (deleteType === 'rule') {
+                await deleteAttributeRule({ ruleId: deleteId });
                 this._showToast('Success', 'Assignment removed.', 'success');
                 await refreshApex(this._wiredResult);
-            } else if (this._deleteType === 'ref') {
-                await deleteReferenceValue({ recordId: this._deleteId });
-                if (this._deleteRangeMaxId) await deleteReferenceValue({ recordId: this._deleteRangeMaxId });
+            } else if (deleteType === 'ref') {
+                const deleted = await runOfferReferenceDeleteWithDependencyCheck({
+                    recordId: deleteId,
+                    deleteFn: async () => {
+                        await deleteReferenceValue({ recordId: deleteId });
+                        if (this._deleteRangeMaxId) {
+                            await deleteReferenceValue({ recordId: this._deleteRangeMaxId });
+                        }
+                    },
+                    onBlocked: (report) => { this.dependencyReport = report; }
+                });
+                if (!deleted) {
+                    return;
+                }
                 this._deleteRangeMaxId = null;
                 this._showToast('Success', 'Reference value deleted.', 'success');
                 await refreshApex(this._wiredRefResult);
             }
-        } catch (e) { this._showToast('Error', e.body?.message || 'Delete failed.', 'error'); }
+        } catch (e) {
+            await this._handleOfferDeleteError(e, deleteType, deleteId);
+        }
         finally { this.isSaving = false; }
+    }
+
+    async _handleOfferDeleteError(e, deleteType, deleteId) {
+        const message = e.body?.message || e.message || 'Delete failed.';
+        if (!isDependencyBlockedMessage(message) || !deleteId) {
+            this._showToast('Error', message, 'error');
+            return;
+        }
+        try {
+            let report;
+            if (deleteType === 'ref') {
+                report = await fetchOfferReferenceValueDeleteReport(deleteId);
+            } else if (deleteType === 'attr' || deleteType === 'attrFromModal') {
+                report = await fetchDictionaryDeleteReport(deleteId);
+            }
+            if (reportHasDependencies(report)) {
+                this.dependencyReport = report;
+                return;
+            }
+        } catch {
+            // fall through
+        }
+        this._showToast('Error', message, 'error');
+    }
+
+    handleCloseDependencyDialog() {
+        this.dependencyReport = null;
+    }
+
+    get isDependencyDialogOpen() {
+        return reportHasDependencies(this.dependencyReport);
     }
 
     _showToast(title, message, variant) {

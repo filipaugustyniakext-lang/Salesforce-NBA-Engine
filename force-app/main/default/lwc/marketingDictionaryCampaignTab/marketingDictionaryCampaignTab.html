@@ -78,34 +78,16 @@
                                     </td>
                                     <td class="cd-col-groups">
                                         <template lwc:if={ct.definesGroups}>
-                                            <div class="cd-inline-groups">
-                                                <template lwc:if={ct.hasGroups}>
-                                                    <div class="cd-inline-groups__list">
-                                                        <template for:each={ct.groups} for:item="g">
-                                                            <span key={g.Id} class="slds-badge cd-group-badge">
-                                                                {g.Name}
-                                                                <lightning-button-icon icon-name="utility:edit" variant="bare"
-                                                                    size="xx-small" alternative-text="Edit" title="Edit group"
-                                                                    data-id={g.Id} onclick={handleEditCampaignGroup}
-                                                                    class="slds-m-left_xx-small cd-group-badge-action">
-                                                                </lightning-button-icon>
-                                                                <lightning-button-icon icon-name="utility:close" variant="bare"
-                                                                    size="xx-small" alternative-text="Delete" title="Delete group"
-                                                                    data-id={g.Id} data-name={g.Name} onclick={handleDeleteCampaignRecord}
-                                                                    class="slds-m-left_xx-small cd-group-badge-action">
-                                                                </lightning-button-icon>
-                                                            </span>
-                                                        </template>
-                                                    </div>
-                                                </template>
-                                                <template lwc:else>
-                                                    <span class="slds-text-body_small slds-text-color_weak">No groups yet</span>
-                                                </template>
-                                                <lightning-button label="Add Group" icon-name="utility:add" variant="neutral"
-                                                    size="x-small" data-type-id={ct.Id} onclick={handleNewCampaignGroup}
-                                                    class="cd-inline-groups__add">
-                                                </lightning-button>
-                                            </div>
+                                            <template lwc:if={ct.hasGroups}>
+                                                <div class="cd-inline-groups__list cd-inline-groups__list_readonly">
+                                                    <template for:each={ct.groups} for:item="g">
+                                                        <span key={g.Id} class="slds-badge cd-group-badge">{g.Name}</span>
+                                                    </template>
+                                                </div>
+                                            </template>
+                                            <template lwc:else>
+                                                <span class="slds-text-body_small slds-text-color_weak">No groups yet</span>
+                                            </template>
                                         </template>
                                         <template lwc:else>
                                             <span class="slds-text-body_small slds-text-color_weak cd-groups-disabled"
@@ -475,14 +457,62 @@
                         class="slds-m-top_small">
                     </lightning-input>
                     <lightning-input type="checkbox" label="Define Campaign Groups"
-                        field-level-help="When on, group names are managed in this type’s table row and campaigns of this type must pick one."
+                        field-level-help="When on, add campaign group names below. Campaigns of this type must pick one in the creation wizard."
                         checked={editCampaignType.Define_Campaign_Groups__c}
                         data-field="Define_Campaign_Groups__c" onchange={handleCampaignTypeCheckboxChange}
                         class="slds-m-top_small">
                     </lightning-input>
-                    <lightning-input label="Campaign Type Icon" placeholder="eg. utility:send" value={editCampaignType.Icon}
-                        data-field="Icon" onchange={handleCampaignTypeFieldChange}>
+                    <template lwc:if={showCampaignTypeGroupsEditor}>
+                        <div class="cd-campaign-type-groups slds-m-top_small">
+                            <div class="cd-campaign-type-groups__header">
+                                <span class="slds-form-element__label">Campaign group names</span>
+                                <lightning-button label="Add group" icon-name="utility:add" variant="neutral"
+                                    onclick={handleAddCampaignTypeGroupRow}>
+                                </lightning-button>
+                            </div>
+                            <template lwc:if={hasCampaignTypeGroupDraftRows}>
+                                <ul class="cd-campaign-type-groups__list">
+                                    <template for:each={campaignTypeGroupEditorRows} for:item="row">
+                                        <li key={row.key} class="cd-campaign-type-groups__row">
+                                            <lightning-input label="Group name" variant="label-hidden"
+                                                placeholder="Group name" value={row.name} data-index={row.index}
+                                                onchange={handleCampaignTypeGroupNameChange}>
+                                            </lightning-input>
+                                            <lightning-button-icon icon-name="utility:delete" variant="border-filled"
+                                                alternative-text="Remove group" title="Remove group"
+                                                data-index={row.index} onclick={handleRemoveCampaignTypeGroupRow}
+                                                class="cd-campaign-type-groups__remove">
+                                            </lightning-button-icon>
+                                        </li>
+                                    </template>
+                                </ul>
+                            </template>
+                            <template lwc:else>
+                                <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">
+                                    No groups yet. Click Add group to define names.
+                                </p>
+                            </template>
+                        </div>
+                    </template>
+                    <lightning-input label="Campaign Type Icon" placeholder="eg. utility:send"
+                        field-level-help="SLDS icon name shown in the Campaign Creation Wizard activation tiles."
+                        value={editCampaignType.Campaign_Type_Icon__c}
+                        data-field="Campaign_Type_Icon__c" onchange={handleCampaignTypeFieldChange}
+                        class="slds-m-top_small">
                     </lightning-input>
+                    <template lwc:if={showCampaignTypeIconPreview}>
+                        <div class="cd-campaign-type-icon-preview slds-m-top_x-small">
+                            <span class="slds-text-body_small slds-text-color_weak slds-m-right_small">Preview</span>
+                            <template lwc:if={campaignTypeIconIsValid}>
+                                <lightning-icon icon-name={campaignTypeIconInput} size="small"
+                                    alternative-text="Campaign type icon preview">
+                                </lightning-icon>
+                            </template>
+                            <template lwc:else>
+                                <span class="slds-text-body_small slds-text-color_error">{campaignTypeIconPreviewMessage}</span>
+                            </template>
+                        </div>
+                    </template>
                 </div>
                 <div class="slds-modal__footer">
                     <lightning-button label="Cancel" onclick={closeCampaignTypeModal}></lightning-button>

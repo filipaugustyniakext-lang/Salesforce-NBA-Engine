@@ -17,7 +17,8 @@ public with sharing class MarketingDictionaryManagerController {
         return [
             SELECT Id, Name, Dictionary_Sub_Type__c,
                    Related_Family_of_Needs__c, Related_Family_of_Needs__r.Name,
-                   Related_Product_Type__c, Related_Product_Type__r.Name
+                   Related_Product_Type__c, Related_Product_Type__r.Name,
+                   For_Tagging_Only__c
             FROM Marketing_Dictionary__c
             WHERE RecordType.DeveloperName = 'Product'
             ORDER BY Dictionary_Sub_Type__c ASC, Name ASC
@@ -130,6 +131,30 @@ public with sharing class MarketingDictionaryManagerController {
     }
 
     /**
+     * Updates multiple Product dictionary records (bulk edit from Products tab).
+     */
+    @AuraEnabled
+    public static void saveProductRecordsBulkUpdate(String recordsJson) {
+        try {
+            List<Marketing_Dictionary__c> records = (List<Marketing_Dictionary__c>)
+                JSON.deserialize(recordsJson, List<Marketing_Dictionary__c>.class);
+            if (records == null || records.isEmpty()) {
+                return;
+            }
+            Id productRecordTypeId = getRecordTypeId('Product');
+            for (Marketing_Dictionary__c rec : records) {
+                rec.RecordTypeId = productRecordTypeId;
+                if (String.isBlank(rec.Dictionary_Sub_Type__c)) {
+                    rec.Dictionary_Sub_Type__c = 'Product Family';
+                }
+            }
+            upsert records;
+        } catch (Exception e) {
+            throw new AuraHandledException(e.getMessage());
+        }
+    }
+
+    /**
      * Deletes a Marketing_Dictionary__c record by Id.
      * @param recordId Id of the record to delete
      */
@@ -137,27 +162,20 @@ public with sharing class MarketingDictionaryManagerController {
     public static void deleteDictionaryRecord(Id recordId) {
         try {
             Marketing_Dictionary__c rec = [
-                SELECT Id, Name, Dictionary_Sub_Type__c, RecordType.DeveloperName
+                SELECT Id, Name, Dictionary_Sub_Type__c, RecordType.DeveloperName,
+                       Channel_Type__c, Parameter_API_Name__c
                 FROM Marketing_Dictionary__c
                 WHERE Id = :recordId
                 WITH SECURITY_ENFORCED
                 LIMIT 1
             ];
+            MarketingDictionaryDeleteGuard.DependencyReport report =
+                MarketingDictionaryDeleteGuard.buildDictionaryDeleteReport(rec);
+            if (report.hasDependencies()) {
+                throw dependencyDeleteException(report);
+            }
             if (rec.Dictionary_Sub_Type__c == 'Family of Needs') {
-                List<String> dependencies = new List<String>();
-                for (FamilyOfNeeds_CustomerType__c link : [
-                    SELECT Name, Customer_Type__r.Name
-                    FROM FamilyOfNeeds_CustomerType__c
-                    WHERE Family_of_Needs__c = :recordId
-                    ORDER BY Customer_Type__r.Name ASC
-                ]) {
-                    dependencies.add(
-                        String.isNotBlank(link.Customer_Type__r.Name) ? link.Customer_Type__r.Name : link.Name
-                    );
-                }
-                if (!dependencies.isEmpty()) {
-                    throw dependencyDeleteException(rec.Name, 'Family of Needs Customer Types: ' + String.join(dependencies, ', '));
-                }
+                delete [SELECT Id FROM FamilyOfNeeds_CustomerType__c WHERE Family_of_Needs__c = :recordId];
             }
             if (rec.RecordType.DeveloperName == 'Channel') {
                 ChannelTemplateController.deleteTemplatesForChannel(rec.Id);
@@ -168,7 +186,11 @@ public with sharing class MarketingDictionaryManagerController {
         } catch (DmlException e) {
             String detail = e.getNumDml() > 0 ? e.getDmlMessage(0) : e.getMessage();
             if (detail != null && (detail.contains('DELETE_FAILED') || detail.containsIgnoreCase('associated with'))) {
-                throw dependencyDeleteException(null, 'related records');
+                MarketingDictionaryDeleteGuard.DependencyReport fallback =
+                    new MarketingDictionaryDeleteGuard.DependencyReport();
+                fallback.summaryMessage =
+                    'This value has dependencies that must be removed before it can be deleted.';
+                throw dependencyDeleteException(fallback);
             }
             throw new AuraHandledException(detail);
         } catch (Exception e) {
@@ -176,10 +198,12 @@ public with sharing class MarketingDictionaryManagerController {
         }
     }
 
-    private static AuraHandledException dependencyDeleteException(String recordName, String dependency) {
-        String message = (String.isBlank(recordName) ? 'This value' : 'The value ' + recordName)
-            + ' has a dependency to ' + dependency
-            + '. Please remove dependencies first to delete this record.';
+    private static AuraHandledException dependencyDeleteException(
+        MarketingDictionaryDeleteGuard.DependencyReport report
+    ) {
+        String message = report != null && String.isNotBlank(report.summaryMessage)
+            ? report.summaryMessage
+            : 'This value has dependencies that must be removed before it can be deleted.';
         AuraHandledException ex = new AuraHandledException(message);
         ex.setMessage(message);
         return ex;
@@ -209,6 +233,7 @@ public with sharing class MarketingDictionaryManagerController {
     public static List<Marketing_Dictionary__c> getChannelRecords() {
         return [
             SELECT Id, Name, Channel_Type__c, Channel_Icon__c, Is_Active__c,
+                   Communication_Inbound__c, Communication_Outbound__c,
                 (SELECT Id, Audience_Type_Dict__c, Audience_Type_Dict__r.Name, Cooldown_Days__c FROM Channel_Cooldowns__r ORDER BY Audience_Type_Dict__r.Name ASC),
                 (SELECT Id, Day_Of_Week__c, Is_Fully_Blocked__c, Blocked_From_Hour__c, Blocked_To_Hour__c
                  FROM Blackout_Day_Rules__r ORDER BY Day_Of_Week__c ASC),
@@ -436,6 +461,22 @@ public with sharing class MarketingDictionaryManagerController {
     public static Id saveCooldownRecord(String cooldownJson) {
         try {
             Channel_Cooldown__c cooldown = (Channel_Cooldown__c) JSON.deserialize(cooldownJson, Channel_Cooldown__c.class);
+            if (cooldown.Channel__c != null && cooldown.Audience_Type_Dict__c != null) {
+                List<Channel_Cooldown__c> duplicates = [
+                    SELECT Id
+                    FROM Channel_Cooldown__c
+                    WHERE Channel__c = :cooldown.Channel__c
+                    AND Audience_Type_Dict__c = :cooldown.Audience_Type_Dict__c
+                    AND Id != :cooldown.Id
+                    WITH SECURITY_ENFORCED
+                    LIMIT 1
+                ];
+                if (!duplicates.isEmpty()) {
+                    throw new AuraHandledException(
+                        'This channel already has a cooldown rule for the selected audience type.'
+                    );
+                }
+            }
             upsert cooldown;
             return cooldown.Id;
         } catch (Exception e) {
@@ -471,6 +512,7 @@ public with sharing class MarketingDictionaryManagerController {
         return [
             SELECT Id, Name, Dictionary_Sub_Type__c, Topic_Description__c,
                    Include_In_Emergency__c, Is_Active__c, Distribution_Percent__c,
+                   Campaign_Type_Icon__c,
                    Topic_Group_Dict__c, Topic_Group_Dict__r.Name,
                    Define_Campaign_Groups__c,
                    Campaign_Type_Dict__c, Campaign_Type_Dict__r.Name,
@@ -974,6 +1016,7 @@ public with sharing class MarketingDictionaryManagerController {
                    Override_Random_Activation_Path__c, Honor_Marketing_Consents__c,
                    Includes_Control_Group__c, Honors_Channel_Cooldowns__c,
                    Honors_Product_Eligibility__c, Allows_Random_Copy_Assignment__c,
+                   Excl_Other_Marketing_Activations__c,
                    Excl_Manual_Suppressions__c, Excl_Deceased__c, Excl_AML_Fraud__c,
                    Excl_Debt_Collection__c, Excl_Overdue__c, Excl_KYC_Risk__c,
                    Excl_Bailiff_Seizure__c, Excl_Restricted_Client__c, Excl_Personal_Bankruptcy__c
@@ -996,7 +1039,10 @@ public with sharing class MarketingDictionaryManagerController {
     @AuraEnabled
     public static void deleteCampaignTier(Id recordId) {
         try {
+            MarketingDictionaryDeleteGuard.assertCampaignTierDeletable(recordId);
             delete new Campaign_Tier__c(Id = recordId);
+        } catch (AuraHandledException e) {
+            throw e;
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());
         }
@@ -1018,12 +1064,14 @@ public with sharing class MarketingDictionaryManagerController {
                    Parameter_Help_Text__c, Picklist_Values__c, Attribute_Description__c, Value_Source__c, Default_Value__c,
                 (SELECT Id, Product_Family__c, Product_Family__r.Name,
                         Is_Required__c, Is_Visible__c, Display_Order__c,
-                        Impacts_Attractiveness__c, Attractiveness_Weight__c,
+                        Impacts_Attractiveness__c, Attractiveness_Weight__c, Scoring_Method__c,
                         Picklist_Power_Values__c,
                         Reference_Value__c, Reference_Value__r.Name,
                         Reference_Value__r.Product_Family__r.Name,
                         Reference_Value__r.Reference_Value__c, Reference_Value__r.Value_Type__c,
-                        Reference_Value__r.Reference_Value_Pairs__c
+                        Reference_Value__r.Reference_Value_Pairs__c,
+                        (SELECT Value_Key__c, Lower_Bound__c, Upper_Bound__c, Lower_Inclusive__c, Upper_Inclusive__c, Score__c, Sort_Order__c
+                         FROM Score_Bands__r WHERE Is_Active__c = true ORDER BY Sort_Order__c ASC NULLS LAST)
                  FROM Offer_Attribute_Rules__r
                  ORDER BY Display_Order__c ASC NULLS LAST, Product_Family__r.Name ASC)
             FROM Marketing_Dictionary__c
@@ -1066,6 +1114,51 @@ public with sharing class MarketingDictionaryManagerController {
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());
         }
+    }
+
+    @AuraEnabled
+    public static void saveScoreBandText(Id ruleId, String bandText) {
+        if (ruleId == null) return;
+        delete [SELECT Id FROM Offer_Attractiveness_Score_Band__c WHERE Rule__c = :ruleId];
+        if (String.isBlank(bandText)) return;
+        List<Offer_Attractiveness_Score_Band__c> bands = new List<Offer_Attractiveness_Score_Band__c>();
+        Integer order = 1;
+        for (String rawLine : bandText.split('\\n')) {
+            String line = rawLine == null ? '' : rawLine.trim();
+            if (String.isBlank(line) || !line.contains('=')) continue;
+            Integer eq = line.lastIndexOf('=');
+            String left = line.substring(0, eq).trim();
+            Decimal score = Decimal.valueOf(line.substring(eq + 1).trim());
+            Offer_Attractiveness_Score_Band__c band = new Offer_Attractiveness_Score_Band__c(
+                Rule__c = ruleId, Score__c = score, Sort_Order__c = order++, Is_Active__c = true
+            );
+            if (left.startsWith('<=')) {
+                band.Upper_Bound__c = Decimal.valueOf(left.substring(2).trim());
+                band.Upper_Inclusive__c = true;
+            } else if (left.startsWith('>=')) {
+                band.Lower_Bound__c = Decimal.valueOf(left.substring(2).trim());
+                band.Lower_Inclusive__c = true;
+            } else if (left.startsWith('<')) {
+                band.Upper_Bound__c = Decimal.valueOf(left.substring(1).trim());
+                band.Upper_Inclusive__c = false;
+            } else if (left.startsWith('>')) {
+                band.Lower_Bound__c = Decimal.valueOf(left.substring(1).trim());
+                band.Lower_Inclusive__c = false;
+            } else if (left.contains('..')) {
+                Boolean lowerInclusive = !left.startsWith('(');
+                Boolean upperInclusive = !left.endsWith(')');
+                String body = left.replace('(', '').replace('[', '').replace(')', '').replace(']', '');
+                List<String> parts = body.split('\\.\\.');
+                band.Lower_Bound__c = Decimal.valueOf(parts[0].trim());
+                band.Upper_Bound__c = Decimal.valueOf(parts[1].trim());
+                band.Lower_Inclusive__c = lowerInclusive;
+                band.Upper_Inclusive__c = upperInclusive;
+            } else {
+                band.Value_Key__c = left;
+            }
+            bands.add(band);
+        }
+        if (!bands.isEmpty()) insert bands;
     }
 
     @AuraEnabled
@@ -1368,6 +1461,7 @@ public with sharing class MarketingDictionaryManagerController {
     @AuraEnabled
     public static void deleteReferenceValue(Id recordId) {
         try {
+            MarketingDictionaryDeleteGuard.assertOfferReferenceValueDeletable(recordId);
             delete new Offer_Reference_Value__c(Id = recordId);
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());

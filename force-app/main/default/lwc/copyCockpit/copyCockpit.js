@@ -1,8 +1,14 @@
 import { LightningElement, track, wire } from 'lwc';
 import { CurrentPageReference, NavigationMixin } from 'lightning/navigation';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+import { refreshApex } from '@salesforce/apex';
 import getChannelRecords from '@salesforce/apex/MarketingDictionaryManagerController.getChannelRecords';
-import getMessagesByChannelType from '@salesforce/apex/CopyCockpitController.getMessagesByChannelType';
+import getMessagesForDictionaryChannel from '@salesforce/apex/CopyCockpitController.getMessagesForDictionaryChannel';
+import {
+    getVisibleChannelRecords,
+    getChannelDisplayName,
+    getCommunicationBadges
+} from 'c/marketingDictionaryState';
 import getVersionCountsByMessageIds from '@salesforce/apex/CopyCockpitController.getVersionCountsByMessageIds';
 import createMessage from '@salesforce/apex/CopyCockpitController.createMessage';
 import cloneMessage from '@salesforce/apex/CopyCockpitController.cloneMessage';
@@ -47,37 +53,33 @@ const ICON_MAP = {
     whatsapp:  'utility:anywhere_chat',
 };
 
-const COLUMN_WIDTH_STORAGE_KEY = 'copyCockpit.columnWidths.v1';
-
 const COLUMN_WIDTH_DEFAULTS = {
-    name: 240,
-    status: 112,
+    name: 280,
+    status: 128,
     weight: 72,
-    schedule: 140,
-    blocks: 56,
     versions: 64,
     modified: 168,
 };
 
-const COLUMN_WIDTH_MIN = {
-    name: 120,
-    status: 88,
+const COLUMN_FIT_MIN = {
+    name: 160,
+    status: 96,
     weight: 56,
-    schedule: 96,
-    blocks: 44,
     versions: 44,
     modified: 108,
 };
 
-const COLUMN_WIDTH_MAX = {
-    name: 520,
-    status: 180,
-    weight: 120,
-    schedule: 260,
-    blocks: 96,
-    versions: 120,
-    modified: 320,
+/** Relative share of flexible width when auto-fitting columns. */
+const COLUMN_FIT_WEIGHTS = {
+    name: 3.2,
+    status: 1.35,
+    weight: 0.75,
+    versions: 0.65,
+    modified: 1.5,
 };
+
+const COL_CHECK_PX = 32;
+const COL_ACTIONS_PX = 112;
 
 const STATUS_BADGE_CLASS = {
     draft:     'slds-badge slds-theme_lightest',
@@ -271,31 +273,66 @@ function buildScheduleBadge(record) {
 
     if (!action || status === 'executed' || status === 'cancelled') return null;
 
+    const at = fmtDate(record.Scheduled_At__c) || '?';
     if (action === 'publish' || toStatus === 'published') {
         return {
             label:     'Scheduled: Activate',
-            cssClass:  'cockpit-schedule-badge cockpit-schedule-badge_activate',
+            tone:      'activate',
+            iconClass: 'cockpit-schedule-icon cockpit-schedule-icon_activate',
             icon:      'utility:clock',
-            title:     `Scheduled to Publish on ${fmtDate(record.Scheduled_At__c) || '?'}`,
+            title:     `Scheduled to activate on ${at}`,
         };
     }
     if (action === 'deactivate' || toStatus === 'archived') {
         return {
             label:     'Scheduled: Deactivate',
-            cssClass:  'cockpit-schedule-badge cockpit-schedule-badge_deactivate',
+            tone:      'deactivate',
+            iconClass: 'cockpit-schedule-icon cockpit-schedule-icon_deactivate',
             icon:      'utility:ban',
-            title:     `Scheduled to Deactivate on ${fmtDate(record.Scheduled_At__c) || '?'}`,
+            title:     `Scheduled to deactivate on ${at}`,
         };
     }
     return {
-        label:    `Sched: ${record.Scheduled_Action__c}`,
-        cssClass: 'cockpit-schedule-badge cockpit-schedule-badge_other',
-        icon:     'utility:clock',
-        title:    record.Scheduled_Action__c,
+        label:     `Scheduled: ${record.Scheduled_Action__c}`,
+        tone:      'update',
+        iconClass: 'cockpit-schedule-icon cockpit-schedule-icon_update',
+        icon:      'utility:clock',
+        title:     `${record.Scheduled_Action__c} — ${at}`,
     };
 }
 
-function buildGroups(records, expandedSet, editingGroupName, selectedIds, versionCounts, editingWeightId) {
+function buildVariantQuickActions(v, isSyncingMCE = false) {
+    const ordered = [
+        { key: 'edit', title: 'Edit', icon: 'utility:edit' },
+        { key: 'clone', title: 'Clone variant', icon: 'utility:copy' },
+        { key: 'delete', title: 'Delete variant', icon: 'utility:delete' },
+    ];
+    if (v.canSyncFromMCE) {
+        ordered.splice(2, 0, { key: 'sync', title: 'Sync from MCE', icon: 'utility:sync' });
+    }
+    ordered.push({
+        key: 'template',
+        title: v.sourceTemplateButtonTitle || 'Change Source Template',
+        icon: 'utility:insert_template',
+        disabled: v.sourceTemplateButtonDisabled === true,
+    });
+    const withDisabled = ordered.map(a => ({
+        ...a,
+        isDisabled: a.key === 'sync' ? isSyncingMCE : !!a.disabled,
+    }));
+    const primaryQuickActions = withDisabled.slice(0, 3);
+    const overflowQuickActions = withDisabled.slice(3).map(a => ({
+        ...a,
+        menuValue: `${a.key}:${v.Id}`,
+    }));
+    return {
+        primaryQuickActions,
+        overflowQuickActions,
+        hasOverflowQuickActions: overflowQuickActions.length > 0,
+    };
+}
+
+function buildGroups(records, expandedSet, editingGroupName, selectedIds, versionCounts, editingWeightId, isSyncingMCE = false) {
     const map = new Map();
     for (const r of records) {
         const key = masterGroupKey(r);
@@ -334,17 +371,29 @@ function buildGroups(records, expandedSet, editingGroupName, selectedIds, versio
                 validFromFmt:       fmtDate(v.Valid_From__c),
                 validToFmt:         fmtDate(v.Valid_To__c),
                 campaignName:       v.Campaign__r?.Name || null,
-                versionLabel:       v.Message_Variant__c || (variantNum != null ? `Variant ${variantNum}` : '—'),
+                variantBadgeLabel:  variantNum > 0 ? String(variantNum) : '—',
                 weightPercent,
                 weightDisplayText:  weightPercent != null ? String(weightPercent) : '—',
                 weightIsEditing:    editingWeightId === v.Id,
                 weightAriaLabel:    `Weight (0–100) for ${v.Name || 'variant'}`,
                 mceVariantKey,
                 canSyncFromMCE:     !!mceVariantKey,
-                scheduleBadge:      sched?.label || null,
-                scheduleBadgeClass: sched?.cssClass || null,
-                scheduleBadgeIcon:  sched?.icon || null,
-                scheduleBadgeTitle: sched?.title || null,
+                hasSchedule:        !!sched,
+                scheduleBadgeIcon:  sched?.icon || 'utility:clock',
+                scheduleIconClass:  sched?.iconClass || '',
+                scheduleBadgeTitle: sched?.title || sched?.label || '',
+                variantBadgeTitle:  variantNum > 0
+                    ? `Variant ${variantNum}${v.Block_Count__c ? ` · ${v.Block_Count__c} block(s)` : ''}`
+                    : 'Variant',
+                ...buildVariantQuickActions({
+                    Id: v.Id,
+                    canSyncFromMCE: !!mceVariantKey,
+                    sourceTemplateButtonDisabled: (v.Status__c || '').toLowerCase() === 'published',
+                    sourceTemplateButtonTitle:
+                        (v.Status__c || '').toLowerCase() === 'published'
+                            ? 'Published variants must be set to Inactive before changing the source template'
+                            : 'Change Source Template',
+                }, isSyncingMCE),
                 versionCount:       versionCounts?.[v.Id] || null,
                 lastModifiedFmt:    fmtDateTime(v.MCE_Updated_At__c || v.LastModifiedDate),
                 lastModifiedBy:     modBy,
@@ -436,14 +485,11 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     @track isVariantDeleteSaving = false;
 
     @track _columnWidths = { ...COLUMN_WIDTH_DEFAULTS };
-    @track _isColumnResizing = false;
-    _colResize = null;
-    _boundColResizeMove;
-    _boundColResizeEnd;
 
     @track isCloneModalOpen = false;
     @track isCloning = false;
     cloneSourceId = null;
+    cloneMasterStem = '';
     @track cloneSourceName = '';
     @track cloneProposedVersion = null;
 
@@ -468,6 +514,13 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
 
     _firstChannelSeeded = false;
     _pageRefSeeded = false;
+    _channelsRefreshPending = true;
+
+    connectedCallback() {
+        if (this._wiredChannels) {
+            refreshApex(this._wiredChannels);
+        }
+    }
 
     @wire(CurrentPageReference)
     _onPageRef(ref) {
@@ -499,26 +552,57 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     }
 
     get isEmpty() {
-        return !this.isLoading && !this.hasError &&
-               (!this._wiredChannels.data || this._wiredChannels.data.length === 0);
+        return !this.isLoading && !this.hasError && this._visibleDictionaryChannels.length === 0;
+    }
+
+    get _visibleDictionaryChannels() {
+        return getVisibleChannelRecords(this._wiredChannels.data);
     }
 
     get channels() {
-        if (!this._wiredChannels.data) return [];
-        const activeId = this._activeChannelId || this._wiredChannels.data[0]?.Id;
-        return this._wiredChannels.data.map(ch => ({
+        const list = this._visibleDictionaryChannels;
+        if (!list.length) return [];
+        const activeId = this._activeChannelId || list[0]?.Id;
+        return list.map(ch => ({
             ...ch,
+            displayName: getChannelDisplayName(ch),
+            commBadges: getCommunicationBadges(ch),
             safeIcon: resolveIcon(ch),
             sidebarClass: `ch-sidebar__item${ch.Id === activeId ? ' ch-sidebar__item_active' : ''}`,
         }));
     }
 
     get activeChannel() {
-        if (!this._wiredChannels.data) return null;
-        const id = this._activeChannelId || this._wiredChannels.data[0]?.Id;
-        const found = this._wiredChannels.data.find(ch => ch.Id === id);
+        const list = this._visibleDictionaryChannels;
+        if (!list.length) return null;
+        const id = this._activeChannelId || list[0]?.Id;
+        const found = list.find(ch => ch.Id === id) || list[0];
         if (!found) return null;
-        return { ...found, safeIcon: resolveIcon(found) };
+        return {
+            ...found,
+            displayName: getChannelDisplayName(found),
+            commBadges: getCommunicationBadges(found),
+            safeIcon: resolveIcon(found)
+        };
+    }
+
+    get activeChannelName() {
+        return this.activeChannel?.Name || '';
+    }
+
+    get activeChannelType() {
+        return this.activeChannel?.Channel_Type__c || '';
+    }
+
+    get selectableTemplateOptions() {
+        return (this._wiredSelectableTemplates?.data || []).map(template => ({
+            value: template.id,
+            label: template.packageLabel ? `${template.name} (${template.packageLabel})` : template.name
+        }));
+    }
+
+    get selectableTemplatesLoading() {
+        return !this._wiredSelectableTemplates?.data && !this._wiredSelectableTemplates?.error;
     }
 
     get activeChannelName() {
@@ -582,6 +666,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             this._selectedIds,
             this._versionCounts,
             this._editingWeightId,
+            this.isSyncingMCE,
         );
     }
 
@@ -659,7 +744,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     }
 
     get cloneProposedName() {
-        const stem = groupKeyFromName(this.cloneSourceName);
+        const stem = this.cloneMasterStem || masterGroupKey({ Name: this.cloneSourceName });
         const v = this.cloneProposedVersion;
         return stem && v != null ? `${stem}_${v}` : (this.cloneSourceName || '');
     }
@@ -750,15 +835,90 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             `--col-name: ${w.name}px`,
             `--col-status: ${w.status}px`,
             `--col-weight: ${w.weight}px`,
-            `--col-schedule: ${w.schedule}px`,
-            `--col-blocks: ${w.blocks}px`,
             `--col-versions: ${w.versions}px`,
             `--col-modified: ${w.modified}px`,
         ].join('; ');
     }
 
-    get listGridClass() {
-        return this._isColumnResizing ? 'cockpit-list cockpit-list_resizing' : 'cockpit-list';
+    get fitColumnsLabel() {
+        return 'Fit columns';
+    }
+
+    handleAutoFitColumns(event) {
+        event?.stopPropagation?.();
+        this._fitColumnsToAvailableSpace();
+    }
+
+    _estimateNameColumnWidthPx() {
+        let maxChars = 'Message / Variant'.length;
+        (this.filteredGroups || []).forEach(group => {
+            const master = group.displayName || group.messageName || '';
+            maxChars = Math.max(maxChars, master.length + 4);
+            (group.variants || []).forEach(variant => {
+                const variantLabel = variant.variantBadgeLabel || '';
+                const badgeLen = variant.sourceTemplateBadge ? variant.sourceTemplateBadge.length + 2 : 0;
+                maxChars = Math.max(maxChars, variantLabel.length + badgeLen + 6);
+            });
+        });
+        return Math.min(380, Math.max(COLUMN_FIT_MIN.name, Math.round(maxChars * 6.5 + 28)));
+    }
+
+    _fitColumnsToAvailableSpace() {
+        const list = this.template.querySelector('.cockpit-list');
+        if (!list) {
+            return;
+        }
+        const containerWidth = list.clientWidth;
+        if (!containerWidth || containerWidth < 480) {
+            this._columnWidths = { ...COLUMN_WIDTH_DEFAULTS };
+            return;
+        }
+
+        const available =
+            containerWidth - COL_CHECK_PX - COL_ACTIONS_PX - 20;
+        const weightTotal = Object.values(COLUMN_FIT_WEIGHTS).reduce((sum, w) => sum + w, 0);
+        const next = {};
+        Object.keys(COLUMN_FIT_WEIGHTS).forEach(key => {
+            next[key] = Math.max(
+                COLUMN_FIT_MIN[key],
+                Math.round((available * COLUMN_FIT_WEIGHTS[key]) / weightTotal)
+            );
+        });
+
+        const nameNeed = this._estimateNameColumnWidthPx();
+        if (next.name < nameNeed) {
+            const deficit = nameNeed - next.name;
+            const donors = ['modified', 'status', 'versions', 'weight'];
+            let remaining = deficit;
+            for (const donor of donors) {
+                if (remaining <= 0) {
+                    break;
+                }
+                const slack = next[donor] - COLUMN_FIT_MIN[donor];
+                if (slack <= 0) {
+                    continue;
+                }
+                const take = Math.min(slack, remaining);
+                next[donor] -= take;
+                remaining -= take;
+            }
+            next.name = nameNeed;
+        }
+
+        let assigned = Object.values(next).reduce((sum, px) => sum + px, 0);
+        if (assigned > available) {
+            const scale = available / assigned;
+            Object.keys(next).forEach(key => {
+                next[key] = Math.max(COLUMN_FIT_MIN[key], Math.floor(next[key] * scale));
+            });
+            assigned = Object.values(next).reduce((sum, px) => sum + px, 0);
+        }
+
+        if (assigned < available) {
+            next.name += available - assigned;
+        }
+
+        this._columnWidths = next;
     }
 
     // ── lifecycle ──────────────────────────────────────────────────────────
@@ -855,11 +1015,22 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     }
 
     renderedCallback() {
-        if (!this._firstChannelSeeded && this._wiredChannels.data?.length > 0) {
-            this._firstChannelSeeded = true;
-            const first = this._wiredChannels.data[0];
-            this._activeChannelId = first.Id;
-            this._loadMessages(first.Channel_Type__c);
+        if (this._channelsRefreshPending && this._wiredChannels) {
+            this._channelsRefreshPending = false;
+            refreshApex(this._wiredChannels);
+        }
+        const visible = this._visibleDictionaryChannels;
+        if (visible.length > 0) {
+            const activeStillVisible = visible.some(ch => ch.Id === this._activeChannelId);
+            if (!this._activeChannelId || !activeStillVisible) {
+                this._activeChannelId = visible[0].Id;
+                this._loadMessages(visible[0].Name, visible[0].Channel_Type__c);
+                this._firstChannelSeeded = true;
+            } else if (!this._firstChannelSeeded) {
+                this._firstChannelSeeded = true;
+                const active = visible.find(ch => ch.Id === this._activeChannelId) || visible[0];
+                this._loadMessages(active.Name, active.Channel_Type__c);
+            }
         }
         if (this._focusWeightInput && this._editingWeightId) {
             this._focusWeightInput = false;
@@ -875,6 +1046,24 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         if (selectAllCheckbox) {
             selectAllCheckbox.indeterminate = this.someVisibleVariantsSelected;
         }
+        if (this.hasGroups && !this._isMessagesLoading) {
+            this._scheduleColumnFit();
+        }
+    }
+
+    _scheduleColumnFit() {
+        if (this._columnFitScheduled) {
+            return;
+        }
+        this._columnFitScheduled = true;
+        // eslint-disable-next-line @lwc/lwc/no-async-operation
+        requestAnimationFrame(() => {
+            // eslint-disable-next-line @lwc/lwc/no-async-operation
+            requestAnimationFrame(() => {
+                this._columnFitScheduled = false;
+                this._fitColumnsToAvailableSpace();
+            });
+        });
     }
 
     // ── handlers: channel ──────────────────────────────────────────────────
@@ -887,9 +1076,13 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         this._statusFilter = 'All';
         this._expandedGroups = new Set();
         this._allExpanded = false;
+        this._columnWidths = { ...COLUMN_WIDTH_DEFAULTS };
         this._selectedIds = new Set();
         this._cancelWeightEdit();
-        this._loadMessages(e.currentTarget.dataset.channeltype);
+        const ch = this._visibleDictionaryChannels.find(c => c.Id === id);
+        if (ch) {
+            this._loadMessages(ch.Name, ch.Channel_Type__c);
+        }
     }
 
     // ── handlers: filter / expand ─────────────────────────────────────────
@@ -1190,9 +1383,9 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             return 'Unknown message';
         }
         const name = record.MessageName__c || record.Name || 'Message';
-        const variantNum = record.Message_Variant__c || record.Version__c;
-        if (variantNum != null && variantNum !== '') {
-            return `${name} (variant ${variantNum})`;
+        const variantNum = variantNumberFromRecord(record);
+        if (variantNum > 0) {
+            return `${name} (#${variantNum})`;
         }
         return name;
     }
@@ -1360,7 +1553,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
                     `Updated ${count} variant${count !== 1 ? 's' : ''}.`,
                     'success'
                 );
-                this._loadMessages(this.activeChannel?.Channel_Type__c);
+                this._reloadActiveChannelMessages();
             })
             .catch(err => {
                 if (!this._sourceTemplateModal) return;
@@ -1396,6 +1589,57 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             return;
         }
         this._executeMceVariantSync([recordId]);
+    }
+
+    handleVariantQuickAction(event) {
+        event.stopPropagation();
+        const action = event.currentTarget.dataset.action;
+        const id = event.currentTarget.dataset.id;
+        if (!action || !id) return;
+        this._runVariantQuickAction(action, id);
+    }
+
+    handleVariantOverflowAction(event) {
+        event.stopPropagation();
+        const value = event.detail.value || '';
+        const sep = value.indexOf(':');
+        if (sep < 0) return;
+        this._runVariantQuickAction(value.substring(0, sep), value.substring(sep + 1));
+    }
+
+    _runVariantQuickAction(action, recordId) {
+        switch (action) {
+            case 'sync':
+                this._executeMceVariantSync([recordId]);
+                break;
+            case 'template':
+                this.handleVariantChangeSourceTemplate({
+                    stopPropagation: () => {},
+                    currentTarget: { dataset: { id: recordId } }
+                });
+                break;
+            case 'edit':
+                this._openEditor(recordId);
+                break;
+            case 'clone': {
+                const row = this._messageRecordById(recordId);
+                if (!row) return;
+                this.cloneSourceId = recordId;
+                this.cloneSourceName = row.Name;
+                this.cloneMasterStem = masterGroupKey(row);
+                this.cloneProposedVersion = this._nextVersionForStem(this.cloneMasterStem);
+                this.isCloneModalOpen = true;
+                break;
+            }
+            case 'delete':
+                this.handleDeletePrompt({
+                    stopPropagation: () => {},
+                    currentTarget: { dataset: { id: recordId, name: '', version: '' } }
+                });
+                break;
+            default:
+                break;
+        }
     }
 
     // ── handlers: channel header ──────────────────────────────────────────
@@ -1494,7 +1738,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         syncVariantsWithMCE({ messageVariantIds: variantKeys })
             .then(result => {
                 this._showMceSyncResult(result, `Sync ${variantKeys.length} variant(s) with MCE`);
-                this._loadMessages(channel);
+                this._reloadActiveChannelMessages();
             })
             .catch(err => {
                 this._showToast(
@@ -1520,7 +1764,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         syncWithMCE({ channel: channel, minutesBack: minutesBack })
             .then(result => {
                 this._showMceSyncResult(result, `Sync ${channel} with MCE`);
-                this._loadMessages(channel);
+                this._reloadActiveChannelMessages();
             })
             .catch(err => {
                 this._showToast(
@@ -1593,7 +1837,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
                 this.isAddModalOpen = false;
                 this._clearAddChannelContext();
                 this._showToast('Created', `"${data.messageName}" Variant ${data.version} saved as draft.`, 'success');
-                this._loadMessages(this.activeChannel?.Channel_Type__c);
+                this._reloadActiveChannelMessages();
                 if (data.action === 'edit') {
                     this._openEditor(newId);
                 }
@@ -1622,7 +1866,12 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         e.stopPropagation();
         this.cloneSourceId = e.currentTarget.dataset.id;
         this.cloneSourceName = e.currentTarget.dataset.name;
-        this.cloneProposedVersion = this._nextVersionForName(this.cloneSourceName);
+        this.cloneMasterStem = e.currentTarget.dataset.stem || '';
+        const stem = this.cloneMasterStem || masterGroupKey({
+            Name: this.cloneSourceName,
+            MessageName__c: e.currentTarget.dataset.messageName
+        });
+        this.cloneProposedVersion = this._nextVersionForStem(stem);
         this.isCloneModalOpen = true;
     }
 
@@ -1644,8 +1893,10 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         const row = this._messageRecordById(id);
         this.deleteTargetId = id;
         this.deleteTargetName = row?.MessageName__c || row?.Name || e.currentTarget.dataset.name || 'Message';
-        this.deleteTargetVariantLabel = row?.Message_Variant__c
-            || (row?.Version__c != null ? String(row.Version__c) : e.currentTarget.dataset.version || '—');
+        const variantNum = row ? variantNumberFromRecord(row) : 0;
+        this.deleteTargetVariantLabel = variantNum > 0
+            ? String(variantNum)
+            : (e.currentTarget.dataset.version || '—');
         this.isDeleteModalOpen = true;
     }
 
@@ -1673,7 +1924,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
                     'Variant and its block data were permanently removed.',
                     'success'
                 );
-                this._loadMessages(this.activeChannel?.Channel_Type__c);
+                this._reloadActiveChannelMessages();
             })
             .catch(err => {
                 this._showToast('Error', err?.body?.message || 'Delete failed.', 'error');
@@ -1703,7 +1954,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
                     `${count} variant(s) and related block data were permanently removed.`,
                     'success'
                 );
-                this._loadMessages(this.activeChannel?.Channel_Type__c);
+                this._reloadActiveChannelMessages();
             })
             .catch(err => {
                 this._showToast('Error', err?.body?.message || 'Bulk delete failed.', 'error');
@@ -1757,7 +2008,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
                     `Message "${this.masterDeleteDisplayName}" and ${count} variant(s) with block data were removed.`,
                     'success'
                 );
-                this._loadMessages(channelType);
+                this._reloadActiveChannelMessages();
             })
             .catch(err => {
                 this._showToast('Error', err?.body?.message || 'Delete failed.', 'error');
@@ -1929,7 +2180,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
                 this._masterEditModal = null;
                 this._templateReplaceConfirm = null;
                 this._showToast('Saved', `Settings for "${modal.messageName}" saved.`, 'success');
-                this._loadMessages(this.activeChannel?.Channel_Type__c);
+                this._reloadActiveChannelMessages();
             })
             .catch(err => {
                 if (!this._masterEditModal) return;
@@ -2025,7 +2276,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             .then(() => {
                 this._cancelRename();
                 this._showToast('Updated', 'Message name settings saved for all variants.', 'success');
-                this._loadMessages(this.activeChannel?.Channel_Type__c);
+                this._reloadActiveChannelMessages();
             })
             .catch(err => {
                 this._renameError = err?.body?.message || 'Update failed.';
@@ -2049,12 +2300,16 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         );
     }
 
-    _nextVersionForName(fullOrStemName) {
-        const stem = groupKeyFromName(fullOrStemName);
+    _nextVersionForStem(stem) {
         const taken = this._messagesForStem(stem)
             .map(m => variantNumberFromRecord(m))
             .filter(n => !Number.isNaN(n) && n > 0);
         return nextAvailableVariant(taken);
+    }
+
+    _nextVersionForName(fullOrStemName) {
+        const stem = masterGroupKey({ Name: fullOrStemName }) || groupKeyFromName(fullOrStemName);
+        return this._nextVersionForStem(stem);
     }
 
     _doClone(openEditor) {
@@ -2062,10 +2317,10 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         const newVersion = this.cloneProposedVersion;
         const name       = this.cloneProposedName;
         this.isCloning = true;
-        cloneMessage({ sourceId, newVersion })
+        cloneMessage({ sourceId, newVersion, masterStem: this.cloneMasterStem || null })
             .then(newId => {
                 this._showToast('Copy created', `"${name}" saved as draft.`, 'success');
-                this._loadMessages(this.activeChannel?.Channel_Type__c);
+                this._reloadActiveChannelMessages();
                 if (openEditor) this._openEditor(newId);
             })
             .catch(err => {
@@ -2080,6 +2335,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         this.isCloneModalOpen = false;
         this.isCloning = false;
         this.cloneSourceId = null;
+        this.cloneMasterStem = '';
         this.cloneSourceName = '';
         this.cloneProposedVersion = null;
     }
@@ -2100,16 +2356,25 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             attributes: { apiName: 'Copy_Center' },
             state: {},
         }, true);
-        this._loadMessages(this.activeChannel?.Channel_Type__c);
+        this._reloadActiveChannelMessages();
     }
 
-    _loadMessages(channelType) {
-        if (!channelType) { this._messages = []; return; }
+    _reloadActiveChannelMessages() {
+        const ch = this.activeChannel;
+        if (!ch) {
+            this._messages = [];
+            return;
+        }
+        this._loadMessages(ch.Name, ch.Channel_Type__c);
+    }
+
+    _loadMessages(channelName, channelType) {
+        if (!channelName && !channelType) { this._messages = []; return; }
         this._isMessagesLoading = true;
         this._messages = [];
         this._selectedIds = new Set();
         this._versionCounts = {};
-        getMessagesByChannelType({ channelType })
+        getMessagesForDictionaryChannel({ channelName, channelType })
             .then(data => {
                 this._messages = data || [];
                 const ids = this._messages.map(m => m.Id);
@@ -2126,6 +2391,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             })
             .finally(() => {
                 this._isMessagesLoading = false;
+                this._scheduleColumnFit();
             });
     }
 
