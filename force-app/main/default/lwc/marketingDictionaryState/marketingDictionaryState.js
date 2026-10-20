@@ -25,6 +25,57 @@ export const CHANNEL_SUB_TAB_VALUES = [
 const DEFAULT_MAIN_TAB = 'person';
 const DEFAULT_CHANNEL_SUB_TAB = 'cooldown';
 
+/** Legacy split AI Agent outbound row — hidden when a single AI Agent uses comm-type flags. */
+export function isLegacyAiAgentOutboundChannel(ch) {
+    if (!ch || ch.Channel_Type__c !== 'AI Agent') {
+        return false;
+    }
+    const name = (ch.Name || '').trim().toLowerCase();
+    return name === 'ai agent outbound' || name.endsWith(' outbound');
+}
+
+export function getVisibleChannelRecords(channels) {
+    return (channels || []).filter(ch => !isLegacyAiAgentOutboundChannel(ch));
+}
+
+export function getChannelDisplayName(ch) {
+    if (!ch) {
+        return '';
+    }
+    if (ch.Channel_Type__c === 'AI Agent') {
+        const name = (ch.Name || '').trim();
+        if (/^AI Agent(\s+(Inbound|Outbound))?$/i.test(name)) {
+            return 'AI Agent';
+        }
+    }
+    return ch.Name || '';
+}
+
+export function getCommunicationBadges(ch) {
+    if (!ch) {
+        return [];
+    }
+    let inbound = ch.Communication_Inbound__c === true;
+    let outbound = ch.Communication_Outbound__c === true;
+    if (!inbound && !outbound) {
+        const n = (ch.Name || '').toLowerCase();
+        if (n.includes('inbound')) {
+            inbound = true;
+        }
+        if (n.includes('outbound')) {
+            outbound = true;
+        }
+    }
+    const badges = [];
+    if (inbound) {
+        badges.push({ key: 'in', label: 'in' });
+    }
+    if (outbound) {
+        badges.push({ key: 'out', label: 'out' });
+    }
+    return badges;
+}
+
 function storageKey(suffix) {
     return `${STORAGE_PREFIX}${suffix}`;
 }

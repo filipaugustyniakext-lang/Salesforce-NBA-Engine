@@ -1,8 +1,14 @@
 import { LightningElement, track, wire } from 'lwc';
 import { CurrentPageReference, NavigationMixin } from 'lightning/navigation';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+import { refreshApex } from '@salesforce/apex';
 import getChannelRecords from '@salesforce/apex/MarketingDictionaryManagerController.getChannelRecords';
-import getMessagesByChannelType from '@salesforce/apex/CopyCockpitController.getMessagesByChannelType';
+import getMessagesForDictionaryChannel from '@salesforce/apex/CopyCockpitController.getMessagesForDictionaryChannel';
+import {
+    getVisibleChannelRecords,
+    getChannelDisplayName,
+    getCommunicationBadges
+} from 'c/marketingDictionaryState';
 import getVersionCountsByMessageIds from '@salesforce/apex/CopyCockpitController.getVersionCountsByMessageIds';
 import createMessage from '@salesforce/apex/CopyCockpitController.createMessage';
 import cloneMessage from '@salesforce/apex/CopyCockpitController.cloneMessage';
@@ -508,6 +514,13 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
 
     _firstChannelSeeded = false;
     _pageRefSeeded = false;
+    _channelsRefreshPending = true;
+
+    connectedCallback() {
+        if (this._wiredChannels) {
+            refreshApex(this._wiredChannels);
+        }
+    }
 
     @wire(CurrentPageReference)
     _onPageRef(ref) {
@@ -539,26 +552,38 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     }
 
     get isEmpty() {
-        return !this.isLoading && !this.hasError &&
-               (!this._wiredChannels.data || this._wiredChannels.data.length === 0);
+        return !this.isLoading && !this.hasError && this._visibleDictionaryChannels.length === 0;
+    }
+
+    get _visibleDictionaryChannels() {
+        return getVisibleChannelRecords(this._wiredChannels.data);
     }
 
     get channels() {
-        if (!this._wiredChannels.data) return [];
-        const activeId = this._activeChannelId || this._wiredChannels.data[0]?.Id;
-        return this._wiredChannels.data.map(ch => ({
+        const list = this._visibleDictionaryChannels;
+        if (!list.length) return [];
+        const activeId = this._activeChannelId || list[0]?.Id;
+        return list.map(ch => ({
             ...ch,
+            displayName: getChannelDisplayName(ch),
+            commBadges: getCommunicationBadges(ch),
             safeIcon: resolveIcon(ch),
             sidebarClass: `ch-sidebar__item${ch.Id === activeId ? ' ch-sidebar__item_active' : ''}`,
         }));
     }
 
     get activeChannel() {
-        if (!this._wiredChannels.data) return null;
-        const id = this._activeChannelId || this._wiredChannels.data[0]?.Id;
-        const found = this._wiredChannels.data.find(ch => ch.Id === id);
+        const list = this._visibleDictionaryChannels;
+        if (!list.length) return null;
+        const id = this._activeChannelId || list[0]?.Id;
+        const found = list.find(ch => ch.Id === id) || list[0];
         if (!found) return null;
-        return { ...found, safeIcon: resolveIcon(found) };
+        return {
+            ...found,
+            displayName: getChannelDisplayName(found),
+            commBadges: getCommunicationBadges(found),
+            safeIcon: resolveIcon(found)
+        };
     }
 
     get activeChannelName() {
@@ -880,11 +905,22 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     // ── lifecycle ──────────────────────────────────────────────────────────
 
     renderedCallback() {
-        if (!this._firstChannelSeeded && this._wiredChannels.data?.length > 0) {
-            this._firstChannelSeeded = true;
-            const first = this._wiredChannels.data[0];
-            this._activeChannelId = first.Id;
-            this._loadMessages(first.Channel_Type__c);
+        if (this._channelsRefreshPending && this._wiredChannels) {
+            this._channelsRefreshPending = false;
+            refreshApex(this._wiredChannels);
+        }
+        const visible = this._visibleDictionaryChannels;
+        if (visible.length > 0) {
+            const activeStillVisible = visible.some(ch => ch.Id === this._activeChannelId);
+            if (!this._activeChannelId || !activeStillVisible) {
+                this._activeChannelId = visible[0].Id;
+                this._loadMessages(visible[0].Name, visible[0].Channel_Type__c);
+                this._firstChannelSeeded = true;
+            } else if (!this._firstChannelSeeded) {
+                this._firstChannelSeeded = true;
+                const active = visible.find(ch => ch.Id === this._activeChannelId) || visible[0];
+                this._loadMessages(active.Name, active.Channel_Type__c);
+            }
         }
         if (this._focusWeightInput && this._editingWeightId) {
             this._focusWeightInput = false;
@@ -933,7 +969,10 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         this._columnWidths = { ...COLUMN_WIDTH_DEFAULTS };
         this._selectedIds = new Set();
         this._cancelWeightEdit();
-        this._loadMessages(e.currentTarget.dataset.channeltype);
+        const ch = this._visibleDictionaryChannels.find(c => c.Id === id);
+        if (ch) {
+            this._loadMessages(ch.Name, ch.Channel_Type__c);
+        }
     }
 
     // ── handlers: filter / expand ─────────────────────────────────────────
@@ -1404,7 +1443,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
                     `Updated ${count} variant${count !== 1 ? 's' : ''}.`,
                     'success'
                 );
-                this._loadMessages(this.activeChannel?.Channel_Type__c);
+                this._reloadActiveChannelMessages();
             })
             .catch(err => {
                 if (!this._sourceTemplateModal) return;
@@ -1589,7 +1628,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         syncVariantsWithMCE({ messageVariantIds: variantKeys })
             .then(result => {
                 this._showMceSyncResult(result, `Sync ${variantKeys.length} variant(s) with MCE`);
-                this._loadMessages(channel);
+                this._reloadActiveChannelMessages();
             })
             .catch(err => {
                 this._showToast(
@@ -1615,7 +1654,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         syncWithMCE({ channel: channel, minutesBack: minutesBack })
             .then(result => {
                 this._showMceSyncResult(result, `Sync ${channel} with MCE`);
-                this._loadMessages(channel);
+                this._reloadActiveChannelMessages();
             })
             .catch(err => {
                 this._showToast(
@@ -1688,7 +1727,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
                 this.isAddModalOpen = false;
                 this._clearAddChannelContext();
                 this._showToast('Created', `"${data.messageName}" Variant ${data.version} saved as draft.`, 'success');
-                this._loadMessages(this.activeChannel?.Channel_Type__c);
+                this._reloadActiveChannelMessages();
                 if (data.action === 'edit') {
                     this._openEditor(newId);
                 }
@@ -1775,7 +1814,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
                     'Variant and its block data were permanently removed.',
                     'success'
                 );
-                this._loadMessages(this.activeChannel?.Channel_Type__c);
+                this._reloadActiveChannelMessages();
             })
             .catch(err => {
                 this._showToast('Error', err?.body?.message || 'Delete failed.', 'error');
@@ -1805,7 +1844,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
                     `${count} variant(s) and related block data were permanently removed.`,
                     'success'
                 );
-                this._loadMessages(this.activeChannel?.Channel_Type__c);
+                this._reloadActiveChannelMessages();
             })
             .catch(err => {
                 this._showToast('Error', err?.body?.message || 'Bulk delete failed.', 'error');
@@ -1859,7 +1898,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
                     `Message "${this.masterDeleteDisplayName}" and ${count} variant(s) with block data were removed.`,
                     'success'
                 );
-                this._loadMessages(channelType);
+                this._reloadActiveChannelMessages();
             })
             .catch(err => {
                 this._showToast('Error', err?.body?.message || 'Delete failed.', 'error');
@@ -2031,7 +2070,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
                 this._masterEditModal = null;
                 this._templateReplaceConfirm = null;
                 this._showToast('Saved', `Settings for "${modal.messageName}" saved.`, 'success');
-                this._loadMessages(this.activeChannel?.Channel_Type__c);
+                this._reloadActiveChannelMessages();
             })
             .catch(err => {
                 if (!this._masterEditModal) return;
@@ -2127,7 +2166,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             .then(() => {
                 this._cancelRename();
                 this._showToast('Updated', 'Message name settings saved for all variants.', 'success');
-                this._loadMessages(this.activeChannel?.Channel_Type__c);
+                this._reloadActiveChannelMessages();
             })
             .catch(err => {
                 this._renameError = err?.body?.message || 'Update failed.';
@@ -2171,7 +2210,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         cloneMessage({ sourceId, newVersion, masterStem: this.cloneMasterStem || null })
             .then(newId => {
                 this._showToast('Copy created', `"${name}" saved as draft.`, 'success');
-                this._loadMessages(this.activeChannel?.Channel_Type__c);
+                this._reloadActiveChannelMessages();
                 if (openEditor) this._openEditor(newId);
             })
             .catch(err => {
@@ -2207,16 +2246,25 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             attributes: { apiName: 'Copy_Center' },
             state: {},
         }, true);
-        this._loadMessages(this.activeChannel?.Channel_Type__c);
+        this._reloadActiveChannelMessages();
     }
 
-    _loadMessages(channelType) {
-        if (!channelType) { this._messages = []; return; }
+    _reloadActiveChannelMessages() {
+        const ch = this.activeChannel;
+        if (!ch) {
+            this._messages = [];
+            return;
+        }
+        this._loadMessages(ch.Name, ch.Channel_Type__c);
+    }
+
+    _loadMessages(channelName, channelType) {
+        if (!channelName && !channelType) { this._messages = []; return; }
         this._isMessagesLoading = true;
         this._messages = [];
         this._selectedIds = new Set();
         this._versionCounts = {};
-        getMessagesByChannelType({ channelType })
+        getMessagesForDictionaryChannel({ channelName, channelType })
             .then(data => {
                 this._messages = data || [];
                 const ids = this._messages.map(m => m.Id);

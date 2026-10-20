@@ -80,7 +80,31 @@
     width: 100%;
 }
 
-.ch-sidebar__name { font-size: 0.8125rem; color: #181818; line-height: 1.3; }
+.ch-sidebar__name-row {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.35rem;
+    max-width: 100%;
+}
+
+.ch-sidebar__name { font-size: 0.8125rem; color: #181818; line-height: 1.3; flex: 0 1 auto; min-width: 0; }
+
+.ch-sidebar__comm-badges {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 0.2rem;
+}
+
+.ch-sidebar__comm-badge {
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: lowercase;
+    padding: 0.1rem 0.35rem;
+}
+
 .ch-sidebar__type { color: #706e6b; font-size: 0.7rem; }
 
 .ch-detail { flex: 1; min-width: 0; display: flex; flex-direction: column; }

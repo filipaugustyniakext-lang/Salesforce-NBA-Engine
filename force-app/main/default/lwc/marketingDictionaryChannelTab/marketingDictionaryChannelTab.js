@@ -28,7 +28,10 @@ import deleteBannerIntent from '@salesforce/apex/MarketingDictionaryManagerContr
 import {
     persistChannelSelection,
     resolveChannelId,
-    resolveChannelSubTab
+    resolveChannelSubTab,
+    getVisibleChannelRecords,
+    getChannelDisplayName,
+    getCommunicationBadges
 } from 'c/marketingDictionaryState';
 
 const CHANNEL_TYPES = ['Email', 'SMS', 'Push', 'Banner', 'In-App', 'AI Agent', 'Branch Agent', 'WhatsApp'];
@@ -50,41 +53,6 @@ const EMPTY_CHANNEL = () => ({
     Communication_Outbound__c: false
 });
 
-/** Legacy split AI Agent outbound row — hidden when a single AI Agent uses comm-type flags. */
-const isLegacyAiAgentOutboundChannel = (ch) => {
-    if (!ch || ch.Channel_Type__c !== 'AI Agent') return false;
-    const name = (ch.Name || '').trim().toLowerCase();
-    return name === 'ai agent outbound' || name.endsWith(' outbound');
-};
-
-const getVisibleChannelRecords = (channels) =>
-    (channels || []).filter(ch => !isLegacyAiAgentOutboundChannel(ch));
-
-const getChannelDisplayName = (ch) => {
-    if (!ch) return '';
-    if (ch.Channel_Type__c === 'AI Agent') {
-        const name = (ch.Name || '').trim();
-        if (/^AI Agent(\s+(Inbound|Outbound))?$/i.test(name)) {
-            return 'AI Agent';
-        }
-    }
-    return ch.Name || '';
-};
-
-const getCommunicationBadges = (ch) => {
-    if (!ch) return [];
-    let inbound = ch.Communication_Inbound__c === true;
-    let outbound = ch.Communication_Outbound__c === true;
-    if (!inbound && !outbound) {
-        const n = (ch.Name || '').toLowerCase();
-        if (n.includes('inbound')) inbound = true;
-        if (n.includes('outbound')) outbound = true;
-    }
-    const badges = [];
-    if (inbound) badges.push({ key: 'in', label: 'in' });
-    if (outbound) badges.push({ key: 'out', label: 'out' });
-    return badges;
-};
 const EMPTY_COOLDOWN = () => ({ Audience_Type_Dict__c: '', Cooldown_Days__c: null, Channel__c: null });
 const EMPTY_DAY_RULE = (day, channelId) => ({
     Day_Of_Week__c: day || '',

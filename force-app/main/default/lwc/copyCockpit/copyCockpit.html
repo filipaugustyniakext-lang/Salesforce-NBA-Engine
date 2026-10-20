@@ -49,12 +49,19 @@
                             data-id={ch.Id}
                             data-channeltype={ch.Channel_Type__c}
                             onclick={handleSelectChannel}
-                            title={ch.Name}
+                            title={ch.displayName}
                         >
                             <span class="ch-sidebar__icon-wrap">
                                 <lightning-icon icon-name={ch.safeIcon} size="x-small"></lightning-icon>
                             </span>
-                            <span class="ch-sidebar__name">{ch.Name}</span>
+                            <div class="ch-sidebar__name-row">
+                                <span class="ch-sidebar__name">{ch.displayName}</span>
+                                <span class="ch-sidebar__comm-badges">
+                                    <template for:each={ch.commBadges} for:item="badge">
+                                        <span key={badge.key} class="slds-badge slds-badge_lightest ch-sidebar__comm-badge">{badge.label}</span>
+                                    </template>
+                                </span>
+                            </div>
                             <span class="ch-sidebar__type">{ch.Channel_Type__c}</span>
                         </button>
                     </template>
@@ -73,7 +80,7 @@
                                     class="slds-m-right_x-small cockpit-panel-icon"
                                 ></lightning-icon>
                                 <div>
-                                    <h2 class="slds-text-heading_small">{activeChannel.Name}</h2>
+                                    <h2 class="slds-text-heading_small">{activeChannel.displayName}</h2>
                                     <span class="slds-text-body_small slds-text-color_weak">{activeChannel.Channel_Type__c}</span>
                                 </div>
                                 <div>

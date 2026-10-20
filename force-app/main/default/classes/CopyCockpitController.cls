@@ -2,7 +2,113 @@ public with sharing class CopyCockpitController {
 
     @AuraEnabled(cacheable=false)
     public static List<CC_Message_Metadata__c> getMessagesByChannelType(String channelType) {
-        if (String.isBlank(channelType)) return new List<CC_Message_Metadata__c>();
+        return getMessagesForDictionaryChannel(null, channelType);
+    }
+
+    /**
+     * Messages for one Marketing Dictionary channel (Copy Center sidebar tab).
+     * Matches {@link MarketingDictionaryDeleteGuard} dependency scoping.
+     */
+    @AuraEnabled(cacheable=false)
+    public static List<CC_Message_Metadata__c> getMessagesForDictionaryChannel(
+        String channelName,
+        String channelType
+    ) {
+        if (String.isBlank(channelName) && String.isBlank(channelType)) {
+            return new List<CC_Message_Metadata__c>();
+        }
+        if (String.isBlank(channelName)) {
+            return [
+                SELECT Id, Name,
+                       Channel__c, Channel_Type__c,
+                       Status__c,
+                       Subject__c,
+                       Version__c,
+                       Language__c,
+                       Valid_From__c, Valid_To__c,
+                       Offer__c, Offer__r.Name,
+                       Product_Family__c, Product_Family__r.Name,
+                       Campaign__c, Campaign__r.Name,
+                       Is_Active__c,
+                       Block_Count__c,
+                       Display_Probability__c,
+                       Display_Probability_Manual__c,
+                       Scheduled_Action__c,
+                       Scheduled_At__c,
+                       Scheduled_Status__c,
+                       Scheduled_From_Status__c,
+                       Scheduled_To_Status__c,
+                       Message_Variant_Id__c,
+                       Message_Variant__c,
+                       MessageVariantId__c,
+                       MessageName__c,
+                       MessageVariant__c,
+                       Source_Template__c, Source_Template__r.Name,
+                       Published_At__c,
+                       MCE_Updated_At__c,
+                       MCE_Last_Modified_By__c,
+                       LastModifiedBy__c,
+                       LastModifiedAt__c,
+                       UpdatedAt__c,
+                       CreatedDate, LastModifiedDate
+                FROM CC_Message_Metadata__c
+                WHERE Channel_Type__c = :channelType
+                ORDER BY Name ASC, Version__c ASC NULLS LAST
+                LIMIT 2000
+            ];
+        }
+        Integer typeChannelCount = String.isBlank(channelType)
+            ? 0
+            : [
+                SELECT COUNT()
+                FROM Marketing_Dictionary__c
+                WHERE RecordType.DeveloperName = 'Channel'
+                AND Channel_Type__c = :channelType
+            ];
+        if (typeChannelCount <= 1 && String.isNotBlank(channelType)) {
+            return [
+                SELECT Id, Name,
+                       Channel__c, Channel_Type__c,
+                       Status__c,
+                       Subject__c,
+                       Version__c,
+                       Language__c,
+                       Valid_From__c, Valid_To__c,
+                       Offer__c, Offer__r.Name,
+                       Product_Family__c, Product_Family__r.Name,
+                       Campaign__c, Campaign__r.Name,
+                       Is_Active__c,
+                       Block_Count__c,
+                       Display_Probability__c,
+                       Display_Probability_Manual__c,
+                       Scheduled_Action__c,
+                       Scheduled_At__c,
+                       Scheduled_Status__c,
+                       Scheduled_From_Status__c,
+                       Scheduled_To_Status__c,
+                       Message_Variant_Id__c,
+                       Message_Variant__c,
+                       MessageVariantId__c,
+                       MessageName__c,
+                       MessageVariant__c,
+                       Source_Template__c, Source_Template__r.Name,
+                       Published_At__c,
+                       MCE_Updated_At__c,
+                       MCE_Last_Modified_By__c,
+                       LastModifiedBy__c,
+                       LastModifiedAt__c,
+                       UpdatedAt__c,
+                       CreatedDate, LastModifiedDate
+                FROM CC_Message_Metadata__c
+                WHERE Channel__c = :channelName
+                   OR (
+                       (Channel__c = null OR Channel__c = '')
+                       AND Channel_Type__c = :channelType
+                   )
+                ORDER BY Name ASC, Version__c ASC NULLS LAST
+                LIMIT 2000
+            ];
+        }
         return [
             SELECT Id, Name,
                    Channel__c, Channel_Type__c,
@@ -37,7 +143,7 @@ public with sharing class CopyCockpitController {
                    UpdatedAt__c,
                    CreatedDate, LastModifiedDate
             FROM CC_Message_Metadata__c
-            WHERE Channel_Type__c = :channelType
+            WHERE Channel__c = :channelName
             ORDER BY Name ASC, Version__c ASC NULLS LAST
             LIMIT 2000
         ];

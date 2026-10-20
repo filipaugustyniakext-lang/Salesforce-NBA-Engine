@@ -615,9 +615,8 @@ public with sharing class MarketingDictionaryDeleteGuard {
         String channelType = channel.Channel_Type__c;
 
         // Campaign wizard + Copy Center are the primary user-facing references — collect first.
-        collectCampaignAssignedChannelReferences(channelName, channelType, dependencies);
+        collectCampaignAssignedChannelReferences(channelName, dependencies);
         collectCopyCenterChannelMessages(channelName, channelType, dependencies);
-        collectBlackoutWindowChannelReferences(channelName, channelType, dependencies);
 
         for (Channel_Cooldown__c cooldown : [
             SELECT Name
@@ -627,15 +626,6 @@ public with sharing class MarketingDictionaryDeleteGuard {
             LIMIT :MAX_DEPENDENCY_LABELS
         ]) {
             addDependency(dependencies, 'Channel cooldown rule', cooldown.Name);
-        }
-        for (Blackout_Day_Rule__c rule : [
-            SELECT Name
-            FROM Blackout_Day_Rule__c
-            WHERE Channel__c = :recordId
-            ORDER BY Name ASC
-            LIMIT :MAX_DEPENDENCY_LABELS
-        ]) {
-            addDependency(dependencies, 'Blackout day rule', rule.Name);
         }
         for (Channel_Template__c tmpl : [
             SELECT Name
@@ -810,10 +800,9 @@ public with sharing class MarketingDictionaryDeleteGuard {
 
     private static void collectCampaignAssignedChannelReferences(
         String channelName,
-        String channelType,
         DependencyCollector dependencies
     ) {
-        if (String.isBlank(channelName) && String.isBlank(channelType)) {
+        if (String.isBlank(channelName)) {
             return;
         }
         for (Campaign camp : [
@@ -821,71 +810,70 @@ public with sharing class MarketingDictionaryDeleteGuard {
             FROM Campaign
             LIMIT 5000
         ]) {
-            if (assignedChannelsInclude(camp.Assigned_Channels__c, channelName, channelType)) {
+            if (semicolonListContainsLabel(camp.Assigned_Channels__c, channelName)) {
                 addDependency(dependencies, 'Campaign (channel selection)', camp.Name);
             }
         }
     }
 
-    private static void collectBlackoutWindowChannelReferences(
-        String channelName,
-        String channelType,
-        DependencyCollector dependencies
-    ) {
-        if (String.isBlank(channelName) && String.isBlank(channelType)) {
-            return;
-        }
-        for (Blackout_Window__c window : [
-            SELECT Name, Assigned_Channels__c
-            FROM Blackout_Window__c
-            LIMIT 5000
-        ]) {
-            if (assignedChannelsInclude(window.Assigned_Channels__c, channelName, channelType)) {
-                addDependency(dependencies, 'Blackout window', window.Name);
-            }
-        }
-    }
-
     /**
-     * Copy Center lists messages by dictionary Channel_Type__c (see CopyCockpitController.getMessagesByChannelType).
+     * Copy Center message variants scoped to the dictionary channel name (see CopyCockpitController).
      */
     private static void collectCopyCenterChannelMessages(
         String channelName,
         String channelType,
         DependencyCollector dependencies
     ) {
-        List<CC_Message_Metadata__c> rows;
-        if (String.isNotBlank(channelType) && String.isNotBlank(channelName)) {
-            rows = [
+        for (CC_Message_Metadata__c row : queryCopyCenterMessagesForChannel(channelName, channelType)) {
+            addDependency(dependencies, 'Copy Center message variant', row.Name);
+        }
+    }
+
+    @TestVisible
+    private static List<CC_Message_Metadata__c> queryCopyCenterMessagesForChannel(
+        String channelName,
+        String channelType
+    ) {
+        if (String.isBlank(channelName) && String.isBlank(channelType)) {
+            return new List<CC_Message_Metadata__c>();
+        }
+        if (String.isBlank(channelName)) {
+            return [
                 SELECT Name
                 FROM CC_Message_Metadata__c
                 WHERE Channel_Type__c = :channelType
-                   OR Channel__c = :channelName
                 ORDER BY Name ASC
                 LIMIT :MAX_DEPENDENCY_LABELS
             ];
-        } else if (String.isNotBlank(channelType)) {
-            rows = [
-                SELECT Name
-                FROM CC_Message_Metadata__c
-                WHERE Channel_Type__c = :channelType
-                ORDER BY Name ASC
-                LIMIT :MAX_DEPENDENCY_LABELS
+        }
+        Integer typeChannelCount = String.isBlank(channelType)
+            ? 0
+            : [
+                SELECT COUNT()
+                FROM Marketing_Dictionary__c
+                WHERE RecordType.DeveloperName = 'Channel'
+                AND Channel_Type__c = :channelType
             ];
-        } else if (String.isNotBlank(channelName)) {
-            rows = [
+        if (typeChannelCount <= 1 && String.isNotBlank(channelType)) {
+            return [
                 SELECT Name
                 FROM CC_Message_Metadata__c
                 WHERE Channel__c = :channelName
+                   OR (
+                       (Channel__c = null OR Channel__c = '')
+                       AND Channel_Type__c = :channelType
+                   )
                 ORDER BY Name ASC
                 LIMIT :MAX_DEPENDENCY_LABELS
             ];
-        } else {
-            return;
         }
-        for (CC_Message_Metadata__c row : rows) {
-            addDependency(dependencies, 'Copy Center message variant', row.Name);
-        }
+        return [
+            SELECT Name
+            FROM CC_Message_Metadata__c
+            WHERE Channel__c = :channelName
+            ORDER BY Name ASC
+            LIMIT :MAX_DEPENDENCY_LABELS
+        ];
     }
 
     @TestVisible
