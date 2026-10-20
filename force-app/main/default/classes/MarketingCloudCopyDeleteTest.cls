@@ -23,9 +23,16 @@ private class MarketingCloudCopyDeleteTest {
                 res.setBody('');
             } else if (endpoint.contains('Service.asmx')) {
                 res.setStatusCode(200);
-                System.assert(req.getBody().contains('DeleteRequest'), 'Expected SOAP Delete');
-                System.assert(req.getBody().contains('DataExtensionObject'), 'Expected DE object delete');
-                System.assert(req.getBody().contains('variant-del-1'), 'Expected variant id in SOAP body');
+                String soapBody = req.getBody();
+                System.assert(soapBody.contains('DeleteRequest'), 'Expected SOAP Delete');
+                System.assert(soapBody.contains('DataExtensionObject'), 'Expected DE object delete');
+                System.assert(soapBody.contains('variant-del-1'), 'Expected variant id in SOAP body');
+                System.assert(
+                    soapBody.contains('http://schemas.xmlsoap.org/ws/2004/08/addressing'),
+                    'Expected SFMC WS-Addressing namespace'
+                );
+                System.assert(soapBody.contains('<fueloauth xmlns="http://exacttarget.com">'), 'Expected header fueloauth');
+                System.assert(!soapBody.contains(':Security'), 'fueloauth should not be wrapped in WS-Security');
                 res.setBody(
                     '<?xml version="1.0" encoding="utf-8"?>'
                     + '<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">'

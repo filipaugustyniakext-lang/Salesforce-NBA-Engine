@@ -1,6 +1,9 @@
 /**
  * Deletes CC_Message_Metadata and CC_Message_Blocks_All rows in SFMC after Copy Cockpit
- * removes Salesforce records. Uses REST rowset filters to resolve block keys, then SOAP Delete.
+ * removes Salesforce records. SOAP Delete envelope matches SFMC fueloauth + WS-Addressing
+ * (Postman-verified). Multiple DataExtensionObject nodes may be batched per request (up to
+ * SOAP_OBJECT_CHUNK) to reduce callouts; metadata uses MessageVariantId only, blocks use
+ * MessageVariantId + ContentBlockOrder after REST rowset lookup.
  */
 public with sharing class MarketingCloudCopyDelete {
     private static final Integer VARIANT_ID_CHUNK = 25;
@@ -8,9 +11,9 @@ public with sharing class MarketingCloudCopyDelete {
     private static final String BLOCKS_DE_KEY = 'CC_Message_Blocks_All';
     private static final String SOAP_NS = 'http://exacttarget.com/wsdl/partnerAPI';
     private static final String SOAP_ENV = 'http://www.w3.org/2003/05/soap-envelope';
-    private static final String WS_ADDR = 'http://www.w3.org/2004/08/addressing';
-    private static final String WS_SEC = 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd';
-    private static final String WS_SEC_EXT = 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd';
+    // SFMC SOAP responses use schemas.xmlsoap.org WS-Addressing (matches working Postman Delete).
+    private static final String WS_ADDR = 'http://schemas.xmlsoap.org/ws/2004/08/addressing';
+    private static final String WS_SEC_UTIL = 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd';
     private static final String FUEL_OAUTH_NS = 'http://exacttarget.com';
 
     @TestVisible
@@ -142,18 +145,15 @@ public with sharing class MarketingCloudCopyDelete {
         String bodyObjects = String.join(objectXmlFragments, '');
         String envelope = ''
             + '<?xml version="1.0" encoding="UTF-8"?>'
-            + '<s:Envelope xmlns:s="' + SOAP_ENV + '" xmlns:a="' + WS_ADDR + '" xmlns:u="' + WS_SEC + '">'
+            + '<s:Envelope xmlns:s="' + SOAP_ENV + '" xmlns:a="' + WS_ADDR + '" xmlns:u="' + WS_SEC_UTIL + '">'
             + '<s:Header>'
             + '<a:Action s:mustUnderstand="1">Delete</a:Action>'
-            + '<a:MessageID>urn:uuid:' + generateUuid() + '</a:MessageID>'
             + '<a:To s:mustUnderstand="1">https://' + escapeXml(settings.Subdomain__c) + '.soap.marketingcloudapis.com/Service.asmx</a:To>'
-            + '<o:Security s:mustUnderstand="1" xmlns:o="' + WS_SEC_EXT + '">'
             + '<fueloauth xmlns="' + FUEL_OAUTH_NS + '">' + escapeXml(token) + '</fueloauth>'
-            + '</o:Security>'
             + '</s:Header>'
             + '<s:Body xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">'
             + '<DeleteRequest xmlns="' + SOAP_NS + '">'
-            + '<Options/>'
+            + '<Options></Options>'
             + bodyObjects
             + '</DeleteRequest>'
             + '</s:Body>'
@@ -170,10 +170,21 @@ public with sharing class MarketingCloudCopyDelete {
         if (res.getStatusCode() < 200 || res.getStatusCode() >= 300) {
             throw new CalloutException('SOAP Delete failed (' + res.getStatusCode() + '): ' + res.getBody());
         }
-        String responseBody = res.getBody() == null ? '' : res.getBody();
-        if (responseBody.contains('<OverallStatus>Error</OverallStatus>')
-            || responseBody.contains('<OverallStatus>Has Error</OverallStatus>')) {
-            throw new CalloutException('SOAP Delete returned errors: ' + responseBody.left(2000));
+        assertSoapDeleteSucceeded(res.getBody());
+    }
+
+    private static void assertSoapDeleteSucceeded(String responseBody) {
+        String body = responseBody == null ? '' : responseBody;
+        if (String.isBlank(body)) {
+            throw new CalloutException('SOAP Delete returned an empty body.');
+        }
+        if (body.contains('<StatusCode>Error</StatusCode>')
+            || body.contains('<OverallStatus>Error</OverallStatus>')
+            || body.contains('<OverallStatus>Has Error</OverallStatus>')) {
+            throw new CalloutException('SOAP Delete returned errors: ' + body.left(2000));
+        }
+        if (!body.contains('<OverallStatus>OK</OverallStatus>')) {
+            throw new CalloutException('SOAP Delete missing OK overall status: ' + body.left(2000));
         }
     }
 
@@ -401,15 +412,5 @@ public with sharing class MarketingCloudCopyDelete {
             .replace('>', '&gt;')
             .replace('"', '&quot;')
             .replace('\'', '&apos;');
-    }
-
-    private static String generateUuid() {
-        Blob b = Crypto.generateAesKey(128);
-        String h = EncodingUtil.convertToHex(b);
-        return h.substring(0, 8) + '-'
-            + h.substring(8, 12) + '-'
-            + h.substring(12, 16) + '-'
-            + h.substring(16, 20) + '-'
-            + h.substring(20, 32);
     }
 }
