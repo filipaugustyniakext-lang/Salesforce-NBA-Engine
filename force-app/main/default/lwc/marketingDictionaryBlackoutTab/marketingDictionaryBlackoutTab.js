@@ -58,7 +58,7 @@ export default class MarketingDictionaryBlackoutTab extends LightningElement {
         if (result.data) {
             this._rawBlackouts = result.data;
         } else if (result.error) {
-            this._showToast('Error', 'Failed to load blackout dates.', 'error');
+            this._showToast('Error', 'Failed to load blockout dates.', 'error');
         }
     }
 
@@ -163,7 +163,7 @@ export default class MarketingDictionaryBlackoutTab extends LightningElement {
     }
 
     get blackoutModalTitle() {
-        return this.editBlackout.Id ? 'Edit Blackout' : 'Add Blackout';
+        return this.editBlackout.Id ? 'Edit Blockout' : 'Add Blockout';
     }
 
     get hasChannelCatalogue() {
@@ -321,7 +321,7 @@ export default class MarketingDictionaryBlackoutTab extends LightningElement {
         }
         const channels = this._selectedChannelNames();
         if (!channels.length) {
-            this._showToast('Validation', 'Select at least one channel for this blackout date.', 'warning');
+            this._showToast('Validation', 'Select at least one channel for this blockout date.', 'warning');
             return;
         }
         this.isLoading = true;
@@ -331,7 +331,7 @@ export default class MarketingDictionaryBlackoutTab extends LightningElement {
                 Assigned_Channels__c: channels.join(';')
             };
             await saveBlackoutWindow({ record });
-            this._showToast('Success', 'Blackout saved.', 'success');
+            this._showToast('Success', 'Blockout saved.', 'success');
             this.isBlackoutModalOpen = false;
             await refreshApex(this._wiredBlackoutsResult);
         } catch (e) {
@@ -356,7 +356,7 @@ export default class MarketingDictionaryBlackoutTab extends LightningElement {
         this.isDeleteModalOpen = false;
         try {
             await deleteBlackoutWindow({ recordId: this._deleteId });
-            this._showToast('Success', 'Blackout deleted.', 'success');
+            this._showToast('Success', 'Blockout deleted.', 'success');
             await refreshApex(this._wiredBlackoutsResult);
         } catch (e) {
             this._showToast('Error', e.body?.message || 'Delete failed.', 'error');
