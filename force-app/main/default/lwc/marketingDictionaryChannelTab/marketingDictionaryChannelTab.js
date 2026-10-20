@@ -29,7 +29,14 @@ const newPlRow = () => ({ key: newKey(), placeholderId: '', appScreen: '', banne
 const newITRow = (i) => ({ key: newKey(), name: '', label: `Target ${i}` });
 const newIntentRow = () => ({ key: newKey(), intentValue: '', intentTargetId: '' });
 
-const EMPTY_CHANNEL = () => ({ Name: '', Channel_Type__c: '', Channel_Icon__c: '', Is_Active__c: true });
+const EMPTY_CHANNEL = () => ({
+    Name: '',
+    Channel_Type__c: '',
+    Channel_Icon__c: '',
+    Is_Active__c: true,
+    Communication_Inbound__c: false,
+    Communication_Outbound__c: false
+});
 const EMPTY_COOLDOWN = () => ({ Audience_Type_Dict__c: '', Cooldown_Days__c: null, Channel__c: null });
 const EMPTY_DAY_RULE = (day, channelId) => ({
     Day_Of_Week__c: day || '',
@@ -387,7 +394,11 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
     }
 
     handleChannelFieldChange(event) {
-        this.editChannel = { ...this.editChannel, [event.currentTarget.dataset.field]: event.detail.value };
+        const field = event.currentTarget.dataset.field;
+        if (!field) return;
+        const isCheckbox = event.target?.type === 'checkbox';
+        const value = isCheckbox ? event.detail.checked : event.detail.value;
+        this.editChannel = { ...this.editChannel, [field]: value };
     }
 
     async handleChannelActiveToggle(event) {

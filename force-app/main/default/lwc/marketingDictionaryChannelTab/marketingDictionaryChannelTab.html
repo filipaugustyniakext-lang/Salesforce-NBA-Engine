@@ -430,6 +430,29 @@
                             </div>
                         </template>
                     </div>
+                    <fieldset class="slds-form-element slds-m-top_medium">
+                        <legend class="slds-form-element__legend slds-form-element__label">Communication Type</legend>
+                        <div class="slds-form-element__control slds-grid slds-gutters_small">
+                            <div class="slds-col">
+                                <lightning-input
+                                    type="checkbox"
+                                    label="Inbound"
+                                    checked={editChannel.Communication_Inbound__c}
+                                    data-field="Communication_Inbound__c"
+                                    onchange={handleChannelFieldChange}>
+                                </lightning-input>
+                            </div>
+                            <div class="slds-col">
+                                <lightning-input
+                                    type="checkbox"
+                                    label="Outbound"
+                                    checked={editChannel.Communication_Outbound__c}
+                                    data-field="Communication_Outbound__c"
+                                    onchange={handleChannelFieldChange}>
+                                </lightning-input>
+                            </div>
+                        </div>
+                    </fieldset>
                 </div>
                 <footer class="slds-modal__footer">
                     <lightning-button label="Cancel" onclick={handleCloseChannelModal}></lightning-button>

@@ -293,6 +293,7 @@ public with sharing class MarketingDictionaryManagerController {
     public static List<Marketing_Dictionary__c> getChannelRecords() {
         return [
             SELECT Id, Name, Channel_Type__c, Channel_Icon__c, Is_Active__c,
+                   Communication_Inbound__c, Communication_Outbound__c,
                 (SELECT Id, Audience_Type_Dict__c, Audience_Type_Dict__r.Name, Cooldown_Days__c FROM Channel_Cooldowns__r ORDER BY Audience_Type_Dict__r.Name ASC),
                 (SELECT Id, Day_Of_Week__c, Is_Fully_Blocked__c, Blocked_From_Hour__c, Blocked_To_Hour__c
                  FROM Blackout_Day_Rules__r ORDER BY Day_Of_Week__c ASC),
