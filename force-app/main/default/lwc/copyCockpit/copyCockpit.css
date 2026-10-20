@@ -1,7 +1,9 @@
 /* ─── Container ─────────────────────────────────────────────────────────── */
 
 .cockpit-container {
-    min-height: 500px;
+    min-height: calc(100vh - 10rem);
+    display: flex;
+    flex-direction: column;
 }
 
 /* ─── Skeleton states ─────────────────────────────────────────────────────── */
@@ -28,11 +30,12 @@
 
 .ch-layout {
     display: flex;
-    align-items: flex-start;
+    align-items: stretch;
     border: 1px solid #e0e5ee;
     border-radius: 0.25rem;
     background: #fff;
-    min-height: 500px;
+    flex: 1 1 auto;
+    min-height: calc(100vh - 10rem);
 }
 
 .ch-sidebar {
@@ -43,7 +46,6 @@
     background: #f8f9fb;
     border-radius: 0.25rem 0 0 0.25rem;
     overflow-y: auto;
-    max-height: 700px;
     align-self: stretch;
 }
 
@@ -107,7 +109,25 @@
 
 .ch-sidebar__type { color: #706e6b; font-size: 0.7rem; }
 
-.ch-detail { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ch-detail {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.cockpit-list-region {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    background: #fff;
+}
+
+.cockpit-list-region .cockpit-list {
+    min-height: 100%;
+    box-sizing: border-box;
+}
 
 /* ─── Panel header ────────────────────────────────────────────────────────── */
 
@@ -200,6 +220,7 @@
      ─────────────────────────────────────────────────────────────────────────────── */
 
 :host {
+    display: block;
     --col-check:    32px;
     --col-name:     280px;
     --col-status:   128px;
@@ -289,8 +310,13 @@
 .cockpit-col-actions_sticky {
     position: sticky;
     right: 0;
-    z-index: 5;
+    z-index: 2;
     background: #fff;
+}
+
+.cockpit-master-row:focus-within .cockpit-col-actions_sticky,
+.cockpit-variant-row:focus-within .cockpit-col-actions_sticky {
+    z-index: 41;
 }
 
 .cockpit-list-header .cockpit-col-actions_sticky {
@@ -304,10 +330,15 @@
 
 /* ─── Group / master row ──────────────────────────────────────────────────── */
 
-.cockpit-group { border-bottom: 1px solid #e8ecf0; }
+.cockpit-group {
+    border-bottom: 1px solid #e8ecf0;
+    overflow: visible;
+}
 .cockpit-group:last-child { border-bottom: none; }
 
 .cockpit-master-row {
+    position: relative;
+    z-index: 1;
     display: flex;
     align-items: center;
     padding: 0 0 0 0.5rem;
@@ -317,6 +348,10 @@
     box-sizing: border-box;
     transition: background 0.1s;
     cursor: pointer;
+}
+
+.cockpit-master-row:focus-within {
+    z-index: 40;
 }
 
 .cockpit-master-row:focus-visible {
@@ -413,6 +448,8 @@
 .cockpit-variants { background: #fafbfc; border-top: 1px solid #e8ecf0; }
 
 .cockpit-variant-row {
+    position: relative;
+    z-index: 1;
     display: grid;
     grid-template-columns:
         var(--col-check)
@@ -428,6 +465,10 @@
     border-bottom: 1px solid #f3f2f2;
     min-height: 38px;
     transition: background 0.1s;
+}
+
+.cockpit-variant-row:focus-within {
+    z-index: 40;
 }
 
 .cockpit-variant-row:last-child { border-bottom: none; }
@@ -544,6 +585,8 @@
 
 .cockpit-quick-action-menu {
     flex-shrink: 0;
+    position: relative;
+    z-index: 42;
 }
 
 .cockpit-variant-subject {
