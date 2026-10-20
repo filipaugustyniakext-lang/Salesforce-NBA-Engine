@@ -33,9 +33,11 @@
                         </template>
                         <div class="ch-sidebar__name-row">
                             <span class="ch-sidebar__name">{ch.displayName}</span>
-                            <template for:each={ch.commBadges} for:item="badge">
-                                <span key={badge.key} class="slds-badge slds-badge_lightest ch-sidebar__comm-badge">{badge.label}</span>
-                            </template>
+                            <span class="ch-sidebar__comm-badges">
+                                <template for:each={ch.commBadges} for:item="badge">
+                                    <span key={badge.key} class="slds-badge slds-badge_lightest ch-sidebar__comm-badge">{badge.label}</span>
+                                </template>
+                            </span>
                         </div>
                         <span class="ch-sidebar__type slds-text-body_small">{ch.Channel_Type__c}</span>
                         <span class={ch.statusClass}>{ch.statusLabel}</span>
@@ -107,6 +109,9 @@
                                 type="toggle"
                                 label="Channel availability"
                                 variant="label-hidden"
+                                message-toggle-active=""
+                                message-toggle-inactive=""
+                                title={activeChannelToggleTitle}
                                 checked={activeChannel.Is_Active__c}
                                 data-id={activeChannel.Id}
                                 data-name={activeChannel.displayName}
@@ -142,7 +147,8 @@
                                         <div class="slds-col"></div>
                                         <div class="slds-col slds-no-flex">
                                             <lightning-button label="Add Rule" icon-name="utility:add" variant="neutral"
-                                                size="x-small" data-channelid={activeChannel.Id} onclick={handleNewCooldown}>
+                                                size="x-small" data-channelid={activeChannel.Id} onclick={handleNewCooldown}
+                                                disabled={activeChannel.cooldownAddDisabled}>
                                             </lightning-button>
                                         </div>
                                     </div>
@@ -517,7 +523,7 @@
                 <div class="slds-modal__content slds-p-around_medium">
                     <lightning-combobox label="Audience Type"
                         value={editCooldown.Audience_Type_Dict__c}
-                        options={audienceTypeOptions}
+                        options={cooldownModalAudienceOptions}
                         placeholder="Select an Audience Type..."
                         required
                         data-field="Audience_Type_Dict__c"

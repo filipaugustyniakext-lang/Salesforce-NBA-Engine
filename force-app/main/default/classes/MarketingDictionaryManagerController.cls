@@ -436,6 +436,22 @@ public with sharing class MarketingDictionaryManagerController {
     public static Id saveCooldownRecord(String cooldownJson) {
         try {
             Channel_Cooldown__c cooldown = (Channel_Cooldown__c) JSON.deserialize(cooldownJson, Channel_Cooldown__c.class);
+            if (cooldown.Channel__c != null && cooldown.Audience_Type_Dict__c != null) {
+                List<Channel_Cooldown__c> duplicates = [
+                    SELECT Id
+                    FROM Channel_Cooldown__c
+                    WHERE Channel__c = :cooldown.Channel__c
+                    AND Audience_Type_Dict__c = :cooldown.Audience_Type_Dict__c
+                    AND Id != :cooldown.Id
+                    WITH SECURITY_ENFORCED
+                    LIMIT 1
+                ];
+                if (!duplicates.isEmpty()) {
+                    throw new AuraHandledException(
+                        'This channel already has a cooldown rule for the selected audience type.'
+                    );
+                }
+            }
             upsert cooldown;
             return cooldown.Id;
         } catch (Exception e) {

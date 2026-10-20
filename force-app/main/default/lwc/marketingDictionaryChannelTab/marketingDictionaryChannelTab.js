@@ -145,7 +145,7 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
     _pendingDeleteType = '';
 
     channelTypeOptions = CHANNEL_TYPES.map(t => ({ label: t, value: t }));
-    _audienceTypeRecords = [];
+    @track _audienceTypeRecords = [];
 
     @wire(getPersonRecords)
     wiredPersonRecords({ data }) {
@@ -154,6 +154,22 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
 
     get audienceTypeOptions() {
         return this._audienceTypeRecords.map(r => ({ label: r.Name, value: r.Id }));
+    }
+
+    get cooldownModalAudienceOptions() {
+        const channelId = this.editCooldown?.Channel__c;
+        if (!channelId) {
+            return [];
+        }
+        const used = this._getUsedAudienceIdsForChannel(channelId, this.editCooldown.Id || null);
+        const current = this.editCooldown.Audience_Type_Dict__c;
+        return this._audienceTypeRecords
+            .filter(r => !used.has(r.Id) || r.Id === current)
+            .map(r => ({ label: r.Name, value: r.Id }));
+    }
+
+    get activeChannelToggleTitle() {
+        return this.activeChannel?.Is_Active__c ? 'Channel active' : 'Channel inactive';
     }
 
     @wire(getChannelRecords)
@@ -212,6 +228,12 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
                 ...cd,
                 audienceName: cd.Audience_Type_Dict__r ? cd.Audience_Type_Dict__r.Name : '(Unassigned)'
             }));
+            const usedAudienceIds = new Set(
+                cooldowns.map(cd => cd.Audience_Type_Dict__c).filter(Boolean)
+            );
+            const availableAudienceCount = this._audienceTypeRecords.filter(
+                r => !usedAudienceIds.has(r.Id)
+            ).length;
             const weekDays = this._buildWeekDays(ch.Blackout_Day_Rules__r || [], ch.Id);
             const tabMenuItems = this._buildTabMenuItems(ch, state.activeTab, displayName);
             const settingsTabs = this._buildSettingsTabs(ch, state.activeTab, displayName);
@@ -242,9 +264,25 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
                 filteredIntents: filteredIntents.length ? filteredIntents : null,
                 intentCountLabel: this._intentCountLabel(filteredIntents.length, intents.length, state.intentSearch),
                 intentSortIconValue: this._intentSortIcon(state, 'Name'),
-                intentSortIconTarget: this._intentSortIcon(state, 'Intent_Target__r.Name')
+                intentSortIconTarget: this._intentSortIcon(state, 'Intent_Target__r.Name'),
+                cooldownAddDisabled:
+                    !this._audienceTypeRecords.length || availableAudienceCount === 0
             };
         });
+    }
+
+    _getUsedAudienceIdsForChannel(channelId, excludeCooldownId = null) {
+        const ch = this._rawChannels.find(c => c.Id === channelId);
+        const used = new Set();
+        (ch?.Channel_Cooldowns__r || []).forEach(cd => {
+            if (excludeCooldownId && cd.Id === excludeCooldownId) {
+                return;
+            }
+            if (cd.Audience_Type_Dict__c) {
+                used.add(cd.Audience_Type_Dict__c);
+            }
+        });
+        return used;
     }
 
     _buildSettingsTabs(ch, activeTab, displayName) {
@@ -641,7 +679,18 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
     // ── Cooldown handlers ────────────────────────────────────────────────
 
     handleNewCooldown(event) {
-        this.editCooldown = { ...EMPTY_COOLDOWN(), Channel__c: event.currentTarget.dataset.channelid };
+        const channelId = event.currentTarget.dataset.channelid;
+        const used = this._getUsedAudienceIdsForChannel(channelId);
+        const available = this._audienceTypeRecords.filter(r => !used.has(r.Id));
+        if (!available.length) {
+            this._showToast(
+                'All audience types covered',
+                'Each audience type already has a cooldown rule for this channel.',
+                'info'
+            );
+            return;
+        }
+        this.editCooldown = { ...EMPTY_COOLDOWN(), Channel__c: channelId };
         this.isCooldownModalOpen = true;
     }
 
@@ -664,6 +713,14 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
     async handleSaveCooldown() {
         if (!this.editCooldown.Audience_Type_Dict__c) { this._showToast('Validation', 'Audience Type is required', 'error'); return; }
         if (this.editCooldown.Cooldown_Days__c === null || this.editCooldown.Cooldown_Days__c < 0) { this._showToast('Validation', 'Cooldown Days must be 0 or more', 'error'); return; }
+        const used = this._getUsedAudienceIdsForChannel(
+            this.editCooldown.Channel__c,
+            this.editCooldown.Id || null
+        );
+        if (used.has(this.editCooldown.Audience_Type_Dict__c)) {
+            this._showToast('Validation', 'This channel already has a cooldown rule for that audience type.', 'error');
+            return;
+        }
         this.isSaving = true;
         try {
             await saveCooldownRecord({ cooldownJson: JSON.stringify(this.editCooldown) });
