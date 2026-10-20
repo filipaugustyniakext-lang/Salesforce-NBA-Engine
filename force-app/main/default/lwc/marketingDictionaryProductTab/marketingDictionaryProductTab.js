@@ -4,14 +4,30 @@ import { refreshApex } from '@salesforce/apex';
 import getProductRecords from '@salesforce/apex/MarketingDictionaryManagerController.getProductRecords';
 import saveProductRecord from '@salesforce/apex/MarketingDictionaryManagerController.saveProductRecord';
 import saveProductRecordsBulk from '@salesforce/apex/MarketingDictionaryManagerController.saveProductRecordsBulk';
+import saveProductRecordsBulkUpdate from '@salesforce/apex/MarketingDictionaryManagerController.saveProductRecordsBulkUpdate';
 import deleteDictionaryRecord from '@salesforce/apex/MarketingDictionaryManagerController.deleteDictionaryRecord';
 import getFonCustomerTypes from '@salesforce/apex/MarketingDictionaryManagerController.getFonCustomerTypes';
 import setFonCustomerTypes from '@salesforce/apex/MarketingDictionaryManagerController.setFonCustomerTypes';
 
 let _keyCounter = 0;
 const newKey = () => String(++_keyCounter);
-const EMPTY_RECORD = () => ({ Name: '', Dictionary_Sub_Type__c: '', Related_Family_of_Needs__c: null, Related_Product_Type__c: null });
+const EMPTY_RECORD = () => ({
+    Name: '',
+    Dictionary_Sub_Type__c: '',
+    Related_Family_of_Needs__c: null,
+    Related_Product_Type__c: null,
+    For_Tagging_Only__c: false
+});
 const newRow = (index) => ({ key: newKey(), name: '', label: `Name ${index}` });
+const newBulkEditRow = (rec) => ({
+    key: rec.Id,
+    id: rec.Id,
+    name: rec.Name || '',
+    fonId: rec.Related_Family_of_Needs__c || '',
+    productTypeId: rec.Related_Product_Type__c || '',
+    forTaggingOnly: rec.For_Tagging_Only__c === true,
+    customerTypeSummary: (rec.inheritedCtList || []).map(ct => ct.Name).join(', ') || '—'
+});
 
 export default class MarketingDictionaryProductTab extends LightningElement {
 
@@ -20,23 +36,21 @@ export default class MarketingDictionaryProductTab extends LightningElement {
     get isTab() {
         return {
             productFamily: this.activeSubTab === 'productFamily',
-            familyOfNeeds: this.activeSubTab === 'familyOfNeeds',
-            productType:   this.activeSubTab === 'productType'
+            productType: this.activeSubTab === 'productType'
         };
     }
     get vtabClass() {
-        const base = 'vtab-item', active = base + ' vtab-item_active';
+        const base = 'vtab-item';
+        const active = base + ' vtab-item_active';
         return {
             productFamily: this.activeSubTab === 'productFamily' ? active : base,
-            familyOfNeeds: this.activeSubTab === 'familyOfNeeds' ? active : base,
-            productType:   this.activeSubTab === 'productType'   ? active : base
+            productType: this.activeSubTab === 'productType' ? active : base
         };
     }
     get vtabSelected() {
         return {
             productFamily: this.activeSubTab === 'productFamily',
-            familyOfNeeds: this.activeSubTab === 'familyOfNeeds',
-            productType:   this.activeSubTab === 'productType'
+            productType: this.activeSubTab === 'productType'
         };
     }
     handleSubTabClick(e) { this.activeSubTab = e.currentTarget.dataset.tab; }
@@ -95,34 +109,72 @@ export default class MarketingDictionaryProductTab extends LightningElement {
         });
     }
 
+    _decorateProductFamily(rec) {
+        const fonCtSet = rec.Related_Family_of_Needs__c
+            ? (this._fonCtMap[rec.Related_Family_of_Needs__c] || new Set())
+            : new Set();
+        const inheritedCtList = this.customerTypes.filter(ct => fonCtSet.has(ct.Id));
+        return {
+            ...rec,
+            inheritedCtList,
+            customerTypeSortKey: inheritedCtList.map(ct => ct.Name).join(', ').toLowerCase()
+        };
+    }
+
     get filteredSortedProductFamilies() {
-        let list = this._filterFonId
-            ? this.productFamilies.filter(r => r.Related_Family_of_Needs__c === this._filterFonId)
-            : [...this.productFamilies];
+        let list = this.productFamilies.map(rec => this._decorateProductFamily(rec));
+        if (this._filterFonId) {
+            list = list.filter(r => r.Related_Family_of_Needs__c === this._filterFonId);
+        }
+        if (this._filterProductTypeId) {
+            list = list.filter(r => r.Related_Product_Type__c === this._filterProductTypeId);
+        }
+        if (this._filterCustomerTypeId) {
+            list = list.filter(r =>
+                r.inheritedCtList.some(ct => ct.Id === this._filterCustomerTypeId)
+            );
+        }
         const asc = this._sortAsc ? 1 : -1;
         list.sort((a, b) => {
-            let av, bv;
-            if (this._sortField === 'fon') {
-                av = (a.Related_Family_of_Needs__r?.Name || '').toLowerCase();
-                bv = (b.Related_Family_of_Needs__r?.Name || '').toLowerCase();
-            } else {
-                av = (a.Name || '').toLowerCase();
-                bv = (b.Name || '').toLowerCase();
+            let av;
+            let bv;
+            switch (this._sortField) {
+                case 'fon':
+                    av = (a.Related_Family_of_Needs__r?.Name || '').toLowerCase();
+                    bv = (b.Related_Family_of_Needs__r?.Name || '').toLowerCase();
+                    break;
+                case 'productType':
+                    av = (a.Related_Product_Type__r?.Name || '').toLowerCase();
+                    bv = (b.Related_Product_Type__r?.Name || '').toLowerCase();
+                    break;
+                case 'customerType':
+                    av = a.customerTypeSortKey || '';
+                    bv = b.customerTypeSortKey || '';
+                    break;
+                default:
+                    av = (a.Name || '').toLowerCase();
+                    bv = (b.Name || '').toLowerCase();
             }
             return av < bv ? -1 * asc : av > bv ? 1 * asc : 0;
         });
-        const allCts = this.customerTypes;
-        return list.map(rec => {
-            const fonCtSet = rec.Related_Family_of_Needs__c
-                ? (this._fonCtMap[rec.Related_Family_of_Needs__c] || new Set())
-                : new Set();
-            return { ...rec, inheritedCtList: allCts.filter(ct => fonCtSet.has(ct.Id)) };
-        });
+        return list;
+    }
+
+    get productFamilyRows() {
+        const selected = new Set(this._selectedPfIds);
+        return this.filteredSortedProductFamilies.map(rec => ({
+            ...rec,
+            rowKey: rec.Id,
+            isSelected: selected.has(rec.Id),
+            showTaggingBadge: rec.For_Tagging_Only__c === true
+        }));
     }
 
     get filteredProductFamilyCount() { return this.filteredSortedProductFamilies.length; }
     get hasFilteredProductFamilies() { return !this.isLoading && this.filteredSortedProductFamilies.length > 0; }
-    get isFilterActive()  { return !!this._filterFonId; }
+    get isFilterActive() {
+        return !!(this._filterFonId || this._filterProductTypeId || this._filterCustomerTypeId);
+    }
     get familyOfNeedsCount() { return this.familyOfNeeds.length; }
     get hasFamilyOfNeeds()   { return !this.isLoading && this.familyOfNeeds.length > 0; }
     get customerTypeCount()  { return this.customerTypes.length; }
@@ -135,18 +187,82 @@ export default class MarketingDictionaryProductTab extends LightningElement {
     _sortField = 'name';
     _sortAsc = true;
     _filterFonId = null;
+    _filterProductTypeId = null;
+    _filterCustomerTypeId = null;
+    @track _selectedPfIds = [];
 
-    get sortByNameIcon()  { return this._sortField !== 'name' ? 'utility:sort' : this._sortAsc ? 'utility:arrowup' : 'utility:arrowdown'; }
-    get sortByFonIcon()   { return this._sortField !== 'fon'  ? 'utility:sort' : this._sortAsc ? 'utility:arrowup' : 'utility:arrowdown'; }
-    get sortByNameTitle() { return this._sortField !== 'name' ? 'Sort by Name' : this._sortAsc ? 'Name A→Z (click to reverse)' : 'Name Z→A (click to reverse)'; }
-    get sortByFonTitle()  { return this._sortField !== 'fon'  ? 'Sort by Family of Needs' : this._sortAsc ? 'Family of Needs A→Z (click to reverse)' : 'Family of Needs Z→A (click to reverse)'; }
+    get sortByNameIcon() { return this._sortIcon('name'); }
+    get sortByFonIcon() { return this._sortIcon('fon'); }
+    get sortByProductTypeIcon() { return this._sortIcon('productType'); }
+    get sortByCustomerTypeIcon() { return this._sortIcon('customerType'); }
+    get sortByNameTitle() { return this._sortTitle('name', 'Name'); }
+    get sortByFonTitle() { return this._sortTitle('fon', 'Family of Needs'); }
+    get sortByProductTypeTitle() { return this._sortTitle('productType', 'Product Type'); }
+    get sortByCustomerTypeTitle() { return this._sortTitle('customerType', 'Customer Type'); }
+
+    _sortIcon(field) {
+        return this._sortField !== field ? 'utility:sort' : this._sortAsc ? 'utility:arrowup' : 'utility:arrowdown';
+    }
+
+    _sortTitle(field, label) {
+        if (this._sortField !== field) {
+            return `Sort by ${label}`;
+        }
+        return this._sortAsc ? `${label} A→Z (click to reverse)` : `${label} Z→A (click to reverse)`;
+    }
 
     get filterFonId() { return this._filterFonId || ''; }
+    get filterProductTypeId() { return this._filterProductTypeId || ''; }
+    get filterCustomerTypeId() { return this._filterCustomerTypeId || ''; }
+
     get filterFonOptions() {
         return [{ label: 'All Families of Needs', value: '' }, ...this.familyOfNeeds.map(r => ({ label: r.Name, value: r.Id }))];
     }
+    get filterProductTypeOptions() {
+        return [{ label: 'All Product Types', value: '' }, ...this.productTypes.map(r => ({ label: r.Name, value: r.Id }))];
+    }
+    get filterCustomerTypeOptions() {
+        return [{ label: 'All Customer Types', value: '' }, ...this.customerTypes.map(r => ({ label: r.Name, value: r.Id }))];
+    }
 
-    handleFilterFonChange(e) { this._filterFonId = e.detail.value || null; }
+    get hasPfSelection() { return this._selectedPfIds.length > 0; }
+    get pfSelectionCount() { return this._selectedPfIds.length; }
+    get bulkActionsDisabled() { return !this.hasPfSelection; }
+    get allPfRowsSelected() {
+        const visible = this.filteredSortedProductFamilies;
+        return visible.length > 0 && visible.every(r => this._selectedPfIds.includes(r.Id));
+    }
+    get somePfRowsSelected() {
+        return this._selectedPfIds.length > 0 && !this.allPfRowsSelected;
+    }
+
+    handleFilterFonChange(e) { this._filterFonId = e.detail.value || null; this._clearPfSelection(); }
+    handleFilterProductTypeChange(e) { this._filterProductTypeId = e.detail.value || null; this._clearPfSelection(); }
+    handleFilterCustomerTypeChange(e) { this._filterCustomerTypeId = e.detail.value || null; this._clearPfSelection(); }
+
+    _clearPfSelection() { this._selectedPfIds = []; }
+
+    handlePfRowSelect(event) {
+        const id = event.target.dataset.id;
+        const checked = event.target.checked;
+        if (!id) return;
+        if (checked) {
+            if (!this._selectedPfIds.includes(id)) {
+                this._selectedPfIds = [...this._selectedPfIds, id];
+            }
+        } else {
+            this._selectedPfIds = this._selectedPfIds.filter(rowId => rowId !== id);
+        }
+    }
+
+    handlePfSelectAll(event) {
+        const checked = event.target.checked;
+        if (checked) {
+            this._selectedPfIds = this.filteredSortedProductFamilies.map(r => r.Id);
+        } else {
+            this._clearPfSelection();
+        }
+    }
     handleSortChange(e) {
         const field = e.currentTarget.dataset.sort;
         if (this._sortField === field) { this._sortAsc = !this._sortAsc; }
@@ -171,6 +287,9 @@ export default class MarketingDictionaryProductTab extends LightningElement {
     @track bulkRows = [newRow(1)];
     @track bulkFonId = null;
     @track bulkProductTypeId = null;
+    @track bulkEditRows = [];
+    @track isBulkEditModalOpen = false;
+    @track _bulkDeleteMode = false;
 
     // CT selection state for the FON edit modal: Set<ctId>
     _editModalCtSet = new Set();
@@ -246,7 +365,9 @@ export default class MarketingDictionaryProductTab extends LightningElement {
 
     handleFieldChange(event) {
         const field = event.currentTarget.dataset.field;
-        this.editRecord = { ...this.editRecord, [field]: event.detail.value || null };
+        const isCheckbox = event.target?.type === 'checkbox';
+        const value = isCheckbox ? event.target.checked : (event.detail.value || null);
+        this.editRecord = { ...this.editRecord, [field]: value };
     }
 
     handleEditModalCtChange(event) {
@@ -269,6 +390,75 @@ export default class MarketingDictionaryProductTab extends LightningElement {
         const key = e.currentTarget.dataset.key;
         if (this.bulkRows.length === 1) return;
         this.bulkRows = this.bulkRows.filter(r => r.key !== key).map((r, i) => ({ ...r, label: `Name ${i + 1}` }));
+    }
+
+    handleOpenBulkEdit() {
+        const selected = new Set(this._selectedPfIds);
+        const rows = this.productFamilies
+            .filter(rec => selected.has(rec.Id))
+            .map(rec => newBulkEditRow(this._decorateProductFamily(rec)));
+        if (!rows.length) {
+            this._showToast('Bulk edit', 'Select at least one Product Family.', 'info');
+            return;
+        }
+        this.bulkEditRows = rows;
+        this.isBulkEditModalOpen = true;
+    }
+
+    handleCloseBulkEditModal() {
+        this.isBulkEditModalOpen = false;
+        this.bulkEditRows = [];
+    }
+
+    handleBulkEditRowChange(event) {
+        const key = event.currentTarget.dataset.key;
+        const field = event.currentTarget.dataset.field;
+        const isCheckbox = event.target?.type === 'checkbox';
+        const value = isCheckbox ? event.target.checked : event.detail.value;
+        this.bulkEditRows = this.bulkEditRows.map(row => {
+            if (row.key !== key) return row;
+            if (field === 'name') return { ...row, name: value };
+            if (field === 'fonId') return { ...row, fonId: value || '' };
+            if (field === 'productTypeId') return { ...row, productTypeId: value || '' };
+            if (field === 'forTaggingOnly') return { ...row, forTaggingOnly: value === true };
+            return row;
+        });
+    }
+
+    async handleSaveBulkEdit() {
+        const records = this.bulkEditRows
+            .filter(r => r.name?.trim())
+            .map(r => ({
+                Id: r.id,
+                Name: r.name.trim(),
+                Dictionary_Sub_Type__c: 'Product Family',
+                Related_Family_of_Needs__c: r.fonId || null,
+                Related_Product_Type__c: r.productTypeId || null,
+                For_Tagging_Only__c: r.forTaggingOnly === true
+            }));
+        if (!records.length) {
+            this._showToast('Validation', 'Enter at least one name', 'error');
+            return;
+        }
+        this.isSaving = true;
+        try {
+            await saveProductRecordsBulkUpdate({ recordsJson: JSON.stringify(records) });
+            this._showToast('Success', `${records.length} Product Famil${records.length === 1 ? 'y' : 'ies'} updated`, 'success');
+            this.handleCloseBulkEditModal();
+            this._clearPfSelection();
+            await refreshApex(this._wiredResult);
+        } catch (e) {
+            this._showToast('Error', e.body?.message || e.message, 'error');
+        } finally {
+            this.isSaving = false;
+        }
+    }
+
+    handleBulkDeleteRequest() {
+        if (!this._selectedPfIds.length) return;
+        this._bulkDeleteMode = true;
+        this._pendingDeleteName = `${this._selectedPfIds.length} Product Famil${this._selectedPfIds.length === 1 ? 'y' : 'ies'}`;
+        this.isDeleteModalOpen = true;
     }
 
     // ── Save ────────────────────────────────────────────────────────────────
@@ -311,7 +501,8 @@ export default class MarketingDictionaryProductTab extends LightningElement {
             Name: r.name.trim(),
             Dictionary_Sub_Type__c: this._activeSubtype,
             Related_Family_of_Needs__c: this.isProductFamily ? (this.bulkFonId || null) : null,
-            Related_Product_Type__c: this.isProductFamily ? (this.bulkProductTypeId || null) : null
+            Related_Product_Type__c: this.isProductFamily ? (this.bulkProductTypeId || null) : null,
+            For_Tagging_Only__c: false
         }));
         this.isSaving = true;
         try {
@@ -340,9 +531,36 @@ export default class MarketingDictionaryProductTab extends LightningElement {
     handleCancelDelete() {
         this._pendingDeleteId = null;
         this._pendingDeleteName = '';
+        this._bulkDeleteMode = false;
         this.isDeleteModalOpen = false;
     }
     async handleConfirmDelete() {
+        if (this._bulkDeleteMode) {
+            const ids = [...this._selectedPfIds];
+            this.isDeleteModalOpen = false;
+            this._bulkDeleteMode = false;
+            this._pendingDeleteName = '';
+            let deleted = 0;
+            let blocked = 0;
+            for (const id of ids) {
+                try {
+                    // eslint-disable-next-line no-await-in-loop
+                    await deleteDictionaryRecord({ recordId: id });
+                    deleted += 1;
+                } catch (e) {
+                    blocked += 1;
+                }
+            }
+            this._clearPfSelection();
+            await refreshApex(this._wiredResult);
+            if (deleted) {
+                this._showToast('Deleted', `${deleted} record(s) removed.`, 'success');
+            }
+            if (blocked) {
+                this._showToast('Some deletes blocked', `${blocked} record(s) still have dependencies.`, 'warning');
+            }
+            return;
+        }
         const id = this._pendingDeleteId;
         this.isDeleteModalOpen = false;
         this._pendingDeleteId = null;
@@ -353,7 +571,8 @@ export default class MarketingDictionaryProductTab extends LightningElement {
             await refreshApex(this._wiredResult);
         } catch (e) {
             const message = e.body?.message || e.message || 'Delete failed.';
-            const blockedByDependency = message.includes('Please remove dependencies first');
+            const blockedByDependency = message.includes('must be removed before it can be deleted')
+                || message.includes('Please remove dependencies first');
             this._showToast(
                 blockedByDependency ? 'Cannot delete' : 'Error',
                 message,

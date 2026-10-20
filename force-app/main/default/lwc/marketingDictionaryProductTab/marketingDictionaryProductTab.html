@@ -7,11 +7,6 @@
                 <lightning-icon icon-name="utility:product_workspace" size="x-small" class="vtab-icon" alternative-text=""></lightning-icon>
                 Product Families
             </button>
-            <button role="tab" class={vtabClass.familyOfNeeds} data-tab="familyOfNeeds" onclick={handleSubTabClick}
-                aria-selected={vtabSelected.familyOfNeeds}>
-                <lightning-icon icon-name="utility:groups" size="x-small" class="vtab-icon" alternative-text=""></lightning-icon>
-                Families of Needs
-            </button>
             <button role="tab" class={vtabClass.productType} data-tab="productType" onclick={handleSubTabClick}
                 aria-selected={vtabSelected.productType}>
                 <lightning-icon icon-name="utility:product_transfer" size="x-small" class="vtab-icon" alternative-text=""></lightning-icon>
@@ -21,9 +16,55 @@
 
         <div class="vtab-content" role="tabpanel">
 
-        <!-- Product Families panel -->
+        <!-- Product Families panel (includes Families of Needs categories) -->
         <template lwc:if={isTab.productFamily}>
         <div class="slds-p-around_small">
+            <section class="fon-categories slds-box slds-box_x-small slds-m-bottom_medium">
+                <div class="slds-grid slds-grid_vertical-align-center slds-m-bottom_x-small">
+                    <div class="slds-col">
+                        <h3 class="slds-text-heading_small">
+                            Families of Needs
+                            <span class="slds-badge slds-badge_lightest slds-m-left_x-small">{familyOfNeedsCount}</span>
+                        </h3>
+                        <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">
+                            Broad categories for product families (similar to campaign groups for campaign types).
+                        </p>
+                    </div>
+                    <div class="slds-col slds-no-flex">
+                        <lightning-button label="Add category" icon-name="utility:add" variant="neutral" size="small"
+                            data-subtype="Family of Needs" onclick={handleNewRecord}>
+                        </lightning-button>
+                    </div>
+                </div>
+                <template lwc:if={hasFamilyOfNeeds}>
+                    <ul class="slds-has-dividers_top-space fon-category-list">
+                        <template for:each={familyOfNeedsWithCt} for:item="rec">
+                            <li key={rec.Id} class="slds-item slds-grid slds-grid_align-spread slds-p-vertical_xx-small">
+                                <div class="fon-row">
+                                    <p class="slds-text-body_regular">{rec.Name}</p>
+                                    <div class="badge-row slds-m-top_xx-small">
+                                        <template for:each={rec.assignedCtList} for:item="ct">
+                                            <span key={ct.Id} class="slds-badge badge-customer-type">{ct.Name}</span>
+                                        </template>
+                                    </div>
+                                </div>
+                                <div class="slds-button-group">
+                                    <lightning-button-icon icon-name="utility:edit" variant="bare" size="small"
+                                        data-id={rec.Id} data-subtype="Family of Needs" onclick={handleEditRecord}>
+                                    </lightning-button-icon>
+                                    <lightning-button-icon icon-name="utility:delete" variant="bare" size="small"
+                                        data-id={rec.Id} data-name={rec.Name} onclick={handleDeleteRecord}>
+                                    </lightning-button-icon>
+                                </div>
+                            </li>
+                        </template>
+                    </ul>
+                </template>
+                <template lwc:else>
+                    <p class="slds-text-body_small slds-text-color_weak">No Families of Needs yet.</p>
+                </template>
+            </section>
+
             <div class="slds-grid slds-grid_vertical-align-center slds-m-bottom_small">
                 <div class="slds-col">
                     <h2 class="slds-text-heading_small">
@@ -32,123 +73,121 @@
                     </h2>
                 </div>
                 <div class="slds-col slds-no-flex slds-grid slds-grid_vertical-align-center">
-                    <div class="sort-group">
-                        <lightning-button-icon icon-name={sortByNameIcon} variant="bare"
-                            alternative-text="Sort by Name" title={sortByNameTitle}
-                            data-sort="name" onclick={handleSortChange}>
-                        </lightning-button-icon>
-                        <lightning-button-icon icon-name={sortByFonIcon} variant="bare"
-                            alternative-text="Sort by Family of Needs" title={sortByFonTitle}
-                            data-sort="fon" onclick={handleSortChange}>
-                        </lightning-button-icon>
-                    </div>
+                    <lightning-button label="Bulk edit" variant="neutral" size="small"
+                        onclick={handleOpenBulkEdit} disabled={bulkActionsDisabled} class="slds-m-right_x-small">
+                    </lightning-button>
+                    <lightning-button label="Delete selected" variant="destructive-text" size="small"
+                        onclick={handleBulkDeleteRequest} disabled={bulkActionsDisabled} class="slds-m-right_small">
+                    </lightning-button>
                     <lightning-button label="Add" icon-name="utility:add" variant="brand"
                         data-subtype="Product Family" onclick={handleNewRecord}>
                     </lightning-button>
                 </div>
             </div>
-            <div class="slds-m-bottom_small">
-                <lightning-combobox label="Filter by Family of Needs" variant="label-hidden"
-                    placeholder="Filter by Family of Needs..."
-                    value={filterFonId} options={filterFonOptions}
-                    onchange={handleFilterFonChange}>
-                </lightning-combobox>
+
+            <div class="slds-grid slds-gutters_x-small slds-wrap slds-m-bottom_small pf-filter-grid">
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
+                    <lightning-combobox label="Family of Needs" variant="label-hidden"
+                        placeholder="Filter: Family of Needs"
+                        value={filterFonId} options={filterFonOptions} onchange={handleFilterFonChange}>
+                    </lightning-combobox>
+                </div>
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
+                    <lightning-combobox label="Product Type" variant="label-hidden"
+                        placeholder="Filter: Product Type"
+                        value={filterProductTypeId} options={filterProductTypeOptions} onchange={handleFilterProductTypeChange}>
+                    </lightning-combobox>
+                </div>
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
+                    <lightning-combobox label="Customer Type" variant="label-hidden"
+                        placeholder="Filter: Customer Type"
+                        value={filterCustomerTypeId} options={filterCustomerTypeOptions} onchange={handleFilterCustomerTypeChange}>
+                    </lightning-combobox>
+                </div>
             </div>
+
             <template lwc:if={isLoading}>
                 <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
             </template>
             <template lwc:elseif={hasFilteredProductFamilies}>
-                <ul class="slds-has-dividers_top-space scrollable-list">
-                    <template for:each={filteredSortedProductFamilies} for:item="rec">
-                        <li key={rec.Id} class="slds-item slds-grid slds-grid_align-spread slds-p-vertical_x-small">
-                            <div class="product-family-row">
-                                <p class="slds-text-body_regular">{rec.Name}</p>
-                                <div class="badge-row slds-m-top_xx-small">
-                                    <template lwc:if={rec.Related_Family_of_Needs__r}>
-                                        <span class="slds-badge slds-badge_lightest">{rec.Related_Family_of_Needs__r.Name}</span>
-                                    </template>
-                                    <template lwc:if={rec.Related_Product_Type__r}>
-                                        <span class="slds-badge badge-product-type">{rec.Related_Product_Type__r.Name}</span>
-                                    </template>
+                <div class="pf-table scrollable-list">
+                    <div class="pf-table__head slds-grid slds-grid_vertical-align-center">
+                        <div class="pf-col pf-col_check">
+                            <input type="checkbox" aria-label="Select all visible product families"
+                                checked={allPfRowsSelected} onchange={handlePfSelectAll} />
+                        </div>
+                        <div class="pf-col pf-col_name">
+                            Name
+                            <lightning-button-icon icon-name={sortByNameIcon} variant="bare" size="small"
+                                data-sort="name" onclick={handleSortChange} title={sortByNameTitle}>
+                            </lightning-button-icon>
+                        </div>
+                        <div class="pf-col pf-col_fon">
+                            Family of Needs
+                            <lightning-button-icon icon-name={sortByFonIcon} variant="bare" size="small"
+                                data-sort="fon" onclick={handleSortChange} title={sortByFonTitle}>
+                            </lightning-button-icon>
+                        </div>
+                        <div class="pf-col pf-col_type">
+                            Product Type
+                            <lightning-button-icon icon-name={sortByProductTypeIcon} variant="bare" size="small"
+                                data-sort="productType" onclick={handleSortChange} title={sortByProductTypeTitle}>
+                            </lightning-button-icon>
+                        </div>
+                        <div class="pf-col pf-col_ct">
+                            Customer Types
+                            <lightning-button-icon icon-name={sortByCustomerTypeIcon} variant="bare" size="small"
+                                data-sort="customerType" onclick={handleSortChange} title={sortByCustomerTypeTitle}>
+                            </lightning-button-icon>
+                        </div>
+                        <div class="pf-col pf-col_actions"></div>
+                    </div>
+                    <template for:each={productFamilyRows} for:item="rec">
+                        <div key={rec.rowKey} class="pf-table__row slds-grid slds-grid_vertical-align-center">
+                            <div class="pf-col pf-col_check">
+                                <input type="checkbox" data-id={rec.Id} checked={rec.isSelected}
+                                    aria-label="Select product family" onchange={handlePfRowSelect} />
+                            </div>
+                            <div class="pf-col pf-col_name">
+                                <span class="slds-text-body_regular">{rec.Name}</span>
+                                <template lwc:if={rec.showTaggingBadge}>
+                                    <span class="slds-badge slds-badge_lightest slds-m-left_x-small">Tagging only</span>
+                                </template>
+                            </div>
+                            <div class="pf-col pf-col_fon">
+                                <template lwc:if={rec.Related_Family_of_Needs__r}>
+                                    <span class="slds-badge slds-badge_lightest">{rec.Related_Family_of_Needs__r.Name}</span>
+                                </template>
+                            </div>
+                            <div class="pf-col pf-col_type">
+                                <template lwc:if={rec.Related_Product_Type__r}>
+                                    <span class="slds-badge badge-product-type">{rec.Related_Product_Type__r.Name}</span>
+                                </template>
+                            </div>
+                            <div class="pf-col pf-col_ct">
+                                <div class="badge-row">
                                     <template for:each={rec.inheritedCtList} for:item="ct">
                                         <span key={ct.Id} class="slds-badge badge-customer-type">{ct.Name}</span>
                                     </template>
                                 </div>
                             </div>
-                            <div class="slds-button-group">
-                                <lightning-button-icon icon-name="utility:edit" variant="bare"
-                                    alternative-text="Edit" title="Edit"
-                                    data-id={rec.Id} data-subtype="Product Family"
-                                    onclick={handleEditRecord}>
+                            <div class="pf-col pf-col_actions slds-text-align_right">
+                                <lightning-button-icon icon-name="utility:edit" variant="bare" size="small"
+                                    data-id={rec.Id} data-subtype="Product Family" onclick={handleEditRecord}>
                                 </lightning-button-icon>
-                                <lightning-button-icon icon-name="utility:delete" variant="bare"
-                                    alternative-text="Delete" title="Delete"
-                                    data-id={rec.Id} data-name={rec.Name}
-                                    onclick={handleDeleteRecord}>
+                                <lightning-button-icon icon-name="utility:delete" variant="bare" size="small"
+                                    data-id={rec.Id} data-name={rec.Name} onclick={handleDeleteRecord}>
                                 </lightning-button-icon>
                             </div>
-                        </li>
+                        </div>
                     </template>
-                </ul>
+                </div>
             </template>
             <template lwc:elseif={isFilterActive}>
-                <p class="slds-text-body_small slds-text-color_weak slds-p-vertical_small">No Product Families match the selected filter.</p>
+                <p class="slds-text-body_small slds-text-color_weak slds-p-vertical_small">No Product Families match the selected filters.</p>
             </template>
             <template lwc:else>
                 <p class="slds-text-body_small slds-text-color_weak slds-p-vertical_small">No Product Families defined yet.</p>
-            </template>
-        </div>
-        </template>
-
-        <!-- Families of Needs panel -->
-        <template lwc:if={isTab.familyOfNeeds}>
-        <div class="slds-p-around_small">
-            <div class="slds-grid slds-grid_vertical-align-center slds-m-bottom_small">
-                <div class="slds-col">
-                    <h2 class="slds-text-heading_small">
-                        Families of Needs
-                        <span class="slds-badge slds-badge_lightest slds-m-left_x-small">{familyOfNeedsCount}</span>
-                    </h2>
-                </div>
-                <div class="slds-col slds-no-flex">
-                    <lightning-button label="Add" icon-name="utility:add" variant="brand"
-                        data-subtype="Family of Needs" onclick={handleNewRecord}>
-                    </lightning-button>
-                </div>
-            </div>
-            <template lwc:if={isLoading}>
-                <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
-            </template>
-            <template lwc:elseif={hasFamilyOfNeeds}>
-                <ul class="slds-has-dividers_top-space scrollable-list">
-                    <template for:each={familyOfNeedsWithCt} for:item="rec">
-                        <li key={rec.Id} class="slds-item slds-grid slds-grid_align-spread slds-p-vertical_x-small">
-                            <div class="fon-row">
-                                <p class="slds-text-body_regular">{rec.Name}</p>
-                                <div class="badge-row slds-m-top_xx-small">
-                                    <template for:each={rec.assignedCtList} for:item="ct">
-                                        <span key={ct.Id} class="slds-badge badge-customer-type">{ct.Name}</span>
-                                    </template>
-                                </div>
-                            </div>
-                            <div class="slds-button-group">
-                                <lightning-button-icon icon-name="utility:edit" variant="bare"
-                                    alternative-text="Edit" title="Edit"
-                                    data-id={rec.Id} data-subtype="Family of Needs"
-                                    onclick={handleEditRecord}>
-                                </lightning-button-icon>
-                                <lightning-button-icon icon-name="utility:delete" variant="bare"
-                                    alternative-text="Delete" title="Delete"
-                                    data-id={rec.Id} data-name={rec.Name}
-                                    onclick={handleDeleteRecord}>
-                                </lightning-button-icon>
-                            </div>
-                        </li>
-                    </template>
-                </ul>
-            </template>
-            <template lwc:else>
-                <p class="slds-text-body_small slds-text-color_weak slds-p-vertical_small">No Families of Needs defined yet.</p>
             </template>
         </div>
         </template>
@@ -248,6 +287,15 @@
                                     data-field="Related_Product_Type__c"
                                     onchange={handleFieldChange}>
                                 </lightning-combobox>
+                            </div>
+                            <div class="slds-m-top_small">
+                                <lightning-input
+                                    type="checkbox"
+                                    label="For tagging only"
+                                    checked={editRecord.For_Tagging_Only__c}
+                                    data-field="For_Tagging_Only__c"
+                                    onchange={handleFieldChange}>
+                                </lightning-input>
                             </div>
                         </template>
 
@@ -364,6 +412,67 @@
                         disabled={isSaving}
                         onclick={handleSave}
                         class="slds-m-left_x-small">
+                    </lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open" role="presentation"></div>
+    </template>
+
+    <!-- Bulk edit modal -->
+    <template lwc:if={isBulkEditModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="bulk-edit-heading"
+                 class="slds-modal slds-fade-in-open slds-modal_large">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header">
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse"
+                            title="Close" onclick={handleCloseBulkEditModal}>
+                        <lightning-icon icon-name="utility:close" size="small" alternative-text="Close"></lightning-icon>
+                    </button>
+                    <h2 id="bulk-edit-heading" class="slds-modal__title">Bulk edit Product Families</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium bulk-edit-scroll">
+                    <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
+                        Customer types inherit from the selected Family of Needs category.
+                    </p>
+                    <template for:each={bulkEditRows} for:item="row">
+                        <article key={row.key} class="bulk-edit-row slds-box slds-box_x-small slds-m-bottom_small">
+                            <div class="slds-grid slds-wrap slds-gutters_small">
+                                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                                    <lightning-input label="Name" value={row.name} required
+                                        data-key={row.key} data-field="name" onchange={handleBulkEditRowChange}>
+                                    </lightning-input>
+                                </div>
+                                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                                    <lightning-combobox label="Family of Needs" value={row.fonId}
+                                        options={familyOfNeedsOptions} data-key={row.key} data-field="fonId"
+                                        onchange={handleBulkEditRowChange}>
+                                    </lightning-combobox>
+                                </div>
+                                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                                    <lightning-combobox label="Product Type" value={row.productTypeId}
+                                        options={productTypeOptions} data-key={row.key} data-field="productTypeId"
+                                        onchange={handleBulkEditRowChange}>
+                                    </lightning-combobox>
+                                </div>
+                                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                                    <p class="slds-form-element__label">Customer Types (inherited)</p>
+                                    <p class="slds-text-body_small">{row.customerTypeSummary}</p>
+                                </div>
+                                <div class="slds-col slds-size_1-of-1">
+                                    <lightning-input type="checkbox" label="For tagging only"
+                                        checked={row.forTaggingOnly} data-key={row.key} data-field="forTaggingOnly"
+                                        onchange={handleBulkEditRowChange}>
+                                    </lightning-input>
+                                </div>
+                            </div>
+                        </article>
+                    </template>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={handleCloseBulkEditModal}></lightning-button>
+                    <lightning-button variant="brand" label="Save changes" disabled={isSaving}
+                        onclick={handleSaveBulkEdit} class="slds-m-left_x-small">
                     </lightning-button>
                 </footer>
             </div>

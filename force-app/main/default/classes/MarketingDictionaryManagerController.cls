@@ -17,7 +17,8 @@ public with sharing class MarketingDictionaryManagerController {
         return [
             SELECT Id, Name, Dictionary_Sub_Type__c,
                    Related_Family_of_Needs__c, Related_Family_of_Needs__r.Name,
-                   Related_Product_Type__c, Related_Product_Type__r.Name
+                   Related_Product_Type__c, Related_Product_Type__r.Name,
+                   For_Tagging_Only__c
             FROM Marketing_Dictionary__c
             WHERE RecordType.DeveloperName = 'Product'
             ORDER BY Dictionary_Sub_Type__c ASC, Name ASC
@@ -124,6 +125,30 @@ public with sharing class MarketingDictionaryManagerController {
                 savedIds.add(rec.Id);
             }
             return savedIds;
+        } catch (Exception e) {
+            throw new AuraHandledException(e.getMessage());
+        }
+    }
+
+    /**
+     * Updates multiple Product dictionary records (bulk edit from Products tab).
+     */
+    @AuraEnabled
+    public static void saveProductRecordsBulkUpdate(String recordsJson) {
+        try {
+            List<Marketing_Dictionary__c> records = (List<Marketing_Dictionary__c>)
+                JSON.deserialize(recordsJson, List<Marketing_Dictionary__c>.class);
+            if (records == null || records.isEmpty()) {
+                return;
+            }
+            Id productRecordTypeId = getRecordTypeId('Product');
+            for (Marketing_Dictionary__c rec : records) {
+                rec.RecordTypeId = productRecordTypeId;
+                if (String.isBlank(rec.Dictionary_Sub_Type__c)) {
+                    rec.Dictionary_Sub_Type__c = 'Product Family';
+                }
+            }
+            upsert records;
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());
         }

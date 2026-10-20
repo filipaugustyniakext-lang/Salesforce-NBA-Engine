@@ -923,6 +923,11 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
+        <field>Marketing_Dictionary__c.For_Tagging_Only__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
         <field>Marketing_Dictionary__c.Channel_Type__c</field>
         <readable>true</readable>
     </fieldPermissions>
