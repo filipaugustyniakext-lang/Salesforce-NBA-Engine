@@ -49,6 +49,42 @@ const EMPTY_CHANNEL = () => ({
     Communication_Inbound__c: false,
     Communication_Outbound__c: false
 });
+
+/** Legacy split AI Agent outbound row — hidden when a single AI Agent uses comm-type flags. */
+const isLegacyAiAgentOutboundChannel = (ch) => {
+    if (!ch || ch.Channel_Type__c !== 'AI Agent') return false;
+    const name = (ch.Name || '').trim().toLowerCase();
+    return name === 'ai agent outbound' || name.endsWith(' outbound');
+};
+
+const getVisibleChannelRecords = (channels) =>
+    (channels || []).filter(ch => !isLegacyAiAgentOutboundChannel(ch));
+
+const getChannelDisplayName = (ch) => {
+    if (!ch) return '';
+    if (ch.Channel_Type__c === 'AI Agent') {
+        const name = (ch.Name || '').trim();
+        if (/^AI Agent(\s+(Inbound|Outbound))?$/i.test(name)) {
+            return 'AI Agent';
+        }
+    }
+    return ch.Name || '';
+};
+
+const getCommunicationBadges = (ch) => {
+    if (!ch) return [];
+    let inbound = ch.Communication_Inbound__c === true;
+    let outbound = ch.Communication_Outbound__c === true;
+    if (!inbound && !outbound) {
+        const n = (ch.Name || '').toLowerCase();
+        if (n.includes('inbound')) inbound = true;
+        if (n.includes('outbound')) outbound = true;
+    }
+    const badges = [];
+    if (inbound) badges.push({ key: 'in', label: 'in' });
+    if (outbound) badges.push({ key: 'out', label: 'out' });
+    return badges;
+};
 const EMPTY_COOLDOWN = () => ({ Audience_Type_Dict__c: '', Cooldown_Days__c: null, Channel__c: null });
 const EMPTY_DAY_RULE = (day, channelId) => ({
     Day_Of_Week__c: day || '',
@@ -132,12 +168,11 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
                     this._chState = { ...this._chState, [ch.Id]: defaultChState() };
                 }
             });
+            const visibleChannels = getVisibleChannelRecords(result.data);
             const restoredSubTab = resolveChannelSubTab();
-            const resolvedChannelId = resolveChannelId(result.data);
-            if (
-                !this._activeChannelId
-                || !result.data.find(c => c.Id === this._activeChannelId)
-            ) {
+            const resolvedChannelId = resolveChannelId(visibleChannels);
+            const activeStillVisible = visibleChannels.some(c => c.Id === this._activeChannelId);
+            if (!this._activeChannelId || !activeStillVisible) {
                 this._activeChannelId = resolvedChannelId;
             }
             if (this._activeChannelId && this._chState[this._activeChannelId]) {
@@ -158,8 +193,10 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
     // ── Derived channels with per-card computed props ──────────────────
 
     get channels() {
-        return this._rawChannels.map(ch => {
+        return getVisibleChannelRecords(this._rawChannels).map(ch => {
             const state = this._chState[ch.Id] || defaultChState();
+            const displayName = getChannelDisplayName(ch);
+            const commBadges = getCommunicationBadges(ch);
             const placements = ch.Channel_Banner_Placements__r || [];
             const filtered = this._filterAndSort(placements, state).map(placement => ({
                 ...placement,
@@ -176,17 +213,19 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
                 audienceName: cd.Audience_Type_Dict__r ? cd.Audience_Type_Dict__r.Name : '(Unassigned)'
             }));
             const weekDays = this._buildWeekDays(ch.Blackout_Day_Rules__r || [], ch.Id);
-            const tabMenuItems = this._buildTabMenuItems(ch, state.activeTab);
-            const settingsTabs = this._buildSettingsTabs(ch, state.activeTab);
+            const tabMenuItems = this._buildTabMenuItems(ch, state.activeTab, displayName);
+            const settingsTabs = this._buildSettingsTabs(ch, state.activeTab, displayName);
             return {
                 ...ch,
+                displayName,
+                commBadges,
                 tabMenuItems,
                 settingsTabs,
                 Is_Active__c: ch.Is_Active__c !== false,
                 Channel_Cooldowns__r: cooldowns.length ? cooldowns : null,
                 weekDays,
                 isBanner: ch.Channel_Type__c === 'Banner',
-                templatesTabLabel: `${ch.Name} Templates`,
+                templatesTabLabel: `${displayName} Templates`,
                 statusLabel: ch.Is_Active__c === false ? 'Inactive' : 'Active',
                 statusClass: ch.Is_Active__c === false
                     ? 'slds-badge channel-status channel-status_inactive'
@@ -208,11 +247,12 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
         });
     }
 
-    _buildSettingsTabs(ch, activeTab) {
+    _buildSettingsTabs(ch, activeTab, displayName) {
+        const label = displayName || getChannelDisplayName(ch);
         const tabs = [
             { value: 'cooldown', label: 'Cooldown Rules', iconName: 'utility:waits' },
             { value: 'weekly', label: 'Weekly Restrictions', iconName: 'utility:restriction_policy' },
-            { value: 'templates', label: `${ch.Name} Templates`, iconName: 'utility:insert_template' }
+            { value: 'templates', label: `${label} Templates`, iconName: 'utility:insert_template' }
         ];
         if (ch.Channel_Type__c === 'Banner') {
             tabs.push(
@@ -226,8 +266,8 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
         }));
     }
 
-    _buildTabMenuItems(ch, activeTab) {
-        return this._buildSettingsTabs(ch, activeTab).map(item => ({
+    _buildTabMenuItems(ch, activeTab, displayName) {
+        return this._buildSettingsTabs(ch, activeTab, displayName).map(item => ({
             value: item.value,
             label: item.label,
             checked: item.value === activeTab
@@ -386,9 +426,9 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
         persistChannelSelection(this._activeChannelId, subTab);
     }
 
-    get channelCount() { return this._rawChannels.length; }
-    get hasChannels() { return !this.isLoading && this._rawChannels.length > 0; }
-    get isEmpty() { return !this.isLoading && this._rawChannels.length === 0; }
+    get channelCount() { return getVisibleChannelRecords(this._rawChannels).length; }
+    get hasChannels() { return !this.isLoading && this.channelCount > 0; }
+    get isEmpty() { return !this.isLoading && this.channelCount === 0; }
     get channelModalTitle() { return this.editChannel.Id ? 'Edit Channel' : 'New Channel'; }
     get cooldownModalTitle() { return this.editCooldown.Id ? 'Edit Cooldown Rule' : 'New Cooldown Rule'; }
     get dayRuleModalTitle() { return `Restrictions for ${this.editDayRule.Day_Of_Week__c || '—'}`; }

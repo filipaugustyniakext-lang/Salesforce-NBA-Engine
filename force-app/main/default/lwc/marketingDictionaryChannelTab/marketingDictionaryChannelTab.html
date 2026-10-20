@@ -31,7 +31,12 @@
                                 alternative-text={ch.Name} class="slds-m-right_x-small">
                             </lightning-icon>
                         </template>
-                        <span class="ch-sidebar__name">{ch.Name}</span>
+                        <div class="ch-sidebar__name-row">
+                            <span class="ch-sidebar__name">{ch.displayName}</span>
+                            <template for:each={ch.commBadges} for:item="badge">
+                                <span key={badge.key} class="slds-badge slds-badge_lightest ch-sidebar__comm-badge">{badge.label}</span>
+                            </template>
+                        </div>
                         <span class="ch-sidebar__type slds-text-body_small">{ch.Channel_Type__c}</span>
                         <span class={ch.statusClass}>{ch.statusLabel}</span>
                     </button>
@@ -102,11 +107,9 @@
                                 type="toggle"
                                 label="Channel availability"
                                 variant="label-hidden"
-                                message-toggle-active="Active"
-                                message-toggle-inactive="Inactive"
                                 checked={activeChannel.Is_Active__c}
                                 data-id={activeChannel.Id}
-                                data-name={activeChannel.Name}
+                                data-name={activeChannel.displayName}
                                 onchange={handleChannelActiveToggle}
                                 class="ch-detail__active-toggle">
                             </lightning-input>
@@ -121,12 +124,12 @@
                             </lightning-button-icon>
                             <lightning-button-icon
                                 icon-name="utility:delete"
-                                variant="border-filled"
+                                variant="destructive"
                                 size="small"
                                 alternative-text="Delete channel"
                                 title="Delete channel"
                                 data-id={activeChannel.Id}
-                                data-name={activeChannel.Name}
+                                data-name={activeChannel.displayName}
                                 onclick={handleDeleteChannel}>
                             </lightning-button-icon>
                         </div>
@@ -232,7 +235,7 @@
                                 <div class="tab-content slds-p-around_small">
                                     <c-master-template-studio
                                         channel-id={activeChannel.Id}
-                                        channel-name={activeChannel.Name}>
+                                        channel-name={activeChannel.displayName}>
                                     </c-master-template-studio>
                                 </div>
                             </template>
