@@ -143,11 +143,11 @@
                                 <div class="tier-card__header">
                                     <div class="tier-card__number">Tier {tier.Tier_Number__c}</div>
                                     <div class="tier-card__actions">
-                                        <lightning-button-icon icon-name="utility:edit" variant="bare"
+                                        <lightning-button-icon icon-name="utility:edit" variant="border-filled"
                                             size="x-small" alternative-text="Edit" title="Edit"
                                             data-id={tier.Id} onclick={handleEditTier}>
                                         </lightning-button-icon>
-                                        <lightning-button-icon icon-name="utility:delete" variant="bare"
+                                        <lightning-button-icon icon-name="utility:delete" variant="border-filled"
                                             size="x-small" alternative-text="Delete" title="Delete"
                                             data-id={tier.Id} data-num={tier.Tier_Number__c} onclick={handleDeleteTier}
                                             class="slds-m-left_xx-small">
@@ -210,12 +210,12 @@
                             <div key={tg.Id} class="slds-col slds-no-flex slds-m-bottom_xx-small">
                                 <span class="slds-badge cd-group-badge">
                                     {tg.Name}
-                                    <lightning-button-icon icon-name="utility:edit" variant="bare"
+                                    <lightning-button-icon icon-name="utility:edit" variant="border-filled"
                                         size="xx-small" alternative-text="Edit" title="Edit group"
                                         data-id={tg.Id} onclick={handleEditTopicGroup}
                                         class="slds-m-left_xx-small cd-group-badge-action">
                                     </lightning-button-icon>
-                                    <lightning-button-icon icon-name="utility:close" variant="bare"
+                                    <lightning-button-icon icon-name="utility:close" variant="border-filled"
                                         size="xx-small" alternative-text="Delete" title="Delete group"
                                         data-id={tg.Id} data-name={tg.Name} onclick={handleDeleteTopicGroup}
                                         class="slds-m-left_xx-small cd-group-badge-action">

@@ -41,12 +41,12 @@
                             <li key={rec.Id} class="slds-item slds-grid slds-grid_align-spread slds-p-vertical_x-small">
                                 <p class="slds-text-body_regular">{rec.Name}</p>
                                 <div class="slds-button-group">
-                                    <lightning-button-icon icon-name="utility:edit" variant="bare"
+                                    <lightning-button-icon icon-name="utility:edit" variant="border-filled"
                                         alternative-text="Edit" title="Edit"
                                         data-id={rec.Id} data-subtype="Customer Type"
                                         onclick={handleEditRecord}>
                                     </lightning-button-icon>
-                                    <lightning-button-icon icon-name="utility:delete" variant="bare"
+                                    <lightning-button-icon icon-name="utility:delete" variant="border-filled"
                                         alternative-text="Delete" title="Delete"
                                         data-id={rec.Id} data-name={rec.Name}
                                         onclick={handleDeleteRecord}>
@@ -87,12 +87,12 @@
                             <li key={rec.Id} class="slds-item slds-grid slds-grid_align-spread slds-p-vertical_x-small">
                                 <p class="slds-text-body_regular">{rec.Name}</p>
                                 <div class="slds-button-group">
-                                    <lightning-button-icon icon-name="utility:edit" variant="bare"
+                                    <lightning-button-icon icon-name="utility:edit" variant="border-filled"
                                         alternative-text="Edit" title="Edit"
                                         data-id={rec.Id} data-subtype="Audience Type"
                                         onclick={handleEditRecord}>
                                     </lightning-button-icon>
-                                    <lightning-button-icon icon-name="utility:delete" variant="bare"
+                                    <lightning-button-icon icon-name="utility:delete" variant="border-filled"
                                         alternative-text="Delete" title="Delete"
                                         data-id={rec.Id} data-name={rec.Name}
                                         onclick={handleDeleteRecord}>
@@ -142,7 +142,7 @@
                                     </lightning-input>
                                 </div>
                                 <div class="slds-col slds-no-flex slds-p-bottom_xx-small">
-                                    <lightning-button-icon icon-name="utility:close" variant="bare"
+                                    <lightning-button-icon icon-name="utility:close" variant="border-filled"
                                         alternative-text="Remove" title="Remove"
                                         data-key={row.key} onclick={handleRemoveRow}
                                         disabled={isSingleRow}>

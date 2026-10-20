@@ -278,9 +278,42 @@ export default class MarketingDictionaryProductTab extends LightningElement {
         return [{ label: '— None —', value: '' }, ...this.productTypes.map(r => ({ label: r.Name, value: r.Id }))];
     }
 
+    _fonCustomerTypeSummary(fonId) {
+        if (!fonId) {
+            return '—';
+        }
+        const ctSet = this._fonCtMap[fonId] || new Set();
+        const names = this.customerTypes.filter(ct => ctSet.has(ct.Id)).map(ct => ct.Name);
+        return names.length ? names.join(', ') : '—';
+    }
+
+    _inheritedCtListForFon(fonId) {
+        if (!fonId) {
+            return [];
+        }
+        const ctSet = this._fonCtMap[fonId] || new Set();
+        return this.customerTypes.filter(ct => ctSet.has(ct.Id));
+    }
+
+    get editProductFamilyInheritedCtList() {
+        return this._inheritedCtListForFon(this.editRecord.Related_Family_of_Needs__c);
+    }
+
+    get hasEditProductFamilyInheritedCt() {
+        return this.editProductFamilyInheritedCtList.length > 0;
+    }
+
+    get bulkAddInheritedCtSummary() {
+        if (!this.isProductFamily || !this.bulkFonId) {
+            return '';
+        }
+        return this._fonCustomerTypeSummary(this.bulkFonId);
+    }
+
     // ── Modal state ─────────────────────────────────────────────────────────
 
     @track isModalOpen = false;
+    @track isFonSettingsModalOpen = false;
     @track isDeleteModalOpen = false;
     @track editRecord = EMPTY_RECORD();
     @track isSaving = false;
@@ -298,6 +331,7 @@ export default class MarketingDictionaryProductTab extends LightningElement {
     _isEditMode = false;
     _pendingDeleteId = null;
     _pendingDeleteName = '';
+    _reopenFonSettingsAfterModal = false;
 
     get isEditMode()     { return this._isEditMode; }
     get isProductFamily(){ return this._activeSubtype === 'Product Family'; }
@@ -332,6 +366,26 @@ export default class MarketingDictionaryProductTab extends LightningElement {
     }
 
     // ── Open modal ──────────────────────────────────────────────────────────
+
+    handleOpenFonSettings() {
+        this.isFonSettingsModalOpen = true;
+    }
+
+    handleCloseFonSettings() {
+        this.isFonSettingsModalOpen = false;
+    }
+
+    handleNewRecordFromFonSettings(event) {
+        this._reopenFonSettingsAfterModal = true;
+        this.isFonSettingsModalOpen = false;
+        this.handleNewRecord(event);
+    }
+
+    handleEditRecordFromFonSettings(event) {
+        this._reopenFonSettingsAfterModal = true;
+        this.isFonSettingsModalOpen = false;
+        this.handleEditRecord(event);
+    }
 
     handleNewRecord(event) {
         this._activeSubtype = event.currentTarget.dataset.subtype;
@@ -418,7 +472,14 @@ export default class MarketingDictionaryProductTab extends LightningElement {
         this.bulkEditRows = this.bulkEditRows.map(row => {
             if (row.key !== key) return row;
             if (field === 'name') return { ...row, name: value };
-            if (field === 'fonId') return { ...row, fonId: value || '' };
+            if (field === 'fonId') {
+                const fonId = value || '';
+                return {
+                    ...row,
+                    fonId,
+                    customerTypeSummary: this._fonCustomerTypeSummary(fonId)
+                };
+            }
             if (field === 'productTypeId') return { ...row, productTypeId: value || '' };
             if (field === 'forTaggingOnly') return { ...row, forTaggingOnly: value === true };
             return row;
@@ -482,7 +543,7 @@ export default class MarketingDictionaryProductTab extends LightningElement {
                 this._fonCtMap = { ...this._fonCtMap, [fonId]: new Set(this._editModalCtSet) };
             }
             this._showToast('Success', `${this._activeSubtype} saved`, 'success');
-            this.isModalOpen = false;
+            this._closeEditModal();
             await refreshApex(this._wiredResult);
         } catch (e) {
             this._showToast('Error', e.body?.message || e.message, 'error');
@@ -512,12 +573,20 @@ export default class MarketingDictionaryProductTab extends LightningElement {
             });
             const label = filled.length === 1 ? this._activeSubtype : `${filled.length} ${this._activeSubtype} entries`;
             this._showToast('Success', `${label} saved`, 'success');
-            this.isModalOpen = false;
+            this._closeEditModal();
             await refreshApex(this._wiredResult);
         } catch (e) {
             this._showToast('Error', e.body?.message || e.message, 'error');
         } finally {
             this.isSaving = false;
+        }
+    }
+
+    _closeEditModal() {
+        this.isModalOpen = false;
+        if (this._reopenFonSettingsAfterModal) {
+            this._reopenFonSettingsAfterModal = false;
+            this.isFonSettingsModalOpen = true;
         }
     }
 
@@ -581,7 +650,14 @@ export default class MarketingDictionaryProductTab extends LightningElement {
         }
     }
 
-    handleCloseModal() { this.isModalOpen = false; }
+    handleCloseModal() {
+        const reopenFon = this._reopenFonSettingsAfterModal;
+        this._reopenFonSettingsAfterModal = false;
+        this.isModalOpen = false;
+        if (reopenFon) {
+            this.isFonSettingsModalOpen = true;
+        }
+    }
 
     _showToast(title, message, variant) {
         this.dispatchEvent(new ShowToastEvent({ title, message, variant }));
