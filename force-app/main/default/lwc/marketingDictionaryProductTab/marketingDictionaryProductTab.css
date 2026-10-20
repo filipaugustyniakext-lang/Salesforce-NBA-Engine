@@ -139,7 +139,13 @@
 .pf-col_fon { flex: 1 1 18%; min-width: 6rem; }
 .pf-col_type { flex: 1 1 14%; min-width: 5rem; }
 .pf-col_ct { flex: 1 1 26%; min-width: 7rem; }
-.pf-col_actions { flex: 0 0 4.5rem; }
+.pf-col_actions {
+    flex: 0 0 5.25rem;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.35rem;
+}
 
 .bulk-edit-scroll {
     max-height: min(32rem, 65vh);
