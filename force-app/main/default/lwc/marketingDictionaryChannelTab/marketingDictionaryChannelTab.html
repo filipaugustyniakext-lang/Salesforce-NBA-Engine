@@ -42,23 +42,62 @@
             <div class="ch-detail">
                 <template lwc:if={activeChannel}>
 
-                    <!-- Detail header -->
-                    <div class="ch-detail__header slds-grid slds-p-around_small">
-                        <div class="slds-media slds-media_center slds-has-flexi-truncate">
-                            <template lwc:if={activeChannel.Channel_Icon__c}>
-                                <div class="slds-media__figure slds-media__figure_fixed-width slds-align_absolute-center">
-                                    <lightning-icon icon-name={activeChannel.Channel_Icon__c} size="small" alternative-text={activeChannel.Name}></lightning-icon>
-                                </div>
+                    <div class="ch-detail__tab-bar">
+                        <div class="ch-detail__tab-nav">
+                            <template lwc:if={showTabScrollPrev}>
+                                <lightning-button-icon
+                                    icon-name="utility:chevronleft"
+                                    variant="bare"
+                                    size="small"
+                                    alternative-text="Scroll tabs left"
+                                    title="Scroll tabs left"
+                                    onclick={handleTabNavScrollPrev}
+                                    class="ch-tab-nav__scroll-btn">
+                                </lightning-button-icon>
                             </template>
-                            <div class="slds-media__body">
-                                <p class="slds-text-heading_small">{activeChannel.Name}</p>
-                                <p class="slds-text-body_small slds-text-color_weak">
-                                    {activeChannel.Channel_Type__c}
-                                    <span class={activeChannel.statusClass}>{activeChannel.statusLabel}</span>
-                                </p>
+                            <div class="ch-tab-nav__scroll" onscroll={handleTabNavScroll}>
+                                <template for:each={activeChannel.settingsTabs} for:item="tab">
+                                    <button
+                                        key={tab.value}
+                                        type="button"
+                                        class={tab.navClass}
+                                        data-value={tab.value}
+                                        title={tab.label}
+                                        onclick={handleSettingsTabClick}>
+                                        <lightning-icon icon-name={tab.iconName} size="x-small" alternative-text="" class="ch-tab-nav__icon"></lightning-icon>
+                                        <span class="ch-tab-nav__label">{tab.label}</span>
+                                    </button>
+                                </template>
                             </div>
+                            <template lwc:if={showTabScrollNext}>
+                                <lightning-button-icon
+                                    icon-name="utility:chevronright"
+                                    variant="bare"
+                                    size="small"
+                                    alternative-text="Scroll tabs right"
+                                    title="Scroll tabs right"
+                                    onclick={handleTabNavScrollNext}
+                                    class="ch-tab-nav__scroll-btn">
+                                </lightning-button-icon>
+                            </template>
+                            <lightning-button-menu
+                                alternative-text="All channel settings tabs"
+                                icon-name="utility:down"
+                                menu-alignment="right"
+                                variant="border-filled"
+                                onselect={handleTabMenuSelect}
+                                class="ch-tab-nav__menu">
+                                <template for:each={activeChannel.tabMenuItems} for:item="tabItem">
+                                    <lightning-menu-item
+                                        key={tabItem.value}
+                                        value={tabItem.value}
+                                        label={tabItem.label}
+                                        checked={tabItem.checked}>
+                                    </lightning-menu-item>
+                                </template>
+                            </lightning-button-menu>
                         </div>
-                        <div class="slds-no-flex slds-grid slds-grid_vertical-align-center">
+                        <div class="ch-detail__tab-actions" role="toolbar" aria-label="Channel actions">
                             <lightning-input
                                 type="toggle"
                                 label="Channel availability"
@@ -69,27 +108,32 @@
                                 data-id={activeChannel.Id}
                                 data-name={activeChannel.Name}
                                 onchange={handleChannelActiveToggle}
-                                class="slds-m-right_small">
+                                class="ch-detail__active-toggle">
                             </lightning-input>
-                            <div class="slds-button-group">
-                            <lightning-button-icon icon-name="utility:edit" variant="bare"
-                                alternative-text="Edit channel" title="Edit channel"
-                                data-id={activeChannel.Id} onclick={handleEditChannel}>
+                            <lightning-button-icon
+                                icon-name="utility:edit"
+                                variant="border-filled"
+                                size="small"
+                                alternative-text="Edit channel"
+                                title="Edit channel"
+                                data-id={activeChannel.Id}
+                                onclick={handleEditChannel}>
                             </lightning-button-icon>
-                            <lightning-button-icon icon-name="utility:delete" variant="bare"
-                                alternative-text="Delete channel" title="Delete channel"
-                                data-id={activeChannel.Id} data-name={activeChannel.Name} onclick={handleDeleteChannel}>
+                            <lightning-button-icon
+                                icon-name="utility:delete"
+                                variant="border-filled"
+                                size="small"
+                                alternative-text="Delete channel"
+                                title="Delete channel"
+                                data-id={activeChannel.Id}
+                                data-name={activeChannel.Name}
+                                onclick={handleDeleteChannel}>
                             </lightning-button-icon>
-                            </div>
                         </div>
                     </div>
 
-                    <!-- Inner tabs (bound to activeChannel) -->
-                    <div class="ch-detail__tabs">
-                        <lightning-tabset active-tab-value={activeChannel.activeTab} onactive={handleTabActive} data-channelid={activeChannel.Id}>
-
-                            <!-- Cooldown Rules tab -->
-                            <lightning-tab value="cooldown" label="Cooldown Rules" data-channelid={activeChannel.Id}>
+                    <div class="ch-detail__body">
+                            <template lwc:if={isChannelTabCooldown}>
                                 <div class="tab-content slds-p-around_small">
                                     <div class="slds-grid slds-grid_vertical-align-center slds-m-bottom_x-small">
                                         <div class="slds-col"></div>
@@ -127,10 +171,9 @@
                                         <p class="slds-text-body_small slds-text-color_weak">No cooldown rules yet.</p>
                                     </template>
                                 </div>
-                            </lightning-tab>
+                            </template>
 
-                            <!-- Weekly Restrictions tab (per channel) -->
-                            <lightning-tab value="weekly" label="Weekly Restrictions" data-channelid={activeChannel.Id}>
+                            <template lwc:if={isChannelTabWeekly}>
                                 <div class="tab-content slds-p-around_small">
                                     <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
                                         Define which days of the week this channel may send, and optional hour-range blocks.
@@ -183,23 +226,18 @@
                                         </template>
                                     </div>
                                 </div>
-                            </lightning-tab>
+                            </template>
 
-                            <!-- Master templates, same for every channel including Banner -->
-                            <lightning-tab value="templates" label={activeChannel.templatesTabLabel}>
+                            <template lwc:if={isChannelTabTemplates}>
                                 <div class="tab-content slds-p-around_small">
-                                    <c-channel-template-manager
+                                    <c-master-template-studio
                                         channel-id={activeChannel.Id}
                                         channel-name={activeChannel.Name}>
-                                    </c-channel-template-manager>
+                                    </c-master-template-studio>
                                 </div>
-                            </lightning-tab>
+                            </template>
 
-                            <!-- Banner sub-tabs (Banner channels only) -->
-                            <template lwc:if={activeChannel.isBanner}>
-
-                                <!-- Placeholders tab -->
-                                <lightning-tab value="placements" label="Placeholders">
+                            <template lwc:if={isChannelTabPlacements}>
                                     <div class="tab-content slds-p-around_small">
                                         <div class="tab-toolbar slds-m-bottom_x-small">
                                             <lightning-input
@@ -278,10 +316,9 @@
                                             <p class="slds-text-body_small slds-text-color_weak">No placeholders defined yet.</p>
                                         </template>
                                     </div>
-                                </lightning-tab>
+                            </template>
 
-                                <!-- Intents tab -->
-                                <lightning-tab value="intents" label="Intents">
+                            <template lwc:if={isChannelTabIntents}>
                                     <div class="tab-content slds-p-around_small">
                                         <div class="tab-toolbar slds-m-bottom_x-small">
                                             <lightning-input
@@ -374,11 +411,8 @@
                                             <p class="slds-text-body_small slds-text-color_weak">No intents defined yet.</p>
                                         </template>
                                     </div>
-                                </lightning-tab>
-
                             </template>
 
-                        </lightning-tabset>
                     </div>
 
                 </template>
@@ -811,5 +845,12 @@
             </div>
         </section>
         <div class="slds-backdrop slds-backdrop_open" role="presentation"></div>
+    </template>
+
+    <template lwc:if={isDependencyDialogOpen}>
+        <c-marketing-dictionary-dependency-dialog
+            report={dependencyReport}
+            onclose={handleCloseDependencyDialog}>
+        </c-marketing-dictionary-dependency-dialog>
     </template>
 </template>

@@ -1,0 +1,8 @@
+.dependency-dialog__body {
+    max-height: min(28rem, 60vh);
+    overflow-y: auto;
+}
+
+.dependency-dialog__group {
+    background: var(--slds-g-color-neutral-base-95, #f3f3f3);
+}

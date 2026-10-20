@@ -86,15 +86,103 @@
 .ch-detail {
     flex: 1;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
 }
 
-.ch-detail__header {
+/* Single tab bar row: ~90% tabs + ~10% channel actions (content is full width below) */
+.ch-detail__tab-bar {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
     border-bottom: 1px solid #e0e5ee;
-    padding: 0.5rem 0.75rem;
+    min-height: 2.5rem;
+    background: #fff;
 }
 
-.ch-detail__tabs {
-    /* tabs expand to fit content */
+.ch-detail__tab-nav {
+    flex: 0 0 90%;
+    max-width: 90%;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    padding-left: 0.25rem;
+}
+
+.ch-tab-nav__scroll {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: stretch;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+}
+
+.ch-tab-nav__scroll::-webkit-scrollbar {
+    display: none;
+}
+
+.ch-tab-nav__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.55rem 0.65rem;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    background: transparent;
+    cursor: pointer;
+    white-space: nowrap;
+    font-size: 0.8125rem;
+    color: #444;
+    flex-shrink: 0;
+}
+
+.ch-tab-nav__btn:hover {
+    background: #f3f6fb;
+}
+
+.ch-tab-nav__btn_active {
+    border-bottom-color: #0176d3;
+    color: #0176d3;
+    font-weight: 600;
+}
+
+.ch-tab-nav__icon {
+    flex-shrink: 0;
+}
+
+.ch-tab-nav__scroll-btn,
+.ch-tab-nav__menu {
+    flex-shrink: 0;
+}
+
+.ch-tab-nav__menu {
+    margin: 0 0.25rem;
+}
+
+.ch-detail__tab-actions {
+    flex: 0 0 10%;
+    max-width: 10%;
+    min-width: 7.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.2rem;
+    padding: 0.25rem 0.5rem;
+    border-left: 1px solid #e0e5ee;
+    flex-shrink: 0;
+}
+
+.ch-detail__body {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+}
+
+.ch-detail__active-toggle {
+    --slds-c-toggle-sizing-width: 2.5rem;
 }
 
 .tab-content {
@@ -157,6 +245,14 @@
 .placement-search {
     width: 160px;
     margin-right: 0.5rem;
+}
+
+.bt-thumb {
+    max-width: 100%;
+    max-height: 48px;
+    object-fit: contain;
+    border-radius: 0.2rem;
+    border: 1px solid #e0e5ee;
 }
 
 .intent-target-badge {

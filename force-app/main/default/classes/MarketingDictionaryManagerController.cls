@@ -137,43 +137,20 @@ public with sharing class MarketingDictionaryManagerController {
     public static void deleteDictionaryRecord(Id recordId) {
         try {
             Marketing_Dictionary__c rec = [
-                SELECT Id, Name, Dictionary_Sub_Type__c, RecordType.DeveloperName
+                SELECT Id, Name, Dictionary_Sub_Type__c, RecordType.DeveloperName,
+                       Channel_Type__c, Parameter_API_Name__c
                 FROM Marketing_Dictionary__c
                 WHERE Id = :recordId
                 WITH SECURITY_ENFORCED
                 LIMIT 1
             ];
+            MarketingDictionaryDeleteGuard.DependencyReport report =
+                MarketingDictionaryDeleteGuard.buildDictionaryDeleteReport(rec);
+            if (report.hasDependencies()) {
+                throw dependencyDeleteException(report);
+            }
             if (rec.Dictionary_Sub_Type__c == 'Family of Needs') {
-                List<String> dependencies = new List<String>();
-                for (FamilyOfNeeds_CustomerType__c link : [
-                    SELECT Name, Customer_Type__r.Name
-                    FROM FamilyOfNeeds_CustomerType__c
-                    WHERE Family_of_Needs__c = :recordId
-                    ORDER BY Customer_Type__r.Name ASC
-                ]) {
-                    dependencies.add(
-                        String.isNotBlank(link.Customer_Type__r.Name) ? link.Customer_Type__r.Name : link.Name
-                    );
-                }
-                if (!dependencies.isEmpty()) {
-                    throw dependencyDeleteException(rec.Name, 'Family of Needs Customer Types: ' + String.join(dependencies, ', '));
-                }
-            }
-            // Product_Type_Dict__c is SetNull, so a plain delete would clear the lookup on
-            // every related Product2. Block that while any product still uses the type.
-            if (rec.Dictionary_Sub_Type__c == 'Product Type') {
-                String productDependency = new ProductTypeUsage().describe(recordId);
-                if (productDependency != null) {
-                    throw dependencyDeleteException(rec.Name, productDependency);
-                }
-            }
-            // Topic_Group_Dict__c is SetNull, so a plain delete would clear the group on
-            // every related Topic. Block that while any topic still uses the group.
-            if (rec.Dictionary_Sub_Type__c == 'Topic Group') {
-                String topicDependency = new TopicGroupUsage().describe(recordId);
-                if (topicDependency != null) {
-                    throw dependencyDeleteException(rec.Name, topicDependency);
-                }
+                delete [SELECT Id FROM FamilyOfNeeds_CustomerType__c WHERE Family_of_Needs__c = :recordId];
             }
             if (rec.RecordType.DeveloperName == 'Channel') {
                 ChannelTemplateController.deleteTemplatesForChannel(rec.Id);
@@ -184,7 +161,11 @@ public with sharing class MarketingDictionaryManagerController {
         } catch (DmlException e) {
             String detail = e.getNumDml() > 0 ? e.getDmlMessage(0) : e.getMessage();
             if (detail != null && (detail.contains('DELETE_FAILED') || detail.containsIgnoreCase('associated with'))) {
-                throw dependencyDeleteException(null, 'related records');
+                MarketingDictionaryDeleteGuard.DependencyReport fallback =
+                    new MarketingDictionaryDeleteGuard.DependencyReport();
+                fallback.summaryMessage =
+                    'This value has dependencies that must be removed before it can be deleted.';
+                throw dependencyDeleteException(fallback);
             }
             throw new AuraHandledException(detail);
         } catch (Exception e) {
@@ -192,81 +173,15 @@ public with sharing class MarketingDictionaryManagerController {
         }
     }
 
-    private static AuraHandledException dependencyDeleteException(String recordName, String dependency) {
-        String message = (String.isBlank(recordName) ? 'This value' : 'The value ' + recordName)
-            + ' has a dependency to ' + dependency
-            + '. Please remove dependencies first to delete this record.';
+    private static AuraHandledException dependencyDeleteException(
+        MarketingDictionaryDeleteGuard.DependencyReport report
+    ) {
+        String message = report != null && String.isNotBlank(report.summaryMessage)
+            ? report.summaryMessage
+            : 'This value has dependencies that must be removed before it can be deleted.';
         AuraHandledException ex = new AuraHandledException(message);
         ex.setMessage(message);
         return ex;
-    }
-
-    /**
-     * Reads Product2 usage outside the caller's sharing rules so a hidden product
-     * cannot be orphaned by deleting its Product Type.
-     */
-    private without sharing class ProductTypeUsage {
-        String describe(Id recordId) {
-            Integer productCount = [
-                SELECT COUNT()
-                FROM Product2
-                WHERE Product_Type_Dict__c = :recordId
-            ];
-            if (productCount == 0) {
-                return null;
-            }
-            List<String> names = new List<String>();
-            for (Product2 product : [
-                SELECT Name
-                FROM Product2
-                WHERE Product_Type_Dict__c = :recordId
-                ORDER BY Name ASC
-                LIMIT 10
-            ]) {
-                names.add(String.isBlank(product.Name) ? String.valueOf(product.Id) : product.Name);
-            }
-            String listed = String.join(names, ', ');
-            Integer remaining = productCount - names.size();
-            if (remaining > 0) {
-                listed += ' and ' + remaining + ' more';
-            }
-            return 'Products: ' + listed;
-        }
-    }
-
-    /**
-     * Reads Topic assignments outside the caller's sharing rules so a hidden topic
-     * cannot be detached by deleting its Topic Group.
-     */
-    private without sharing class TopicGroupUsage {
-        String describe(Id recordId) {
-            Integer topicCount = [
-                SELECT COUNT()
-                FROM Marketing_Dictionary__c
-                WHERE Topic_Group_Dict__c = :recordId
-                AND Dictionary_Sub_Type__c = 'Topic'
-            ];
-            if (topicCount == 0) {
-                return null;
-            }
-            List<String> names = new List<String>();
-            for (Marketing_Dictionary__c topic : [
-                SELECT Name
-                FROM Marketing_Dictionary__c
-                WHERE Topic_Group_Dict__c = :recordId
-                AND Dictionary_Sub_Type__c = 'Topic'
-                ORDER BY Name ASC
-                LIMIT 10
-            ]) {
-                names.add(String.isBlank(topic.Name) ? String.valueOf(topic.Id) : topic.Name);
-            }
-            String listed = String.join(names, ', ');
-            Integer remaining = topicCount - names.size();
-            if (remaining > 0) {
-                listed += ' and ' + remaining + ' more';
-            }
-            return 'Topics: ' + listed;
-        }
     }
 
     // ─── Person RT ───────────────────────────────────────────────────────────
@@ -1083,7 +998,10 @@ public with sharing class MarketingDictionaryManagerController {
     @AuraEnabled
     public static void deleteCampaignTier(Id recordId) {
         try {
+            MarketingDictionaryDeleteGuard.assertCampaignTierDeletable(recordId);
             delete new Campaign_Tier__c(Id = recordId);
+        } catch (AuraHandledException e) {
+            throw e;
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());
         }
@@ -1455,6 +1373,7 @@ public with sharing class MarketingDictionaryManagerController {
     @AuraEnabled
     public static void deleteReferenceValue(Id recordId) {
         try {
+            MarketingDictionaryDeleteGuard.assertOfferReferenceValueDeletable(recordId);
             delete new Offer_Reference_Value__c(Id = recordId);
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());

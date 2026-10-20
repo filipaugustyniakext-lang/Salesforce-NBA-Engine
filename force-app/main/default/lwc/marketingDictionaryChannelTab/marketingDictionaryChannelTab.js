@@ -13,11 +13,23 @@ import deleteBlackoutDayRule from '@salesforce/apex/MarketingDictionaryManagerCo
 import saveBannerPlacement from '@salesforce/apex/MarketingDictionaryManagerController.saveBannerPlacement';
 import saveBannerPlacementsBulk from '@salesforce/apex/MarketingDictionaryManagerController.saveBannerPlacementsBulk';
 import deleteBannerPlacement from '@salesforce/apex/MarketingDictionaryManagerController.deleteBannerPlacement';
+import { confirmDictionaryRenameIfNeeded } from 'c/marketingDictionaryRenamePrompt';
+import {
+    runDictionaryDeleteWithDependencyCheck,
+    isDependencyBlockedMessage,
+    fetchDictionaryDeleteReport,
+    reportHasDependencies
+} from 'c/marketingDictionaryDeleteHelper';
 import saveIntentTarget from '@salesforce/apex/MarketingDictionaryManagerController.saveIntentTarget';
 import deleteIntentTarget from '@salesforce/apex/MarketingDictionaryManagerController.deleteIntentTarget';
 import saveBannerIntent from '@salesforce/apex/MarketingDictionaryManagerController.saveBannerIntent';
 import saveBannerIntentsBulk from '@salesforce/apex/MarketingDictionaryManagerController.saveBannerIntentsBulk';
 import deleteBannerIntent from '@salesforce/apex/MarketingDictionaryManagerController.deleteBannerIntent';
+import {
+    persistChannelSelection,
+    resolveChannelId,
+    resolveChannelSubTab
+} from 'c/marketingDictionaryState';
 
 const CHANNEL_TYPES = ['Email', 'SMS', 'Push', 'Banner', 'In-App', 'AI Agent', 'Branch Agent', 'WhatsApp'];
 const VALID_ICON = /^[a-zA-Z0-9_]+:[a-zA-Z0-9_]+$/;
@@ -66,7 +78,9 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
     @track isIntentTargetModalOpen = false;
     @track isIntentModalOpen = false;
     @track isDeleteModalOpen = false;
+    @track dependencyReport = null;
     @track editChannel = EMPTY_CHANNEL();
+    _channelOriginalName = '';
     @track editCooldown = EMPTY_COOLDOWN();
     @track editDayRule = EMPTY_DAY_RULE();
     @track editPlacement = EMPTY_PLACEMENT();
@@ -77,8 +91,11 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
     @track _intentPasteTargetId = '';
     @track isSaving = false;
     @track _chState = {}; // keyed by channel Id
+    @track _showTabScrollPrev = false;
+    @track _showTabScrollNext = false;
 
     _wiredResult;
+    _tabNavScrollEl;
     _rawChannels = [];
     isLoading = true;
     _activeChannelId = null;
@@ -115,9 +132,23 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
                     this._chState = { ...this._chState, [ch.Id]: defaultChState() };
                 }
             });
-            // Select first channel if none active or active was deleted
-            if (!this._activeChannelId || !result.data.find(c => c.Id === this._activeChannelId)) {
-                this._activeChannelId = result.data[0]?.Id || null;
+            const restoredSubTab = resolveChannelSubTab();
+            const resolvedChannelId = resolveChannelId(result.data);
+            if (
+                !this._activeChannelId
+                || !result.data.find(c => c.Id === this._activeChannelId)
+            ) {
+                this._activeChannelId = resolvedChannelId;
+            }
+            if (this._activeChannelId && this._chState[this._activeChannelId]) {
+                this._chState = {
+                    ...this._chState,
+                    [this._activeChannelId]: {
+                        ...this._chState[this._activeChannelId],
+                        activeTab: restoredSubTab
+                    }
+                };
+                persistChannelSelection(this._activeChannelId, restoredSubTab);
             }
         } else if (result.error) {
             this._showToast('Error', result.error.body?.message || 'Failed to load channels', 'error');
@@ -145,8 +176,12 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
                 audienceName: cd.Audience_Type_Dict__r ? cd.Audience_Type_Dict__r.Name : '(Unassigned)'
             }));
             const weekDays = this._buildWeekDays(ch.Blackout_Day_Rules__r || [], ch.Id);
+            const tabMenuItems = this._buildTabMenuItems(ch, state.activeTab);
+            const settingsTabs = this._buildSettingsTabs(ch, state.activeTab);
             return {
                 ...ch,
+                tabMenuItems,
+                settingsTabs,
                 Is_Active__c: ch.Is_Active__c !== false,
                 Channel_Cooldowns__r: cooldowns.length ? cooldowns : null,
                 weekDays,
@@ -171,6 +206,32 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
                 intentSortIconTarget: this._intentSortIcon(state, 'Intent_Target__r.Name')
             };
         });
+    }
+
+    _buildSettingsTabs(ch, activeTab) {
+        const tabs = [
+            { value: 'cooldown', label: 'Cooldown Rules', iconName: 'utility:waits' },
+            { value: 'weekly', label: 'Weekly Restrictions', iconName: 'utility:restriction_policy' },
+            { value: 'templates', label: `${ch.Name} Templates`, iconName: 'utility:insert_template' }
+        ];
+        if (ch.Channel_Type__c === 'Banner') {
+            tabs.push(
+                { value: 'placements', label: 'Placeholders', iconName: 'utility:drag' },
+                { value: 'intents', label: 'Intents', iconName: 'utility:target' }
+            );
+        }
+        return tabs.map(tab => ({
+            ...tab,
+            navClass: `ch-tab-nav__btn${tab.value === activeTab ? ' ch-tab-nav__btn_active' : ''}`
+        }));
+    }
+
+    _buildTabMenuItems(ch, activeTab) {
+        return this._buildSettingsTabs(ch, activeTab).map(item => ({
+            value: item.value,
+            label: item.label,
+            checked: item.value === activeTab
+        }));
     }
 
     _buildWeekDays(rules, channelId) {
@@ -264,6 +325,54 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
     _updateChState(channelId, patch) {
         const current = this._chState[channelId] || defaultChState();
         this._chState = { ...this._chState, [channelId]: { ...current, ...patch } };
+        if (patch.activeTab && channelId === this._activeChannelId) {
+            persistChannelSelection(channelId, patch.activeTab);
+        }
+    }
+
+    get isChannelTabCooldown() {
+        return this.activeChannel?.activeTab === 'cooldown';
+    }
+    get isChannelTabWeekly() {
+        return this.activeChannel?.activeTab === 'weekly';
+    }
+    get isChannelTabTemplates() {
+        return this.activeChannel?.activeTab === 'templates';
+    }
+    get isChannelTabPlacements() {
+        return this.activeChannel?.activeTab === 'placements';
+    }
+    get isChannelTabIntents() {
+        return this.activeChannel?.activeTab === 'intents';
+    }
+    get showTabScrollPrev() {
+        return this._showTabScrollPrev;
+    }
+    get showTabScrollNext() {
+        return this._showTabScrollNext;
+    }
+
+    renderedCallback() {
+        const scrollEl = this.template.querySelector('.ch-tab-nav__scroll');
+        if (scrollEl !== this._tabNavScrollEl) {
+            this._tabNavScrollEl = scrollEl;
+        }
+        if (scrollEl) {
+            this._updateTabNavOverflow();
+        }
+    }
+
+    _updateTabNavOverflow() {
+        const el = this._tabNavScrollEl;
+        if (!el) {
+            this._showTabScrollPrev = false;
+            this._showTabScrollNext = false;
+            return;
+        }
+        const { scrollLeft, scrollWidth, clientWidth } = el;
+        const overflow = scrollWidth > clientWidth + 2;
+        this._showTabScrollPrev = overflow && scrollLeft > 2;
+        this._showTabScrollNext = overflow && scrollLeft + clientWidth < scrollWidth - 2;
     }
 
     get activeChannel() {
@@ -273,6 +382,8 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
 
     handleSelectChannel(event) {
         this._activeChannelId = event.currentTarget.dataset.id;
+        const subTab = this._chState[this._activeChannelId]?.activeTab || resolveChannelSubTab();
+        persistChannelSelection(this._activeChannelId, subTab);
     }
 
     get channelCount() { return this._rawChannels.length; }
@@ -346,10 +457,36 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
 
     // ── Tab handler ──────────────────────────────────────────────────────
 
-    handleTabActive(event) {
-        const channelId = event.currentTarget.dataset.channelid;
-        const tabValue = event.target.value;
-        if (channelId) this._updateChState(channelId, { activeTab: tabValue });
+    handleSettingsTabClick(event) {
+        const tabValue = event.currentTarget.dataset.value;
+        const channelId = this.activeChannel?.Id;
+        if (channelId && tabValue) {
+            this._updateChState(channelId, { activeTab: tabValue });
+            // eslint-disable-next-line @lwc/lwc/no-async-operation
+            requestAnimationFrame(() => this._updateTabNavOverflow());
+        }
+    }
+
+    handleTabNavScroll() {
+        this._updateTabNavOverflow();
+    }
+
+    handleTabNavScrollPrev() {
+        this._tabNavScrollEl?.scrollBy({ left: -140, behavior: 'smooth' });
+    }
+
+    handleTabNavScrollNext() {
+        this._tabNavScrollEl?.scrollBy({ left: 140, behavior: 'smooth' });
+    }
+
+    handleTabMenuSelect(event) {
+        const tabValue = event.detail.value;
+        const channelId = this.activeChannel?.Id;
+        if (channelId && tabValue) {
+            this._updateChState(channelId, { activeTab: tabValue });
+            // eslint-disable-next-line @lwc/lwc/no-async-operation
+            requestAnimationFrame(() => this._updateTabNavOverflow());
+        }
     }
 
     // ── Placement sort & search ──────────────────────────────────────────
@@ -384,12 +521,14 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
 
     handleNewChannel() {
         this.editChannel = EMPTY_CHANNEL();
+        this._channelOriginalName = '';
         this.isChannelModalOpen = true;
     }
 
     handleEditChannel(event) {
         const found = this._rawChannels.find(c => c.Id === event.currentTarget.dataset.id);
         this.editChannel = found ? { ...found } : EMPTY_CHANNEL();
+        this._channelOriginalName = this.editChannel.Name || '';
         this.isChannelModalOpen = true;
     }
 
@@ -433,6 +572,15 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
         if (icon && !VALID_ICON.test(icon)) { this._showToast('Validation', 'Icon must be category:name format', 'error'); return; }
         this.isSaving = true;
         try {
+            const proceed = await confirmDictionaryRenameIfNeeded(
+                this.editChannel.Id,
+                this._channelOriginalName,
+                this.editChannel.Name
+            );
+            if (!proceed) {
+                this.isSaving = false;
+                return;
+            }
             await saveChannelRecord({ record: this.editChannel });
             this._showToast('Success', 'Channel saved', 'success');
             this.isChannelModalOpen = false;
@@ -672,14 +820,52 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
         this.isDeleteModalOpen = false;
         this._pendingDeleteId = null; this._pendingDeleteName = ''; this._pendingDeleteType = '';
         try {
-            if (type === 'channel') { await deleteDictionaryRecord({ recordId: id }); this._showToast('Success', 'Channel deleted', 'success'); }
-            else if (type === 'cooldown') { await deleteCooldownRecord({ cooldownId: id }); this._showToast('Success', 'Cooldown rule deleted', 'success'); }
-            else if (type === 'dayRule') { await deleteBlackoutDayRule({ recordId: id }); this._showToast('Success', 'Weekly restriction removed', 'success'); }
-            else if (type === 'intentTarget') { await deleteIntentTarget({ recordId: id }); this._showToast('Success', 'Intent target deleted', 'success'); }
-            else if (type === 'intent') { await deleteBannerIntent({ recordId: id }); this._showToast('Success', 'Intent deleted', 'success'); }
-            else { await deleteBannerPlacement({ recordId: id }); this._showToast('Success', 'Placeholder deleted', 'success'); }
+            if (type === 'channel') {
+                const deleted = await runDictionaryDeleteWithDependencyCheck({
+                    recordId: id,
+                    deleteFn: () => deleteDictionaryRecord({ recordId: id }),
+                    onBlocked: (report) => { this.dependencyReport = report; }
+                });
+                if (!deleted) {
+                    return;
+                }
+                this._showToast('Success', 'Channel deleted', 'success');
+            } else if (type === 'cooldown') {
+                await deleteCooldownRecord({ cooldownId: id });
+                this._showToast('Success', 'Cooldown rule deleted', 'success');
+            } else if (type === 'dayRule') {
+                await deleteBlackoutDayRule({ recordId: id });
+                this._showToast('Success', 'Weekly restriction removed', 'success');
+            } else if (type === 'intentTarget') {
+                await deleteIntentTarget({ recordId: id });
+                this._showToast('Success', 'Intent target deleted', 'success');
+            } else if (type === 'intent') {
+                await deleteBannerIntent({ recordId: id });
+                this._showToast('Success', 'Intent deleted', 'success');
+            } else {
+                await deleteBannerPlacement({ recordId: id });
+                this._showToast('Success', 'Placeholder deleted', 'success');
+            }
             await refreshApex(this._wiredResult);
-        } catch (e) { this._showToast('Error', e.body?.message || e.message, 'error'); }
+        } catch (e) {
+            const message = e.body?.message || e.message || 'Delete failed.';
+            if (type === 'channel' && isDependencyBlockedMessage(message) && id) {
+                const report = await fetchDictionaryDeleteReport(id);
+                if (reportHasDependencies(report)) {
+                    this.dependencyReport = report;
+                    return;
+                }
+            }
+            this._showToast('Error', message, 'error');
+        }
+    }
+
+    handleCloseDependencyDialog() {
+        this.dependencyReport = null;
+    }
+
+    get isDependencyDialogOpen() {
+        return reportHasDependencies(this.dependencyReport);
     }
 
     // ── Intent Target handlers ───────────────────────────────────────────────
