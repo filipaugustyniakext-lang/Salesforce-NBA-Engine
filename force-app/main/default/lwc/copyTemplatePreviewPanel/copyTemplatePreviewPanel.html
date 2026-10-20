@@ -1,0 +1,71 @@
+<template>
+    <article class={panelClass} style={panelStyle}>
+        <header class="preview-panel__header">
+            <h2 class="preview-panel__title slds-text-heading_small slds-truncate" title={heading}>{heading}</h2>
+            <div class="preview-panel__header-actions" role="toolbar" aria-label="Preview options">
+                <div class="slds-button-group" role="group" aria-label="Device">
+                    <button class={deviceDesktopClass} type="button" onclick={handleDeviceDesktop} title="Desktop preview" aria-pressed={isDesktop}>
+                        <lightning-icon icon-name="utility:desktop" size="x-small" variant={deviceDesktopVariant} class="slds-button__icon"></lightning-icon>
+                        <span class="slds-assistive-text">Desktop</span>
+                    </button>
+                    <button class={deviceMobileClass} type="button" onclick={handleDeviceMobile} title="Mobile preview" aria-pressed={isMobile}>
+                        <lightning-icon icon-name="utility:phone_portrait" size="x-small" variant={deviceMobileVariant} class="slds-button__icon"></lightning-icon>
+                        <span class="slds-assistive-text">Mobile</span>
+                    </button>
+                </div>
+                <div class="slds-button-group slds-m-left_x-small" role="group" aria-label="Theme">
+                    <button class={themeLightClass} type="button" onclick={handleThemeLight} title="Light mode" aria-pressed={isLightTheme}>
+                        <lightning-icon icon-name="custom:custom3" size="x-small" variant={themeLightVariant} class="slds-button__icon preview-theme-icon"></lightning-icon>
+                        <span class="slds-assistive-text">Light</span>
+                    </button>
+                    <button class={themeDarkClass} type="button" onclick={handleThemeDark} title="Dark mode" aria-pressed={isDarkTheme}>
+                        <lightning-icon icon-name="custom:custom10" size="x-small" variant={themeDarkVariant} class="slds-button__icon preview-theme-icon"></lightning-icon>
+                        <span class="slds-assistive-text">Dark</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <template lwc:if={helpText}>
+            <div class="preview-panel__help slds-notify slds-notify_alert slds-alert_info" role="status">
+                <span class="slds-assistive-text">Information</span>
+                <span class="slds-icon_container slds-icon-utility-info slds-m-right_x-small" title="Information">
+                    <lightning-icon icon-name="utility:info" size="x-small" alternative-text="Information"></lightning-icon>
+                </span>
+                <h2 class="slds-text-body_small">{helpText}</h2>
+            </div>
+        </template>
+
+        <div class="preview-panel__body">
+            <template lwc:if={renderSourceLoading}>
+                <div class="preview-panel__loading">
+                    <lightning-spinner alternative-text="Loading preview" size="small"></lightning-spinner>
+                </div>
+            </template>
+
+            <template lwc:elseif={hasShellPreview}>
+                <div class="preview-panel__mock-wrap">
+                    <div class={previewFrameClass} style={previewFrameStyle}>
+                        <template lwc:if={isMobile}>
+                            <div class="preview-panel__notch"></div>
+                        </template>
+                        <template lwc:if={isDesktop}>
+                            <div class="preview-panel__browser-bar">
+                                <span class="preview-panel__browser-dot"></span>
+                                <span class="preview-panel__browser-dot"></span>
+                                <span class="preview-panel__browser-dot"></span>
+                            </div>
+                        </template>
+                        <div class="preview-panel__document" data-preview-host lwc:dom="manual"></div>
+                    </div>
+                </div>
+            </template>
+
+            <template lwc:elseif={previewIsEmpty}>
+                <div class="preview-panel__empty slds-box slds-theme_shade">
+                    <p class="slds-text-body_small slds-text-color_weak">{previewStatusMessage}</p>
+                </div>
+            </template>
+        </div>
+    </article>
+</template>

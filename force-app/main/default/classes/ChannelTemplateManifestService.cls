@@ -68,18 +68,12 @@ public with sharing class ChannelTemplateManifestService {
             );
         }
         if (manifestAsset == null) {
+            String shellBody = resolveShellHtmlBody(shellHtmlAsset, assets);
+            if (String.isNotBlank(shellBody) && hasCcPreviewRegion(shellBody)) {
+                return finishMinimalStudioManifest(result, errors, assets, templateRecord, channelType);
+            }
             if (shellHtmlAsset != null && hasPreviewAction(shellHtmlAsset.body) && !shellExpectsBlocks(shellHtmlAsset.body)) {
-                result.manifestJson = JSON.serialize(new Map<String, Object>{
-                    'schemaVersion' => '2.0',
-                    'components' => new List<Object>()
-                });
-                result.packageId = packageIdFor(templateRecord.Name);
-                Integer majorVersion = templateRecord.Version__c == null || templateRecord.Version__c < 1
-                    ? 1
-                    : templateRecord.Version__c.intValue();
-                result.semVer = majorVersion + '.0.0';
-                result.compilerVersion = defaultCompiler(channelType);
-                return finish(result, errors, assets);
+                return finishMinimalStudioManifest(result, errors, assets, templateRecord, channelType);
             }
             if (shellHtmlAsset != null && shellExpectsBlocks(shellHtmlAsset.body)) {
                 errors.add('This shell expects dropped blocks. Upload an HTML file for each component authors can add.');
@@ -246,16 +240,17 @@ public with sharing class ChannelTemplateManifestService {
         Map<String, Object> manifest = (Map<String, Object>) JSON.deserializeUntyped(
             protectPlaceholders(templateRecord.Manifest_JSON__c)
         );
+        String shellBody = resolveShellHtmlBody(shellHtmlAsset, assets);
         String normalizedChannel = normalizeChannel(channelType);
         if (normalizedChannel == 'email') {
-            if (shellHtmlAsset == null || String.isBlank(shellHtmlAsset.body)) {
+            if (String.isBlank(shellBody)) {
                 errors.add('Email packages require one non-empty Shell HTML file.');
-            } else if (!shellAcceptsMessageContent(shellHtmlAsset.body)) {
-                errors.add('Email Shell HTML must contain {{CONTENT}}, a BODY slot, or data-preview-action on each section.');
-            } else if (shellExpectsBlocks(shellHtmlAsset.body) && !catalogHasComponents(manifest)) {
+            } else if (!shellAcceptsMessageContent(shellBody)) {
+                errors.add('Email Shell HTML must contain cc-preview regions, {{CONTENT}}, a BODY slot, or data-preview-action markers.');
+            } else if (legacyShellExpectsBlockCatalog(shellBody) && !catalogHasComponents(manifest)) {
                 errors.add('This shell expects dropped blocks. Upload an HTML file for each component authors can add.');
             }
-        } else if (shellHtmlAsset != null && shellExpectsBlocks(shellHtmlAsset.body) && !catalogHasComponents(manifest)) {
+        } else if (String.isNotBlank(shellBody) && legacyShellExpectsBlockCatalog(shellBody) && !catalogHasComponents(manifest)) {
             errors.add('This shell expects dropped blocks. Upload an HTML file for each component authors can add.');
         }
         validateCatalogComponents(manifest, assetsByName, errors);
@@ -320,8 +315,10 @@ public with sharing class ChannelTemplateManifestService {
         Set<String> allowed = new Set<String>{
             'copy', 'imageUrl', 'altText', 'legal',
             'viewDesktop', 'viewMobile', 'padding', 'background', 'columnLayout', 'heightDesktop', 'heightMobile',
-            'hideDesktop', 'hideMobile', 'padDesktop', 'padMobile', 'bgColor', 'bgImage', 'bgGradient', 'columnDir',
-            'colPadDesktop', 'colPadMobile', 'colBgColor', 'colBgImage', 'colBgGradient'
+            'iconListHeader', 'iconListIcon', 'iconListItem',
+            'imageSrc', 'imageAlt', 'imageHref', 'imageTarget',
+            'imageWidthDesktop', 'imageWidthMobile', 'imagePaddingDesktop', 'imagePaddingMobile',
+            'contentValue'
         };
         Set<String> bound = new Set<String>();
         Object rawBindings = component.get('bindings');
@@ -342,17 +339,10 @@ public with sharing class ChannelTemplateManifestService {
             }
         }
         for (String name : placeholderNames(source)) {
-            if (bound.contains(name) || isStructuralPlaceholder(name)) continue;
-            errors.add('Bind {{' + name + '}} on ' + blockType + ' to a Content Settings or Block Settings value.');
+            if (!bound.contains(name)) {
+                errors.add('Bind {{' + name + '}} on ' + blockType + ' to a Content Settings or Block Settings value.');
+            }
         }
-    }
-
-    private static Boolean isStructuralPlaceholder(String name) {
-        return new Set<String>{
-            'blo-hide-dsk', 'blo-hide-mob', 'blo-pad-dsk', 'blo-pad-mob',
-            'blo-bg-color', 'blo-bg-img', 'blo-bg-grd', 'column-dir',
-            'col-pad-dsk', 'col-pad-mob', 'col-bg-color', 'col-bg-image', 'col-bg-gradient'
-        }.contains(name);
     }
 
     private static Boolean hasBodySlot(String shell) {
@@ -366,7 +356,53 @@ public with sharing class ChannelTemplateManifestService {
             shell.contains('{{CONTENT}}')
             || hasBodySlot(shell)
             || hasPreviewAction(shell)
+            || hasCcPreviewRegion(shell)
         );
+    }
+
+    private static ValidationResult finishMinimalStudioManifest(
+        ValidationResult result,
+        List<String> errors,
+        List<SourceAsset> assets,
+        Channel_Template__c templateRecord,
+        String channelType
+    ) {
+        result.manifestJson = JSON.serialize(new Map<String, Object>{
+            'schemaVersion' => '2.0',
+            'components' => new List<Object>()
+        });
+        result.packageId = packageIdFor(templateRecord.Name);
+        Integer majorVersion = templateRecord.Version__c == null || templateRecord.Version__c < 1
+            ? 1
+            : templateRecord.Version__c.intValue();
+        result.semVer = majorVersion + '.0.0';
+        result.compilerVersion = defaultCompiler(channelType);
+        return finish(result, errors, assets);
+    }
+
+    private static String resolveShellHtmlBody(SourceAsset shellHtmlAsset, List<SourceAsset> assets) {
+        if (shellHtmlAsset != null && String.isNotBlank(shellHtmlAsset.body)) {
+            return shellHtmlAsset.body;
+        }
+        for (SourceAsset asset : assets) {
+            if (asset == null || asset.extension != 'html' || String.isBlank(asset.body)) continue;
+            if (asset.body.toLowerCase().contains('<cc-preview')) return asset.body;
+        }
+        for (SourceAsset asset : assets) {
+            if (asset == null || asset.extension != 'html' || String.isBlank(asset.body)) continue;
+            String name = String.valueOf(asset.fullName).toLowerCase();
+            if (name.contains('master') || name.contains('shell')) return asset.body;
+        }
+        return '';
+    }
+
+    private static Boolean hasCcPreviewRegion(String shell) {
+        return Pattern.compile('(?i)<cc-preview\\b').matcher(String.valueOf(shell)).find();
+    }
+
+    /** Legacy data-preview-action expectBlocks still requires a component catalog. cc-preview blocks does not. */
+    private static Boolean legacyShellExpectsBlockCatalog(String shell) {
+        return shellExpectsBlocks(shell);
     }
 
     private static Boolean hasPreviewAction(String shell) {

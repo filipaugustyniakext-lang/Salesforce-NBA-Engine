@@ -1,0 +1,614 @@
+<template>
+    <div class="studio-root">
+        <div class="studio-toolbar">
+            <div>
+                <h3 class="slds-text-heading_small">Master Template Definition</h3>
+                <p class="slds-text-body_small slds-text-color_weak">
+                    Define template packages for {channelName}. Draft templates cannot be assigned in Copy Center until activated after validation.
+                </p>
+            </div>
+            <lightning-button
+                label="New Template Definition"
+                icon-name="utility:add"
+                variant="brand"
+                onclick={handleNew}>
+            </lightning-button>
+        </div>
+
+        <template lwc:if={isLoading}>
+            <lightning-spinner size="small" alternative-text="Loading"></lightning-spinner>
+        </template>
+
+        <template lwc:elseif={errorMessage}>
+            <div class="slds-notify slds-notify_alert slds-alert_error" role="alert">{errorMessage}</div>
+        </template>
+
+        <template lwc:elseif={hasTemplates}>
+            <div class="studio-tiles">
+                <template for:each={templates} for:item="item">
+                    <article key={item.id} class="studio-tile slds-box">
+                        <header class="studio-tile__header">
+                            <div class="studio-tile__title-wrap">
+                                <div class="studio-tile__title-row">
+                                    <h4 class="slds-text-heading_small slds-truncate" title={item.name}>{item.name}</h4>
+                                    <span class={item.statusClass}>{item.displayStatus}</span>
+                                </div>
+                            </div>
+                            <div class="studio-tile__actions" role="group" aria-label="Template actions">
+                                <lightning-button-icon
+                                    icon-name="utility:edit"
+                                    size="small"
+                                    variant="border-filled"
+                                    alternative-text="Edit"
+                                    title={item.editTitle}
+                                    data-id={item.id}
+                                    onclick={handleEdit}>
+                                </lightning-button-icon>
+                                <lightning-button-icon
+                                    icon-name="utility:delete"
+                                    size="small"
+                                    variant="border-filled"
+                                    alternative-text="Delete"
+                                    title={item.deleteTitle}
+                                    data-id={item.id}
+                                    disabled={item.deleteDisabled}
+                                    onclick={handleDeleteTemplate}>
+                                </lightning-button-icon>
+                            </div>
+                        </header>
+                        <dl class="studio-tile__meta">
+                            <div class="studio-tile__row">
+                                <dt>Shell regions</dt>
+                                <dd>
+                                    <template lwc:if={item.hasShellRegions}>
+                                        <div class="studio-tile__badges" role="list" aria-label="Shell regions">
+                                            <template for:each={item.shellRegionBadges} for:item="region">
+                                                <span key={region.key} class="slds-badge slds-badge_lightest" role="listitem">{region.label}</span>
+                                            </template>
+                                        </div>
+                                    </template>
+                                    <template lwc:else>None detected</template>
+                                </dd>
+                            </div>
+                            <div class="studio-tile__row">
+                                <dt>Content blocks</dt>
+                                <dd>
+                                    <template lwc:if={item.hasBlocks}>
+                                        <div class="studio-tile__badges" role="list" aria-label="Content blocks">
+                                            <template for:each={item.blockBadges} for:item="block">
+                                                <span key={block.key} class="slds-badge slds-badge_lightest" role="listitem">{block.label}</span>
+                                            </template>
+                                        </div>
+                                    </template>
+                                    <template lwc:else>None</template>
+                                </dd>
+                            </div>
+                            <div class="studio-tile__row">
+                                <dt>Validation</dt>
+                                <dd class="studio-tile__validation">
+                                    <template lwc:if={item.packageValidationBadge}>
+                                        <span class={item.packageValidationBadge.className}>{item.packageValidationBadge.label}</span>
+                                    </template>
+                                    <template lwc:if={item.hasSupplementalValidationIssues}>
+                                        <ul class="studio-tile__list studio-tile__list_warn slds-m-top_xx-small">
+                                            <template for:each={item.supplementalValidationIssues} for:item="issue">
+                                                <li key={issue}>{issue}</li>
+                                            </template>
+                                        </ul>
+                                    </template>
+                                </dd>
+                            </div>
+                            <div class="studio-tile__row">
+                                <dt>Copy Center usage</dt>
+                                <dd>
+                                    <span class={item.copyCenterUsageClass}>{item.variantLabel}</span>
+                                </dd>
+                            </div>
+                        </dl>
+                    </article>
+                </template>
+            </div>
+        </template>
+
+        <template lwc:else>
+            <div class="studio-empty slds-box slds-theme_shade">
+                <p class="slds-text-body_regular">No template definitions yet.</p>
+                <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">
+                    Create the first definition for {channelName}.
+                </p>
+            </div>
+        </template>
+    </div>
+
+    <template lwc:if={isModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true" class="slds-modal slds-fade-in-open studio-modal-fullscreen">
+            <div class="slds-modal__container studio-modal">
+                <header class="slds-modal__header">
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse" title="Close" onclick={closeModal}>
+                        <lightning-icon icon-name="utility:close" size="small" alternative-text="Close"></lightning-icon>
+                    </button>
+                    <h2 class="slds-modal__title">{modalTitle}</h2>
+                </header>
+
+                <div class="slds-modal__content studio-modal__body">
+                    <div class="studio-modal__layout">
+                        <nav class="studio-nav" aria-label="Template definition steps">
+                            <template for:each={navItems} for:item="step">
+                                <button
+                                    key={step.value}
+                                    type="button"
+                                    class={step.itemClass}
+                                    data-step={step.value}
+                                    aria-current={step.ariaCurrent}
+                                    onclick={handleNavSelect}>
+                                    <span class="studio-nav__number">{step.number}</span>
+                                    <span class="studio-nav__label-wrap">
+                                        <span class="studio-nav__label">{step.label}</span>
+                                        <template lwc:if={step.showBlockCounts}>
+                                            <span class="studio-nav__badges" aria-label="Content block counts">
+                                                <span class="slds-badge slds-badge_lightest" title="Blocks defined">{step.definedBlockCount}</span>
+                                                <span class="slds-badge slds-theme_success" title="Blocks activated">{step.activeBlockCount}</span>
+                                            </span>
+                                        </template>
+                                    </span>
+                                </button>
+                            </template>
+                        </nav>
+
+                        <div class={studioPanelClass}>
+                            <template lwc:if={isBasicStep}>
+                                <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
+                                    Saved record name:
+                                    <strong>{computedRecordName}</strong>
+                                    (TEMP + country + name + classification)
+                                </p>
+                                <div class="slds-grid slds-gutters_small slds-wrap">
+                                    <div class="slds-col slds-size_1-of-3">
+                                        <lightning-combobox
+                                            label="Country code"
+                                            value={draft.Country_Code__c}
+                                            options={countryOptions}
+                                            data-field="Country_Code__c"
+                                            onchange={handleFieldChange}>
+                                        </lightning-combobox>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-3">
+                                        <lightning-input
+                                            label="Template name"
+                                            required
+                                            value={draft.Template_Slug__c}
+                                            data-field="Template_Slug__c"
+                                            field-level-help="Letters, numbers, and underscores. Combined into the TEMP_* record name."
+                                            onchange={handleFieldChange}>
+                                        </lightning-input>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-3">
+                                        <lightning-combobox
+                                            label="Classification"
+                                            value={draft.Template_Classification__c}
+                                            options={classificationOptions}
+                                            data-field="Template_Classification__c"
+                                            onchange={handleFieldChange}>
+                                        </lightning-combobox>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-1 slds-m-top_small">
+                                        <lightning-textarea
+                                            label="Description"
+                                            value={draft.Description__c}
+                                            max-length="1000"
+                                            data-field="Description__c"
+                                            onchange={handleFieldChange}>
+                                        </lightning-textarea>
+                                    </div>
+                                </div>
+                            </template>
+
+                            <template lwc:if={isShellStep}>
+                                <div class="studio-shell-layout">
+                                    <div class="studio-shell-layout__main">
+                                        <template lwc:if={hasRecordId}>
+                                            <template lwc:if={isActiveTemplate}>
+                                                <div class="slds-notify slds-notify_alert slds-alert_warning studio-shell-active-warning" role="alert">
+                                                    <span class="slds-assistive-text">Warning</span>
+                                                    <lightning-icon icon-name="utility:warning" size="x-small" class="slds-m-right_x-small" alternative-text="Warning"></lightning-icon>
+                                                    <h2 class="slds-text-body_small">Updating the template shell affects every email that uses this active template.</h2>
+                                                </div>
+                                            </template>
+                                            <section class="studio-shell-workspace slds-box" aria-label="Shell HTML upload and regions">
+                                                <lightning-file-upload
+                                                    label={shellUploadLabel}
+                                                    name="shellHtml"
+                                                    record-id={draft.Id}
+                                                    accept={acceptedHtml}
+                                                    onuploadfinished={handleShellUpload}>
+                                                </lightning-file-upload>
+                                                <template lwc:if={hasShellFile}>
+                                                    <div class="studio-file-list">
+                                                        <template for:each={shellFileTiles} for:item="asset">
+                                                            <article key={asset.documentId} class="studio-file" title={asset.name}>
+                                                                <lightning-icon icon-name={asset.tileIcon} size="small" alternative-text="HTML"></lightning-icon>
+                                                                <a class="studio-file__name slds-truncate" href={asset.downloadUrl} target="_blank">{asset.name}</a>
+                                                                <lightning-button-icon
+                                                                    icon-name="utility:delete"
+                                                                    variant="bare"
+                                                                    alternative-text="Delete"
+                                                                    title="Delete"
+                                                                    data-id={asset.documentId}
+                                                                    data-template-id={draft.Id}
+                                                                    disabled={asset.deleteDisabled}
+                                                                    onclick={handleDeleteAsset}>
+                                                                </lightning-button-icon>
+                                                            </article>
+                                                        </template>
+                                                    </div>
+                                                </template>
+                                                <div class="studio-detected-regions">
+                                                    <h3 class="slds-text-title_caps">Detected regions summary</h3>
+                                                    <template lwc:if={shellRegionsOk}>
+                                                        <div class="studio-detected-regions__badges" role="list" aria-label="Regions in document order">
+                                                            <template for:each={shellRegionsDisplay} for:item="region">
+                                                                <span key={region.key} class="slds-badge slds-badge_lightest" role="listitem">{region.label}</span>
+                                                            </template>
+                                                        </div>
+                                                    </template>
+                                                    <template lwc:else>
+                                                        <p class="slds-text-color_error slds-text-body_small">{shellRegionError}</p>
+                                                    </template>
+                                                </div>
+                                            </section>
+                                            <div
+                                                class="slds-notify slds-notify_alert slds-theme_info studio-shell-requirements"
+                                                role="alert"
+                                                aria-label="Shell HTML guidance">
+                                                <span class="slds-assistive-text">Information</span>
+                                                <lightning-icon
+                                                    icon-name="utility:info"
+                                                    alternative-text="Information"
+                                                    size="x-small"
+                                                    class="slds-m-right_x-small">
+                                                </lightning-icon>
+                                                <div class="studio-panel__aside-body">
+                                                    <h2 class="studio-panel__aside-title">Shell HTML requirements</h2>
+                                                    <ul class="studio-panel__aside-list">
+                                                        <li>Only one HTML shell file is allowed per template definition.</li>
+                                                        <li>CSS can be embedded inside the shell file.</li>
+                                                        <li>Uploading a new shell file replaces the current one.</li>
+                                                        <li>
+                                                            Make sure you added Copy Center preview wrappers to your HTML so Copy Center can render message preview correctly.
+                                                        </li>
+                                                    </ul>
+                                                    <p class="studio-panel__aside-label">Wrap the entire template body:</p>
+                                                    <ul class="studio-panel__aside-code">
+                                                        <li>&lt;cc-preview data-action="template-start" desktop-width="600" mobile-width="288"&gt;…&lt;/cc-preview&gt;</li>
+                                                    </ul>
+                                                    <p class="studio-panel__aside-label">Inner regions:</p>
+                                                    <ul class="studio-panel__aside-code">
+                                                        <li>&lt;cc-preview region="fixed-read"&gt;YOUR HTML&lt;/cc-preview&gt;</li>
+                                                        <li>&lt;cc-preview region="fixed-edit"&gt;YOUR HTML&lt;/cc-preview&gt;</li>
+                                                        <li>&lt;cc-preview region="blocks"&gt;YOUR HTML&lt;/cc-preview&gt;</li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </template>
+                                        <template lwc:else>
+                                            <div class="slds-box slds-theme_shade">Save basic properties first.</div>
+                                        </template>
+                                    </div>
+                                    <template lwc:if={hasRecordId}>
+                                        <div class="studio-shell-layout__preview">
+                                            <c-copy-template-preview-panel
+                                                template-id={draft.Id}
+                                                preview-mode="shell"
+                                                heading="Shell preview"
+                                                help-text="fixed-read and fixed-edit render as-is; the blocks region shows the empty canvas until content blocks are added.">
+                                            </c-copy-template-preview-panel>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+
+                            <template lwc:if={isBlocksStep}>
+                                <div class="studio-blocks-layout">
+                                    <div class="studio-blocks-layout__main">
+                                        <div class="studio-blocks-main__header">
+                                            <p class="slds-text-body_small slds-text-color_weak studio-blocks-main__intro">
+                                                Optional: define reusable content blocks for Copy Center. Shell-only templates can skip this step. Block styling must live in the Template Shell HTML file.
+                                            </p>
+                                            <template lwc:if={showAddBlockDefinitionButton}>
+                                                <lightning-button
+                                                    label="Add Content Block Definition"
+                                                    icon-name="utility:add"
+                                                    onclick={handleAddBlockDefinition}>
+                                                </lightning-button>
+                                            </template>
+                                        </div>
+                                        <template lwc:if={hasRecordId}>
+                                            <template lwc:if={showBlocksEmptyState}>
+                                                <lightning-empty-state
+                                                    illustration-name="success:new"
+                                                    title="No content blocks yet">
+                                                    <p slot="description">
+                                                        Add a content block definition to import HTML used in the Copy Cockpit editor.
+                                                    </p>
+                                                    <lightning-button
+                                                        slot="cta"
+                                                        variant="brand"
+                                                        label="Add Content Block Definition"
+                                                        onclick={handleAddBlockDefinition}>
+                                                    </lightning-button>
+                                                </lightning-empty-state>
+                                            </template>
+                                            <template for:each={contentBlockCards} for:item="block">
+                                                <article
+                                                    key={block.key}
+                                                    class={block.summaryCardClass}
+                                                    data-preview-key={block.previewKey}
+                                                    role="button"
+                                                    tabindex="0"
+                                                    title="Show this block in preview"
+                                                    onclick={handleBlockSummaryPreview}>
+                                                    <div class="slds-card__header slds-grid">
+                                                        <header class="slds-media slds-media_center slds-has-flexi-truncate">
+                                                            <div class="slds-media__body">
+                                                                <h3 class="slds-card__header-title">
+                                                                    <span class="slds-truncate" title={block.displayTitle}>{block.displayTitle}</span>
+                                                                </h3>
+                                                                <p class="slds-text-body_small slds-text-color_weak slds-truncate" title={block.fileMeta}>{block.fileMeta}</p>
+                                                            </div>
+                                                        </header>
+                                                        <div class="slds-no-flex studio-block-summary__actions">
+                                                            <lightning-button
+                                                                label="Edit"
+                                                                data-type={block.type}
+                                                                onclick={handleEditBlockDefinition}>
+                                                            </lightning-button>
+                                                            <lightning-button-icon
+                                                                class="slds-m-left_x-small"
+                                                                icon-name="utility:delete"
+                                                                variant="border-filled"
+                                                                alternative-text="Delete content block definition"
+                                                                title="Delete content block definition"
+                                                                data-type={block.type}
+                                                                onclick={handleDeleteBlockDefinition}>
+                                                            </lightning-button-icon>
+                                                        </div>
+                                                    </div>
+                                                    <div class="slds-card__body slds-card__body_inner">
+                                                        <div class="studio-block-summary__badges" role="list" aria-label="Block status">
+                                                            <span class={block.statusBadgeClass} role="listitem">{block.statusLabel}</span>
+                                                            <span class={block.validationBadgeClass} role="listitem">{block.validationLabel}</span>
+                                                        </div>
+                                                        <p class="slds-text-body_small slds-m-top_small">{block.descriptionDisplay}</p>
+                                                    </div>
+                                                </article>
+                                            </template>
+                                            <template lwc:if={showNewBlockDefinitionForm}>
+                                                <article class="studio-block-definition-card slds-card slds-card_boundary">
+                                                    <div class="slds-card__header slds-grid">
+                                                        <header class="slds-media slds-media_center slds-has-flexi-truncate">
+                                                            <div class="slds-media__body">
+                                                                <h3 class="slds-card__header-title">
+                                                                    <span>New content block definition</span>
+                                                                </h3>
+                                                            </div>
+                                                        </header>
+                                                        <div class="slds-no-flex">
+                                                            <lightning-button label="Cancel" onclick={handleCancelBlockDefinition}></lightning-button>
+                                                        </div>
+                                                    </div>
+                                                    <div class="slds-card__body slds-card__body_inner">
+                                                        <div class="slds-notify slds-notify_alert slds-alert_warning slds-m-bottom_medium" role="alert">
+                                                            <span class="slds-assistive-text">Warning</span>
+                                                            <lightning-icon icon-name="utility:warning" size="x-small" class="slds-m-right_x-small" alternative-text="Warning"></lightning-icon>
+                                                            <h2 class="slds-text-body_small">Include all block CSS in the Template Shell HTML file. Block HTML files should not rely on separate CSS uploads.</h2>
+                                                        </div>
+                                                        <lightning-file-upload
+                                                            label="Content block HTML"
+                                                            name="blockDefinitionHtml"
+                                                            record-id={draft.Id}
+                                                            accept={acceptedHtml}
+                                                            onuploadfinished={handleBlockDefinitionUpload}>
+                                                        </lightning-file-upload>
+                                                        <template lwc:if={pendingBlockDraft.fileName}>
+                                                            <p class="slds-text-body_small slds-m-top_x-small">
+                                                                Uploaded file: <strong>{pendingBlockDraft.fileName}</strong>
+                                                            </p>
+                                                        </template>
+                                                        <div class="slds-grid slds-wrap slds-gutters slds-m-top_small">
+                                                            <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                                                                <lightning-input
+                                                                    label="Content block name"
+                                                                    value={pendingBlockDraft.label}
+                                                                    data-field="label"
+                                                                    max-length="80"
+                                                                    required
+                                                                    onchange={handlePendingBlockFieldChange}>
+                                                                </lightning-input>
+                                                            </div>
+                                                            <div class="slds-col slds-size_1-of-1">
+                                                                <lightning-textarea
+                                                                    label="Description"
+                                                                    value={pendingBlockDraft.description}
+                                                                    data-field="description"
+                                                                    max-length="255"
+                                                                    onchange={handlePendingBlockFieldChange}>
+                                                                </lightning-textarea>
+                                                            </div>
+                                                        </div>
+                                                        <lightning-tabset variant="scoped" class="studio-block-definition-tabs" active-tab-value={blockBindingTab}>
+                                                            <lightning-tab label="Blocks Content Binding" value="content">
+                                                                <p class="studio-block-binding-placeholder slds-text-body_small slds-text-color_weak">
+                                                                    Binding mapping for editable HTML regions will be configured here.
+                                                                </p>
+                                                            </lightning-tab>
+                                                            <lightning-tab label="Block Settings Binding" value="settings">
+                                                                <p class="studio-block-binding-placeholder slds-text-body_small slds-text-color_weak">
+                                                                    Binding mapping for block settings will be configured here.
+                                                                </p>
+                                                            </lightning-tab>
+                                                        </lightning-tabset>
+                                                        <div class="slds-m-top_medium studio-block-definition-actions">
+                                                            <lightning-button
+                                                                label="Save"
+                                                                disabled={saveBlockDefinitionDisabled}
+                                                                onclick={handleSaveBlockDefinition}>
+                                                            </lightning-button>
+                                                            <lightning-button
+                                                                class="slds-m-left_x-small"
+                                                                label="Validate"
+                                                                disabled={validateBlockDefinitionDisabled}
+                                                                onclick={handleValidateBlockDefinition}>
+                                                            </lightning-button>
+                                                            <lightning-button
+                                                                class="slds-m-left_x-small"
+                                                                variant="brand"
+                                                                label="Activate"
+                                                                disabled={activateBlockDefinitionDisabled}
+                                                                onclick={handleActivateBlockDefinition}>
+                                                            </lightning-button>
+                                                        </div>
+                                                    </div>
+                                                </article>
+                                            </template>
+                                        </template>
+                                        <template lwc:else>
+                                            <div class="slds-box slds-theme_shade">Save basic properties first.</div>
+                                        </template>
+                                    </div>
+                                    <template lwc:if={hasRecordId}>
+                                        <div class="studio-blocks-layout__preview">
+                                            <c-copy-template-preview-panel
+                                                template-id={draft.Id}
+                                                preview-mode="blocks"
+                                                preview-block-key={previewBlockKey}
+                                                heading="Block preview"
+                                                help-text="Select or upload one content block to preview it inside the template shell. Only the focused block is rendered.">
+                                            </c-copy-template-preview-panel>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+
+                            <template lwc:if={isSummaryStep}>
+                                <div class="studio-summary-only">
+                                <h3 class="slds-text-heading_small">Summary</h3>
+                                <dl class="studio-summary">
+                                    <div><dt>Template name</dt><dd>{computedRecordName}</dd></div>
+                                    <div><dt>Status</dt><dd>Draft (activation pending validation)</dd></div>
+                                    <div><dt>Shell regions</dt>
+                                        <dd>
+                                            <template lwc:if={shellRegionsOk}>
+                                                <div class="studio-detected-regions__badges" role="list" aria-label="Regions in document order">
+                                                    <template for:each={shellRegionsDisplay} for:item="region">
+                                                        <span key={region.key} class="slds-badge slds-badge_lightest" role="listitem">{region.label}</span>
+                                                    </template>
+                                                </div>
+                                            </template>
+                                            <template lwc:else>None detected</template>
+                                        </dd>
+                                    </div>
+                                    <div><dt>Content blocks</dt>
+                                        <dd>
+                                            <ul class="studio-tile__list">
+                                                <template for:each={summaryBlockNames} for:item="name">
+                                                    <li key={name}>{name}</li>
+                                                </template>
+                                            </ul>
+                                        </dd>
+                                    </div>
+                                    <div><dt>Validation notes</dt>
+                                        <dd>
+                                            <ul class="studio-tile__list studio-tile__list_warn">
+                                                <template for:each={summaryValidationLines} for:item="line">
+                                                    <li key={line}>{line}</li>
+                                                </template>
+                                            </ul>
+                                        </dd>
+                                    </div>
+                                </dl>
+                                <lightning-button
+                                    class="slds-m-top_medium"
+                                    label="Activate Template"
+                                    title={activateTitle}
+                                    disabled={activateDisabled}
+                                    onclick={handleActivate}>
+                                </lightning-button>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Close" onclick={closeModal}></lightning-button>
+                    <template lwc:if={isShellStep}>
+                        <lightning-button label="Back" onclick={handleBack} class="slds-m-left_x-small"></lightning-button>
+                    </template>
+                    <template lwc:if={isBlocksStep}>
+                        <lightning-button label="Back" onclick={handleBack} class="slds-m-left_x-small"></lightning-button>
+                    </template>
+                    <template lwc:if={isSummaryStep}>
+                        <lightning-button label="Back" onclick={handleBack} class="slds-m-left_x-small"></lightning-button>
+                    </template>
+                    <lightning-button
+                        label="Save draft"
+                        variant="neutral"
+                        disabled={saveDisabled}
+                        onclick={handleSaveDraft}
+                        class="slds-m-left_x-small">
+                    </lightning-button>
+                    <template lwc:if={isBasicStep}>
+                        <lightning-button label="Next" variant="brand" disabled={nextDisabled} onclick={handleNext} class="slds-m-left_x-small"></lightning-button>
+                    </template>
+                    <template lwc:if={isShellStep}>
+                        <lightning-button label="Next" variant="brand" disabled={nextDisabled} onclick={handleNext} class="slds-m-left_x-small"></lightning-button>
+                    </template>
+                    <template lwc:if={isBlocksStep}>
+                        <lightning-button label="Next" variant="brand" onclick={handleNext} class="slds-m-left_x-small"></lightning-button>
+                    </template>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+    <template lwc:if={pendingBlockDelete}>
+        <section role="alertdialog" tabindex="-1" aria-modal="true" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header slds-theme_warning">
+                    <h2 class="slds-modal__title">Delete content block definition?</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    Delete <strong>{pendingBlockDelete.title}</strong>? This removes the block definition from the template catalog
+                    <template lwc:if={pendingBlockDelete.documentId}> and unlinks its HTML file</template>.
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={closeBlockDeleteModal}></lightning-button>
+                    <lightning-button label="Delete" variant="destructive" onclick={confirmDeleteBlockDefinition} class="slds-m-left_x-small"></lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+    <template lwc:if={pendingDelete}>
+        <section role="alertdialog" tabindex="-1" aria-modal="true" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header slds-theme_warning">
+                    <h2 class="slds-modal__title">Delete template?</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    Delete <strong>{pendingDelete.name}</strong>?
+                    <template lwc:if={pendingDelete.messageVariantCount}>
+                        <p class="slds-text-color_error slds-m-top_small">It is assigned to message variants and cannot be deleted.</p>
+                    </template>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={closeDeleteModal}></lightning-button>
+                    <lightning-button label="Delete" variant="destructive" disabled={pendingDelete.messageVariantCount} onclick={confirmDeleteTemplate} class="slds-m-left_x-small"></lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+</template>
