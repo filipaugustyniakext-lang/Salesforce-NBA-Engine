@@ -288,7 +288,7 @@
                                     onchange={handleFieldChange}>
                                 </lightning-combobox>
                             </div>
-                            <div class="slds-m-top_small">
+                            <div class="slds-m-top_medium pf-tagging-only-row">
                                 <lightning-input
                                     type="checkbox"
                                     label="For tagging only"
@@ -459,7 +459,7 @@
                                     <p class="slds-form-element__label">Customer Types (inherited)</p>
                                     <p class="slds-text-body_small">{row.customerTypeSummary}</p>
                                 </div>
-                                <div class="slds-col slds-size_1-of-1">
+                                <div class="slds-col slds-size_1-of-1 pf-tagging-only-row">
                                     <lightning-input type="checkbox" label="For tagging only"
                                         checked={row.forTaggingOnly} data-key={row.key} data-field="forTaggingOnly"
                                         onchange={handleBulkEditRowChange}>

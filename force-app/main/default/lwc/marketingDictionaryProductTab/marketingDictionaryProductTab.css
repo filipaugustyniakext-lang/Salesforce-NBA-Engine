@@ -149,3 +149,8 @@
 .bulk-edit-row {
     background: #fafbfc;
 }
+
+.pf-tagging-only-row {
+    margin-top: 0.75rem;
+    padding-top: 0.35rem;
+}
