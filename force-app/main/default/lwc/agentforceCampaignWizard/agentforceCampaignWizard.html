@@ -267,15 +267,22 @@
                                                     <template lwc:if={showManualExclusionDefinitions}>
                                                     <template for:each={exclusionDefinitionRows} for:item="row">
                                                         <div key={row.id} class="exclusion-definition-row slds-m-bottom_medium">
-                                                            <lightning-combobox
-                                                                label="Exclusion source"
-                                                                value={row.source}
-                                                                options={exclusionSourceOptions}
-                                                                placeholder="Select source..."
-                                                                data-row-id={row.id}
-                                                                onchange={handleExclusionSourceChange}
-                                                                class="custom-form-input">
-                                                            </lightning-combobox>
+                                                            <label class="slds-form-element__label custom-label-style">Exclusion source</label>
+                                                            <div class="slds-button-group exclusion-source-group slds-m-top_xx-small slds-m-bottom_x-small" role="group" aria-label="Exclusion source">
+                                                                <template for:each={row.exclusionSourceOptions} for:item="srcOpt">
+                                                                    <button
+                                                                        key={srcOpt.value}
+                                                                        type="button"
+                                                                        class={srcOpt.btnClass}
+                                                                        data-row-id={row.id}
+                                                                        data-value={srcOpt.value}
+                                                                        title={srcOpt.label}
+                                                                        onclick={handleExclusionSourcePick}>
+                                                                        <lightning-icon icon-name={srcOpt.icon} size="x-small"></lightning-icon>
+                                                                        <span class="exclusion-source-btn-label">{srcOpt.shortLabel}</span>
+                                                                    </button>
+                                                                </template>
+                                                            </div>
                                                             <div class="exclusion-lookup-col slds-m-top_x-small">
                                                                     <template lwc:if={row.isCampaign}>
                                                                         <div class={row.campaignPickerContainerClass} data-row-id={row.id}>
@@ -361,24 +368,76 @@
                                                                         </div>
                                                                     </template>
                                                                     <template lwc:elseif={row.isReport}>
-                                                                        <lightning-input
-                                                                            type="search"
-                                                                            label="Salesforce Report"
-                                                                            placeholder="Search reports..."
-                                                                            value={row.searchTerm}
-                                                                            data-row-id={row.id}
-                                                                            onchange={handleExclusionSearchInput}
-                                                                            class="custom-form-input">
-                                                                        </lightning-input>
-                                                                        <lightning-combobox
-                                                                            label="Selected report"
-                                                                            value={row.value}
-                                                                            options={row.lookupOptions}
-                                                                            placeholder="Choose a report..."
-                                                                            data-row-id={row.id}
-                                                                            onchange={handleExclusionLookupSelect}
-                                                                            class="custom-form-input slds-m-top_x-small">
-                                                                        </lightning-combobox>
+                                                                        <div class={row.reportPickerContainerClass} data-row-id={row.id}>
+                                                                            <label class="slds-form-element__label">Salesforce Reports</label>
+                                                                            <div class="slds-form-element__control">
+                                                                                <div class="slds-combobox_container">
+                                                                                    <div class="slds-combobox slds-dropdown-trigger slds-dropdown-trigger_click">
+                                                                                        <div class="slds-combobox__form-element slds-input-has-icon slds-input-has-icon_right" role="none">
+                                                                                            <input
+                                                                                                type="text"
+                                                                                                class="slds-input slds-combobox__input custom-form-input"
+                                                                                                placeholder="Search reports..."
+                                                                                                autocomplete="off"
+                                                                                                value={row.reportSearchTerm}
+                                                                                                data-row-id={row.id}
+                                                                                                onclick={handleReportPickerToggle}
+                                                                                                oninput={handleReportPickerSearch}
+                                                                                            />
+                                                                                            <span class="slds-icon_container slds-icon-utility-search slds-input__icon slds-input__icon_right">
+                                                                                                <lightning-icon icon-name="utility:search" size="x-small"></lightning-icon>
+                                                                                            </span>
+                                                                                        </div>
+                                                                                        <template lwc:if={row.reportPickerOpen}>
+                                                                                            <div class="custom-picklist-dropdown exclusion-picker-dropdown" role="listbox">
+                                                                                                <div class="dropdown-scrollable-list">
+                                                                                                    <template for:each={row.filteredReportPickerRows} for:item="rep">
+                                                                                                        <div key={rep.id} class="exclusion-picker-option-row">
+                                                                                                            <label class="exclusion-picker-option-label custom-dropdown-row">
+                                                                                                                <input
+                                                                                                                    type="checkbox"
+                                                                                                                    class="exclusion-picker-checkbox"
+                                                                                                                    checked={rep.isSelected}
+                                                                                                                    data-row-id={row.id}
+                                                                                                                    data-report-id={rep.id}
+                                                                                                                    onchange={handleReportExclusionToggle}
+                                                                                                                />
+                                                                                                                <span class="exclusion-picker-option-text">
+                                                                                                                    <span class="list-campaign-title">{rep.name}</span>
+                                                                                                                    <template lwc:if={rep.metaLine}>
+                                                                                                                        <span class="exclusion-campaign-meta">{rep.metaLine}</span>
+                                                                                                                    </template>
+                                                                                                                </span>
+                                                                                                            </label>
+                                                                                                        </div>
+                                                                                                    </template>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        </template>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                            <template lwc:if={row.hasSelectedReports}>
+                                                                                <ul class="exclusion-campaign-pills slds-listbox slds-listbox_horizontal slds-m-top_x-small" role="listbox" aria-label="Selected reports">
+                                                                                    <template for:each={row.selectedReportPills} for:item="pill">
+                                                                                        <li key={pill.id} class="slds-listbox-item" role="presentation">
+                                                                                            <span class="slds-pill">
+                                                                                                <span class="slds-pill__label" title={pill.label}>{pill.label}</span>
+                                                                                                <button
+                                                                                                    type="button"
+                                                                                                    class="slds-button slds-button_icon slds-button_icon slds-pill__remove"
+                                                                                                    title="Remove"
+                                                                                                    data-row-id={row.id}
+                                                                                                    data-report-id={pill.id}
+                                                                                                    onclick={handleRemoveReportExclusionPill}>
+                                                                                                    <lightning-icon icon-name="utility:close" size="x-small" alternative-text="Remove"></lightning-icon>
+                                                                                                </button>
+                                                                                            </span>
+                                                                                        </li>
+                                                                                    </template>
+                                                                                </ul>
+                                                                            </template>
+                                                                        </div>
                                                                     </template>
                                                                     <template lwc:elseif={row.isSegment}>
                                                                         <lightning-input

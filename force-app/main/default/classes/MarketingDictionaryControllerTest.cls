@@ -167,6 +167,17 @@ private class MarketingDictionaryControllerTest {
     }
 
     @isTest
+    static void searchSuppressionReports_returnsReportsWithFormat() {
+        Test.startTest();
+        List<Map<String, String>> allReports = MarketingDictionaryController.searchSuppressionReports('');
+        List<Map<String, String>> filtered = MarketingDictionaryController.searchSuppressionReports('ZZZ_NO_MATCH_');
+        Test.stopTest();
+
+        System.assertNotEquals(null, allReports);
+        System.assertEquals(0, filtered.size(), 'Non-matching search returns empty list');
+    }
+
+    @isTest
     static void searchSuppressionCampaigns_returnsActiveWithStatus() {
         insert new List<Campaign>{
             new Campaign(Name = 'Alpha Active', IsActive = true, Status = 'In Progress'),

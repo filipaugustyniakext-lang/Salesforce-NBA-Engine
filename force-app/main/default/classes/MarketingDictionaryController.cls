@@ -341,14 +341,30 @@ public with sharing class MarketingDictionaryController {
 
     @AuraEnabled(cacheable=false)
     public static List<Map<String, String>> searchSuppressionReports(String searchTerm) {
-        String q = '%' + String.escapeSingleQuotes(searchTerm) + '%';
+        String term = searchTerm == null ? '' : searchTerm.trim();
+        String likeQ = '%' + String.escapeSingleQuotes(term) + '%';
+        List<Report> reports = String.isBlank(term)
+            ? [
+                SELECT Id, Name, Format
+                FROM Report
+                ORDER BY Name ASC
+                LIMIT 500
+            ]
+            : [
+                SELECT Id, Name, Format
+                FROM Report
+                WHERE Name LIKE :likeQ
+                ORDER BY Name ASC
+                LIMIT 200
+            ];
+
         List<Map<String, String>> results = new List<Map<String, String>>();
-        for (Report r : [
-            SELECT Id, Name FROM Report
-            WHERE Name LIKE :q
-            ORDER BY Name ASC LIMIT 20
-        ]) {
-            results.add(new Map<String, String>{ 'id' => r.Id, 'name' => r.Name });
+        for (Report r : reports) {
+            results.add(new Map<String, String>{
+                'id' => r.Id,
+                'name' => r.Name,
+                'format' => r.Format
+            });
         }
         return results;
     }
