@@ -3,21 +3,53 @@
  */
 public with sharing class CampaignExclusionController {
     private static final Integer MAX_SEGMENTS = 1000;
-    private static final Integer MAX_DATA_CLOUD_OBJECTS = 2000;
+    private static final Integer SEARCH_RESULT_LIMIT = 25;
 
     @AuraEnabled(cacheable=true)
     public static ExclusionOptions getExclusionOptions() {
         ExclusionOptions options = new ExclusionOptions();
         options.segments = loadActiveSegments(options);
-        Map<String, DataCloudObjectOption> dmoByApi = new Map<String, DataCloudObjectOption>();
-        Map<String, DataCloudObjectOption> dloByApi = new Map<String, DataCloudObjectOption>();
-        loadManagerCatalog('DMO', dmoByApi, options);
-        loadManagerCatalog('DLO', dloByApi, options);
-        options.dataModelObjects = new List<DataCloudObjectOption>(dmoByApi.values());
-        options.dataLakeObjects = new List<DataCloudObjectOption>(dloByApi.values());
-        options.dataModelObjects.sort(new DataCloudLabelSort());
-        options.dataLakeObjects.sort(new DataCloudLabelSort());
+        options.dmoHint =
+            'Search by DMO label or API name (minimum 2 characters). The full Data Cloud catalog is not loaded in the wizard.';
+        options.dloHint =
+            'Search by DLO label or API name (minimum 2 characters). The full Data Cloud catalog is not loaded in the wizard.';
         return options;
+    }
+
+    /**
+     * Type-ahead search for DMOs/DLOs (avoids loading the full Connect API catalog).
+     */
+    @AuraEnabled
+    public static List<DataCloudObjectOption> searchDataCloudExclusionObjects(
+        String kind,
+        String searchTerm
+    ) {
+        List<DataCloudObjectOption> results = new List<DataCloudObjectOption>();
+        if (String.isBlank(searchTerm) || searchTerm.trim().length() < 2) {
+            return results;
+        }
+        String normalizedKind = kind == null ? '' : kind.trim().toLowerCase();
+        Boolean isDlo = normalizedKind == 'dlo';
+        String suffixToken = isDlo ? '__dll' : '__dlm';
+        String trimmed = searchTerm.trim();
+        String nameLike = '%' + trimmed + '%';
+        String suffixLike = '%' + suffixToken;
+
+        Map<String, DataCloudObjectOption> byApi = new Map<String, DataCloudObjectOption>();
+        searchEntityDefinitionCatalog(suffixLike, nameLike, byApi);
+        if (Pattern.matches('^[A-Za-z][A-Za-z0-9_]*(__dlm|__dll)?$', trimmed)) {
+            tryAddConnectMetadataMatch(isDlo, trimmed, byApi);
+        }
+        results.addAll(byApi.values());
+        results.sort(new DataCloudLabelSort());
+        if (results.size() > SEARCH_RESULT_LIMIT) {
+            List<DataCloudObjectOption> capped = new List<DataCloudObjectOption>();
+            for (Integer i = 0; i < SEARCH_RESULT_LIMIT; i++) {
+                capped.add(results[i]);
+            }
+            return capped;
+        }
+        return results;
     }
 
     @AuraEnabled
@@ -45,76 +77,121 @@ public with sharing class CampaignExclusionController {
         return options;
     }
 
-    private static void loadManagerCatalog(
-        String kind,
-        Map<String, DataCloudObjectOption> byApi,
-        ExclusionOptions options
+    private static void searchEntityDefinitionCatalog(
+        String suffixLike,
+        String nameLike,
+        Map<String, DataCloudObjectOption> byApi
     ) {
-        String suffix = kind == 'DMO' ? '__dlm' : '__dll';
-        String hintField = kind == 'DMO' ? 'dmoHint' : 'dloHint';
-        String connectError;
         try {
-            List<Map<String, String>> rows = kind == 'DMO'
-                ? MarketingDictionaryManagerController.getData360DmoOptions()
-                : MarketingDictionaryManagerController.getData360DloOptions();
-            mergeManagerRows(byApi, rows);
-        } catch (Exception ex) {
-            connectError = sanitizeConnectMessage(ex.getMessage());
-        }
-        collectEntityDefinitionCatalog(suffix, byApi);
-        if (byApi.isEmpty()) {
-            if (String.isNotBlank(connectError)) {
-                options.putHint(
-                    hintField,
-                    'Data Cloud could not list ' + kind + 's. ' + connectError
-                        + ' Confirm Data Space assignment and CDP Connect permissions for this user.'
-                );
-            } else {
-                options.putHint(
-                    hintField,
-                    'No ' + kind + 's were returned. Data Space access or CDP metadata permissions may be missing.'
+            for (EntityDefinition ent : [
+                SELECT QualifiedApiName, Label
+                FROM EntityDefinition
+                WHERE QualifiedApiName LIKE :suffixLike
+                    AND (QualifiedApiName LIKE :nameLike OR Label LIKE :nameLike)
+                ORDER BY Label ASC
+                LIMIT :SEARCH_RESULT_LIMIT
+            ]) {
+                if (String.isBlank(ent.QualifiedApiName)) {
+                    continue;
+                }
+                String key = ent.QualifiedApiName.toLowerCase();
+                if (byApi.containsKey(key)) {
+                    continue;
+                }
+                byApi.put(
+                    key,
+                    new DataCloudObjectOption(
+                        ent.QualifiedApiName,
+                        String.isNotBlank(ent.Label) ? ent.Label : ent.QualifiedApiName
+                    )
                 );
             }
-        } else if (String.isNotBlank(connectError)) {
-            options.putHint(
-                hintField,
-                'Showing ' + byApi.size() + ' ' + kind + '(s). Some Data Spaces may be unavailable: ' + connectError
-            );
+        } catch (Exception ex) {
+            System.debug(LoggingLevel.WARN, 'EntityDefinition search unavailable: ' + ex.getMessage());
         }
     }
 
-    private static void mergeManagerRows(
-        Map<String, DataCloudObjectOption> byApi,
-        List<Map<String, String>> rows
+    private static void tryAddConnectMetadataMatch(
+        Boolean isDlo,
+        String apiName,
+        Map<String, DataCloudObjectOption> byApi
     ) {
-        if (rows == null) {
+        String entityType = isDlo ? 'DataLakeObject' : 'DataModelObject';
+        String expectedType = isDlo ? 'DataLakeObject' : 'DataModelObject';
+        try {
+            ConnectApi.CdpQueryMetadataOutput meta =
+                ConnectApi.CdpQuery.getAllMetadata(entityType, null, apiName);
+            Object raw = connectApiAsUntyped(meta);
+            addConnectMetadataRows(byApi, raw, expectedType);
+        } catch (Exception ex) {
+            System.debug(LoggingLevel.FINE, 'Connect metadata lookup for ' + apiName + ': ' + ex.getMessage());
+        }
+    }
+
+    private static void addConnectMetadataRows(
+        Map<String, DataCloudObjectOption> byApi,
+        Object raw,
+        String expectedTypeName
+    ) {
+        if (!(raw instanceof Map<String, Object>)) {
             return;
         }
-        for (Map<String, String> row : rows) {
-            String api = row.get('value');
+        Object rows = ((Map<String, Object>) raw).get('metadata');
+        if (!(rows instanceof List<Object>)) {
+            return;
+        }
+        for (Object row : (List<Object>) rows) {
+            if (!(row instanceof Map<String, Object>)) {
+                continue;
+            }
+            Map<String, Object> entity = (Map<String, Object>) row;
+            String api = firstString(entity, new List<String>{ 'name', 'apiName' });
+            String typeName = firstString(entity, new List<String>{ 'type' });
             if (String.isBlank(api)) {
                 continue;
             }
-            String label = row.get('label');
+            if (String.isNotBlank(typeName) && typeName != expectedTypeName) {
+                continue;
+            }
+            String key = api.toLowerCase();
+            if (byApi.containsKey(key)) {
+                continue;
+            }
+            String label = firstString(entity, new List<String>{ 'displayName', 'label' });
             if (String.isBlank(label)) {
                 label = api;
             }
-            byApi.put(api.toLowerCase(), new DataCloudObjectOption(api, label));
+            byApi.put(key, new DataCloudObjectOption(api, label));
         }
     }
 
-    private static String sanitizeConnectMessage(String raw) {
-        if (String.isBlank(raw)) {
-            return '';
+    private static Object connectApiAsUntyped(Object value) {
+        if (value == null) {
+            return null;
         }
-        String message = raw.trim();
-        if (message.containsIgnoreCase('Script-thrown exception')) {
-            message = message.replace('Script-thrown exception', '').trim();
-            if (message.startsWith(':')) {
-                message = message.substring(1).trim();
+        String payload = JSON.serialize(new List<Object>{ value });
+        if (String.isBlank(payload)) {
+            return null;
+        }
+        Object parsed = JSON.deserializeUntyped(payload);
+        if (parsed instanceof List<Object>) {
+            List<Object> rows = (List<Object>) parsed;
+            return rows.isEmpty() ? null : rows[0];
+        }
+        return parsed;
+    }
+
+    private static String firstString(Map<String, Object> values, List<String> keys) {
+        if (values == null) {
+            return null;
+        }
+        for (String key : keys) {
+            Object value = values.get(key);
+            if (value instanceof String && String.isNotBlank((String) value)) {
+                return ((String) value).trim();
             }
         }
-        return message;
+        return null;
     }
 
     private static List<FieldOption> entityFieldOptions(String entityApiName) {
@@ -213,42 +290,6 @@ public with sharing class CampaignExclusionController {
                 'No segments returned. Confirm active Data Cloud segments exist and your user can read MarketSegment.';
         }
         return rows;
-    }
-
-    private static void collectEntityDefinitionCatalog(
-        String apiSuffix,
-        Map<String, DataCloudObjectOption> byApi
-    ) {
-        String likePattern = '%' + apiSuffix;
-        try {
-            for (EntityDefinition ent : [
-                SELECT QualifiedApiName, Label
-                FROM EntityDefinition
-                WHERE QualifiedApiName LIKE :likePattern
-                ORDER BY Label ASC
-                LIMIT :MAX_DATA_CLOUD_OBJECTS
-            ]) {
-                if (String.isBlank(ent.QualifiedApiName)) {
-                    continue;
-                }
-                String key = ent.QualifiedApiName.toLowerCase();
-                if (byApi.containsKey(key)) {
-                    continue;
-                }
-                byApi.put(
-                    key,
-                    new DataCloudObjectOption(
-                        ent.QualifiedApiName,
-                        String.isNotBlank(ent.Label) ? ent.Label : ent.QualifiedApiName
-                    )
-                );
-            }
-        } catch (Exception ex) {
-            System.debug(
-                LoggingLevel.WARN,
-                'EntityDefinition catalogue unavailable (' + apiSuffix + '): ' + ex.getMessage()
-            );
-        }
     }
 
     public class ExclusionOptions {

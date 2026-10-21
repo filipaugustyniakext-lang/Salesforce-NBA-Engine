@@ -11,18 +11,21 @@ private class CampaignExclusionControllerTest {
         System.assertNotEquals(null, options.segments);
         System.assertNotEquals(null, options.dataModelObjects);
         System.assertNotEquals(null, options.dataLakeObjects);
-        for (CampaignExclusionController.DataCloudObjectOption dmo : options.dataModelObjects) {
-            System.assert(String.isNotBlank(dmo.apiName), 'DMO api name required');
-            System.assert(String.isNotBlank(dmo.label), 'DMO label required');
-        }
-        for (CampaignExclusionController.DataCloudObjectOption dlo : options.dataLakeObjects) {
-            System.assert(String.isNotBlank(dlo.apiName), 'DLO api name required');
-            System.assert(String.isNotBlank(dlo.label), 'DLO label required');
-        }
+        System.assertEquals(0, options.dataModelObjects.size(), 'DMO full catalog is not loaded');
+        System.assertEquals(0, options.dataLakeObjects.size(), 'DLO full catalog is not loaded');
         for (CampaignExclusionController.SegmentOption seg : options.segments) {
             System.assert(String.isNotBlank(seg.id), 'Segment id required');
             System.assert(String.isNotBlank(seg.name), 'Segment name required');
         }
+    }
+
+    @IsTest
+    static void searchDataCloudExclusionObjects_shortTermEmpty() {
+        Test.startTest();
+        List<CampaignExclusionController.DataCloudObjectOption> hits =
+            CampaignExclusionController.searchDataCloudExclusionObjects('dmo', 'a');
+        Test.stopTest();
+        System.assertEquals(0, hits.size());
     }
 
     @IsTest
