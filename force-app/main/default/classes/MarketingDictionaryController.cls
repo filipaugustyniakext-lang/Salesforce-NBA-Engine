@@ -421,6 +421,87 @@ public with sharing class MarketingDictionaryController {
     }
 
     /**
+     * Wizard-aligned campaign configuration for Campaign Configuration View LWC
+     * (Marketing app record page — replaces reading scattered layout sections).
+     */
+    @AuraEnabled(cacheable=true)
+    public static Map<String, Object> getCampaignConfigurationView(Id campaignId) {
+        Map<String, Object> payload = new Map<String, Object>();
+        if (campaignId == null) {
+            payload.put('campaign', null);
+            payload.put('offers', new List<Map<String, Object>>());
+            payload.put('copyVariants', new List<Map<String, Object>>());
+            payload.put('hasCatalogGap', false);
+            return payload;
+        }
+
+        payload.put('campaign', getCampaignById(campaignId));
+
+        Map<String, Object> catalog = CampaignRuntimeCatalogService.getCampaignCatalogAssignmentSummary(campaignId);
+        payload.put('hasCatalogGap', catalog.get('hasCatalogGap') == true);
+
+        List<Map<String, Object>> offerRows = new List<Map<String, Object>>();
+        for (Object rowObj : (List<Object>) catalog.get('offers')) {
+            Map<String, Object> row = (Map<String, Object>) rowObj;
+            offerRows.add(new Map<String, Object>{
+                'id' => row.get('id'),
+                'name' => row.get('name'),
+                'status' => row.get('status'),
+                'eligible' => row.get('eligibleNow') == true,
+                'note' => row.get('note')
+            });
+        }
+        payload.put('offers', offerRows);
+
+        Map<Id, Map<String, Object>> copyMetaById = copyVariantDisplayMetaByCampaign(campaignId);
+        List<Map<String, Object>> copyRows = new List<Map<String, Object>>();
+        for (Object rowObj : (List<Object>) catalog.get('copyVariants')) {
+            Map<String, Object> row = (Map<String, Object>) rowObj;
+            Id variantId = (Id) row.get('id');
+            Map<String, Object> meta = copyMetaById.get(variantId);
+            Decimal weightPct = null;
+            if (meta != null && meta.get('weightPercent') != null) {
+                weightPct = (Decimal) meta.get('weightPercent');
+            }
+            copyRows.add(new Map<String, Object>{
+                'id' => variantId,
+                'name' => row.get('name'),
+                'channel' => row.get('channelType'),
+                'status' => row.get('status'),
+                'eligible' => row.get('eligibleNow') == true,
+                'note' => row.get('note'),
+                'weight' => weightPct == null ? null : weightPct.setScale(2, System.RoundingMode.HALF_UP),
+                'version' => meta == null ? null : meta.get('version')
+            });
+        }
+        payload.put('copyVariants', copyRows);
+        return payload;
+    }
+
+    private static Map<Id, Map<String, Object>> copyVariantDisplayMetaByCampaign(Id campaignId) {
+        Map<Id, Map<String, Object>> byId = new Map<Id, Map<String, Object>>();
+        for (Campaign_Copy_Variant__c junction : [
+            SELECT Message_Variant__c,
+                   Message_Variant__r.Version__c,
+                   Message_Variant__r.Display_Probability_Manual__c,
+                   Message_Variant__r.Display_Probability__c
+            FROM Campaign_Copy_Variant__c
+            WHERE Campaign__c = :campaignId
+            AND Message_Variant__c != null
+        ]) {
+            Decimal manual = junction.Message_Variant__r.Display_Probability_Manual__c;
+            Decimal auto = junction.Message_Variant__r.Display_Probability__c;
+            Decimal fraction = manual != null ? manual : auto;
+            Decimal weightPercent = fraction == null ? null : (fraction * 100).setScale(2, System.RoundingMode.HALF_UP);
+            byId.put(junction.Message_Variant__c, new Map<String, Object>{
+                'version' => junction.Message_Variant__r.Version__c,
+                'weightPercent' => weightPercent
+            });
+        }
+        return byId;
+    }
+
+    /**
      * Returns a summary of each offer's active version for display in the Campaign
      * wizard summary step. One entry per offer that has an active version, keyed by
      * offer Id, including key header fields plus a flat `parameters` list (populated

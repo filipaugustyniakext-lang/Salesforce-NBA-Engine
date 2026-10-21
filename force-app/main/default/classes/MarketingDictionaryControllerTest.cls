@@ -130,6 +130,20 @@ private class MarketingDictionaryControllerTest {
     }
 
     @IsTest
+    static void getCampaignConfigurationView_returnsWizardPayload() {
+        Campaign camp = new Campaign(Name = 'Config View Camp', Status = 'Planned', IsActive = false);
+        insert camp;
+
+        Test.startTest();
+        Map<String, Object> payload = MarketingDictionaryController.getCampaignConfigurationView(camp.Id);
+        Test.stopTest();
+
+        System.assertNotEquals(null, payload.get('campaign'));
+        System.assertNotEquals(null, payload.get('offers'));
+        System.assertNotEquals(null, payload.get('copyVariants'));
+    }
+
+    @IsTest
     static void saveCampaignCopyVariants_persistsOnlyPublishedRows() {
         Campaign camp = new Campaign(Name = 'Copy Camp', Status = 'Planned', IsActive = false);
         insert camp;
