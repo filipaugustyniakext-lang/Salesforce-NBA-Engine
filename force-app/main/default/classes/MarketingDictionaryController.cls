@@ -490,35 +490,7 @@ public with sharing class MarketingDictionaryController {
         }
 
         List<Map<String, String>> fetchCampaignOffers(Id campaignId) {
-            if (campaignId == null) return new List<Map<String, String>>();
-
-            Set<Id> savedOfferIds = new Set<Id>();
-            for (Campaign_Offer__c co : [
-                SELECT Offer__c
-                FROM Campaign_Offer__c
-                WHERE Campaign__c = :campaignId
-            ]) {
-                savedOfferIds.add(co.Offer__c);
-            }
-
-            if (savedOfferIds.isEmpty()) return new List<Map<String, String>>();
-
-            List<Map<String, String>> results = new List<Map<String, String>>();
-            for (Offer__c o : [
-                SELECT Id, Name, Offer_Status__c
-                FROM Offer__c
-                WHERE Id IN :savedOfferIds
-                AND Offer_Status__c = 'Active'
-                ORDER BY Name ASC
-                LIMIT 200
-            ]) {
-                results.add(new Map<String, String>{
-                    'id'     => o.Id,
-                    'name'   => o.Name,
-                    'status' => o.Offer_Status__c
-                });
-            }
-            return results;
+            return CampaignRuntimeCatalogService.resolveEligibleOffersForCampaign(campaignId);
         }
 
         void replaceCampaignOffers(Id campaignId, List<Id> offerIds) {
@@ -656,27 +628,7 @@ public with sharing class MarketingDictionaryController {
 
     private without sharing class CopyVariantQuery {
         List<Map<String, String>> fetchCampaignCopyVariants(Id campaignId) {
-            if (campaignId == null) {
-                return new List<Map<String, String>>();
-            }
-
-            List<Map<String, String>> results = new List<Map<String, String>>();
-            for (Campaign_Copy_Variant__c row : [
-                SELECT Message_Variant__c, Message_Variant__r.Status__c
-                FROM Campaign_Copy_Variant__c
-                WHERE Campaign__c = :campaignId
-                AND Is_Eligible__c = true
-                AND Message_Variant__r.Status__c = 'Published'
-            ]) {
-                if (row.Message_Variant__c == null) {
-                    continue;
-                }
-                results.add(new Map<String, String>{
-                    'id' => row.Message_Variant__c,
-                    'status' => row.Message_Variant__r.Status__c
-                });
-            }
-            return results;
+            return CampaignRuntimeCatalogService.resolveEligibleCopyVariantsForCampaign(campaignId);
         }
 
         void replaceCampaignCopyVariants(Id campaignId, List<Id> messageVariantIds) {

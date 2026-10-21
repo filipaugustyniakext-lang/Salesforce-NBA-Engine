@@ -77,6 +77,19 @@ Eligibility (D360 / DG / RT)  →  Campaign Member created  →  GateKeeper  →
 
 Order suggested: **cheap / deterministic first**, then heavier joins.
 
+### 4.0 Catalogue resolution (before or with activation)
+
+After admission policy checks, **offer selection** and **content assignment** must not use values frozen at campaign save time. Resolve from junction + live catalogue:
+
+| Engine input | Resolver | “Available now” criteria (v1) |
+|--------------|----------|-----------------------------|
+| Assigned offers | `CampaignRuntimeCatalogService.resolveEligibleOffersForCampaign` | Junction + `Offer_Status__c = Active` + `Offer_Version__c` with `Is_Active__c` and valid `Valid_From__c` / `Valid_To__c` |
+| Assigned copy | `CampaignRuntimeCatalogService.resolveEligibleCopyVariantsForCampaign` | Junction + `CC_Message_Metadata__c.Status__c = Published` |
+
+If resolution returns no eligible offer or copy for a channel, treat as **Blocked** (or route to fallback policy) with reason codes such as `NO_ELIGIBLE_OFFER` / `NO_ELIGIBLE_COPY` — do not send stale content.
+
+See [campaign-definition-data-model.md §1.1](./campaign-definition-data-model.md).
+
 | Stage | Depends on | Tier / campaign flag |
 |-------|------------|----------------------|
 | 1. Consent | Consent DMO / Profile (future) | All campaigns |

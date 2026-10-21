@@ -12,6 +12,7 @@ public with sharing class CampaignCopyVariantHandler {
         }
 
         Set<Id> noLongerPublished = new Set<Id>();
+        Set<Id> publishedAgain = new Set<Id>();
         for (CC_Message_Metadata__c row : updatedRows) {
             CC_Message_Metadata__c prior = oldById.get(row.Id);
             if (prior == null) {
@@ -19,24 +20,39 @@ public with sharing class CampaignCopyVariantHandler {
             }
             if (prior.Status__c == 'Published' && row.Status__c != 'Published') {
                 noLongerPublished.add(row.Id);
+            } else if (prior.Status__c != 'Published' && row.Status__c == 'Published') {
+                publishedAgain.add(row.Id);
             }
         }
-        if (noLongerPublished.isEmpty()) {
-            return;
+
+        List<Campaign_Copy_Variant__c> junctionUpdates = new List<Campaign_Copy_Variant__c>();
+
+        if (!noLongerPublished.isEmpty()) {
+            for (Campaign_Copy_Variant__c junction : [
+                SELECT Id, Is_Eligible__c
+                FROM Campaign_Copy_Variant__c
+                WHERE Message_Variant__c IN :noLongerPublished
+                AND Is_Eligible__c = true
+            ]) {
+                junction.Is_Eligible__c = false;
+                junctionUpdates.add(junction);
+            }
         }
 
-        List<Campaign_Copy_Variant__c> junctionRows = [
-            SELECT Id, Is_Eligible__c
-            FROM Campaign_Copy_Variant__c
-            WHERE Message_Variant__c IN :noLongerPublished
-            AND Is_Eligible__c = true
-        ];
-        if (junctionRows.isEmpty()) {
-            return;
+        if (!publishedAgain.isEmpty()) {
+            for (Campaign_Copy_Variant__c junction : [
+                SELECT Id, Is_Eligible__c
+                FROM Campaign_Copy_Variant__c
+                WHERE Message_Variant__c IN :publishedAgain
+                AND Is_Eligible__c = false
+            ]) {
+                junction.Is_Eligible__c = true;
+                junctionUpdates.add(junction);
+            }
         }
-        for (Campaign_Copy_Variant__c junction : junctionRows) {
-            junction.Is_Eligible__c = false;
+
+        if (!junctionUpdates.isEmpty()) {
+            update junctionUpdates;
         }
-        update junctionRows;
     }
 }

@@ -36,6 +36,30 @@ erDiagram
 
 ---
 
+## 1.1 Assignment vs runtime resolution (critical)
+
+Campaign configuration uses **junction rows as marketer intent**, not as frozen payloads for customer processing.
+
+| Layer | Meaning | When evaluated |
+|-------|---------|----------------|
+| **Assignment** | `Campaign_Offer__c`, `Campaign_Copy_Variant__c` — “this campaign may use these catalogue records” | Save / edit in wizard |
+| **Catalogue truth** | `Offer__c`, `Offer_Version__c`, `CC_Message_Metadata__c` — status, dates, Published, active version | Changes anytime while campaign is active |
+| **Runtime resolution** | Intersection of assignment + catalogue rules **at processing time** | GateKeeper, offer engine, content assignment, journey entry |
+
+**Rule for all future engines:** never read offer copy text, MCE ids, or version attributes from snapshots on `Campaign`. Always:
+
+1. Start from junction (assigned Ids).  
+2. Re-query source objects with **current** eligibility rules.  
+3. Use only rows that pass **now** (e.g. `Offer_Status__c = Active`, in-date `Offer_Version__c`, `CC_Message_Metadata__c.Status__c = Published`).
+
+**Canonical Apex API:** `CampaignRuntimeCatalogService.resolveEligibleOffersForCampaign` and `resolveEligibleCopyVariantsForCampaign`.
+
+`Campaign_Copy_Variant__c.Is_Eligible__c` is a **hint** maintained when copy status changes (`CampaignCopyVariantHandler`); runtime resolvers must still check **`Message_Variant__r.Status__c`** so republished copy is included even if the hint lagged.
+
+Junction rows are **not** auto-deleted when an offer is deactivated or copy archived — assignment history stays for CRM; **runtime** simply returns an empty or reduced set until the operator updates the campaign.
+
+---
+
 ## 2. Wizard step → persistence map
 
 ### Step 1 — Campaign properties
