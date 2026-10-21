@@ -19,8 +19,14 @@ So enhancement is **metadata + actions**, not flexipage surgery.
 
 This controls:
 
-- Accordion sections (Step 1 — …, Step 2 — …, Step 4 — …)
-- Fields on each section (including exclusions JSON, assigned channels, scoring, etc.)
+- Accordion sections aligned with the **campaign wizard**:
+  - **Step 1 — Campaign Properties** (name, status, activation, group, active window, duration)
+  - **Step 1 — Priority & Exclusions** (tier, exclusions JSON, legacy suppressions)
+  - **Step 1 — Assigned Channels** (`Assigned_Channels__c`)
+  - **Step 2 — Topic & Offering** (topic lookup, offering type, product family / FoN)
+  - **Step 4 — Scoring** (method, overall score, model, fallback)
+  - **Audit & Marketing (system)** (created/modified, standard dates, timing fields)
+- **Step 3 (copy assignments)** → **Related** tab lists **Campaign Copy Variants** (message name, channel, copy status, eligible now). **Step 2 offers** → **Campaign Offers** related list.
 
 Edit in repo or **Setup → Page Layouts**, then deploy / save. Refresh the campaign **Details** tab to see changes.
 
