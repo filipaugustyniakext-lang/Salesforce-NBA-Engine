@@ -74,8 +74,14 @@ public with sharing class CampaignExclusionController {
             return options;
         }
         String normalized = source.toLowerCase();
-        if (normalized == 'dmo' || normalized == 'dlo') {
+        if (normalized == 'dmo') {
             for (Map<String, String> field : MarketingDictionaryManagerController.getData360DmoFields(recordKey)) {
+                addFieldOption(options, field.get('value'), field.get('label'));
+            }
+            return options;
+        }
+        if (normalized == 'dlo') {
+            for (Map<String, String> field : MarketingDictionaryManagerController.getData360DloFields(recordKey)) {
                 addFieldOption(options, field.get('value'), field.get('label'));
             }
             return options;

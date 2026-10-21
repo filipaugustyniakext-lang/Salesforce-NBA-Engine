@@ -1810,8 +1810,20 @@ public with sharing class MarketingDictionaryManagerController {
      */
     @AuraEnabled
     public static List<Map<String, String>> getData360DmoFields(String dmoApiName) {
+        return formatDataCloudFieldOptions(queryDmoFieldRows(dmoApiName));
+    }
+
+    /**
+     * Columns on one Data360 DLO (Data Lake Object), same Connect query pattern as DMOs.
+     */
+    @AuraEnabled
+    public static List<Map<String, String>> getData360DloFields(String dloApiName) {
+        return formatDataCloudFieldOptions(queryDloFieldRows(dloApiName));
+    }
+
+    private static List<Map<String, String>> formatDataCloudFieldOptions(List<Map<String, String>> rows) {
         List<Map<String, String>> options = new List<Map<String, String>>();
-        for (Map<String, String> field : queryDmoFieldRows(dmoApiName)) {
+        for (Map<String, String> field : rows) {
             String api = field.get('value');
             String label = field.get('label');
             String dataType = field.get('dataType');
@@ -1977,11 +1989,29 @@ public with sharing class MarketingDictionaryManagerController {
     }
 
     private static List<Map<String, String>> queryDmoFieldRows(String dmoApiName) {
-        String dmo = dmoApiName == null ? '' : dmoApiName.trim();
-        if (String.isBlank(dmo) || !dmo.endsWithIgnoreCase('__dlm')) {
-            throw auraError(
-                'Enter a Data360 DMO API name that ends with __dlm, for example Sample_ScoringModels__dlm.'
-            );
+        return queryDataCloudObjectFieldRows(
+            dmoApiName,
+            '__dlm',
+            'Enter a Data360 DMO API name that ends with __dlm, for example Sample_ScoringModels__dlm.'
+        );
+    }
+
+    private static List<Map<String, String>> queryDloFieldRows(String dloApiName) {
+        return queryDataCloudObjectFieldRows(
+            dloApiName,
+            '__dll',
+            'Enter a Data360 DLO API name that ends with __dll, for example Account_Home__dll.'
+        );
+    }
+
+    private static List<Map<String, String>> queryDataCloudObjectFieldRows(
+        String objectApiName,
+        String requiredSuffix,
+        String invalidNameMessage
+    ) {
+        String api = objectApiName == null ? '' : objectApiName.trim();
+        if (String.isBlank(api) || !api.endsWithIgnoreCase(requiredSuffix)) {
+            throw auraError(invalidNameMessage);
         }
         String lastError;
         List<String> spaces = new List<String>{ null };
@@ -1992,7 +2022,7 @@ public with sharing class MarketingDictionaryManagerController {
         }
         for (String spaceName : spaces) {
             try {
-                List<Map<String, String>> rows = columnsFromDmoQuery(dmo, spaceName);
+                List<Map<String, String>> rows = columnsFromDmoQuery(api, spaceName);
                 if (!rows.isEmpty()) {
                     return rows;
                 }
@@ -2000,12 +2030,12 @@ public with sharing class MarketingDictionaryManagerController {
                 lastError = e.getMessage();
             }
         }
-        List<Map<String, String>> fromEntity = entityDefinitionFieldRows(dmo);
+        List<Map<String, String>> fromEntity = entityDefinitionFieldRows(api);
         if (!fromEntity.isEmpty()) {
             return fromEntity;
         }
         String detail = String.isNotBlank(lastError) ? ' ' + lastError : '';
-        throw auraError('No columns were returned for ' + dmo + '.' + detail);
+        throw auraError('No columns were returned for ' + api + '.' + detail);
     }
 
     /**
