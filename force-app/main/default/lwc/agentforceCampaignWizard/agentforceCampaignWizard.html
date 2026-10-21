@@ -571,6 +571,72 @@
                                                                             </template>
                                                                         </div>
                                                                     </template>
+                                                                    <template lwc:elseif={row.isDlo}>
+                                                                        <div class={row.dloPickerContainerClass} data-row-id={row.id}>
+                                                                            <label class="slds-form-element__label">Data360 DLOs</label>
+                                                                            <div class="slds-form-element__control">
+                                                                                <div class="slds-combobox_container">
+                                                                                    <div class="slds-combobox slds-dropdown-trigger slds-dropdown-trigger_click">
+                                                                                        <div class="slds-combobox__form-element slds-input-has-icon slds-input-has-icon_right" role="none">
+                                                                                            <input
+                                                                                                type="text"
+                                                                                                class="slds-input slds-combobox__input custom-form-input"
+                                                                                                placeholder="Search DLOs..."
+                                                                                                autocomplete="off"
+                                                                                                value={row.dloSearchTerm}
+                                                                                                data-row-id={row.id}
+                                                                                                onclick={handleDloPickerToggle}
+                                                                                                oninput={handleDloPickerSearch}
+                                                                                            />
+                                                                                            <span class="slds-icon_container slds-icon-utility-search slds-input__icon slds-input__icon_right">
+                                                                                                <lightning-icon icon-name="utility:search" size="x-small"></lightning-icon>
+                                                                                            </span>
+                                                                                        </div>
+                                                                                        <template lwc:if={row.dloPickerOpen}>
+                                                                                            <div class="custom-picklist-dropdown exclusion-picker-dropdown" role="listbox">
+                                                                                                <div class="dropdown-scrollable-list">
+                                                                                                    <template for:each={row.filteredDloPickerRows} for:item="dlo">
+                                                                                                        <div key={dlo.id} class="exclusion-picker-option-row">
+                                                                                                            <label class="exclusion-picker-option-label custom-dropdown-row">
+                                                                                                                <input
+                                                                                                                    type="checkbox"
+                                                                                                                    class="exclusion-picker-checkbox"
+                                                                                                                    checked={dlo.isSelected}
+                                                                                                                    data-row-id={row.id}
+                                                                                                                    data-dlo-id={dlo.id}
+                                                                                                                    onchange={handleDloExclusionToggle}
+                                                                                                                />
+                                                                                                                <span class="exclusion-picker-option-text">
+                                                                                                                    <span class="list-campaign-title">{dlo.name}</span>
+                                                                                                                    <template lwc:if={dlo.metaLine}>
+                                                                                                                        <span class="exclusion-campaign-meta">{dlo.metaLine}</span>
+                                                                                                                    </template>
+                                                                                                                </span>
+                                                                                                            </label>
+                                                                                                        </div>
+                                                                                                    </template>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        </template>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                            <template lwc:if={row.hasSelectedDlos}>
+                                                                                <ul class="exclusion-campaign-pills slds-listbox slds-listbox_horizontal slds-m-top_x-small" role="listbox" aria-label="Selected DLOs">
+                                                                                    <template for:each={row.selectedDloPills} for:item="pill">
+                                                                                        <li key={pill.id} class="slds-listbox-item" role="presentation">
+                                                                                            <span class="slds-pill">
+                                                                                                <span class="slds-pill__label" title={pill.label}>{pill.label}</span>
+                                                                                                <button type="button" class="slds-button slds-button_icon slds-button_icon slds-pill__remove" title="Remove" data-row-id={row.id} data-dlo-id={pill.id} onclick={handleRemoveDloExclusionPill}>
+                                                                                                    <lightning-icon icon-name="utility:close" size="x-small" alternative-text="Remove"></lightning-icon>
+                                                                                                </button>
+                                                                                            </span>
+                                                                                        </li>
+                                                                                    </template>
+                                                                                </ul>
+                                                                            </template>
+                                                                        </div>
+                                                                    </template>
                                                             </div>
                                                             <template lwc:if={row.showRemove}>
                                                                 <div class="slds-text-align_right slds-m-top_x-small">

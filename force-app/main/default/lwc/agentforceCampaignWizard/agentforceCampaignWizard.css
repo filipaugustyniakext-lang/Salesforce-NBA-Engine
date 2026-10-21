@@ -1498,9 +1498,9 @@
     justify-content: center !important;
     gap: 0.2rem !important;
     flex: 1 1 0;
-    min-width: 4.5rem !important;
-    max-width: 5.5rem;
-    height: 3.25rem !important;
+    min-width: 3.65rem !important;
+    max-width: 4.75rem;
+    height: 3.1rem !important;
     padding: 0.35rem 0.25rem !important;
     background: #ffffff !important;
     border: 1px solid #dddbda !important;
@@ -1533,7 +1533,7 @@
 }
 
 .exclusion-source-btn-label {
-    font-size: 0.625rem;
+    font-size: 0.5625rem;
     font-weight: 600;
     color: #3e3e3c;
     line-height: 1.1;

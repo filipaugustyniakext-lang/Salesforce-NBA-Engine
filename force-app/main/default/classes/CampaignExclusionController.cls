@@ -1,15 +1,16 @@
 /**
- * Data Cloud exclusion catalogues for Campaign Wizard (segments + DMOs).
+ * Data Cloud exclusion catalogues for Campaign Wizard (segments, DMOs, DLOs).
  */
 public with sharing class CampaignExclusionController {
     private static final Integer MAX_SEGMENTS = 1000;
-    private static final Integer MAX_DMOS = 2000;
+    private static final Integer MAX_DATA_CLOUD_OBJECTS = 2000;
 
     @AuraEnabled(cacheable=true)
     public static ExclusionOptions getExclusionOptions() {
         ExclusionOptions options = new ExclusionOptions();
         options.segments = loadActiveSegments();
-        options.dataModelObjects = loadDataModelObjects();
+        options.dataModelObjects = loadEntityCatalog('__dlm');
+        options.dataLakeObjects = loadEntityCatalog('__dll');
         return options;
     }
 
@@ -37,26 +38,27 @@ public with sharing class CampaignExclusionController {
         return rows;
     }
 
-    private static List<DmoOption> loadDataModelObjects() {
-        List<DmoOption> rows = new List<DmoOption>();
+    private static List<DataCloudObjectOption> loadEntityCatalog(String apiSuffix) {
+        List<DataCloudObjectOption> rows = new List<DataCloudObjectOption>();
+        String likePattern = '%' + apiSuffix;
         try {
             for (EntityDefinition ent : [
                 SELECT QualifiedApiName, Label
                 FROM EntityDefinition
-                WHERE QualifiedApiName LIKE '%__dlm'
+                WHERE QualifiedApiName LIKE :likePattern
                 ORDER BY Label ASC
-                LIMIT :MAX_DMOS
+                LIMIT :MAX_DATA_CLOUD_OBJECTS
             ]) {
                 if (String.isBlank(ent.QualifiedApiName)) {
                     continue;
                 }
-                rows.add(new DmoOption(
+                rows.add(new DataCloudObjectOption(
                     ent.QualifiedApiName,
                     String.isNotBlank(ent.Label) ? ent.Label : ent.QualifiedApiName
                 ));
             }
         } catch (Exception ex) {
-            System.debug(LoggingLevel.WARN, 'EntityDefinition DMO catalogue unavailable: ' + ex.getMessage());
+            System.debug(LoggingLevel.WARN, 'EntityDefinition catalogue unavailable (' + apiSuffix + '): ' + ex.getMessage());
         }
         return rows;
     }
@@ -66,11 +68,15 @@ public with sharing class CampaignExclusionController {
         public List<SegmentOption> segments { get; set; }
 
         @AuraEnabled
-        public List<DmoOption> dataModelObjects { get; set; }
+        public List<DataCloudObjectOption> dataModelObjects { get; set; }
+
+        @AuraEnabled
+        public List<DataCloudObjectOption> dataLakeObjects { get; set; }
 
         public ExclusionOptions() {
             segments = new List<SegmentOption>();
-            dataModelObjects = new List<DmoOption>();
+            dataModelObjects = new List<DataCloudObjectOption>();
+            dataLakeObjects = new List<DataCloudObjectOption>();
         }
     }
 
@@ -89,13 +95,13 @@ public with sharing class CampaignExclusionController {
         }
     }
 
-    public class DmoOption {
+    public class DataCloudObjectOption {
         @AuraEnabled
         public String apiName { get; set; }
         @AuraEnabled
         public String label { get; set; }
 
-        public DmoOption(String apiName, String label) {
+        public DataCloudObjectOption(String apiName, String label) {
             this.apiName = apiName;
             this.label = label;
         }
