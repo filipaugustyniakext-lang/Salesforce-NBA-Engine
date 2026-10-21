@@ -68,6 +68,16 @@ function emptyExclusionSelectedBySource() {
     };
 }
 
+function emptyExclusionCatalogs() {
+    return {
+        campaignOptions: [],
+        reportOptions: [],
+        segmentOptions: [],
+        dmoOptions: [],
+        dloOptions: []
+    };
+}
+
 function exclusionMappingKey(source, recordId) {
     return `${source}:${recordId}`;
 }
@@ -363,6 +373,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     @track exclusionSelectedBySource = emptyExclusionSelectedBySource();
     @track exclusionMappings = {};
     @track exclusionCatalogHints = { segment: '', dmo: '', dlo: '' };
+    @track exclusionCatalogs = emptyExclusionCatalogs();
+    _exclusionWorkspaceInitialized = false;
     @track exclusionMappingModal = {
         open: false,
         source: '',
@@ -486,6 +498,18 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         document.removeEventListener('click', this.handleOutsideClickBound);
     }
 
+    renderedCallback() {
+        if (this.showManualExclusionDefinitions) {
+            if (!this._exclusionWorkspaceInitialized) {
+                this._ensureExclusionWorkspaceRow();
+                this._preloadExclusionCatalogs();
+                this._exclusionWorkspaceInitialized = true;
+            }
+        } else {
+            this._exclusionWorkspaceInitialized = false;
+        }
+    }
+
     loadTiers() {
         getCampaignTiers()
             .then(data => {
@@ -518,12 +542,13 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                     dmo: data?.dmoHint || '',
                     dlo: data?.dloHint || ''
                 };
-                this.exclusionDefinitions = this.exclusionDefinitions.map(row => ({
-                    ...row,
+                this.exclusionCatalogs = {
+                    ...this.exclusionCatalogs,
                     segmentOptions,
                     dmoOptions,
                     dloOptions
-                }));
+                };
+                this._applyExclusionCatalogsToAllRows();
                 this._data360ExclusionCatalogLoaded = true;
             })
             .catch(err => {
@@ -628,22 +653,51 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         }
         this.excludeOtherMarketingActivations = !!campaign.Exclude_Other_Marketing_Activations__c;
         this._ensureExclusionWorkspaceRow();
+        this._preloadExclusionCatalogs();
+        this._exclusionWorkspaceInitialized = true;
     }
 
     _activeExclusionRow() {
         return (this.exclusionDefinitions || [])[0] || null;
     }
 
+    _applyExclusionCatalogsToRow(row) {
+        const catalogs = this.exclusionCatalogs || emptyExclusionCatalogs();
+        return {
+            ...row,
+            campaignOptions: catalogs.campaignOptions || [],
+            reportOptions: catalogs.reportOptions || [],
+            segmentOptions: catalogs.segmentOptions || [],
+            dmoOptions: catalogs.dmoOptions || [],
+            dloOptions: catalogs.dloOptions || []
+        };
+    }
+
+    _applyExclusionCatalogsToAllRows() {
+        this.exclusionDefinitions = (this.exclusionDefinitions || []).map(row =>
+            this._applyExclusionCatalogsToRow(row)
+        );
+    }
+
     _buildExclusionWorkspaceRow(source) {
         const selected = this.exclusionSelectedBySource || emptyExclusionSelectedBySource();
-        return newExclusionRow({
+        return this._applyExclusionCatalogsToRow(newExclusionRow({
             source,
             selectedCampaignIds: [...(selected.campaign || [])],
             selectedReportIds: [...(selected.report || [])],
             selectedSegmentIds: [...(selected.segment || [])],
             selectedDmoIds: [...(selected.dmo || [])],
             selectedDloIds: [...(selected.dlo || [])]
-        });
+        }));
+    }
+
+    _preloadExclusionCatalogs() {
+        if (!this.showManualExclusionDefinitions) {
+            return;
+        }
+        this._ensureData360ExclusionCatalog();
+        this._loadCampaignOptionsForAllRows();
+        this._loadReportOptionsForAllRows();
     }
 
     _syncActiveRowToSelectedStore() {
@@ -664,23 +718,21 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         }
         if ((this.exclusionDefinitions || []).length === 0) {
             this.exclusionDefinitions = [this._buildExclusionWorkspaceRow('campaign')];
-            this._loadCampaignOptionsForAllRows();
         }
     }
 
-    _catalogOptionsForSource(source, row) {
-        const active = row || this._activeExclusionRow();
-        if (!active) return [];
-        if (source === 'campaign') return active.campaignOptions || [];
-        if (source === 'report') return active.reportOptions || [];
-        if (source === 'segment') return active.segmentOptions || [];
-        if (source === 'dmo') return active.dmoOptions || [];
-        if (source === 'dlo') return active.dloOptions || [];
+    _catalogOptionsForSource(source) {
+        const catalogs = this.exclusionCatalogs || emptyExclusionCatalogs();
+        if (source === 'campaign') return catalogs.campaignOptions || [];
+        if (source === 'report') return catalogs.reportOptions || [];
+        if (source === 'segment') return catalogs.segmentOptions || [];
+        if (source === 'dmo') return catalogs.dmoOptions || [];
+        if (source === 'dlo') return catalogs.dloOptions || [];
         return [];
     }
 
-    _displayLabelForExclusionRecord(source, recordId, row) {
-        const options = this._catalogOptionsForSource(source, row);
+    _displayLabelForExclusionRecord(source, recordId) {
+        const options = this._catalogOptionsForSource(source);
         if (source === 'campaign') {
             const match = options.find(o => o.id === recordId);
             return match ? campaignDisplayLabel(match) : recordId;
@@ -701,7 +753,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     _serializeExclusionDefinitions() {
-        const row = this._activeExclusionRow();
         this._syncActiveRowToSelectedStore();
         const selected = this.exclusionSelectedBySource || emptyExclusionSelectedBySource();
         const serialized = [];
@@ -711,7 +762,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 if (!isExclusionMappingComplete(mapping)) {
                     return;
                 }
-                const display = this._displayLabelForExclusionRecord(source, recordId, row);
+                const display = this._displayLabelForExclusionRecord(source, recordId);
                 serialized.push({
                     source,
                     value: recordId,
@@ -1569,8 +1620,11 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 this.exclusionDefinitions = [];
                 this.exclusionSelectedBySource = emptyExclusionSelectedBySource();
                 this.exclusionMappings = {};
+                this._exclusionWorkspaceInitialized = false;
             } else {
                 this._ensureExclusionWorkspaceRow();
+                this._preloadExclusionCatalogs();
+                this._exclusionWorkspaceInitialized = true;
             }
             if (!this._tierAllowsOtherMarketingActivations(newTier)) {
                 this.excludeOtherMarketingActivations = false;
@@ -1602,8 +1656,15 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         if (!row) return;
         this._syncActiveRowToSelectedStore();
         const rowId = row.id;
-        this.exclusionDefinitions = [this._buildExclusionWorkspaceRow(source)];
-        this.exclusionDefinitions[0].id = rowId;
+        this.exclusionDefinitions = [this._applyExclusionCatalogsToRow({
+            ...row,
+            source,
+            campaignPickerOpen: false,
+            reportPickerOpen: false,
+            segmentPickerOpen: false,
+            dmoPickerOpen: false,
+            dloPickerOpen: false
+        })];
         if (source === 'campaign') {
             this._ensureCampaignCatalogForRow(rowId);
         } else if (source === 'report') {
@@ -1625,8 +1686,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         const source = event.currentTarget.dataset.source;
         const recordId = event.currentTarget.dataset.recordId;
         if (!source || !recordId) return;
-        const row = this._activeExclusionRow();
-        const label = this._displayLabelForExclusionRecord(source, recordId, row);
+        const label = this._displayLabelForExclusionRecord(source, recordId);
         const existing = this.exclusionMappings[exclusionMappingKey(source, recordId)] || {};
         const useForeignKeyPicklist = source === 'dmo' || source === 'dlo';
         this.exclusionMappingModal = {
@@ -1744,25 +1804,26 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         searchSuppressionCampaigns({ searchTerm: '' })
             .then(results => {
                 const campaignOptions = mapCampaignOptionsFromApex(results);
-                this.exclusionDefinitions = this.exclusionDefinitions.map(row =>
-                    row.source === 'campaign' ? { ...row, campaignOptions } : row
-                );
+                this.exclusionCatalogs = { ...this.exclusionCatalogs, campaignOptions };
+                this._applyExclusionCatalogsToAllRows();
             })
             .catch(err => console.error('Campaign exclusion catalogue load failed:', err));
     }
 
     _ensureCampaignCatalogForRow(rowId) {
-        const row = this.exclusionDefinitions.find(r => r.id === rowId);
-        if (!row) return;
-        if ((row.campaignOptions || []).length) {
+        const catalogs = this.exclusionCatalogs || emptyExclusionCatalogs();
+        if ((catalogs.campaignOptions || []).length) {
             this._updateExclusionRow(rowId, { campaignPickerOpen: true });
             return;
         }
         searchSuppressionCampaigns({ searchTerm: '' })
             .then(results => {
                 const campaignOptions = mapCampaignOptionsFromApex(results);
+                this.exclusionCatalogs = { ...this.exclusionCatalogs, campaignOptions };
                 this.exclusionDefinitions = this.exclusionDefinitions.map(r =>
-                    r.id === rowId ? { ...r, campaignOptions, campaignPickerOpen: true } : r
+                    r.id === rowId
+                        ? { ...this._applyExclusionCatalogsToRow(r), campaignPickerOpen: true }
+                        : this._applyExclusionCatalogsToRow(r)
                 );
             })
             .catch(err => console.error('Campaign exclusion catalogue load failed:', err));
@@ -1772,25 +1833,26 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         searchSuppressionReports({ searchTerm: '' })
             .then(results => {
                 const reportOptions = mapReportOptionsFromApex(results);
-                this.exclusionDefinitions = this.exclusionDefinitions.map(row =>
-                    row.source === 'report' ? { ...row, reportOptions } : row
-                );
+                this.exclusionCatalogs = { ...this.exclusionCatalogs, reportOptions };
+                this._applyExclusionCatalogsToAllRows();
             })
             .catch(err => console.error('Report exclusion catalogue load failed:', err));
     }
 
     _ensureReportCatalogForRow(rowId) {
-        const row = this.exclusionDefinitions.find(r => r.id === rowId);
-        if (!row) return;
-        if ((row.reportOptions || []).length) {
+        const catalogs = this.exclusionCatalogs || emptyExclusionCatalogs();
+        if ((catalogs.reportOptions || []).length) {
             this._updateExclusionRow(rowId, { reportPickerOpen: true });
             return;
         }
         searchSuppressionReports({ searchTerm: '' })
             .then(results => {
                 const reportOptions = mapReportOptionsFromApex(results);
+                this.exclusionCatalogs = { ...this.exclusionCatalogs, reportOptions };
                 this.exclusionDefinitions = this.exclusionDefinitions.map(r =>
-                    r.id === rowId ? { ...r, reportOptions, reportPickerOpen: true } : r
+                    r.id === rowId
+                        ? { ...this._applyExclusionCatalogsToRow(r), reportPickerOpen: true }
+                        : this._applyExclusionCatalogsToRow(r)
                 );
             })
             .catch(err => console.error('Report exclusion catalogue load failed:', err));
@@ -2462,35 +2524,29 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         return this._countSelectedExclusions() > 0;
     }
 
-    get exclusionSelectedSourceSections() {
+    get exclusionSummaryListItems() {
         this._syncActiveRowToSelectedStore();
-        const row = this._activeExclusionRow();
         const selected = this.exclusionSelectedBySource || emptyExclusionSelectedBySource();
-        return EXCLUSION_SOURCE_OPTIONS.map(opt => {
-            const ids = selected[opt.value] || [];
-            if (!ids.length) {
-                return null;
-            }
-            const records = ids.map(recordId => {
+        const items = [];
+        EXCLUSION_SOURCE_OPTIONS.forEach(opt => {
+            (selected[opt.value] || []).forEach(recordId => {
                 const mapping = this.exclusionMappings[exclusionMappingKey(opt.value, recordId)];
                 const mapped = isExclusionMappingComplete(mapping);
-                return {
-                    id: recordId,
-                    label: this._displayLabelForExclusionRecord(opt.value, recordId, row),
+                items.push({
+                    key: exclusionMappingKey(opt.value, recordId),
+                    source: opt.value,
+                    recordId,
+                    icon: opt.icon,
+                    sourceName: this._displayLabelForExclusionRecord(opt.value, recordId),
+                    sourceTypeLabel: opt.shortLabel,
                     mapped,
-                    badgeClass: mapped
-                        ? 'slds-badge exclusion-record-badge exclusion-record-badge--mapped'
-                        : 'slds-badge exclusion-record-badge exclusion-record-badge--pending',
-                    mapActionLabel: mapped ? 'Edit mapping' : 'Define mapping'
-                };
+                    rowClass: mapped
+                        ? 'exclusion-summary-row exclusion-summary-row--mapped'
+                        : 'exclusion-summary-row exclusion-summary-row--pending'
+                });
             });
-            return {
-                source: opt.value,
-                sourceLabel: opt.label,
-                icon: opt.icon,
-                records
-            };
-        }).filter(Boolean);
+        });
+        return items;
     }
 
     get exclusionMappingModalOpen() {
@@ -2510,7 +2566,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             };
             if (row.source === 'report') {
                 const term = (row.reportSearchTerm || '').trim().toLowerCase();
-                const options = row.reportOptions || [];
+                const options = (row.reportOptions && row.reportOptions.length)
+                    ? row.reportOptions
+                    : this._catalogOptionsForSource('report');
                 const filtered = options.filter(r => {
                     if (!term) return true;
                     return (r.name || '').toLowerCase().includes(term)
@@ -2537,7 +2595,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             }
             if (row.source === 'segment') {
                 const term = (row.segmentSearchTerm || '').trim().toLowerCase();
-                const options = row.segmentOptions || [];
+                const options = (row.segmentOptions && row.segmentOptions.length)
+                    ? row.segmentOptions
+                    : this._catalogOptionsForSource('segment');
                 const filtered = options.filter(s => {
                     if (!term) return true;
                     return (s.name || '').toLowerCase().includes(term)
@@ -2564,7 +2624,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             }
             if (row.source === 'dmo') {
                 const term = (row.dmoSearchTerm || '').trim().toLowerCase();
-                const options = row.dmoOptions || [];
+                const options = (row.dmoOptions && row.dmoOptions.length)
+                    ? row.dmoOptions
+                    : this._catalogOptionsForSource('dmo');
                 const filtered = options.filter(d => {
                     if (!term) return true;
                     return (d.label || '').toLowerCase().includes(term)
@@ -2591,7 +2653,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             }
             if (row.source === 'dlo') {
                 const term = (row.dloSearchTerm || '').trim().toLowerCase();
-                const options = row.dloOptions || [];
+                const options = (row.dloOptions && row.dloOptions.length)
+                    ? row.dloOptions
+                    : this._catalogOptionsForSource('dlo');
                 const filtered = options.filter(d => {
                     if (!term) return true;
                     return (d.label || '').toLowerCase().includes(term)
@@ -2620,7 +2684,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 return base;
             }
             const term = (row.campaignSearchTerm || '').trim().toLowerCase();
-            const options = row.campaignOptions || [];
+            const options = (row.campaignOptions && row.campaignOptions.length)
+                ? row.campaignOptions
+                : this._catalogOptionsForSource('campaign');
             const filtered = options.filter(c => {
                 if (!term) return true;
                 return (c.name || '').toLowerCase().includes(term)
@@ -2654,12 +2720,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                     : 'Select campaigns...'
             };
         });
-    }
-
-    get addExclusionButtonLabel() {
-        return this.exclusionDefinitions.length === 0
-            ? 'Add Exclusion Definition'
-            : 'Add Exclusion';
     }
 
     get summaryExclusionsLabel() {

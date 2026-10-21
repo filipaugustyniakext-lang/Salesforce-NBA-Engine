@@ -255,18 +255,26 @@
                                             Configure exclusions allowed for the selected priority tier.
                                         </p>
                                         <div class="exclusions-tile-body animate-fade-in">
-                                                    <template lwc:if={showOtherMarketingActivationsOption}>
-                                                        <lightning-input
-                                                            type="checkbox"
-                                                            label="Other Marketing Activations"
-                                                            checked={excludeOtherMarketingActivations}
-                                                            onchange={handleOtherMarketingActivationsChange}
-                                                            class="slds-m-bottom_small exclusion-other-marketing-checkbox">
-                                                        </lightning-input>
-                                                    </template>
-                                                    <template lwc:if={showManualExclusionDefinitions}>
+                                            <template lwc:if={showOtherMarketingActivationsOption}>
+                                                <div class="exclusion-method-box slds-m-bottom_small">
+                                                    <span class="exclusion-method-title">Exclude other marketing activations</span>
+                                                    <lightning-input
+                                                        type="checkbox"
+                                                        label="Other Marketing Activations"
+                                                        checked={excludeOtherMarketingActivations}
+                                                        onchange={handleOtherMarketingActivationsChange}
+                                                        class="slds-m-top_x-small exclusion-other-marketing-checkbox">
+                                                    </lightning-input>
+                                                </div>
+                                            </template>
+                                            <template lwc:if={showManualExclusionDefinitions}>
+                                                <div class="exclusion-method-box exclusion-method-box--manual">
+                                                    <span class="exclusion-method-title">Manual exclusions</span>
+                                                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small slds-m-bottom_small">
+                                                        Switch between sources and select records. Everything you choose appears in the summary below.
+                                                    </p>
                                                     <template for:each={exclusionWorkspaceRows} for:item="row">
-                                                        <div key={row.id} class="exclusion-definition-row">
+                                                        <div key={row.id} class="exclusion-source-picker-block">
                                                             <label class="slds-form-element__label custom-label-style">Exclusion source</label>
                                                             <div class="slds-button-group exclusion-source-group slds-m-top_xx-small slds-m-bottom_x-small" role="group" aria-label="Exclusion source">
                                                                 <template for:each={row.exclusionSourceOptions} for:item="srcOpt">
@@ -347,26 +355,6 @@
                                                                                     </div>
                                                                                 </div>
                                                                             </div>
-                                                                            <template lwc:if={row.hasSelectedCampaigns}>
-                                                                                <ul class="exclusion-campaign-pills slds-listbox slds-listbox_horizontal slds-m-top_x-small" role="listbox" aria-label="Selected campaigns">
-                                                                                    <template for:each={row.selectedCampaignPills} for:item="pill">
-                                                                                        <li key={pill.id} class="slds-listbox-item" role="presentation">
-                                                                                            <span class="slds-pill">
-                                                                                                <span class="slds-pill__label" title={pill.label}>{pill.label}</span>
-                                                                                                <button
-                                                                                                    type="button"
-                                                                                                    class="slds-button slds-button_icon slds-button_icon slds-pill__remove"
-                                                                                                    title="Remove"
-                                                                                                    data-row-id={row.id}
-                                                                                                    data-campaign-id={pill.id}
-                                                                                                    onclick={handleRemoveCampaignExclusionPill}>
-                                                                                                    <lightning-icon icon-name="utility:close" size="x-small" alternative-text="Remove"></lightning-icon>
-                                                                                                </button>
-                                                                                            </span>
-                                                                                        </li>
-                                                                                    </template>
-                                                                                </ul>
-                                                                            </template>
                                                                         </div>
                                                                     </template>
                                                                     <template lwc:elseif={row.isReport}>
@@ -419,26 +407,6 @@
                                                                                     </div>
                                                                                 </div>
                                                                             </div>
-                                                                            <template lwc:if={row.hasSelectedReports}>
-                                                                                <ul class="exclusion-campaign-pills slds-listbox slds-listbox_horizontal slds-m-top_x-small" role="listbox" aria-label="Selected reports">
-                                                                                    <template for:each={row.selectedReportPills} for:item="pill">
-                                                                                        <li key={pill.id} class="slds-listbox-item" role="presentation">
-                                                                                            <span class="slds-pill">
-                                                                                                <span class="slds-pill__label" title={pill.label}>{pill.label}</span>
-                                                                                                <button
-                                                                                                    type="button"
-                                                                                                    class="slds-button slds-button_icon slds-button_icon slds-pill__remove"
-                                                                                                    title="Remove"
-                                                                                                    data-row-id={row.id}
-                                                                                                    data-report-id={pill.id}
-                                                                                                    onclick={handleRemoveReportExclusionPill}>
-                                                                                                    <lightning-icon icon-name="utility:close" size="x-small" alternative-text="Remove"></lightning-icon>
-                                                                                                </button>
-                                                                                            </span>
-                                                                                        </li>
-                                                                                    </template>
-                                                                                </ul>
-                                                                            </template>
                                                                         </div>
                                                                     </template>
                                                                     <template lwc:elseif={row.isSegment}>
@@ -491,20 +459,6 @@
                                                                                     </div>
                                                                                 </div>
                                                                             </div>
-                                                                            <template lwc:if={row.hasSelectedSegments}>
-                                                                                <ul class="exclusion-campaign-pills slds-listbox slds-listbox_horizontal slds-m-top_x-small" role="listbox" aria-label="Selected segments">
-                                                                                    <template for:each={row.selectedSegmentPills} for:item="pill">
-                                                                                        <li key={pill.id} class="slds-listbox-item" role="presentation">
-                                                                                            <span class="slds-pill">
-                                                                                                <span class="slds-pill__label" title={pill.label}>{pill.label}</span>
-                                                                                                <button type="button" class="slds-button slds-button_icon slds-button_icon slds-pill__remove" title="Remove" data-row-id={row.id} data-segment-id={pill.id} onclick={handleRemoveSegmentExclusionPill}>
-                                                                                                    <lightning-icon icon-name="utility:close" size="x-small" alternative-text="Remove"></lightning-icon>
-                                                                                                </button>
-                                                                                            </span>
-                                                                                        </li>
-                                                                                    </template>
-                                                                                </ul>
-                                                                            </template>
                                                                         </div>
                                                                     </template>
                                                                     <template lwc:elseif={row.isDmo}>
@@ -557,20 +511,6 @@
                                                                                     </div>
                                                                                 </div>
                                                                             </div>
-                                                                            <template lwc:if={row.hasSelectedDmos}>
-                                                                                <ul class="exclusion-campaign-pills slds-listbox slds-listbox_horizontal slds-m-top_x-small" role="listbox" aria-label="Selected DMOs">
-                                                                                    <template for:each={row.selectedDmoPills} for:item="pill">
-                                                                                        <li key={pill.id} class="slds-listbox-item" role="presentation">
-                                                                                            <span class="slds-pill">
-                                                                                                <span class="slds-pill__label" title={pill.label}>{pill.label}</span>
-                                                                                                <button type="button" class="slds-button slds-button_icon slds-button_icon slds-pill__remove" title="Remove" data-row-id={row.id} data-dmo-id={pill.id} onclick={handleRemoveDmoExclusionPill}>
-                                                                                                    <lightning-icon icon-name="utility:close" size="x-small" alternative-text="Remove"></lightning-icon>
-                                                                                                </button>
-                                                                                            </span>
-                                                                                        </li>
-                                                                                    </template>
-                                                                                </ul>
-                                                                            </template>
                                                                         </div>
                                                                     </template>
                                                                     <template lwc:elseif={row.isDlo}>
@@ -623,20 +563,6 @@
                                                                                     </div>
                                                                                 </div>
                                                                             </div>
-                                                                            <template lwc:if={row.hasSelectedDlos}>
-                                                                                <ul class="exclusion-campaign-pills slds-listbox slds-listbox_horizontal slds-m-top_x-small" role="listbox" aria-label="Selected DLOs">
-                                                                                    <template for:each={row.selectedDloPills} for:item="pill">
-                                                                                        <li key={pill.id} class="slds-listbox-item" role="presentation">
-                                                                                            <span class="slds-pill">
-                                                                                                <span class="slds-pill__label" title={pill.label}>{pill.label}</span>
-                                                                                                <button type="button" class="slds-button slds-button_icon slds-button_icon slds-pill__remove" title="Remove" data-row-id={row.id} data-dlo-id={pill.id} onclick={handleRemoveDloExclusionPill}>
-                                                                                                    <lightning-icon icon-name="utility:close" size="x-small" alternative-text="Remove"></lightning-icon>
-                                                                                                </button>
-                                                                                            </span>
-                                                                                        </li>
-                                                                                    </template>
-                                                                                </ul>
-                                                                            </template>
                                                                         </div>
                                                                     </template>
                                                             </div>
@@ -646,30 +572,22 @@
                                                     <template lwc:if={exclusionHasSelectedRecords}>
                                                         <div class="exclusion-selected-divider slds-m-top_medium slds-m-bottom_small" role="separator"></div>
                                                         <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_x-small">
-                                                            Selected exclusions — define how qualification matches each object. Only mapped records are saved.
+                                                            Selected exclusions — map each record before save.
                                                         </p>
-                                                        <template for:each={exclusionSelectedSourceSections} for:item="section">
-                                                            <div key={section.source} class="exclusion-selected-source-block slds-m-bottom_small">
-                                                                <div class="exclusion-selected-source-header slds-m-bottom_xx-small">
-                                                                    <lightning-icon icon-name={section.icon} size="x-small" class="slds-m-right_xx-small"></lightning-icon>
-                                                                    <span class="slds-text-title_caps">{section.sourceLabel}</span>
-                                                                </div>
-                                                                <ul class="exclusion-selected-badge-list slds-list_horizontal slds-wrap">
-                                                                    <template for:each={section.records} for:item="rec">
-                                                                        <li key={rec.id} class="exclusion-selected-badge-item slds-m-right_x-small slds-m-bottom_x-small">
-                                                                            <span class={rec.badgeClass}>
-                                                                                <span class="exclusion-record-badge-label" title={rec.label}>{rec.label}</span>
-                                                                                <button type="button" class="slds-button slds-button_reset exclusion-record-map-link" data-source={section.source} data-record-id={rec.id} onclick={handleOpenExclusionMapping}>{rec.mapActionLabel}</button>
-                                                                                <button type="button" class="slds-button slds-button_icon slds-button_icon-x-small exclusion-record-remove" title="Remove" data-source={section.source} data-record-id={rec.id} onclick={handleRemoveExclusionSelection}>
-                                                                                    <lightning-icon icon-name="utility:close" size="xx-small" alternative-text="Remove"></lightning-icon>
-                                                                                </button>
-                                                                            </span>
-                                                                        </li>
-                                                                    </template>
-                                                                </ul>
-                                                            </div>
-                                                        </template>
+                                                        <ul class="exclusion-summary-list" role="list">
+                                                            <template for:each={exclusionSummaryListItems} for:item="item">
+                                                                <li key={item.key} class={item.rowClass} role="listitem">
+                                                                    <lightning-icon icon-name={item.icon} size="x-small" class="exclusion-summary-icon"></lightning-icon>
+                                                                    <span class="exclusion-summary-name" title={item.sourceName}>{item.sourceName}</span>
+                                                                    <button type="button" class="slds-button slds-button_neutral exclusion-summary-map-btn" data-source={item.source} data-record-id={item.recordId} onclick={handleOpenExclusionMapping}>Mapping</button>
+                                                                    <button type="button" class="slds-button slds-button_icon slds-button_icon-x-small exclusion-summary-remove" title="Remove" data-source={item.source} data-record-id={item.recordId} onclick={handleRemoveExclusionSelection}>
+                                                                        <lightning-icon icon-name="utility:close" size="xx-small" alternative-text="Remove"></lightning-icon>
+                                                                    </button>
+                                                                </li>
+                                                            </template>
+                                                        </ul>
                                                     </template>
+                                                </div>
 
                                                     <template lwc:if={exclusionMappingModalOpen}>
                                                         <section role="dialog" tabindex="-1" class="slds-modal slds-fade-in-open exclusion-mapping-modal" aria-labelledby="exclusion-mapping-heading">
@@ -717,7 +635,7 @@
                                                         </section>
                                                         <div class="slds-backdrop slds-backdrop_open exclusion-mapping-backdrop"></div>
                                                     </template>
-                                                    </template>
+                                            </template>
                                         </div>
                                     </template>
                                     <template lwc:else>
