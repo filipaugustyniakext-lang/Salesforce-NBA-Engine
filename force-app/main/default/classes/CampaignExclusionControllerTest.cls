@@ -29,6 +29,18 @@ private class CampaignExclusionControllerTest {
     }
 
     @IsTest
+    static void searchDataCloudExclusionObjects_entityDefinitionQueryNoOr() {
+        Test.startTest();
+        List<CampaignExclusionController.DataCloudObjectOption> dmoHits =
+            CampaignExclusionController.searchDataCloudExclusionObjects('dmo', 'GCP');
+        List<CampaignExclusionController.DataCloudObjectOption> dloHits =
+            CampaignExclusionController.searchDataCloudExclusionObjects('dlo', 'GCP');
+        Test.stopTest();
+        System.assertNotEquals(null, dmoHits);
+        System.assertNotEquals(null, dloHits);
+    }
+
+    @IsTest
     static void getExclusionRecordFieldOptions_campaignMemberShape() {
         Test.startTest();
         List<CampaignExclusionController.FieldOption> fields =

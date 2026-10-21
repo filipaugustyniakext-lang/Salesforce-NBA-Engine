@@ -1802,6 +1802,14 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 })
                 .catch(err => {
                     console.error(`Data Cloud ${kind} search failed:`, err);
+                    const message = err?.body?.message || err?.message;
+                    if (message) {
+                        this.dispatchEvent(new ShowToastEvent({
+                            title: `Data Cloud ${kind.toUpperCase()} search`,
+                            message,
+                            variant: 'warning'
+                        }));
+                    }
                     this._updateExclusionRow(rowId, kind === 'dmo'
                         ? { dmoOptions: [], dmoPickerOpen: true }
                         : { dloOptions: [], dloPickerOpen: true });
