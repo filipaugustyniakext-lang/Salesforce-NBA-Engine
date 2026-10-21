@@ -1769,8 +1769,10 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         } else if (source === 'segment') {
             this._ensureData360ExclusionCatalog().then(() => this._openSegmentPicker(rowId));
         } else if (source === 'dmo') {
+            this._ensureData360ExclusionCatalog();
             this._openDmoPicker(rowId);
         } else if (source === 'dlo') {
+            this._ensureData360ExclusionCatalog();
             this._openDloPicker(rowId);
         }
     }
@@ -2600,17 +2602,21 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         const row = this._activeExclusionRow();
         if (!row) return '';
         if (row.source === 'segment') return this.exclusionCatalogHints.segment || '';
-        if (row.source === 'dmo') {
-            const term = (row.dmoSearchTerm || '').trim();
-            if (term.length >= 2) return '';
-            return this.exclusionCatalogHints.dmo || '';
-        }
-        if (row.source === 'dlo') {
-            const term = (row.dloSearchTerm || '').trim();
-            if (term.length >= 2) return '';
-            return this.exclusionCatalogHints.dlo || '';
-        }
         return '';
+    }
+
+    get exclusionDmoInfoMessage() {
+        const row = this._activeExclusionRow();
+        if (!row || row.source !== 'dmo') return '';
+        return this.exclusionCatalogHints.dmo
+            || 'Search Profile DMOs by label or API name (minimum 2 characters). Engagement and other categories are excluded.';
+    }
+
+    get exclusionDloInfoMessage() {
+        const row = this._activeExclusionRow();
+        if (!row || row.source !== 'dlo') return '';
+        return this.exclusionCatalogHints.dlo
+            || 'Search Profile DLOs by label or API name (minimum 2 characters). Engagement and other categories are excluded.';
     }
 
     get exclusionHasSelectedRecords() {

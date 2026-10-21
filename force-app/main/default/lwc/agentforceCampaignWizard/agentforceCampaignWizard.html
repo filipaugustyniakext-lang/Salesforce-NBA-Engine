@@ -291,7 +291,7 @@
                                                                 </template>
                                                             </div>
                                                             <template lwc:if={exclusionActiveCatalogHint}>
-                                                                <p class="slds-text-body_small slds-text-color_error slds-m-bottom_x-small">{exclusionActiveCatalogHint}</p>
+                                                                <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_x-small">{exclusionActiveCatalogHint}</p>
                                                             </template>
                                                             <div class="exclusion-lookup-col slds-m-top_x-small">
                                                                     <template lwc:if={row.isCampaign}>
@@ -462,6 +462,13 @@
                                                                         </div>
                                                                     </template>
                                                                     <template lwc:elseif={row.isDmo}>
+                                                                        <template lwc:if={exclusionDmoInfoMessage}>
+                                                                            <div class="slds-notify slds-notify_alert slds-theme_info slds-m-bottom_x-small" role="status">
+                                                                                <span class="slds-assistive-text">info</span>
+                                                                                <lightning-icon icon-name="utility:info" size="x-small" class="slds-m-right_x-small slds-no-flex" alternative-text="Info"></lightning-icon>
+                                                                                <span class="slds-text-body_small">{exclusionDmoInfoMessage}</span>
+                                                                            </div>
+                                                                        </template>
                                                                         <div class={row.dmoPickerContainerClass} data-row-id={row.id}>
                                                                             <label class="slds-form-element__label">Data360 DMOs</label>
                                                                             <div class="slds-form-element__control">
@@ -514,6 +521,13 @@
                                                                         </div>
                                                                     </template>
                                                                     <template lwc:elseif={row.isDlo}>
+                                                                        <template lwc:if={exclusionDloInfoMessage}>
+                                                                            <div class="slds-notify slds-notify_alert slds-theme_info slds-m-bottom_x-small" role="status">
+                                                                                <span class="slds-assistive-text">info</span>
+                                                                                <lightning-icon icon-name="utility:info" size="x-small" class="slds-m-right_x-small slds-no-flex" alternative-text="Info"></lightning-icon>
+                                                                                <span class="slds-text-body_small">{exclusionDloInfoMessage}</span>
+                                                                            </div>
+                                                                        </template>
                                                                         <div class={row.dloPickerContainerClass} data-row-id={row.id}>
                                                                             <label class="slds-form-element__label">Data360 DLOs</label>
                                                                             <div class="slds-form-element__control">
@@ -579,7 +593,7 @@
                                                             class="slds-m-bottom_small exclusion-campaign-member-key">
                                                         </lightning-input>
                                                         <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_x-small">
-                                                            Select the attribute on each exclusion source that corresponds to the campaign member key.
+                                                            Select the attribute on each exclusion source that corresponds to the campaign member key. For suppression campaigns, use Campaign Member fields or related Contact keys (e.g. External Customer Id).
                                                         </p>
                                                         <ul class="exclusion-summary-list" role="list">
                                                             <template for:each={exclusionSummaryListItems} for:item="item">

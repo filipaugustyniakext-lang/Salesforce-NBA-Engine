@@ -81,7 +81,7 @@ public with sharing class CampaignExclusionController {
             return options;
         }
         if (normalized == 'campaign') {
-            return entityFieldOptions('CampaignMember');
+            return campaignMemberExclusionFieldOptions(recordKey);
         }
         if (normalized == 'segment') {
             return entityFieldOptions('MarketSegment');
@@ -176,8 +176,11 @@ public with sharing class CampaignExclusionController {
         }
     }
 
-    private static final Pattern CONNECT_ENTITY_ROW_PATTERN = Pattern.compile(
-        'name=([A-Za-z][A-Za-z0-9_]*__dl[ml]), displayName=([^,]+), relationships'
+    private static final Pattern CONNECT_DMO_ENTITY_ROW_PATTERN = Pattern.compile(
+        'name=([A-Za-z][A-Za-z0-9_]*__dlm), displayName=([^,]+), relationships'
+    );
+    private static final Pattern CONNECT_DLO_ENTITY_ROW_PATTERN = Pattern.compile(
+        'category=[^,]+, name=([A-Za-z][A-Za-z0-9_]*__dll), displayName=([^,]+), primaryKeys'
     );
 
     /**
@@ -217,7 +220,7 @@ public with sharing class CampaignExclusionController {
                 continue;
             }
             for (Object rowObj : output.metadata) {
-                DataCloudObjectOption option = parseConnectEntityRow(String.valueOf(rowObj));
+                DataCloudObjectOption option = parseConnectEntityRow(String.valueOf(rowObj), isDlo);
                 if (option == null) {
                     continue;
                 }
@@ -244,11 +247,14 @@ public with sharing class CampaignExclusionController {
         }
     }
 
-    private static DataCloudObjectOption parseConnectEntityRow(String rowText) {
+    private static DataCloudObjectOption parseConnectEntityRow(String rowText, Boolean isDlo) {
         if (String.isBlank(rowText)) {
             return null;
         }
-        Matcher matcher = CONNECT_ENTITY_ROW_PATTERN.matcher(rowText);
+        Pattern pattern = isDlo == true
+            ? CONNECT_DLO_ENTITY_ROW_PATTERN
+            : CONNECT_DMO_ENTITY_ROW_PATTERN;
+        Matcher matcher = pattern.matcher(rowText);
         if (!matcher.find()) {
             return null;
         }
@@ -314,6 +320,124 @@ public with sharing class CampaignExclusionController {
             }
         }
         return null;
+    }
+
+    /**
+     * Campaign exclusion mapping: member fields on the selected suppression campaign,
+     * plus lookup drill-down (e.g. Contact.ExternalCustomerId__c).
+     */
+    private static List<FieldOption> campaignMemberExclusionFieldOptions(String campaignId) {
+        List<FieldOption> options = new List<FieldOption>();
+        Set<String> seen = new Set<String>();
+        try {
+            if (String.isNotBlank(campaignId)) {
+                Id.valueOf(campaignId);
+            }
+        } catch (Exception ex) {
+            // Invalid id — still return generic member + lookup fields.
+        }
+        for (FieldDefinition fd : [
+            SELECT QualifiedApiName, Label
+            FROM FieldDefinition
+            WHERE EntityDefinition.QualifiedApiName = 'CampaignMember'
+            ORDER BY Label ASC
+            LIMIT 400
+        ]) {
+            addDrilldownFieldOption(
+                options,
+                seen,
+                fd.QualifiedApiName,
+                'Campaign Member › ' + (String.isNotBlank(fd.Label) ? fd.Label : fd.QualifiedApiName),
+                0
+            );
+        }
+        appendCampaignMemberLookupDrilldown(options, seen);
+        options.sort(new FieldOptionSort());
+        return options;
+    }
+
+    private static void appendCampaignMemberLookupDrilldown(
+        List<FieldOption> options,
+        Set<String> seen
+    ) {
+        Schema.DescribeSObjectResult memberDescribe = CampaignMember.SObjectType.getDescribe();
+        for (Schema.SObjectField memberField : memberDescribe.fields.getMap().values()) {
+            Schema.DescribeFieldResult memberFieldDescribe = memberField.getDescribe();
+            if (memberFieldDescribe.getType() != Schema.DisplayType.REFERENCE) {
+                continue;
+            }
+            List<Schema.SObjectType> references = memberFieldDescribe.getReferenceTo();
+            if (references == null || references.isEmpty()) {
+                continue;
+            }
+            for (Schema.SObjectType relatedType : references) {
+                if (relatedType == null) {
+                    continue;
+                }
+                Schema.DescribeSObjectResult relatedDescribe = relatedType.getDescribe();
+                String relatedApi = relatedDescribe.getName();
+                for (Schema.SObjectField relatedField : relatedDescribe.fields.getMap().values()) {
+                    Schema.DescribeFieldResult relatedFieldDescribe = relatedField.getDescribe();
+                    if (!relatedFieldDescribe.isAccessible()) {
+                        continue;
+                    }
+                    if (!isCampaignMemberMappingCandidate(relatedFieldDescribe)) {
+                        continue;
+                    }
+                    String path = relatedApi + '.' + relatedFieldDescribe.getName();
+                    String label = relatedApi + ' › '
+                        + (String.isNotBlank(relatedFieldDescribe.getLabel())
+                            ? relatedFieldDescribe.getLabel()
+                            : relatedFieldDescribe.getName());
+                    Integer rank = mappingFieldRank(relatedFieldDescribe);
+                    addDrilldownFieldOption(options, seen, path, label, rank);
+                }
+            }
+        }
+    }
+
+    private static Boolean isCampaignMemberMappingCandidate(Schema.DescribeFieldResult fieldDescribe) {
+        Schema.DisplayType fieldType = fieldDescribe.getType();
+        if (fieldType == Schema.DisplayType.ID
+            || fieldType == Schema.DisplayType.STRING
+            || fieldType == Schema.DisplayType.EMAIL
+            || fieldType == Schema.DisplayType.PHONE
+            || fieldType == Schema.DisplayType.TEXTAREA) {
+            return true;
+        }
+        String api = fieldDescribe.getName() == null ? '' : fieldDescribe.getName().toLowerCase();
+        String label = fieldDescribe.getLabel() == null ? '' : fieldDescribe.getLabel().toLowerCase();
+        return api.contains('external') || label.contains('external');
+    }
+
+    private static Integer mappingFieldRank(Schema.DescribeFieldResult fieldDescribe) {
+        String api = fieldDescribe.getName() == null ? '' : fieldDescribe.getName().toLowerCase();
+        String label = fieldDescribe.getLabel() == null ? '' : fieldDescribe.getLabel().toLowerCase();
+        if (api.contains('externalcustomer') || label.contains('external customer')) {
+            return 1;
+        }
+        if (api.contains('external') || label.contains('external')) {
+            return 2;
+        }
+        if (fieldDescribe.getType() == Schema.DisplayType.ID) {
+            return 3;
+        }
+        return 10;
+    }
+
+    private static void addDrilldownFieldOption(
+        List<FieldOption> options,
+        Set<String> seen,
+        String api,
+        String label,
+        Integer rank
+    ) {
+        if (String.isBlank(api) || !seen.add(api.toLowerCase())) {
+            return;
+        }
+        FieldOption row = new FieldOption(api, label);
+        row.sortRank = rank == null ? 10 : rank;
+        options.add(row);
     }
 
     private static List<FieldOption> entityFieldOptions(String entityApiName) {
@@ -481,9 +605,25 @@ public with sharing class CampaignExclusionController {
         @AuraEnabled
         public String label { get; set; }
 
+        public Integer sortRank;
+
         public FieldOption(String value, String label) {
             this.value = value;
             this.label = label;
+            this.sortRank = 10;
+        }
+    }
+
+    private class FieldOptionSort implements System.Comparator<FieldOption> {
+        public Integer compare(FieldOption a, FieldOption b) {
+            Integer leftRank = a == null || a.sortRank == null ? 10 : a.sortRank;
+            Integer rightRank = b == null || b.sortRank == null ? 10 : b.sortRank;
+            if (leftRank != rightRank) {
+                return leftRank - rightRank;
+            }
+            String left = a == null || a.label == null ? '' : a.label.toLowerCase();
+            String right = b == null || b.label == null ? '' : b.label.toLowerCase();
+            return left.compareTo(right);
         }
     }
 
