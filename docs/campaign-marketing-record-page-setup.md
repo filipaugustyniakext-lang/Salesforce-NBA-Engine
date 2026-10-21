@@ -1,60 +1,68 @@
-# Marketing App Campaign record — Details & Related
+# Marketing App Campaign record — what you can change
 
-The **Marketing** app Campaign page is a **single flexipage** (e.g. “Campaign Record Page”). It is **not** split into separate App Builder regions per left-nav item (Overview, Details, Related). Those tabs are part of the **Marketing workspace shell**; **Details** typically renders the standard **Record Detail** component, which reads **Campaign page layout** metadata (`Campaign-Marketing Campaign Layout`).
+## The constraint (your App Builder observation)
 
-You **cannot** drop LWCs into a “Details region” the way you would on a custom three-column record page. You have two supported paths:
+On **Campaign Record Page** in the Marketing app, the center panel (left nav: Overview, Brief, **Details**, **Related**, … plus Flows / Journeys / Personalization / Performance) is **one packaged workspace component**.
 
----
+- You can **move or delete the whole block**, not edit inside **Details** or **Related**.
+- **Details** and **Related** content comes from **Setup → Object Manager → Campaign → Page Layouts** (for your record type), not from nested App Builder regions.
+- Custom LWCs **cannot** be dropped inside the Details tab on that page.
 
-## Path A — Page layout only (what you see today)
-
-**Setup → Object Manager → Campaign → Page Layouts → Marketing Campaign Layout**
-
-- Controls the accordion sections on **Details** (Step 1–4 field groups).
-- Controls **Related** list columns (Campaign Offers, Campaign Copy Variants, Flows, etc.).
-
-We deploy layout updates (exclusions fields, Offer Status / Eligible Now columns) through metadata. No App Builder change.
-
-**Limitation:** Related lists show junction rows only; rich runtime notes need Path B.
+So enhancement is **metadata + actions**, not flexipage surgery.
 
 ---
 
-## Path B — Campaign Configuration View (recommended wizard UI)
+## 1. Details tab → Page layout only
 
-**Component:** `campaignConfigurationView` (label: **Campaign Configuration View**)
+**Layout:** `Campaign-Marketing Campaign Layout`  
+**Assign to:** Record type **Marketing Campaign** (and profiles that use the Marketing app).
 
-Custom LWC already in the org: wizard steps, offers, copy tables, runtime eligibility, Copy Center links.
+This controls:
 
-### Details tab
+- Accordion sections (Step 1 — …, Step 2 — …, Step 4 — …)
+- Fields on each section (including exclusions JSON, assigned channels, scoring, etc.)
 
-1. **Edit Page** on the Campaign record (Marketing app).
-2. Select the main **Record Detail** block on **Details** (the large panel showing Step 1 / Step 2 sections).
-3. **Remove** Record Detail **or** hide it, and add **Campaign Configuration View** in the same slot.
-4. Set **View Mode** = `wizard`.
-
-This replaces layout-driven accordions with one wizard-aligned read-only summary (including exclusions JSON and runtime catalogue health).
-
-### Related tab (if the flexipage exposes a slot on that tab)
-
-If App Builder lets you select the **Related** tab content area, add a second **Campaign Configuration View** with **View Mode** = `catalogues` (offers + copy only).
-
-If Related stays layout-only, rely on enhanced related lists on **Marketing Campaign Layout** plus the offers/copy tables inside **View Mode = wizard** on Details.
+Edit in repo or **Setup → Page Layouts**, then deploy / save. Refresh the campaign **Details** tab to see changes.
 
 ---
 
-## Path C — Legacy helpers (optional)
+## 2. Related tab → Page layout related lists
 
-- `campaignCatalogHealthPanel` — standalone health card (superseded by Configuration View for Details).
-- `campaignMarketingRecordPanels` — same idea split by `panelMode`; prefer **Configuration View**.
+Same layout defines:
+
+- **Campaign Offers** — junction number, **Offer Status** (formula)
+- **Campaign Copy Variants** — **Eligible Now** (Published formula), **Is Eligible**
+- Standard Marketing lists (Flows, etc.) — unchanged
+
+Reorder or add columns in the layout **Related Lists** section.
 
 ---
 
-## Record type
+## 3. Rich wizard + catalogues → Quick Actions (modal)
 
-Assign **Marketing Campaign Layout** to the **Marketing Campaign** record type for profiles that use the Marketing app.
+Because Details/Related cannot host LWCs, use **Screen Actions** from the record action bar (same area as Edit / Delete):
+
+| Action | Opens |
+|--------|--------|
+| **Campaign Configuration Summary** | Full wizard read-only view (steps 1–4, exclusions table, offers/copy with **eligible now**) |
+| **Campaign Catalogues** | Offers + Copy Cockpit tables only (Related-style) |
+
+Metadata:
+
+- `Campaign.Campaign_Configuration_Summary` → `campaignConfigurationView`
+- `Campaign.Campaign_Catalogues` → `campaignCataloguesQuickView`
+
+These are on **Marketing Campaign Layout** `platformActionList`. If they do not appear on the Marketing header, add them in **Setup → Object Manager → Campaign → Buttons, Links, and Actions → Page Layout Assignment** or the Marketing **Salesforce Mobile and Lightning Experience Actions** editor for that layout.
 
 ---
 
-## Do not use
+## 4. What not to do
 
-Standalone **Marketing Campaign Record Page** flexipage (removed) — it replaced the full Marketing workspace (Flows, Journeys, Personalization, Performance).
+- Do **not** replace the Marketing workspace with a custom-only Lightning record page (you lose Flows, Journeys, Personalization, Performance).
+- Do **not** expect **Campaign Configuration View** inside the Details tab without removing the entire Marketing block.
+
+---
+
+## 5. Wizard edits
+
+Use existing **agentforceCampaignWizard** (App Builder component or quick action, depending on org setup) to change policy; use **Configuration Summary** quick action to review it.
