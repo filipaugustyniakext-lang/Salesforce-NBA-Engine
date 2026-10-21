@@ -109,6 +109,43 @@ private class CampaignRuntimeCatalogServiceTest {
     }
 
     @IsTest
+    static void getCampaignCatalogAssignmentSummary_marksGapWhenCopyNotPublished() {
+        Campaign camp = new Campaign(Name = 'Summary Camp', Status = 'Planned', IsActive = false);
+        insert camp;
+
+        Offer__c offer = new Offer__c(Country_Code__c = 'PL', Offer_Status__c = 'Active');
+        insert offer;
+        insert new Offer_Version__c(
+            Offer_Lookup__c = offer.Id,
+            Is_Active__c = true,
+            Product_Family_Name__c = 'Mortgage'
+        );
+        insert new Campaign_Offer__c(Campaign__c = camp.Id, Offer__c = offer.Id);
+
+        CC_Message_Metadata__c draft = new CC_Message_Metadata__c(
+            Name = 'EMA_PL_SUM_1',
+            Channel_Type__c = 'Email',
+            Status__c = 'Draft'
+        );
+        insert draft;
+        insert new Campaign_Copy_Variant__c(
+            Campaign__c = camp.Id,
+            Message_Variant__c = draft.Id,
+            Is_Eligible__c = true
+        );
+
+        Test.startTest();
+        Map<String, Object> summary = CampaignRuntimeCatalogService.getCampaignCatalogAssignmentSummary(camp.Id);
+        Test.stopTest();
+
+        System.assertEquals(true, summary.get('hasCatalogGap'));
+        System.assertEquals(1, summary.get('assignedOfferCount'));
+        System.assertEquals(1, summary.get('eligibleOfferCount'));
+        System.assertEquals(1, summary.get('assignedCopyCount'));
+        System.assertEquals(0, summary.get('eligibleCopyCount'));
+    }
+
+    @IsTest
     static void resolveEligibleCopyVariants_includesRepublishedWhenJunctionStillIneligible() {
         Campaign camp = new Campaign(Name = 'Republish Copy Camp', Status = 'Planned', IsActive = false);
         insert camp;

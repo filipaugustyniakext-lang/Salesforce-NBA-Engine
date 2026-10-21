@@ -303,5 +303,5 @@ WHERE Campaign__c = '701...'
 1. Add exclusion + `Exclude_Other_Marketing_Activations__c` to **Marketing Campaign Layout** (or Lightning page).  
 2. Enhance **Campaign Copy Variants** related list with `Message_Variant__r.Status__c` and `Channel_Type__c`.  
 3. Confirm org assigns **Marketing Campaign Layout** to NBA users / campaign record type.  
-4. Optional: **Campaign Configuration Summary** LWC on record page.  
+4. **Campaign Catalogue Health** LWC (`campaignCatalogHealthPanel`) — deployed; add via **Marketing Campaign Record Page** flexipage or Lightning App Builder.  
 5. Align with [GateKeeper](./campaign-gatekeeper-architecture.md): read same fields + junctions for runtime policy.
