@@ -76,8 +76,20 @@
                 <behavior>Edit</behavior>
                 <field>Exclude_Onboarding__c</field>
             </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>Exclude_Other_Marketing_Activations__c</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>Campaign_Exclusions_JSON__c</field>
+            </layoutItems>
         </layoutColumns>
         <layoutColumns>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>Suppression_Campaign__c</field>
+            </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
                 <field>StartDate</field>
@@ -216,10 +228,13 @@
     </layoutSections>
     <relatedLists>
         <fields>NAME</fields>
+        <fields>Offer_Status__c</fields>
         <relatedList>Campaign_Offer__c.Campaign__c</relatedList>
     </relatedLists>
     <relatedLists>
         <fields>NAME</fields>
+        <fields>Runtime_Eligible__c</fields>
+        <fields>Is_Eligible__c</fields>
         <relatedList>Campaign_Copy_Variant__c.Campaign__c</relatedList>
     </relatedLists>
     <relatedLists>

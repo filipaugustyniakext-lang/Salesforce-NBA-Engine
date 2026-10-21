@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>62.0</apiVersion>
+    <isExposed>true</isExposed>
+    <masterLabel>Campaign Marketing Record Panels</masterLabel>
+    <description>Add to the Marketing App Campaign record Details or Related tab. Preserves the standard Marketing workspace; set Panel Mode to details or related.</description>
+    <targets>
+        <target>lightning__RecordPage</target>
+    </targets>
+    <targetConfigs>
+        <targetConfig targets="lightning__RecordPage">
+            <objects>
+                <object>Campaign</object>
+            </objects>
+            <property name="panelMode" type="String" default="details" label="Panel Mode" description="Use details for the Details tab (exclusions + copy health). Use related for the Related tab (offers + copy catalogues)."/>
+        </targetConfig>
+    </targetConfigs>
+</LightningComponentBundle>
