@@ -328,7 +328,22 @@ function formatNormalizedWeightPercent(variantWeight, selectedWeightSum, selecte
 }
 
 export default class AgentforceCampaignWizard extends NavigationMixin(LightningElement) {
-    @api recordId;
+    _recordId;
+    _campaignLoadStarted = false;
+
+    @api
+    get recordId() {
+        return this._recordId;
+    }
+
+    set recordId(value) {
+        this._recordId = value;
+        if (value && !this._campaignLoadStarted) {
+            this.isEditMode = true;
+            this.loadExistingCampaign();
+        }
+    }
+
     @track isLoading = false;
     @track isEditMode = false;
     @track editRecordLoaded = false;
@@ -476,10 +491,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         this.loadScoringModels();
         this.loadTopicDictionary();
         this.loadProductOfferingCatalogue();
-        // Migrate any Campaign rows still showing Ids in display fields → Names.
-        healCampaignOfferingLabels().catch(() => {});
         document.addEventListener('click', this.handleOutsideClickBound = this.handleOutsideClick.bind(this));
-        if (this.recordId) {
+        if (this.recordId && !this._campaignLoadStarted) {
             this.isEditMode = true;
             this.loadExistingCampaign();
         }
@@ -629,35 +642,27 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         });
         this.exclusionSelectedBySource = selected;
         this.exclusionForeignKeys = foreignKeys;
-        EXCLUSION_SOURCE_KEYS.forEach(source => {
-            (selected[source] || []).forEach(recordId => {
-                this._requestExclusionFieldOptions(source, recordId);
-            });
-        });
 
         const firstActiveSource = EXCLUSION_SOURCE_KEYS.find(
             key => (selected[key] || []).length > 0
         ) || 'campaign';
         this.exclusionDefinitions = [this._buildExclusionWorkspaceRow(firstActiveSource)];
 
-        if (EXCLUSION_SOURCE_KEYS.some(key => (selected[key] || []).length > 0)) {
-            if ((selected.segment || []).length) {
-                this._ensureData360ExclusionCatalog();
-            }
-            if ((selected.campaign || []).length) {
-                this._loadCampaignOptionsForAllRows();
-            }
-            if ((selected.report || []).length) {
-                this._loadReportOptionsForAllRows();
-            }
+        if ((selected.segment || []).length) {
+            // Segments only — DMO/DLO are search-on-demand; campaign/report catalogs load when picker opens.
+            // eslint-disable-next-line @lwc/lwc/no-async-operation
+            setTimeout(() => this._ensureData360ExclusionCatalog(), 0);
         }
         this.excludeOtherMarketingActivations = !!campaign.Exclude_Other_Marketing_Activations__c;
-        this._ensureExclusionWorkspaceRow();
-        EXCLUSION_SOURCE_KEYS.forEach(source => {
-            (this.exclusionSelectedBySource[source] || []).forEach(recordId => {
-                this._requestExclusionFieldOptions(source, recordId);
+        // eslint-disable-next-line @lwc/lwc/no-async-operation
+        setTimeout(() => {
+            this._ensureExclusionWorkspaceRow();
+            EXCLUSION_SOURCE_KEYS.forEach(source => {
+                (this.exclusionSelectedBySource[source] || []).forEach(recordId => {
+                    this._requestExclusionFieldOptions(source, recordId);
+                });
             });
-        });
+        }, 0);
     }
 
     _activeExclusionRow() {
@@ -999,24 +1004,52 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     loadExistingCampaign() {
+        const campaignId = this.recordId;
+        if (!campaignId || this._campaignLoadStarted) {
+            return;
+        }
+        this._campaignLoadStarted = true;
         this.isLoading = true;
-        getCampaignById({ campaignId: this.recordId })
+
+        const loadPromise = getCampaignById({ campaignId });
+        const timeoutPromise = new Promise((_, reject) => {
+            // eslint-disable-next-line @lwc/lwc/no-async-operation
+            setTimeout(() => reject(new Error('Campaign load timed out')), 25000);
+        });
+
+        Promise.race([loadPromise, timeoutPromise])
             .then(campaign => {
+                this.isLoading = false;
+                if (!campaign) {
+                    this.dispatchEvent(new ShowToastEvent({
+                        title: 'Campaign not found',
+                        message: 'Could not load this campaign record.',
+                        variant: 'warning'
+                    }));
+                    return;
+                }
                 try {
-                    if (!campaign) {
-                        return;
-                    }
                     this.populateFromRecord(campaign);
                     this.editRecordLoaded = true;
+                    // Defer non-critical heal so it cannot compete with the edit load on the server.
+                    healCampaignOfferingLabels().catch(() => {});
                 } catch (err) {
                     console.error('Error applying campaign record:', err);
-                } finally {
-                    this.isLoading = false;
+                    this.dispatchEvent(new ShowToastEvent({
+                        title: 'Could not open campaign',
+                        message: err?.message || 'Unexpected error while loading the wizard.',
+                        variant: 'error'
+                    }));
                 }
             })
             .catch(err => {
                 this.isLoading = false;
                 console.error('Error loading campaign:', err);
+                this.dispatchEvent(new ShowToastEvent({
+                    title: 'Could not load campaign',
+                    message: err?.body?.message || err?.message || 'Request failed or timed out.',
+                    variant: 'error'
+                }));
             });
     }
 

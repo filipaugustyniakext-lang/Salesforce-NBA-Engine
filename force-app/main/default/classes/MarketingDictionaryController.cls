@@ -36,7 +36,8 @@ public with sharing class MarketingDictionaryController {
             SELECT Id, Name, StartDate, EndDate, Campaign_Group_Dict__c, Campaign_Group_Dict__r.Name,
                    Type, Topic_Name__c, Topic_Dict__c, Topic_Dict__r.Name,
                    Priority_Tier__c, Activation_Type__c,
-                   Timing_From__c, Timing_To__c, Validity_Days__c, Duration_Days__c,
+                   Timing_From__c, Timing_To__c, Active_From__c, Active_To__c,
+                   Validity_Days__c, Duration_Days__c,
                    Scoring_Method__c, Offering_Type__c, Status, IsActive,
                    Overall_Score__c, Fallback_Score__c,
                    Scoring_Model_Dict__c, Scoring_Model_Dict__r.Name,
@@ -45,7 +46,8 @@ public with sharing class MarketingDictionaryController {
                    Family_of_Needs__c, Family_of_Needs_Ids__c,
                    Exclude_Onboarding__c, Exclude_Other_Marketing_Activations__c,
                    Campaign_Exclusions_JSON__c,
-                   Suppression_Campaign__c, Suppression_Report_Id__c, Suppression_Segment__c
+                   Suppression_Campaign__c, Suppression_Campaign__r.Name,
+                   Suppression_Report_Id__c, Suppression_Segment__c
             FROM Campaign
             WHERE Id = :campaignId
             LIMIT 1
