@@ -490,16 +490,16 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     renderedCallback() {
-        if (this.showManualExclusionDefinitions) {
-            if (!this._exclusionWorkspaceInitialized) {
-                this._ensureExclusionWorkspaceRow();
-                this._preloadExclusionCatalogs();
-                this._exclusionWorkspaceInitialized = true;
-            }
-            this._syncExclusionFieldOptionLoads();
-        } else {
+        if (!this.showManualExclusionDefinitions) {
             this._exclusionWorkspaceInitialized = false;
+            return;
         }
+        if (this._exclusionWorkspaceInitialized) {
+            return;
+        }
+        this._ensureExclusionWorkspaceRow();
+        this._ensureSegmentExclusionCatalogOnly();
+        this._exclusionWorkspaceInitialized = true;
     }
 
     loadTiers() {
@@ -653,8 +653,11 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         }
         this.excludeOtherMarketingActivations = !!campaign.Exclude_Other_Marketing_Activations__c;
         this._ensureExclusionWorkspaceRow();
-        this._preloadExclusionCatalogs();
-        this._exclusionWorkspaceInitialized = true;
+        EXCLUSION_SOURCE_KEYS.forEach(source => {
+            (this.exclusionSelectedBySource[source] || []).forEach(recordId => {
+                this._requestExclusionFieldOptions(source, recordId);
+            });
+        });
     }
 
     _activeExclusionRow() {
@@ -691,25 +694,31 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         }));
     }
 
-    _preloadExclusionCatalogs() {
+    _ensureSegmentExclusionCatalogOnly() {
         if (!this.showManualExclusionDefinitions) {
             return;
         }
         this._ensureData360ExclusionCatalog();
-        this._loadCampaignOptionsForAllRows();
-        this._loadReportOptionsForAllRows();
     }
 
     _syncActiveRowToSelectedStore() {
         const row = this._activeExclusionRow();
-        if (!row || !row.source) return;
-        const patch = { ...this.exclusionSelectedBySource };
-        patch.campaign = [...(row.selectedCampaignIds || [])];
-        patch.report = [...(row.selectedReportIds || [])];
-        patch.segment = [...(row.selectedSegmentIds || [])];
-        patch.dmo = [...(row.selectedDmoIds || [])];
-        patch.dlo = [...(row.selectedDloIds || [])];
-        this.exclusionSelectedBySource = patch;
+        if (!row) return;
+        const next = {
+            campaign: [...(row.selectedCampaignIds || [])],
+            report: [...(row.selectedReportIds || [])],
+            segment: [...(row.selectedSegmentIds || [])],
+            dmo: [...(row.selectedDmoIds || [])],
+            dlo: [...(row.selectedDloIds || [])]
+        };
+        const prev = this.exclusionSelectedBySource || emptyExclusionSelectedBySource();
+        const unchanged = EXCLUSION_SOURCE_KEYS.every(
+            key => JSON.stringify(prev[key] || []) === JSON.stringify(next[key] || [])
+        );
+        if (unchanged) {
+            return;
+        }
+        this.exclusionSelectedBySource = next;
     }
 
     _ensureExclusionWorkspaceRow() {
@@ -780,7 +789,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     _countSelectedExclusions() {
-        this._syncActiveRowToSelectedStore();
         const selected = this.exclusionSelectedBySource || emptyExclusionSelectedBySource();
         return EXCLUSION_SOURCE_KEYS.reduce(
             (sum, key) => sum + (selected[key] || []).length,
@@ -789,7 +797,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     _countUnmappedExclusions() {
-        this._syncActiveRowToSelectedStore();
         const selected = this.exclusionSelectedBySource || emptyExclusionSelectedBySource();
         let unmapped = 0;
         EXCLUSION_SOURCE_KEYS.forEach(source => {
@@ -807,6 +814,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         if (!this.showManualExclusionDefinitions) {
             return null;
         }
+        this._syncActiveRowToSelectedStore();
         const selectedCount = this._countSelectedExclusions();
         if (selectedCount === 0) {
             return null;
@@ -844,14 +852,10 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             });
     }
 
-    _syncExclusionFieldOptionLoads() {
-        this._syncActiveRowToSelectedStore();
-        const selected = this.exclusionSelectedBySource || emptyExclusionSelectedBySource();
-        EXCLUSION_SOURCE_KEYS.forEach(source => {
-            (selected[source] || []).forEach(recordId => {
-                this._requestExclusionFieldOptions(source, recordId);
-            });
-        });
+    _afterExclusionSelectionChange(source, recordId) {
+        if (recordId) {
+            this._requestExclusionFieldOptions(source, recordId);
+        }
     }
 
     handleCampaignMemberKeyChange(event) {
@@ -998,13 +1002,17 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         this.isLoading = true;
         getCampaignById({ campaignId: this.recordId })
             .then(campaign => {
-                if (!campaign) {
+                try {
+                    if (!campaign) {
+                        return;
+                    }
+                    this.populateFromRecord(campaign);
+                    this.editRecordLoaded = true;
+                } catch (err) {
+                    console.error('Error applying campaign record:', err);
+                } finally {
                     this.isLoading = false;
-                    return;
                 }
-                this.populateFromRecord(campaign);
-                this.editRecordLoaded = true;
-                this.isLoading = false;
             })
             .catch(err => {
                 this.isLoading = false;
@@ -1679,7 +1687,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 this._exclusionWorkspaceInitialized = false;
             } else {
                 this._ensureExclusionWorkspaceRow();
-                this._preloadExclusionCatalogs();
+                this._ensureSegmentExclusionCatalogOnly();
                 this._exclusionWorkspaceInitialized = true;
             }
             if (!this._tierAllowsOtherMarketingActivations(newTier)) {
@@ -1932,7 +1940,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             row.id === rowId ? { ...row, ...patch } : row
         );
         this._syncActiveRowToSelectedStore();
-        this._syncExclusionFieldOptionLoads();
     }
 
     handleCampaignPickerToggle(event) {
@@ -1977,6 +1984,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             value: selectedCampaignIds.join(','),
             display: buildCampaignExclusionDisplay(selectedCampaignIds, row.campaignOptions)
         });
+        if (checked) {
+            this._afterExclusionSelectionChange('campaign', campaignId);
+        }
     }
 
     handleSelectAllCampaignsInGroup(event) {
@@ -2064,6 +2074,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             value: selectedSegmentIds.join(','),
             display: buildSegmentExclusionDisplay(selectedSegmentIds, row.segmentOptions)
         });
+        if (checked) {
+            this._afterExclusionSelectionChange('segment', segmentId);
+        }
     }
 
     handleRemoveSegmentExclusionPill(event) {
@@ -2116,6 +2129,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             value: selectedDmoIds.join(','),
             display: buildDataCloudCatalogExclusionDisplay(selectedDmoIds, row.dmoOptions)
         });
+        if (checked) {
+            this._afterExclusionSelectionChange('dmo', dmoId);
+        }
     }
 
     handleRemoveDmoExclusionPill(event) {
@@ -2168,6 +2184,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             value: selectedDloIds.join(','),
             display: buildDataCloudCatalogExclusionDisplay(selectedDloIds, row.dloOptions)
         });
+        if (checked) {
+            this._afterExclusionSelectionChange('dlo', dloId);
+        }
     }
 
     handleRemoveDloExclusionPill(event) {
@@ -2209,6 +2228,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             value: selectedReportIds.join(','),
             display: buildReportExclusionDisplay(selectedReportIds, row.reportOptions)
         });
+        if (checked) {
+            this._afterExclusionSelectionChange('report', reportId);
+        }
     }
 
     handleRemoveReportExclusionPill(event) {
@@ -2555,7 +2577,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get exclusionSummaryListItems() {
-        this._syncActiveRowToSelectedStore();
         const selected = this.exclusionSelectedBySource || emptyExclusionSelectedBySource();
         const items = [];
         EXCLUSION_SOURCE_OPTIONS.forEach(opt => {
