@@ -265,8 +265,8 @@
                                                         </lightning-input>
                                                     </template>
                                                     <template lwc:if={showManualExclusionDefinitions}>
-                                                    <template for:each={exclusionDefinitionRows} for:item="row">
-                                                        <div key={row.id} class="exclusion-definition-row slds-m-bottom_medium">
+                                                    <template for:each={exclusionWorkspaceRows} for:item="row">
+                                                        <div key={row.id} class="exclusion-definition-row">
                                                             <label class="slds-form-element__label custom-label-style">Exclusion source</label>
                                                             <div class="slds-button-group exclusion-source-group slds-m-top_xx-small slds-m-bottom_x-small" role="group" aria-label="Exclusion source">
                                                                 <template for:each={row.exclusionSourceOptions} for:item="srcOpt">
@@ -274,7 +274,6 @@
                                                                         key={srcOpt.value}
                                                                         type="button"
                                                                         class={srcOpt.btnClass}
-                                                                        data-row-id={row.id}
                                                                         data-value={srcOpt.value}
                                                                         title={srcOpt.label}
                                                                         onclick={handleExclusionSourcePick}>
@@ -283,6 +282,9 @@
                                                                     </button>
                                                                 </template>
                                                             </div>
+                                                            <template lwc:if={exclusionActiveCatalogHint}>
+                                                                <p class="slds-text-body_small slds-text-color_error slds-m-bottom_x-small">{exclusionActiveCatalogHint}</p>
+                                                            </template>
                                                             <div class="exclusion-lookup-col slds-m-top_x-small">
                                                                     <template lwc:if={row.isCampaign}>
                                                                         <div class={row.campaignPickerContainerClass} data-row-id={row.id}>
@@ -638,26 +640,83 @@
                                                                         </div>
                                                                     </template>
                                                             </div>
-                                                            <template lwc:if={row.showRemove}>
-                                                                <div class="slds-text-align_right slds-m-top_x-small">
-                                                                    <lightning-button
-                                                                        variant="base"
-                                                                        label="Remove"
-                                                                        data-row-id={row.id}
-                                                                        onclick={handleRemoveExclusionDefinition}>
-                                                                    </lightning-button>
-                                                                </div>
-                                                            </template>
                                                         </div>
                                                     </template>
 
-                                                    <lightning-button
-                                                        variant="neutral"
-                                                        label={addExclusionButtonLabel}
-                                                        icon-name="utility:add"
-                                                        onclick={handleAddExclusionDefinition}
-                                                        class="slds-m-top_x-small">
-                                                    </lightning-button>
+                                                    <template lwc:if={exclusionHasSelectedRecords}>
+                                                        <div class="exclusion-selected-divider slds-m-top_medium slds-m-bottom_small" role="separator"></div>
+                                                        <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_x-small">
+                                                            Selected exclusions — define how qualification matches each object. Only mapped records are saved.
+                                                        </p>
+                                                        <template for:each={exclusionSelectedSourceSections} for:item="section">
+                                                            <div key={section.source} class="exclusion-selected-source-block slds-m-bottom_small">
+                                                                <div class="exclusion-selected-source-header slds-m-bottom_xx-small">
+                                                                    <lightning-icon icon-name={section.icon} size="x-small" class="slds-m-right_xx-small"></lightning-icon>
+                                                                    <span class="slds-text-title_caps">{section.sourceLabel}</span>
+                                                                </div>
+                                                                <ul class="exclusion-selected-badge-list slds-list_horizontal slds-wrap">
+                                                                    <template for:each={section.records} for:item="rec">
+                                                                        <li key={rec.id} class="exclusion-selected-badge-item slds-m-right_x-small slds-m-bottom_x-small">
+                                                                            <span class={rec.badgeClass}>
+                                                                                <span class="exclusion-record-badge-label" title={rec.label}>{rec.label}</span>
+                                                                                <button type="button" class="slds-button slds-button_reset exclusion-record-map-link" data-source={section.source} data-record-id={rec.id} onclick={handleOpenExclusionMapping}>{rec.mapActionLabel}</button>
+                                                                                <button type="button" class="slds-button slds-button_icon slds-button_icon-x-small exclusion-record-remove" title="Remove" data-source={section.source} data-record-id={rec.id} onclick={handleRemoveExclusionSelection}>
+                                                                                    <lightning-icon icon-name="utility:close" size="xx-small" alternative-text="Remove"></lightning-icon>
+                                                                                </button>
+                                                                            </span>
+                                                                        </li>
+                                                                    </template>
+                                                                </ul>
+                                                            </div>
+                                                        </template>
+                                                    </template>
+
+                                                    <template lwc:if={exclusionMappingModalOpen}>
+                                                        <section role="dialog" tabindex="-1" class="slds-modal slds-fade-in-open exclusion-mapping-modal" aria-labelledby="exclusion-mapping-heading">
+                                                            <div class="slds-modal__container">
+                                                                <header class="slds-modal__header">
+                                                                    <h2 id="exclusion-mapping-heading" class="slds-modal__title slds-hyphenate">Define exclusion mapping</h2>
+                                                                    <p class="slds-text-body_small slds-m-top_xx-small">{exclusionMappingModal.label}</p>
+                                                                </header>
+                                                                <div class="slds-modal__content slds-p-around_medium">
+                                                                    <lightning-input
+                                                                        label="Qualification source column"
+                                                                        field-level-help="Column on the campaign qualification source (segment / data graph) used to match members."
+                                                                        value={exclusionMappingModal.qualificationColumn}
+                                                                        onchange={handleExclusionMappingQualificationChange}
+                                                                        class="slds-m-bottom_small">
+                                                                    </lightning-input>
+                                                                    <template lwc:if={exclusionMappingModal.useForeignKeyPicklist}>
+                                                                        <template lwc:if={exclusionMappingModal.loadingFields}>
+                                                                            <lightning-spinner alternative-text="Loading columns" size="small"></lightning-spinner>
+                                                                        </template>
+                                                                        <template lwc:else>
+                                                                            <lightning-combobox
+                                                                                label="Exclusion object foreign key"
+                                                                                placeholder="Select column..."
+                                                                                options={exclusionMappingModal.foreignKeyOptions}
+                                                                                value={exclusionMappingModal.foreignKeyColumn}
+                                                                                onchange={handleExclusionMappingForeignKeyChange}>
+                                                                            </lightning-combobox>
+                                                                        </template>
+                                                                    </template>
+                                                                    <template lwc:else>
+                                                                        <lightning-input
+                                                                            label="Exclusion object foreign key"
+                                                                            field-level-help="Column on the exclusion object that corresponds to the qualification source column."
+                                                                            value={exclusionMappingModal.foreignKeyColumn}
+                                                                            onchange={handleExclusionMappingForeignKeyChange}>
+                                                                        </lightning-input>
+                                                                    </template>
+                                                                </div>
+                                                                <footer class="slds-modal__footer">
+                                                                    <lightning-button label="Cancel" onclick={handleCloseExclusionMappingModal}></lightning-button>
+                                                                    <lightning-button variant="brand" label="Save mapping" onclick={handleSaveExclusionMapping} class="slds-m-left_x-small"></lightning-button>
+                                                                </footer>
+                                                            </div>
+                                                        </section>
+                                                        <div class="slds-backdrop slds-backdrop_open exclusion-mapping-backdrop"></div>
+                                                    </template>
                                                     </template>
                                         </div>
                                     </template>
