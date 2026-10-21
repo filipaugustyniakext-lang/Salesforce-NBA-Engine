@@ -26,7 +26,7 @@ import { parseFullName } from 'c/copyMessageNaming';
 import getCampaignTiers from '@salesforce/apex/MarketingDictionaryManagerController.getCampaignTiers';
 import getCampaignTypes from '@salesforce/apex/MarketingDictionaryController.getCampaignTypes';
 import getCampaignRecords from '@salesforce/apex/MarketingDictionaryManagerController.getCampaignRecords';
-import getData360DmoOptions from '@salesforce/apex/MarketingDictionaryManagerController.getData360DmoOptions';
+import getExclusionOptions from '@salesforce/apex/CampaignExclusionController.getExclusionOptions';
 import searchSuppressionCampaigns from '@salesforce/apex/MarketingDictionaryController.searchSuppressionCampaigns';
 import searchSuppressionReports from '@salesforce/apex/MarketingDictionaryController.searchSuppressionReports';
 import {
@@ -61,6 +61,12 @@ function newExclusionRow(overrides = {}) {
     const selectedReportIds = overrides.selectedReportIds
         ? [...overrides.selectedReportIds]
         : [];
+    const selectedSegmentIds = overrides.selectedSegmentIds
+        ? [...overrides.selectedSegmentIds]
+        : [];
+    const selectedDmoIds = overrides.selectedDmoIds
+        ? [...overrides.selectedDmoIds]
+        : [];
     return {
         id: `excl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         source: '',
@@ -76,9 +82,19 @@ function newExclusionRow(overrides = {}) {
         selectedReportIds,
         reportSearchTerm: '',
         reportPickerOpen: false,
+        segmentOptions: [],
+        selectedSegmentIds,
+        segmentSearchTerm: '',
+        segmentPickerOpen: false,
+        dmoOptions: [],
+        selectedDmoIds,
+        dmoSearchTerm: '',
+        dmoPickerOpen: false,
         ...overrides,
         selectedCampaignIds,
-        selectedReportIds
+        selectedReportIds,
+        selectedSegmentIds,
+        selectedDmoIds
     };
 }
 
@@ -102,6 +118,60 @@ function buildReportExclusionDisplay(selectedIds, reportOptions) {
         return match ? reportDisplayLabel(match) : id;
     });
     return labels.join('; ');
+}
+
+function mapSegmentOptionsFromApex(results) {
+    return (results || []).map(s => ({
+        id: s.id,
+        name: s.name,
+        status: s.status || ''
+    }));
+}
+
+function mapDmoOptionsFromApex(results) {
+    return (results || []).map(d => ({
+        id: d.apiName,
+        apiName: d.apiName,
+        label: d.label || d.apiName
+    }));
+}
+
+function segmentDisplayLabel(s) {
+    if (!s) return '';
+    return s.status ? `${s.name} (${s.status})` : s.name;
+}
+
+function dmoDisplayLabel(d) {
+    if (!d) return '';
+    return d.label && d.apiName && d.label !== d.apiName
+        ? `${d.label} (${d.apiName})`
+        : (d.label || d.apiName);
+}
+
+function buildSegmentExclusionDisplay(selectedIds, segmentOptions) {
+    const options = segmentOptions || [];
+    return (selectedIds || []).map(id => {
+        const match = options.find(o => o.id === id);
+        return match ? segmentDisplayLabel(match) : id;
+    }).join('; ');
+}
+
+function buildDmoExclusionDisplay(selectedIds, dmoOptions) {
+    const options = dmoOptions || [];
+    return (selectedIds || []).map(id => {
+        const match = options.find(o => o.id === id);
+        return match ? dmoDisplayLabel(match) : id;
+    }).join('; ');
+}
+
+function parseMultiExclusionValues(row) {
+    if (Array.isArray(row.values) && row.values.length) {
+        return row.values.map(v => String(v));
+    }
+    if (row.value) {
+        return String(row.value).split(',').map(v => v.trim()).filter(Boolean);
+    }
+    return [];
 }
 
 function buildExclusionSourcePickerOptions(selectedSource) {
@@ -259,8 +329,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     // --- EXCLUSIONS (tier-gated: manual definitions + other marketing activations) ---
     @track exclusionDefinitions = [];
     @track excludeOtherMarketingActivations = false;
-    @track dmoOptions = [];
-    _dmoOptionsLoadAttempted = false;
+    _data360ExclusionCatalogLoaded = false;
+    _data360ExclusionCatalogPromise = null;
     _exclusionSearchTimers = {};
 
     // --- SCORING (tiers 4+): model picklist or apriori slider ---
@@ -385,22 +455,33 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             .catch(err => console.error('Error loading campaign types:', err));
     }
 
-    loadDmoOptionsIfNeeded() {
-        if (this._dmoOptionsLoadAttempted) {
-            return;
+    _ensureData360ExclusionCatalog() {
+        if (this._data360ExclusionCatalogLoaded) {
+            return Promise.resolve();
         }
-        this._dmoOptionsLoadAttempted = true;
-        getData360DmoOptions()
+        if (this._data360ExclusionCatalogPromise) {
+            return this._data360ExclusionCatalogPromise;
+        }
+        this._data360ExclusionCatalogPromise = getExclusionOptions()
             .then(data => {
-                this.dmoOptions = (data || []).map(row => ({
-                    label: row.label,
-                    value: row.value
-                }));
+                const segmentOptions = mapSegmentOptionsFromApex(data?.segments);
+                const dmoOptions = mapDmoOptionsFromApex(data?.dataModelObjects);
+                this.exclusionDefinitions = this.exclusionDefinitions.map(row => {
+                    if (row.source === 'segment') {
+                        return { ...row, segmentOptions };
+                    }
+                    if (row.source === 'dmo') {
+                        return { ...row, dmoOptions };
+                    }
+                    return row;
+                });
+                this._data360ExclusionCatalogLoaded = true;
             })
-            .catch(() => {
-                // Data Cloud DMO catalogue is optional; orgs without CDP should not spam the console.
-                this.dmoOptions = [];
+            .catch(err => {
+                console.error('Data360 exclusion catalogue load failed:', err);
+                this._data360ExclusionCatalogLoaded = true;
             });
+        return this._data360ExclusionCatalogPromise;
     }
 
     _tierRecordForLabel(tierLabel) {
@@ -465,25 +546,19 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 : [];
             let selectedCampaignIds = [];
             let selectedReportIds = [];
+            let selectedSegmentIds = [];
+            let selectedDmoIds = [];
             if (row.source === 'campaign') {
-                if (Array.isArray(row.values) && row.values.length) {
-                    selectedCampaignIds = row.values.map(v => String(v));
-                } else if (row.value) {
-                    selectedCampaignIds = String(row.value)
-                        .split(',')
-                        .map(v => v.trim())
-                        .filter(Boolean);
-                }
+                selectedCampaignIds = parseMultiExclusionValues(row);
             }
             if (row.source === 'report') {
-                if (Array.isArray(row.values) && row.values.length) {
-                    selectedReportIds = row.values.map(v => String(v));
-                } else if (row.value) {
-                    selectedReportIds = String(row.value)
-                        .split(',')
-                        .map(v => v.trim())
-                        .filter(Boolean);
-                }
+                selectedReportIds = parseMultiExclusionValues(row);
+            }
+            if (row.source === 'segment') {
+                selectedSegmentIds = parseMultiExclusionValues(row);
+            }
+            if (row.source === 'dmo') {
+                selectedDmoIds = parseMultiExclusionValues(row);
             }
             return newExclusionRow({
                 source: row.source,
@@ -491,11 +566,13 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 display: row.display || row.value || '',
                 lookupOptions,
                 selectedCampaignIds,
-                selectedReportIds
+                selectedReportIds,
+                selectedSegmentIds,
+                selectedDmoIds
             });
         });
-        if (this.exclusionDefinitions.some(row => row.source === 'dmo')) {
-            this.loadDmoOptionsIfNeeded();
+        if (this.exclusionDefinitions.some(row => row.source === 'segment' || row.source === 'dmo')) {
+            this._ensureData360ExclusionCatalog();
         }
         if (this.exclusionDefinitions.some(row => row.source === 'campaign')) {
             this._loadCampaignOptionsForAllRows();
@@ -516,6 +593,12 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 if (row.source === 'report') {
                     return (row.selectedReportIds || []).length > 0;
                 }
+                if (row.source === 'segment') {
+                    return (row.selectedSegmentIds || []).length > 0;
+                }
+                if (row.source === 'dmo') {
+                    return (row.selectedDmoIds || []).length > 0;
+                }
                 return (row.value || '').toString().trim();
             })
             .map(row => {
@@ -534,6 +617,26 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                     const display = buildReportExclusionDisplay(ids, row.reportOptions);
                     return {
                         source: 'report',
+                        value: ids.join(','),
+                        values: ids,
+                        display
+                    };
+                }
+                if (row.source === 'segment') {
+                    const ids = [...(row.selectedSegmentIds || [])];
+                    const display = buildSegmentExclusionDisplay(ids, row.segmentOptions);
+                    return {
+                        source: 'segment',
+                        value: ids.join(','),
+                        values: ids,
+                        display
+                    };
+                }
+                if (row.source === 'dmo') {
+                    const ids = [...(row.selectedDmoIds || [])];
+                    const display = buildDmoExclusionDisplay(ids, row.dmoOptions);
+                    return {
+                        source: 'dmo',
                         value: ids.join(','),
                         values: ids,
                         display
@@ -571,7 +674,10 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             fields['Suppression_Report_Id__c'] = firstReportId || null;
         }
         if (segment) {
-            fields['Suppression_Segment__c'] = segment.value;
+            const firstSegment = Array.isArray(segment.values) && segment.values.length
+                ? segment.values[0]
+                : (segment.value || '').split(',')[0];
+            fields['Suppression_Segment__c'] = firstSegment || null;
         }
         fields['Exclude_Other_Marketing_Activations__c'] = this.showOtherMarketingActivationsOption
             ? this.excludeOtherMarketingActivations === true
@@ -1390,8 +1496,14 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             this._ensureCampaignCatalogForRow(rowId);
         } else if (source === 'report') {
             this._ensureReportCatalogForRow(rowId);
-        } else if (source === 'dmo') {
-            this.loadDmoOptionsIfNeeded();
+        } else if (source === 'segment' || source === 'dmo') {
+            this._ensureData360ExclusionCatalog().then(() => {
+                if (source === 'segment') {
+                    this._openSegmentPicker(rowId);
+                } else {
+                    this._openDmoPicker(rowId);
+                }
+            });
         }
     }
 
@@ -1454,13 +1566,44 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     _closeAllExclusionPickers() {
         const hasOpen = (this.exclusionDefinitions || []).some(
             row => row.campaignPickerOpen || row.reportPickerOpen
+                || row.segmentPickerOpen || row.dmoPickerOpen
         );
         if (!hasOpen) return;
         this.exclusionDefinitions = this.exclusionDefinitions.map(row => ({
             ...row,
             campaignPickerOpen: false,
-            reportPickerOpen: false
+            reportPickerOpen: false,
+            segmentPickerOpen: false,
+            dmoPickerOpen: false
         }));
+    }
+
+    _closeOtherExclusionPickers(rowId) {
+        return (this.exclusionDefinitions || []).map(r => {
+            if (r.id === rowId) return r;
+            if (r.campaignPickerOpen || r.reportPickerOpen || r.segmentPickerOpen || r.dmoPickerOpen) {
+                return {
+                    ...r,
+                    campaignPickerOpen: false,
+                    reportPickerOpen: false,
+                    segmentPickerOpen: false,
+                    dmoPickerOpen: false
+                };
+            }
+            return r;
+        });
+    }
+
+    _openSegmentPicker(rowId) {
+        this.exclusionDefinitions = this._closeOtherExclusionPickers(rowId).map(r =>
+            r.id === rowId ? { ...r, segmentPickerOpen: true } : r
+        );
+    }
+
+    _openDmoPicker(rowId) {
+        this.exclusionDefinitions = this._closeOtherExclusionPickers(rowId).map(r =>
+            r.id === rowId ? { ...r, dmoPickerOpen: true } : r
+        );
     }
 
     _updateExclusionRow(rowId, patch) {
@@ -1475,14 +1618,11 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         const row = this.exclusionDefinitions.find(r => r.id === rowId);
         if (!row) return;
         const opening = !row.campaignPickerOpen;
-        this.exclusionDefinitions = this.exclusionDefinitions.map(r => {
-            if (r.id !== rowId) {
-                return (r.campaignPickerOpen || r.reportPickerOpen)
-                    ? { ...r, campaignPickerOpen: false, reportPickerOpen: false }
-                    : r;
-            }
-            return { ...r, campaignPickerOpen: opening, reportPickerOpen: false };
-        });
+        this.exclusionDefinitions = this._closeOtherExclusionPickers(rowId).map(r =>
+            r.id === rowId
+                ? { ...r, campaignPickerOpen: opening, reportPickerOpen: false, segmentPickerOpen: false, dmoPickerOpen: false }
+                : r
+        );
         if (opening) {
             this._ensureCampaignCatalogForRow(rowId);
         }
@@ -1556,17 +1696,114 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         const row = this.exclusionDefinitions.find(r => r.id === rowId);
         if (!row) return;
         const opening = !row.reportPickerOpen;
-        this.exclusionDefinitions = this.exclusionDefinitions.map(r => {
-            if (r.id !== rowId) {
-                return (r.campaignPickerOpen || r.reportPickerOpen)
-                    ? { ...r, campaignPickerOpen: false, reportPickerOpen: false }
-                    : r;
-            }
-            return { ...r, reportPickerOpen: opening, campaignPickerOpen: false };
-        });
+        this.exclusionDefinitions = this._closeOtherExclusionPickers(rowId).map(r =>
+            r.id === rowId
+                ? { ...r, reportPickerOpen: opening, campaignPickerOpen: false, segmentPickerOpen: false, dmoPickerOpen: false }
+                : r
+        );
         if (opening) {
             this._ensureReportCatalogForRow(rowId);
         }
+    }
+
+    handleSegmentPickerToggle(event) {
+        event.stopPropagation();
+        const rowId = event.currentTarget.dataset.rowId;
+        const row = this.exclusionDefinitions.find(r => r.id === rowId);
+        if (!row) return;
+        const opening = !row.segmentPickerOpen;
+        if (opening) {
+            this._ensureData360ExclusionCatalog().then(() => this._openSegmentPicker(rowId));
+        } else {
+            this._updateExclusionRow(rowId, { segmentPickerOpen: false });
+        }
+    }
+
+    handleSegmentPickerSearch(event) {
+        event.stopPropagation();
+        const rowId = event.currentTarget.dataset.rowId;
+        this._updateExclusionRow(rowId, { segmentSearchTerm: event.target.value || '', segmentPickerOpen: true });
+    }
+
+    handleSegmentExclusionToggle(event) {
+        event.stopPropagation();
+        const rowId = event.currentTarget.dataset.rowId;
+        const segmentId = event.currentTarget.dataset.segmentId;
+        const checked = event.target.checked;
+        const row = this.exclusionDefinitions.find(r => r.id === rowId);
+        if (!row || !segmentId) return;
+        const selected = new Set(row.selectedSegmentIds || []);
+        if (checked) selected.add(segmentId);
+        else selected.delete(segmentId);
+        const selectedSegmentIds = [...selected];
+        this._updateExclusionRow(rowId, {
+            selectedSegmentIds,
+            value: selectedSegmentIds.join(','),
+            display: buildSegmentExclusionDisplay(selectedSegmentIds, row.segmentOptions)
+        });
+    }
+
+    handleRemoveSegmentExclusionPill(event) {
+        const rowId = event.currentTarget.dataset.rowId;
+        const segmentId = event.currentTarget.dataset.segmentId;
+        const row = this.exclusionDefinitions.find(r => r.id === rowId);
+        if (!row) return;
+        const selectedSegmentIds = (row.selectedSegmentIds || []).filter(id => id !== segmentId);
+        this._updateExclusionRow(rowId, {
+            selectedSegmentIds,
+            value: selectedSegmentIds.join(','),
+            display: buildSegmentExclusionDisplay(selectedSegmentIds, row.segmentOptions)
+        });
+    }
+
+    handleDmoPickerToggle(event) {
+        event.stopPropagation();
+        const rowId = event.currentTarget.dataset.rowId;
+        const row = this.exclusionDefinitions.find(r => r.id === rowId);
+        if (!row) return;
+        const opening = !row.dmoPickerOpen;
+        if (opening) {
+            this._ensureData360ExclusionCatalog().then(() => this._openDmoPicker(rowId));
+        } else {
+            this._updateExclusionRow(rowId, { dmoPickerOpen: false });
+        }
+    }
+
+    handleDmoPickerSearch(event) {
+        event.stopPropagation();
+        const rowId = event.currentTarget.dataset.rowId;
+        this._updateExclusionRow(rowId, { dmoSearchTerm: event.target.value || '', dmoPickerOpen: true });
+    }
+
+    handleDmoExclusionToggle(event) {
+        event.stopPropagation();
+        const rowId = event.currentTarget.dataset.rowId;
+        const dmoId = event.currentTarget.dataset.dmoId;
+        const checked = event.target.checked;
+        const row = this.exclusionDefinitions.find(r => r.id === rowId);
+        if (!row || !dmoId) return;
+        const selected = new Set(row.selectedDmoIds || []);
+        if (checked) selected.add(dmoId);
+        else selected.delete(dmoId);
+        const selectedDmoIds = [...selected];
+        this._updateExclusionRow(rowId, {
+            selectedDmoIds,
+            value: selectedDmoIds.join(','),
+            display: buildDmoExclusionDisplay(selectedDmoIds, row.dmoOptions)
+        });
+    }
+
+    handleRemoveDmoExclusionPill(event) {
+        const rowId = event.currentTarget.dataset.rowId;
+        const dmoId = event.currentTarget.dataset.dmoId;
+        const row = this.exclusionDefinitions.find(r => r.id === rowId);
+        if (!row) return;
+        const selectedDmoIds = (row.selectedDmoIds || []).filter(id => id !== dmoId);
+        this._updateExclusionRow(rowId, {
+            selectedDmoIds,
+            value: selectedDmoIds.join(','),
+            display: buildDmoExclusionDisplay(selectedDmoIds, row.dmoOptions)
+        });
     }
 
     handleReportPickerSearch(event) {
@@ -1614,27 +1851,15 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         const rowId = event.target.dataset.rowId;
         const value = event.detail.value;
         const row = this.exclusionDefinitions.find(r => r.id === rowId);
-        if (row?.source === 'campaign' || row?.source === 'report') {
+        if (row?.source === 'campaign' || row?.source === 'report'
+            || row?.source === 'segment' || row?.source === 'dmo') {
             return;
         }
         let display = value;
-        if (row?.source === 'dmo') {
-            const opt = this.dmoOptions.find(o => o.value === value);
-            display = opt ? opt.label : value;
-        } else if (row) {
-            const opt = (row.lookupOptions || []).find(o => o.value === value);
-            display = opt ? opt.label : value;
-        }
+        const opt = (row.lookupOptions || []).find(o => o.value === value);
+        display = opt ? opt.label : value;
         this.exclusionDefinitions = this.exclusionDefinitions.map(r =>
             r.id === rowId ? { ...r, value, display } : r
-        );
-    }
-
-    handleExclusionSegmentChange(event) {
-        const rowId = event.target.dataset.rowId;
-        const value = event.target.value || '';
-        this.exclusionDefinitions = this.exclusionDefinitions.map(row =>
-            row.id === rowId ? { ...row, value, display: value } : row
         );
     }
 
@@ -1963,6 +2188,60 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                     filteredReportPickerRows,
                     selectedReportPills,
                     hasSelectedReports: selectedReportPills.length > 0
+                };
+            }
+            if (row.source === 'segment') {
+                const term = (row.segmentSearchTerm || '').trim().toLowerCase();
+                const options = row.segmentOptions || [];
+                const filtered = options.filter(s => {
+                    if (!term) return true;
+                    return (s.name || '').toLowerCase().includes(term)
+                        || (s.status || '').toLowerCase().includes(term);
+                });
+                const selectedSet = new Set(row.selectedSegmentIds || []);
+                const filteredSegmentPickerRows = filtered.map(s => ({
+                    id: s.id,
+                    name: s.name,
+                    metaLine: s.status || '',
+                    isSelected: selectedSet.has(s.id)
+                }));
+                const selectedSegmentPills = (row.selectedSegmentIds || []).map(id => {
+                    const match = options.find(o => o.id === id);
+                    return { id, label: match ? segmentDisplayLabel(match) : id };
+                });
+                return {
+                    ...base,
+                    segmentPickerContainerClass: `custom-dropdown-container exclusion-multi-picker exclusion-segment-picker ${row.segmentPickerOpen ? 'slds-is-open' : ''}`,
+                    filteredSegmentPickerRows,
+                    selectedSegmentPills,
+                    hasSelectedSegments: selectedSegmentPills.length > 0
+                };
+            }
+            if (row.source === 'dmo') {
+                const term = (row.dmoSearchTerm || '').trim().toLowerCase();
+                const options = row.dmoOptions || [];
+                const filtered = options.filter(d => {
+                    if (!term) return true;
+                    return (d.label || '').toLowerCase().includes(term)
+                        || (d.apiName || '').toLowerCase().includes(term);
+                });
+                const selectedSet = new Set(row.selectedDmoIds || []);
+                const filteredDmoPickerRows = filtered.map(d => ({
+                    id: d.id,
+                    name: d.label || d.apiName,
+                    metaLine: d.apiName || '',
+                    isSelected: selectedSet.has(d.id)
+                }));
+                const selectedDmoPills = (row.selectedDmoIds || []).map(id => {
+                    const match = options.find(o => o.id === id);
+                    return { id, label: match ? dmoDisplayLabel(match) : id };
+                });
+                return {
+                    ...base,
+                    dmoPickerContainerClass: `custom-dropdown-container exclusion-multi-picker exclusion-dmo-picker ${row.dmoPickerOpen ? 'slds-is-open' : ''}`,
+                    filteredDmoPickerRows,
+                    selectedDmoPills,
+                    hasSelectedDmos: selectedDmoPills.length > 0
                 };
             }
             if (row.source !== 'campaign') {

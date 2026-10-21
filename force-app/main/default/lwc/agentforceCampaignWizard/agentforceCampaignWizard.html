@@ -440,26 +440,136 @@
                                                                         </div>
                                                                     </template>
                                                                     <template lwc:elseif={row.isSegment}>
-                                                                        <lightning-input
-                                                                            type="text"
-                                                                            label="Data360 Segment"
-                                                                            placeholder="Segment ID or name..."
-                                                                            value={row.value}
-                                                                            data-row-id={row.id}
-                                                                            onchange={handleExclusionSegmentChange}
-                                                                            class="custom-form-input">
-                                                                        </lightning-input>
+                                                                        <div class={row.segmentPickerContainerClass} data-row-id={row.id}>
+                                                                            <label class="slds-form-element__label">Data360 Segments</label>
+                                                                            <div class="slds-form-element__control">
+                                                                                <div class="slds-combobox_container">
+                                                                                    <div class="slds-combobox slds-dropdown-trigger slds-dropdown-trigger_click">
+                                                                                        <div class="slds-combobox__form-element slds-input-has-icon slds-input-has-icon_right" role="none">
+                                                                                            <input
+                                                                                                type="text"
+                                                                                                class="slds-input slds-combobox__input custom-form-input"
+                                                                                                placeholder="Search segments..."
+                                                                                                autocomplete="off"
+                                                                                                value={row.segmentSearchTerm}
+                                                                                                data-row-id={row.id}
+                                                                                                onclick={handleSegmentPickerToggle}
+                                                                                                oninput={handleSegmentPickerSearch}
+                                                                                            />
+                                                                                            <span class="slds-icon_container slds-icon-utility-search slds-input__icon slds-input__icon_right">
+                                                                                                <lightning-icon icon-name="utility:search" size="x-small"></lightning-icon>
+                                                                                            </span>
+                                                                                        </div>
+                                                                                        <template lwc:if={row.segmentPickerOpen}>
+                                                                                            <div class="custom-picklist-dropdown exclusion-picker-dropdown" role="listbox">
+                                                                                                <div class="dropdown-scrollable-list">
+                                                                                                    <template for:each={row.filteredSegmentPickerRows} for:item="seg">
+                                                                                                        <div key={seg.id} class="exclusion-picker-option-row">
+                                                                                                            <label class="exclusion-picker-option-label custom-dropdown-row">
+                                                                                                                <input
+                                                                                                                    type="checkbox"
+                                                                                                                    class="exclusion-picker-checkbox"
+                                                                                                                    checked={seg.isSelected}
+                                                                                                                    data-row-id={row.id}
+                                                                                                                    data-segment-id={seg.id}
+                                                                                                                    onchange={handleSegmentExclusionToggle}
+                                                                                                                />
+                                                                                                                <span class="exclusion-picker-option-text">
+                                                                                                                    <span class="list-campaign-title">{seg.name}</span>
+                                                                                                                    <template lwc:if={seg.metaLine}>
+                                                                                                                        <span class="exclusion-campaign-meta">{seg.metaLine}</span>
+                                                                                                                    </template>
+                                                                                                                </span>
+                                                                                                            </label>
+                                                                                                        </div>
+                                                                                                    </template>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        </template>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                            <template lwc:if={row.hasSelectedSegments}>
+                                                                                <ul class="exclusion-campaign-pills slds-listbox slds-listbox_horizontal slds-m-top_x-small" role="listbox" aria-label="Selected segments">
+                                                                                    <template for:each={row.selectedSegmentPills} for:item="pill">
+                                                                                        <li key={pill.id} class="slds-listbox-item" role="presentation">
+                                                                                            <span class="slds-pill">
+                                                                                                <span class="slds-pill__label" title={pill.label}>{pill.label}</span>
+                                                                                                <button type="button" class="slds-button slds-button_icon slds-button_icon slds-pill__remove" title="Remove" data-row-id={row.id} data-segment-id={pill.id} onclick={handleRemoveSegmentExclusionPill}>
+                                                                                                    <lightning-icon icon-name="utility:close" size="x-small" alternative-text="Remove"></lightning-icon>
+                                                                                                </button>
+                                                                                            </span>
+                                                                                        </li>
+                                                                                    </template>
+                                                                                </ul>
+                                                                            </template>
+                                                                        </div>
                                                                     </template>
                                                                     <template lwc:elseif={row.isDmo}>
-                                                                        <lightning-combobox
-                                                                            label="Data360 DMO"
-                                                                            value={row.value}
-                                                                            options={dmoOptions}
-                                                                            placeholder="Select DMO..."
-                                                                            data-row-id={row.id}
-                                                                            onchange={handleExclusionLookupSelect}
-                                                                            class="custom-form-input">
-                                                                        </lightning-combobox>
+                                                                        <div class={row.dmoPickerContainerClass} data-row-id={row.id}>
+                                                                            <label class="slds-form-element__label">Data360 DMOs</label>
+                                                                            <div class="slds-form-element__control">
+                                                                                <div class="slds-combobox_container">
+                                                                                    <div class="slds-combobox slds-dropdown-trigger slds-dropdown-trigger_click">
+                                                                                        <div class="slds-combobox__form-element slds-input-has-icon slds-input-has-icon_right" role="none">
+                                                                                            <input
+                                                                                                type="text"
+                                                                                                class="slds-input slds-combobox__input custom-form-input"
+                                                                                                placeholder="Search DMOs..."
+                                                                                                autocomplete="off"
+                                                                                                value={row.dmoSearchTerm}
+                                                                                                data-row-id={row.id}
+                                                                                                onclick={handleDmoPickerToggle}
+                                                                                                oninput={handleDmoPickerSearch}
+                                                                                            />
+                                                                                            <span class="slds-icon_container slds-icon-utility-search slds-input__icon slds-input__icon_right">
+                                                                                                <lightning-icon icon-name="utility:search" size="x-small"></lightning-icon>
+                                                                                            </span>
+                                                                                        </div>
+                                                                                        <template lwc:if={row.dmoPickerOpen}>
+                                                                                            <div class="custom-picklist-dropdown exclusion-picker-dropdown" role="listbox">
+                                                                                                <div class="dropdown-scrollable-list">
+                                                                                                    <template for:each={row.filteredDmoPickerRows} for:item="dmo">
+                                                                                                        <div key={dmo.id} class="exclusion-picker-option-row">
+                                                                                                            <label class="exclusion-picker-option-label custom-dropdown-row">
+                                                                                                                <input
+                                                                                                                    type="checkbox"
+                                                                                                                    class="exclusion-picker-checkbox"
+                                                                                                                    checked={dmo.isSelected}
+                                                                                                                    data-row-id={row.id}
+                                                                                                                    data-dmo-id={dmo.id}
+                                                                                                                    onchange={handleDmoExclusionToggle}
+                                                                                                                />
+                                                                                                                <span class="exclusion-picker-option-text">
+                                                                                                                    <span class="list-campaign-title">{dmo.name}</span>
+                                                                                                                    <template lwc:if={dmo.metaLine}>
+                                                                                                                        <span class="exclusion-campaign-meta">{dmo.metaLine}</span>
+                                                                                                                    </template>
+                                                                                                                </span>
+                                                                                                            </label>
+                                                                                                        </div>
+                                                                                                    </template>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        </template>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                            <template lwc:if={row.hasSelectedDmos}>
+                                                                                <ul class="exclusion-campaign-pills slds-listbox slds-listbox_horizontal slds-m-top_x-small" role="listbox" aria-label="Selected DMOs">
+                                                                                    <template for:each={row.selectedDmoPills} for:item="pill">
+                                                                                        <li key={pill.id} class="slds-listbox-item" role="presentation">
+                                                                                            <span class="slds-pill">
+                                                                                                <span class="slds-pill__label" title={pill.label}>{pill.label}</span>
+                                                                                                <button type="button" class="slds-button slds-button_icon slds-button_icon slds-pill__remove" title="Remove" data-row-id={row.id} data-dmo-id={pill.id} onclick={handleRemoveDmoExclusionPill}>
+                                                                                                    <lightning-icon icon-name="utility:close" size="x-small" alternative-text="Remove"></lightning-icon>
+                                                                                                </button>
+                                                                                            </span>
+                                                                                        </li>
+                                                                                    </template>
+                                                                                </ul>
+                                                                            </template>
+                                                                        </div>
                                                                     </template>
                                                             </div>
                                                             <template lwc:if={row.showRemove}>
