@@ -356,6 +356,10 @@ public with sharing class CampaignExclusionController {
         return options;
     }
 
+    private static final Set<String> CAMPAIGN_MEMBER_DRILLDOWN_OBJECTS = new Set<String>{
+        'Contact', 'Lead', 'Account'
+    };
+
     private static void appendCampaignMemberLookupDrilldown(
         List<FieldOption> options,
         Set<String> seen
@@ -376,6 +380,9 @@ public with sharing class CampaignExclusionController {
                 }
                 Schema.DescribeSObjectResult relatedDescribe = relatedType.getDescribe();
                 String relatedApi = relatedDescribe.getName();
+                if (!CAMPAIGN_MEMBER_DRILLDOWN_OBJECTS.contains(relatedApi)) {
+                    continue;
+                }
                 for (Schema.SObjectField relatedField : relatedDescribe.fields.getMap().values()) {
                     Schema.DescribeFieldResult relatedFieldDescribe = relatedField.getDescribe();
                     if (!relatedFieldDescribe.isAccessible()) {
