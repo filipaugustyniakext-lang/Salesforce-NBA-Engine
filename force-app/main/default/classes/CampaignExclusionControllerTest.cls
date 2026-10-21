@@ -26,6 +26,15 @@ private class CampaignExclusionControllerTest {
     }
 
     @IsTest
+    static void getExclusionRecordFieldOptions_campaignMemberShape() {
+        Test.startTest();
+        List<CampaignExclusionController.FieldOption> fields =
+            CampaignExclusionController.getExclusionRecordFieldOptions('campaign', '701000000000001');
+        Test.stopTest();
+        System.assertNotEquals(null, fields);
+    }
+
+    @IsTest
     static void getExclusionOptions_secondCallUsesCache() {
         CampaignExclusionController.getExclusionOptions();
         Test.startTest();

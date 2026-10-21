@@ -27,7 +27,7 @@ import getCampaignTiers from '@salesforce/apex/MarketingDictionaryManagerControl
 import getCampaignTypes from '@salesforce/apex/MarketingDictionaryController.getCampaignTypes';
 import getCampaignRecords from '@salesforce/apex/MarketingDictionaryManagerController.getCampaignRecords';
 import getExclusionOptions from '@salesforce/apex/CampaignExclusionController.getExclusionOptions';
-import getData360DmoFields from '@salesforce/apex/MarketingDictionaryManagerController.getData360DmoFields';
+import getExclusionRecordFieldOptions from '@salesforce/apex/CampaignExclusionController.getExclusionRecordFieldOptions';
 import searchSuppressionCampaigns from '@salesforce/apex/MarketingDictionaryController.searchSuppressionCampaigns';
 import searchSuppressionReports from '@salesforce/apex/MarketingDictionaryController.searchSuppressionReports';
 import {
@@ -82,10 +82,8 @@ function exclusionMappingKey(source, recordId) {
     return `${source}:${recordId}`;
 }
 
-function isExclusionMappingComplete(mapping) {
-    return !!(mapping
-        && String(mapping.qualificationColumn || '').trim()
-        && String(mapping.foreignKeyColumn || '').trim());
+function isExclusionRowMappingComplete(campaignMemberKey, foreignKeyColumn) {
+    return !!(String(campaignMemberKey || '').trim() && String(foreignKeyColumn || '').trim());
 }
 
 function newExclusionRow(overrides = {}) {
@@ -371,21 +369,13 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     // --- EXCLUSIONS (tier-gated: manual definitions + other marketing activations) ---
     @track exclusionDefinitions = [];
     @track exclusionSelectedBySource = emptyExclusionSelectedBySource();
-    @track exclusionMappings = {};
+    @track exclusionCampaignMemberKey = '';
+    @track exclusionForeignKeys = {};
+    @track exclusionFieldOptionsByKey = {};
     @track exclusionCatalogHints = { segment: '', dmo: '', dlo: '' };
     @track exclusionCatalogs = emptyExclusionCatalogs();
     _exclusionWorkspaceInitialized = false;
-    @track exclusionMappingModal = {
-        open: false,
-        source: '',
-        recordId: '',
-        label: '',
-        qualificationColumn: '',
-        foreignKeyColumn: '',
-        foreignKeyOptions: [],
-        useForeignKeyPicklist: false,
-        loadingFields: false
-    };
+    _exclusionFieldOptionsLoadRequested = new Set();
     @track excludeOtherMarketingActivations = false;
     _data360ExclusionCatalogLoaded = false;
     _data360ExclusionCatalogPromise = null;
@@ -505,6 +495,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 this._preloadExclusionCatalogs();
                 this._exclusionWorkspaceInitialized = true;
             }
+            this._syncExclusionFieldOptionLoads();
         } else {
             this._exclusionWorkspaceInitialized = false;
         }
@@ -576,7 +567,10 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     _hydrateExclusionsFromCampaign(campaign) {
         this.exclusionDefinitions = [];
         this.exclusionSelectedBySource = emptyExclusionSelectedBySource();
-        this.exclusionMappings = {};
+        this.exclusionCampaignMemberKey = '';
+        this.exclusionForeignKeys = {};
+        this.exclusionFieldOptionsByKey = {};
+        this._exclusionFieldOptionsLoadRequested = new Set();
         if (!campaign) return;
 
         let parsed = [];
@@ -617,23 +611,30 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         }
 
         const selected = emptyExclusionSelectedBySource();
-        const mappings = {};
+        const foreignKeys = {};
         parsed.forEach(row => {
             const ids = parseMultiExclusionValues(row);
             ids.forEach(id => {
                 if (!(selected[row.source] || []).includes(id)) {
                     selected[row.source].push(id);
                 }
-                if (row.mapping && isExclusionMappingComplete(row.mapping)) {
-                    mappings[exclusionMappingKey(row.source, id)] = {
-                        qualificationColumn: row.mapping.qualificationColumn,
-                        foreignKeyColumn: row.mapping.foreignKeyColumn
-                    };
+                if (row.mapping) {
+                    if (!this.exclusionCampaignMemberKey && row.mapping.qualificationColumn) {
+                        this.exclusionCampaignMemberKey = row.mapping.qualificationColumn;
+                    }
+                    if (row.mapping.foreignKeyColumn) {
+                        foreignKeys[exclusionMappingKey(row.source, id)] = row.mapping.foreignKeyColumn;
+                    }
                 }
             });
         });
         this.exclusionSelectedBySource = selected;
-        this.exclusionMappings = mappings;
+        this.exclusionForeignKeys = foreignKeys;
+        EXCLUSION_SOURCE_KEYS.forEach(source => {
+            (selected[source] || []).forEach(recordId => {
+                this._requestExclusionFieldOptions(source, recordId);
+            });
+        });
 
         const firstActiveSource = EXCLUSION_SOURCE_KEYS.find(
             key => (selected[key] || []).length > 0
@@ -758,8 +759,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         const serialized = [];
         EXCLUSION_SOURCE_KEYS.forEach(source => {
             (selected[source] || []).forEach(recordId => {
-                const mapping = this.exclusionMappings[exclusionMappingKey(source, recordId)];
-                if (!isExclusionMappingComplete(mapping)) {
+                const mapKey = exclusionMappingKey(source, recordId);
+                const foreignKeyColumn = this.exclusionForeignKeys[mapKey];
+                if (!isExclusionRowMappingComplete(this.exclusionCampaignMemberKey, foreignKeyColumn)) {
                     return;
                 }
                 const display = this._displayLabelForExclusionRecord(source, recordId);
@@ -769,8 +771,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                     values: [recordId],
                     display,
                     mapping: {
-                        qualificationColumn: mapping.qualificationColumn.trim(),
-                        foreignKeyColumn: mapping.foreignKeyColumn.trim()
+                        qualificationColumn: this.exclusionCampaignMemberKey.trim(),
+                        foreignKeyColumn: String(foreignKeyColumn).trim()
                     }
                 });
             });
@@ -793,7 +795,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         let unmapped = 0;
         EXCLUSION_SOURCE_KEYS.forEach(source => {
             (selected[source] || []).forEach(recordId => {
-                if (!isExclusionMappingComplete(this.exclusionMappings[exclusionMappingKey(source, recordId)])) {
+                const fk = this.exclusionForeignKeys[exclusionMappingKey(source, recordId)];
+                if (!isExclusionRowMappingComplete(this.exclusionCampaignMemberKey, fk)) {
                     unmapped += 1;
                 }
             });
@@ -810,10 +813,61 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             return null;
         }
         const unmapped = this._countUnmappedExclusions();
+        if (!String(this.exclusionCampaignMemberKey || '').trim()) {
+            return 'Enter the campaign member key used for qualification (segment or data graph).';
+        }
         if (unmapped > 0) {
-            return `Define column mapping for all ${unmapped} selected exclusion record(s). Only mapped exclusions are saved.`;
+            return `Select a match attribute for all ${unmapped} selected exclusion record(s). Only fully mapped exclusions are saved.`;
         }
         return null;
+    }
+
+    _requestExclusionFieldOptions(source, recordId) {
+        const key = exclusionMappingKey(source, recordId);
+        if (this.exclusionFieldOptionsByKey[key] || this._exclusionFieldOptionsLoadRequested.has(key)) {
+            return;
+        }
+        this._exclusionFieldOptionsLoadRequested.add(key);
+        getExclusionRecordFieldOptions({ source, recordKey: recordId })
+            .then(rows => {
+                const options = (rows || []).map(r => ({ label: r.label, value: r.value }));
+                this.exclusionFieldOptionsByKey = {
+                    ...this.exclusionFieldOptionsByKey,
+                    [key]: options
+                };
+            })
+            .catch(err => {
+                console.error('Exclusion field options load failed:', err);
+                this.exclusionFieldOptionsByKey = {
+                    ...this.exclusionFieldOptionsByKey,
+                    [key]: []
+                };
+            });
+    }
+
+    _syncExclusionFieldOptionLoads() {
+        this._syncActiveRowToSelectedStore();
+        const selected = this.exclusionSelectedBySource || emptyExclusionSelectedBySource();
+        EXCLUSION_SOURCE_KEYS.forEach(source => {
+            (selected[source] || []).forEach(recordId => {
+                this._requestExclusionFieldOptions(source, recordId);
+            });
+        });
+    }
+
+    handleCampaignMemberKeyChange(event) {
+        this.exclusionCampaignMemberKey = event.target.value || '';
+    }
+
+    handleExclusionForeignKeyChange(event) {
+        const source = event.currentTarget.dataset.source;
+        const recordId = event.currentTarget.dataset.recordId;
+        const value = event.detail.value;
+        if (!source || !recordId) return;
+        this.exclusionForeignKeys = {
+            ...this.exclusionForeignKeys,
+            [exclusionMappingKey(source, recordId)]: value
+        };
     }
 
     _applyExclusionsToSaveFields(fields) {
@@ -1619,7 +1673,10 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             if (!this._tierAllowsManualExclusions(newTier)) {
                 this.exclusionDefinitions = [];
                 this.exclusionSelectedBySource = emptyExclusionSelectedBySource();
-                this.exclusionMappings = {};
+                this.exclusionCampaignMemberKey = '';
+                this.exclusionForeignKeys = {};
+                this.exclusionFieldOptionsByKey = {};
+                this._exclusionFieldOptionsLoadRequested = new Set();
                 this._exclusionWorkspaceInitialized = false;
             } else {
                 this._ensureExclusionWorkspaceRow();
@@ -1682,93 +1739,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         }
     }
 
-    handleOpenExclusionMapping(event) {
-        const source = event.currentTarget.dataset.source;
-        const recordId = event.currentTarget.dataset.recordId;
-        if (!source || !recordId) return;
-        const label = this._displayLabelForExclusionRecord(source, recordId);
-        const existing = this.exclusionMappings[exclusionMappingKey(source, recordId)] || {};
-        const useForeignKeyPicklist = source === 'dmo' || source === 'dlo';
-        this.exclusionMappingModal = {
-            open: true,
-            source,
-            recordId,
-            label,
-            qualificationColumn: existing.qualificationColumn || '',
-            foreignKeyColumn: existing.foreignKeyColumn || '',
-            foreignKeyOptions: [],
-            useForeignKeyPicklist,
-            loadingFields: useForeignKeyPicklist
-        };
-        if (useForeignKeyPicklist) {
-            getData360DmoFields({ dmoApiName: recordId })
-                .then(fields => {
-                    if (!this.exclusionMappingModal.open || this.exclusionMappingModal.recordId !== recordId) {
-                        return;
-                    }
-                    this.exclusionMappingModal = {
-                        ...this.exclusionMappingModal,
-                        foreignKeyOptions: (fields || []).map(f => ({
-                            label: f.label,
-                            value: f.value
-                        })),
-                        loadingFields: false
-                    };
-                })
-                .catch(err => {
-                    console.error('Could not load exclusion object fields:', err);
-                    this.exclusionMappingModal = {
-                        ...this.exclusionMappingModal,
-                        loadingFields: false,
-                        useForeignKeyPicklist: false
-                    };
-                });
-        }
-    }
-
-    handleCloseExclusionMappingModal() {
-        this.exclusionMappingModal = {
-            ...this.exclusionMappingModal,
-            open: false
-        };
-    }
-
-    handleExclusionMappingQualificationChange(event) {
-        this.exclusionMappingModal = {
-            ...this.exclusionMappingModal,
-            qualificationColumn: event.target.value
-        };
-    }
-
-    handleExclusionMappingForeignKeyChange(event) {
-        const value = event.detail?.value ?? event.target.value;
-        this.exclusionMappingModal = {
-            ...this.exclusionMappingModal,
-            foreignKeyColumn: value
-        };
-    }
-
-    handleSaveExclusionMapping() {
-        const modal = this.exclusionMappingModal;
-        const mapping = {
-            qualificationColumn: (modal.qualificationColumn || '').trim(),
-            foreignKeyColumn: (modal.foreignKeyColumn || '').trim()
-        };
-        if (!isExclusionMappingComplete(mapping)) {
-            this.dispatchEvent(new ShowToastEvent({
-                title: 'Mapping incomplete',
-                message: 'Enter the qualification source column and the exclusion object foreign key.',
-                variant: 'warning'
-            }));
-            return;
-        }
-        this.exclusionMappings = {
-            ...this.exclusionMappings,
-            [exclusionMappingKey(modal.source, modal.recordId)]: mapping
-        };
-        this.handleCloseExclusionMappingModal();
-    }
-
     handleRemoveExclusionSelection(event) {
         const source = event.currentTarget.dataset.source;
         const recordId = event.currentTarget.dataset.recordId;
@@ -1778,11 +1748,17 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         next[source] = (next[source] || []).filter(id => id !== recordId);
         this.exclusionSelectedBySource = next;
         const mapKey = exclusionMappingKey(source, recordId);
-        if (this.exclusionMappings[mapKey]) {
-            const mappings = { ...this.exclusionMappings };
-            delete mappings[mapKey];
-            this.exclusionMappings = mappings;
+        if (this.exclusionForeignKeys[mapKey]) {
+            const foreignKeys = { ...this.exclusionForeignKeys };
+            delete foreignKeys[mapKey];
+            this.exclusionForeignKeys = foreignKeys;
         }
+        if (this.exclusionFieldOptionsByKey[mapKey]) {
+            const fieldOptions = { ...this.exclusionFieldOptionsByKey };
+            delete fieldOptions[mapKey];
+            this.exclusionFieldOptionsByKey = fieldOptions;
+        }
+        this._exclusionFieldOptionsLoadRequested.delete(mapKey);
         const row = this._activeExclusionRow();
         if (row && row.source === source) {
             if (source === 'campaign') {
@@ -1915,6 +1891,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             row.id === rowId ? { ...row, ...patch } : row
         );
         this._syncActiveRowToSelectedStore();
+        this._syncExclusionFieldOptionLoads();
     }
 
     handleCampaignPickerToggle(event) {
@@ -2530,15 +2507,19 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         const items = [];
         EXCLUSION_SOURCE_OPTIONS.forEach(opt => {
             (selected[opt.value] || []).forEach(recordId => {
-                const mapping = this.exclusionMappings[exclusionMappingKey(opt.value, recordId)];
-                const mapped = isExclusionMappingComplete(mapping);
+                const mapKey = exclusionMappingKey(opt.value, recordId);
+                const foreignKeyColumn = this.exclusionForeignKeys[mapKey] || '';
+                const fieldOptions = this.exclusionFieldOptionsByKey[mapKey] || [];
+                const mapped = isExclusionRowMappingComplete(this.exclusionCampaignMemberKey, foreignKeyColumn);
                 items.push({
-                    key: exclusionMappingKey(opt.value, recordId),
+                    key: mapKey,
                     source: opt.value,
                     recordId,
                     icon: opt.icon,
                     sourceName: this._displayLabelForExclusionRecord(opt.value, recordId),
-                    sourceTypeLabel: opt.shortLabel,
+                    foreignKeyColumn,
+                    fieldOptions,
+                    hasFieldOptions: fieldOptions.length > 0,
                     mapped,
                     rowClass: mapped
                         ? 'exclusion-summary-row exclusion-summary-row--mapped'
@@ -2547,10 +2528,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             });
         });
         return items;
-    }
-
-    get exclusionMappingModalOpen() {
-        return this.exclusionMappingModal.open === true;
     }
 
     get exclusionDefinitionRows() {

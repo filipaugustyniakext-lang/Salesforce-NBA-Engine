@@ -5,23 +5,168 @@ public with sharing class CampaignExclusionController {
     private static final Integer MAX_SEGMENTS = 1000;
     private static final Integer MAX_DATA_CLOUD_OBJECTS = 2000;
 
-    private static final List<String> DMO_CATEGORIES = new List<String>{
-        null, 'Profile', 'Engagement', 'Related'
-    };
-
     @AuraEnabled(cacheable=true)
     public static ExclusionOptions getExclusionOptions() {
         ExclusionOptions options = new ExclusionOptions();
         options.segments = loadActiveSegments(options);
         Map<String, DataCloudObjectOption> dmoByApi = new Map<String, DataCloudObjectOption>();
         Map<String, DataCloudObjectOption> dloByApi = new Map<String, DataCloudObjectOption>();
-        loadDataCloudObjects('DataModelObject', 'DataModelObject', '__dlm', dmoByApi, options);
-        loadDataCloudObjects('DataLakeObject', 'DataLakeObject', '__dll', dloByApi, options);
+        loadManagerCatalog('DMO', dmoByApi, options);
+        loadManagerCatalog('DLO', dloByApi, options);
         options.dataModelObjects = new List<DataCloudObjectOption>(dmoByApi.values());
         options.dataLakeObjects = new List<DataCloudObjectOption>(dloByApi.values());
         options.dataModelObjects.sort(new DataCloudLabelSort());
         options.dataLakeObjects.sort(new DataCloudLabelSort());
         return options;
+    }
+
+    @AuraEnabled
+    public static List<FieldOption> getExclusionRecordFieldOptions(String source, String recordKey) {
+        List<FieldOption> options = new List<FieldOption>();
+        if (String.isBlank(source) || String.isBlank(recordKey)) {
+            return options;
+        }
+        String normalized = source.toLowerCase();
+        if (normalized == 'dmo' || normalized == 'dlo') {
+            for (Map<String, String> field : MarketingDictionaryManagerController.getData360DmoFields(recordKey)) {
+                addFieldOption(options, field.get('value'), field.get('label'));
+            }
+            return options;
+        }
+        if (normalized == 'campaign') {
+            return entityFieldOptions('CampaignMember');
+        }
+        if (normalized == 'segment') {
+            return entityFieldOptions('MarketSegment');
+        }
+        if (normalized == 'report') {
+            return reportColumnOptions(recordKey);
+        }
+        return options;
+    }
+
+    private static void loadManagerCatalog(
+        String kind,
+        Map<String, DataCloudObjectOption> byApi,
+        ExclusionOptions options
+    ) {
+        String suffix = kind == 'DMO' ? '__dlm' : '__dll';
+        String hintField = kind == 'DMO' ? 'dmoHint' : 'dloHint';
+        String connectError;
+        try {
+            List<Map<String, String>> rows = kind == 'DMO'
+                ? MarketingDictionaryManagerController.getData360DmoOptions()
+                : MarketingDictionaryManagerController.getData360DloOptions();
+            mergeManagerRows(byApi, rows);
+        } catch (Exception ex) {
+            connectError = sanitizeConnectMessage(ex.getMessage());
+        }
+        collectEntityDefinitionCatalog(suffix, byApi);
+        if (byApi.isEmpty()) {
+            if (String.isNotBlank(connectError)) {
+                options.putHint(
+                    hintField,
+                    'Data Cloud could not list ' + kind + 's. ' + connectError
+                        + ' Confirm Data Space assignment and CDP Connect permissions for this user.'
+                );
+            } else {
+                options.putHint(
+                    hintField,
+                    'No ' + kind + 's were returned. Data Space access or CDP metadata permissions may be missing.'
+                );
+            }
+        } else if (String.isNotBlank(connectError)) {
+            options.putHint(
+                hintField,
+                'Showing ' + byApi.size() + ' ' + kind + '(s). Some Data Spaces may be unavailable: ' + connectError
+            );
+        }
+    }
+
+    private static void mergeManagerRows(
+        Map<String, DataCloudObjectOption> byApi,
+        List<Map<String, String>> rows
+    ) {
+        if (rows == null) {
+            return;
+        }
+        for (Map<String, String> row : rows) {
+            String api = row.get('value');
+            if (String.isBlank(api)) {
+                continue;
+            }
+            String label = row.get('label');
+            if (String.isBlank(label)) {
+                label = api;
+            }
+            byApi.put(api.toLowerCase(), new DataCloudObjectOption(api, label));
+        }
+    }
+
+    private static String sanitizeConnectMessage(String raw) {
+        if (String.isBlank(raw)) {
+            return '';
+        }
+        String message = raw.trim();
+        if (message.containsIgnoreCase('Script-thrown exception')) {
+            message = message.replace('Script-thrown exception', '').trim();
+            if (message.startsWith(':')) {
+                message = message.substring(1).trim();
+            }
+        }
+        return message;
+    }
+
+    private static List<FieldOption> entityFieldOptions(String entityApiName) {
+        List<FieldOption> options = new List<FieldOption>();
+        try {
+            for (FieldDefinition fd : [
+                SELECT QualifiedApiName, Label
+                FROM FieldDefinition
+                WHERE EntityDefinition.QualifiedApiName = :entityApiName
+                ORDER BY Label ASC
+                LIMIT 500
+            ]) {
+                addFieldOption(
+                    options,
+                    fd.QualifiedApiName,
+                    String.isNotBlank(fd.Label) ? fd.Label : fd.QualifiedApiName
+                );
+            }
+        } catch (Exception ex) {
+            System.debug(LoggingLevel.WARN, 'FieldDefinition unavailable for ' + entityApiName + ': ' + ex.getMessage());
+        }
+        return options;
+    }
+
+    private static List<FieldOption> reportColumnOptions(String reportId) {
+        List<FieldOption> options = new List<FieldOption>();
+        try {
+            Id rid = (Id) reportId;
+            Reports.ReportDescribeResult described = Reports.ReportManager.describeReport(rid);
+            if (described != null && described.getReportExtendedMetadata() != null) {
+                Map<String, Reports.DetailColumn> columns =
+                    described.getReportExtendedMetadata().getDetailColumnInfo();
+                if (columns != null) {
+                    for (String api : columns.keySet()) {
+                        Reports.DetailColumn col = columns.get(api);
+                        String label = col != null && String.isNotBlank(col.getLabel()) ? col.getLabel() : api;
+                        addFieldOption(options, api, label);
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            System.debug(LoggingLevel.WARN, 'Report columns unavailable for ' + reportId + ': ' + ex.getMessage());
+        }
+        return options;
+    }
+
+    private static void addFieldOption(List<FieldOption> options, String api, String label) {
+        if (String.isBlank(api)) {
+            return;
+        }
+        String display = String.isNotBlank(label) && label != api ? label + ' (' + api + ')' : api;
+        options.add(new FieldOption(api, display));
     }
 
     private static List<SegmentOption> loadActiveSegments(ExclusionOptions options) {
@@ -70,142 +215,6 @@ public with sharing class CampaignExclusionController {
         return rows;
     }
 
-    private static void loadDataCloudObjects(
-        String connectEntityType,
-        String expectedTypeName,
-        String apiSuffix,
-        Map<String, DataCloudObjectOption> byApi,
-        ExclusionOptions options
-    ) {
-        String connectError;
-        try {
-            collectFromConnectApi(connectEntityType, expectedTypeName, byApi);
-        } catch (Exception ex) {
-            connectError = ex.getMessage();
-        }
-        collectEntityDefinitionCatalog(apiSuffix, byApi);
-        String hintField = apiSuffix == '__dlm' ? 'dmoHint' : 'dloHint';
-        if (byApi.isEmpty()) {
-            if (String.isNotBlank(connectError)) {
-                options.putHint(
-                    hintField,
-                    'Data Cloud Connect API could not list '
-                        + (apiSuffix == '__dlm' ? 'DMOs' : 'DLOs')
-                        + '. '
-                        + connectError
-                        + ' Assign the user to a Data Space and grant CDP query permissions.'
-                );
-            } else {
-                options.putHint(
-                    hintField,
-                    'No '
-                        + (apiSuffix == '__dlm' ? 'DMOs' : 'DLOs')
-                        + ' found. EntityDefinition often omits Data Cloud objects; Connect API and Data Space access are required.'
-                );
-            }
-        } else if (String.isNotBlank(connectError) && byApi.size() < 5) {
-            options.putHint(
-                hintField,
-                'Partial catalogue (' + byApi.size() + '). Some Data Spaces may be inaccessible: ' + connectError
-            );
-        }
-    }
-
-    private static void collectFromConnectApi(
-        String entityType,
-        String expectedTypeName,
-        Map<String, DataCloudObjectOption> byApi
-    ) {
-        List<String> spaces = dataSpaceApiNames();
-        if (spaces.isEmpty()) {
-            spaces.add(null);
-        }
-        List<String> errors = new List<String>();
-        for (String spaceName : spaces) {
-            if (entityType == 'DataModelObject') {
-                for (String category : DMO_CATEGORIES) {
-                    try {
-                        addConnectMetadataRows(
-                            byApi,
-                            connectApiAsUntyped(
-                                queryDataCloudMetadata('DataModelObject', category, null, spaceName)
-                            ),
-                            expectedTypeName
-                        );
-                        if (category == null && !byApi.isEmpty()) {
-                            break;
-                        }
-                    } catch (Exception e) {
-                        errors.add(e.getMessage());
-                    }
-                }
-            } else {
-                try {
-                    addConnectMetadataRows(
-                        byApi,
-                        connectApiAsUntyped(
-                            queryDataCloudMetadata(entityType, null, null, spaceName)
-                        ),
-                        expectedTypeName
-                    );
-                } catch (Exception e) {
-                    errors.add(e.getMessage());
-                }
-            }
-        }
-        if (byApi.isEmpty() && !errors.isEmpty()) {
-            throw new AuraHandledException(errors[0]);
-        }
-    }
-
-    private static ConnectApi.CdpQueryMetadataOutput queryDataCloudMetadata(
-        String entityType,
-        String entityCategory,
-        String entityName,
-        String spaceName
-    ) {
-        return spaceName == null
-            ? ConnectApi.CdpQuery.getAllMetadata(entityType, entityCategory, entityName)
-            : ConnectApi.CdpQuery.getAllMetadata(entityType, entityCategory, entityName, spaceName);
-    }
-
-    private static void addConnectMetadataRows(
-        Map<String, DataCloudObjectOption> byApi,
-        Object raw,
-        String expectedTypeName
-    ) {
-        if (!(raw instanceof Map<String, Object>)) {
-            return;
-        }
-        Object rows = ((Map<String, Object>) raw).get('metadata');
-        if (!(rows instanceof List<Object>)) {
-            return;
-        }
-        for (Object row : (List<Object>) rows) {
-            if (!(row instanceof Map<String, Object>)) {
-                continue;
-            }
-            Map<String, Object> entity = (Map<String, Object>) row;
-            String api = firstString(entity, new List<String>{ 'name', 'apiName' });
-            String typeName = firstString(entity, new List<String>{ 'type' });
-            if (String.isBlank(api)) {
-                continue;
-            }
-            if (String.isNotBlank(typeName) && typeName != expectedTypeName) {
-                continue;
-            }
-            String key = api.toLowerCase();
-            if (byApi.containsKey(key)) {
-                continue;
-            }
-            String label = firstString(entity, new List<String>{ 'displayName', 'label' });
-            if (String.isBlank(label)) {
-                label = api;
-            }
-            byApi.put(key, new DataCloudObjectOption(api, label));
-        }
-    }
-
     private static void collectEntityDefinitionCatalog(
         String apiSuffix,
         Map<String, DataCloudObjectOption> byApi
@@ -240,70 +249,6 @@ public with sharing class CampaignExclusionController {
                 'EntityDefinition catalogue unavailable (' + apiSuffix + '): ' + ex.getMessage()
             );
         }
-    }
-
-    private static List<String> dataSpaceApiNames() {
-        List<String> names = new List<String>();
-        Set<String> seen = new Set<String>();
-        try {
-            ConnectApi.DataSpaceCollectionRepresentation collection =
-                ConnectApi.CdpDataSpace.getAllDataSpaces(200, 0, 'id');
-            Object raw = connectApiAsUntyped(collection);
-            Object rows = raw instanceof Map<String, Object>
-                ? ((Map<String, Object>) raw).get('dataSpaces')
-                : null;
-            if (rows instanceof List<Object>) {
-                for (Object row : (List<Object>) rows) {
-                    if (!(row instanceof Map<String, Object>)) {
-                        continue;
-                    }
-                    String api = firstString(
-                        (Map<String, Object>) row,
-                        new List<String>{ 'name', 'apiName', 'dataSpaceName', 'developerName', 'label' }
-                    );
-                    if (String.isBlank(api) || !seen.add(api.toLowerCase())) {
-                        continue;
-                    }
-                    names.add(api);
-                }
-            }
-        } catch (Exception e) {
-            names.clear();
-            seen.clear();
-        }
-        if (!seen.contains('default')) {
-            names.add(0, null);
-        }
-        return names;
-    }
-
-    private static Object connectApiAsUntyped(Object value) {
-        if (value == null) {
-            return null;
-        }
-        String payload = JSON.serialize(new List<Object>{ value });
-        if (String.isBlank(payload)) {
-            throw new AuraHandledException('Data Cloud returned metadata that Apex could not read.');
-        }
-        Object parsed = JSON.deserializeUntyped(payload);
-        if (parsed instanceof List<Object>) {
-            List<Object> rows = (List<Object>) parsed;
-            return rows.isEmpty() ? null : rows[0];
-        }
-        return parsed;
-    }
-
-    private static String firstString(Map<String, Object> values, List<String> keys) {
-        if (values == null) {
-            return null;
-        }
-        for (String key : keys) {
-            Object value = values.get(key);
-            if (value instanceof String && String.isNotBlank((String) value)) {
-                return ((String) value).trim();
-            }
-        }
-        return null;
     }
 
     public class ExclusionOptions {
@@ -363,6 +308,18 @@ public with sharing class CampaignExclusionController {
 
         public DataCloudObjectOption(String apiName, String label) {
             this.apiName = apiName;
+            this.label = label;
+        }
+    }
+
+    public class FieldOption {
+        @AuraEnabled
+        public String value { get; set; }
+        @AuraEnabled
+        public String label { get; set; }
+
+        public FieldOption(String value, String label) {
+            this.value = value;
             this.label = label;
         }
     }
