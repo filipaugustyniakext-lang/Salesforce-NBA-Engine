@@ -31,28 +31,50 @@ public with sharing class MarketingDictionaryController {
 
     @AuraEnabled(cacheable=false)
     public static Campaign getCampaignById(Id campaignId) {
-        if (campaignId == null) return null;
-        List<Campaign> campaigns = [
-            SELECT Id, Name, StartDate, EndDate, Campaign_Group_Dict__c, Campaign_Group_Dict__r.Name,
-                   Type, Topic_Name__c, Topic_Dict__c, Topic_Dict__r.Name,
-                   Priority_Tier__c, Activation_Type__c,
-                   Timing_From__c, Timing_To__c, Active_From__c, Active_To__c,
-                   Validity_Days__c, Duration_Days__c,
-                   Scoring_Method__c, Offering_Type__c, Status, IsActive,
-                   Overall_Score__c, Fallback_Score__c,
-                   Scoring_Model_Dict__c, Scoring_Model_Dict__r.Name,
-                   Assigned_Channels__c,
-                   Product_Family__c, Product_Family_Ids__c,
-                   Family_of_Needs__c, Family_of_Needs_Ids__c,
-                   Exclude_Onboarding__c, Exclude_Other_Marketing_Activations__c,
-                   Campaign_Exclusions_JSON__c,
-                   Suppression_Campaign__c, Suppression_Campaign__r.Name,
-                   Suppression_Report_Id__c, Suppression_Segment__c
-            FROM Campaign
-            WHERE Id = :campaignId
-            LIMIT 1
-        ];
+        if (campaignId == null) {
+            return null;
+        }
+        String soql = 'SELECT ' + String.join(campaignDetailSelectFields(), ', ')
+            + ' FROM Campaign WHERE Id = :campaignId LIMIT 1';
+        List<Campaign> campaigns = Database.query(soql);
         return campaigns.isEmpty() ? null : campaigns[0];
+    }
+
+    private static List<String> campaignDetailSelectFields() {
+        Map<String, Schema.SObjectField> fieldMap = Schema.SObjectType.Campaign.fields.getMap();
+        List<String> fields = new List<String>{
+            'Id', 'Name', 'StartDate', 'EndDate', 'Campaign_Group_Dict__c', 'Campaign_Group_Dict__r.Name',
+            'Type', 'Topic_Name__c', 'Topic_Dict__c', 'Topic_Dict__r.Name',
+            'Priority_Tier__c', 'Activation_Type__c',
+            'Timing_From__c', 'Timing_To__c', 'Active_From__c', 'Active_To__c',
+            'Validity_Days__c', 'Duration_Days__c',
+            'Scoring_Method__c', 'Offering_Type__c', 'Status', 'IsActive',
+            'Overall_Score__c', 'Fallback_Score__c',
+            'Scoring_Model_Dict__c', 'Scoring_Model_Dict__r.Name',
+            'Assigned_Channels__c',
+            'Product_Family__c', 'Product_Family_Ids__c',
+            'Family_of_Needs__c', 'Family_of_Needs_Ids__c'
+        };
+        addCampaignSelectField(fields, fieldMap, 'Exclude_Onboarding__c');
+        addCampaignSelectField(fields, fieldMap, 'Exclude_Other_Marketing_Activations__c');
+        addCampaignSelectField(fields, fieldMap, 'Campaign_Exclusions_JSON__c');
+        addCampaignSelectField(fields, fieldMap, 'Suppression_Report_Id__c');
+        addCampaignSelectField(fields, fieldMap, 'Suppression_Segment__c');
+        if (fieldMap.containsKey('Suppression_Campaign__c')) {
+            fields.add('Suppression_Campaign__c');
+            fields.add('Suppression_Campaign__r.Name');
+        }
+        return fields;
+    }
+
+    private static void addCampaignSelectField(
+        List<String> fields,
+        Map<String, Schema.SObjectField> fieldMap,
+        String apiName
+    ) {
+        if (fieldMap.containsKey(apiName)) {
+            fields.add(apiName);
+        }
     }
 
     /**

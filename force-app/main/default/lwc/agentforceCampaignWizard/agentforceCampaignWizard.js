@@ -1,7 +1,9 @@
 import { LightningElement, api, track, wire } from 'lwc';
 import { NavigationMixin } from 'lightning/navigation';
 import { createRecord, updateRecord } from 'lightning/uiRecordApi';
+import { getObjectInfo } from 'lightning/uiObjectInfoApi';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+import CAMPAIGN_OBJECT from '@salesforce/schema/Campaign';
 
 // Backend Apex Controllers
 import getChannelDictionaryRecords from '@salesforce/apex/MarketingDictionaryController.getChannelDictionaryRecords';
@@ -330,6 +332,12 @@ function formatNormalizedWeightPercent(variantWeight, selectedWeightSum, selecte
 export default class AgentforceCampaignWizard extends NavigationMixin(LightningElement) {
     _recordId;
     _campaignLoadStarted = false;
+    campaignObjectInfo;
+
+    @wire(getObjectInfo, { objectApiName: CAMPAIGN_OBJECT })
+    wiredCampaignObjectInfo(result) {
+        this.campaignObjectInfo = result;
+    }
 
     @api
     get recordId() {
@@ -878,38 +886,56 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         };
     }
 
+    _hasCampaignField(fieldApiName) {
+        const described = this.campaignObjectInfo?.data?.fields;
+        if (!described) {
+            return false;
+        }
+        return Object.prototype.hasOwnProperty.call(described, fieldApiName);
+    }
+
     _applyExclusionsToSaveFields(fields) {
         const defs = this._serializeExclusionDefinitions();
-        fields['Campaign_Exclusions_JSON__c'] = defs.length ? JSON.stringify(defs) : null;
-        fields['Suppression_Campaign__c'] = null;
-        fields['Suppression_Report_Id__c'] = null;
-        fields['Suppression_Segment__c'] = null;
+        if (this._hasCampaignField('Campaign_Exclusions_JSON__c')) {
+            fields['Campaign_Exclusions_JSON__c'] = defs.length ? JSON.stringify(defs) : null;
+        }
+        if (this._hasCampaignField('Suppression_Campaign__c')) {
+            fields['Suppression_Campaign__c'] = null;
+        }
+        if (this._hasCampaignField('Suppression_Report_Id__c')) {
+            fields['Suppression_Report_Id__c'] = null;
+        }
+        if (this._hasCampaignField('Suppression_Segment__c')) {
+            fields['Suppression_Segment__c'] = null;
+        }
 
         const first = (source) => defs.find(d => d.source === source);
         const campaign = first('campaign');
         const report = first('report');
         const segment = first('segment');
-        if (campaign) {
+        if (campaign && this._hasCampaignField('Suppression_Campaign__c')) {
             const firstId = Array.isArray(campaign.values) && campaign.values.length
                 ? campaign.values[0]
                 : (campaign.value || '').split(',')[0];
             fields['Suppression_Campaign__c'] = firstId || null;
         }
-        if (report) {
+        if (report && this._hasCampaignField('Suppression_Report_Id__c')) {
             const firstReportId = Array.isArray(report.values) && report.values.length
                 ? report.values[0]
                 : (report.value || '').split(',')[0];
             fields['Suppression_Report_Id__c'] = firstReportId || null;
         }
-        if (segment) {
+        if (segment && this._hasCampaignField('Suppression_Segment__c')) {
             const firstSegment = Array.isArray(segment.values) && segment.values.length
                 ? segment.values[0]
                 : (segment.value || '').split(',')[0];
             fields['Suppression_Segment__c'] = firstSegment || null;
         }
-        fields['Exclude_Other_Marketing_Activations__c'] = this.showOtherMarketingActivationsOption
-            ? this.excludeOtherMarketingActivations === true
-            : false;
+        if (this._hasCampaignField('Exclude_Other_Marketing_Activations__c')) {
+            fields['Exclude_Other_Marketing_Activations__c'] = this.showOtherMarketingActivationsOption
+                ? this.excludeOtherMarketingActivations === true
+                : false;
+        }
     }
 
     loadScoringModels() {
@@ -3405,7 +3431,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     get showOtherMarketingActivationsOption() {
         const tier = this.selectedTierRecord;
-        return !!(tier && tier.Excl_Other_Marketing_Activations__c);
+        return !!(tier && tier.Excl_Other_Marketing_Activations__c)
+            && this._hasCampaignField('Exclude_Other_Marketing_Activations__c');
     }
 
     get activationOptions() {
