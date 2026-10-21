@@ -4103,7 +4103,13 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     handleContainerClick(event) {
-        // Keep clicks inside the wizard from bubbling to the backdrop.
+        // Document outside-click does not run here because we stop propagation on the modal shell.
+        if (!event.target.closest('.exclusion-multi-picker')) {
+            this._closeAllExclusionPickers();
+        }
+        if (!event.target.closest('.slds-combobox_container')) {
+            this.isTopicDropdownOpen = false;
+        }
         event.stopPropagation();
     }
 

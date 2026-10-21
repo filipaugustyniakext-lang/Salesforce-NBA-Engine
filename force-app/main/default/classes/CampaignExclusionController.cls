@@ -4,15 +4,17 @@
 public with sharing class CampaignExclusionController {
     private static final Integer MAX_SEGMENTS = 1000;
     private static final Integer SEARCH_RESULT_LIMIT = 25;
+    /** Exclusion mapping uses Profile DMOs/DLOs only (not Engagement / Related). */
+    private static final String DATA_CLOUD_EXCLUSION_CATEGORY = 'Profile';
 
     @AuraEnabled(cacheable=true)
     public static ExclusionOptions getExclusionOptions() {
         ExclusionOptions options = new ExclusionOptions();
         options.segments = loadActiveSegments(options);
         options.dmoHint =
-            'Search by DMO label or API name (minimum 2 characters). The full Data Cloud catalog is not loaded in the wizard.';
+            'Search Profile DMOs by label or API name (minimum 2 characters). Engagement and other categories are excluded.';
         options.dloHint =
-            'Search by DLO label or API name (minimum 2 characters). The full Data Cloud catalog is not loaded in the wizard.';
+            'Search Profile DLOs by label or API name (minimum 2 characters). Engagement and other categories are excluded.';
         return options;
     }
 
@@ -50,14 +52,9 @@ public with sharing class CampaignExclusionController {
         Boolean isDlo = normalizedKind == 'dlo';
         String suffixToken = isDlo ? '__dll' : '__dlm';
         String trimmed = searchTerm.trim();
-        String nameLike = '%' + trimmed + '%';
-        String suffixLike = '%' + suffixToken;
 
         Map<String, DataCloudObjectOption> byApi = new Map<String, DataCloudObjectOption>();
-        searchEntityDefinitionCatalog(suffixLike, nameLike, byApi);
-        if (byApi.size() < SEARCH_RESULT_LIMIT) {
-            searchConnectApiCatalog(isDlo, trimmed, suffixToken, byApi);
-        }
+        searchConnectApiCatalog(isDlo, trimmed, suffixToken, byApi);
         results.addAll(byApi.values());
         results.sort(new DataCloudLabelSort());
         if (results.size() > SEARCH_RESULT_LIMIT) {
@@ -201,8 +198,17 @@ public with sharing class CampaignExclusionController {
             ConnectApi.CdpQueryMetadataOutput output;
             try {
                 output = spaceName == null
-                    ? ConnectApi.CdpQuery.getAllMetadata(entityType, null, null)
-                    : ConnectApi.CdpQuery.getAllMetadata(entityType, null, null, spaceName);
+                    ? ConnectApi.CdpQuery.getAllMetadata(
+                        entityType,
+                        DATA_CLOUD_EXCLUSION_CATEGORY,
+                        null
+                    )
+                    : ConnectApi.CdpQuery.getAllMetadata(
+                        entityType,
+                        DATA_CLOUD_EXCLUSION_CATEGORY,
+                        null,
+                        spaceName
+                    );
             } catch (Exception ex) {
                 System.debug(LoggingLevel.FINE, 'Connect catalog for ' + entityType + ': ' + ex.getMessage());
                 continue;
