@@ -239,20 +239,18 @@
         <style>CustomLinks</style>
     </layoutSections>
     <relatedLists>
+        <fields>NAME</fields>
         <fields>Offer_Name__c</fields>
         <fields>Offer_Status__c</fields>
         <relatedList>Campaign_Offer__c.Campaign__c</relatedList>
-        <sortField>Offer_Name__c</sortField>
-        <sortOrder>Asc</sortOrder>
     </relatedLists>
     <relatedLists>
+        <fields>NAME</fields>
         <fields>Message_Name__c</fields>
         <fields>Channel_Type__c</fields>
         <fields>Copy_Status__c</fields>
         <fields>Runtime_Eligible__c</fields>
         <relatedList>Campaign_Copy_Variant__c.Campaign__c</relatedList>
-        <sortField>Message_Name__c</sortField>
-        <sortOrder>Asc</sortOrder>
     </relatedLists>
     <relatedLists>
         <fields>Name</fields>
