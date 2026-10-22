@@ -76,6 +76,13 @@
 .action-col  { width: 5rem; white-space: nowrap; }
 .cd-check-icon { color: #2e844a; }
 .cd-search-input { min-width: 180px; }
+.scoring-toolbar-group-btn {
+    --slds-c-button-line-height: 1.875rem;
+}
+.model-groups-manager-list {
+    max-height: 20rem;
+    overflow-y: auto;
+}
 .cd-warn-text { color: #c23934; font-size: 0.75rem; }
 /* Campaign Type / Value badges */
 .cd-badge-yes { background: #e3f5e1; color: #2e844a; border: 1px solid #91db8b; }
