@@ -742,7 +742,7 @@
     width: 100%;
     min-height: 2.25rem;
     height: auto;
-    padding: 0.45rem 2.35rem 0.45rem 0.65rem;
+    padding: 0.45rem 2.75rem 0.45rem 0.65rem;
     justify-content: flex-start;
     text-align: left;
 }
@@ -787,24 +787,26 @@
 
 .tier-details-toggle {
     position: absolute;
-    right: 0.35rem;
+    right: 1rem;
     top: 50%;
     transform: translateY(-50%);
     z-index: 6;
-    background: #ffffff;
-    border: 1px solid #dddbda;
+    background: transparent;
+    border: none;
     border-radius: 0.25rem;
     width: 1.75rem;
     height: 1.75rem;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    padding: 0;
+    box-shadow: none;
 }
 
 .tier-details-toggle:hover,
 .tier-details-toggle:focus {
-    background: #f3f3f3;
-    border-color: #0176d3;
+    background: rgba(1, 118, 211, 0.08);
+    outline: none;
 }
 
 .tier-picker-description {
