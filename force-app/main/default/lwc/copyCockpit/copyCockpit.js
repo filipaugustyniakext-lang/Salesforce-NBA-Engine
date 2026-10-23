@@ -548,6 +548,15 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         if (this._wiredChannels) {
             refreshApex(this._wiredChannels);
         }
+        this._variantMenuOutsideClickHandler = (event) => this._handleVariantMenuOutsideClick(event);
+        document.addEventListener('mousedown', this._variantMenuOutsideClickHandler, true);
+    }
+
+    disconnectedCallback() {
+        if (this._variantMenuOutsideClickHandler) {
+            document.removeEventListener('mousedown', this._variantMenuOutsideClickHandler, true);
+            this._variantMenuOutsideClickHandler = null;
+        }
     }
 
     @wire(CurrentPageReference)
@@ -713,12 +722,40 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         event.stopPropagation();
         const variantId = this._variantIdFromMenu(event.currentTarget);
         if (this._activeVariantMenu?.variantId === variantId) {
-            this._activeVariantMenu = null;
+            this._dismissActiveVariantMenu();
         }
     }
 
-    _closeActiveVariantMenu() {
+    _isInsideVariantMenuSurface(target) {
+        if (!target || typeof target.closest !== 'function') {
+            return false;
+        }
+        return !!target.closest(
+            '.cockpit-status-picker, .cockpit-status-menu, .cockpit-quick-action-menu, '
+            + '.slds-dropdown, .slds-popover, .slds-listbox'
+        );
+    }
+
+    _handleVariantMenuOutsideClick(event) {
+        if (!this._activeVariantMenu || this.isEditorOpen) {
+            return;
+        }
+        if (this._isInsideVariantMenuSurface(event.target)) {
+            return;
+        }
+        this._dismissActiveVariantMenu();
+    }
+
+    _dismissActiveVariantMenu() {
+        if (!this._activeVariantMenu) {
+            return;
+        }
+        this.template.querySelectorAll('lightning-button-menu').forEach(menu => menu.blur());
         this._activeVariantMenu = null;
+    }
+
+    _closeActiveVariantMenu() {
+        this._dismissActiveVariantMenu();
     }
 
     get weightEditValue() {
