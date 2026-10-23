@@ -163,7 +163,6 @@ function buildStatusMenuItems(recordId, currentStatus) {
     return variantStatusOptionsFor(currentStatus).map(o => ({
         label: o.label,
         value: o.value,
-        checked: o.value === currentStatus,
         itemKey: `${recordId}_${o.value}`,
     }));
 }
@@ -352,7 +351,8 @@ function buildGroups(
     versionCounts,
     editingWeightId,
     isSyncingMCE = false,
-    syncingVariantIds = null
+    syncingVariantIds = null,
+    activeVariantMenu = null
 ) {
     const map = new Map();
     for (const r of records) {
@@ -417,7 +417,9 @@ function buildGroups(
                 isSelected,
                 checkboxLabel:      `Select ${v.Name || 'variant'}`,
                 isVariantSyncing:   !!(syncingVariantIds && syncingVariantIds[v.Id]),
-                variantRowClass:    `cockpit-variant-row${isSelected ? ' cockpit-variant-row_selected' : ''}`,
+                variantRowClass:    `cockpit-variant-row${isSelected ? ' cockpit-variant-row_selected' : ''}${
+                    activeVariantMenu?.variantId === v.Id ? ' cockpit-variant-row_menu-overlay' : ''
+                }`,
                 sourceTemplateBadge: v.Source_Template__r?.Name || null,
                 canChangeSourceTemplate: (v.Status__c || '').toLowerCase() !== 'published',
                 sourceTemplateButtonDisabled: (v.Status__c || '').toLowerCase() === 'published',
@@ -532,6 +534,8 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     @track _editorOpenScheduleIntent = null;
     /** Record ids currently syncing from MCE (per-row spinners). */
     @track _syncingVariantIds = {};
+    /** Which variant row has an open button menu: { variantId, kind: 'status'|'actions' }. */
+    @track _activeVariantMenu = null;
 
     get isEditorOpen() { return !!this._editorRecordId; }
     get editorOpenScheduleIntent() { return this._editorOpenScheduleIntent; }
@@ -543,23 +547,6 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     connectedCallback() {
         if (this._wiredChannels) {
             refreshApex(this._wiredChannels);
-        }
-        this._documentPointerDownHandler = (event) => {
-            if (this.isEditorOpen) {
-                return;
-            }
-            if (this._isPointerInsideVariantMenuUi(event.target)) {
-                return;
-            }
-            this._closeAllVariantButtonMenus();
-        };
-        document.addEventListener('mousedown', this._documentPointerDownHandler, true);
-    }
-
-    disconnectedCallback() {
-        if (this._documentPointerDownHandler) {
-            document.removeEventListener('mousedown', this._documentPointerDownHandler, true);
-            this._documentPointerDownHandler = null;
         }
     }
 
@@ -692,47 +679,46 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             this._editingWeightId,
             this.isSyncingMCE,
             this._syncingVariantIds,
+            this._activeVariantMenu,
         );
     }
 
-    _clearVariantRowElevations() {
-        this.template.querySelectorAll('.cockpit-variant-row_menu-open, .cockpit-variant-row_status-open')
-            .forEach(row => row.classList.remove('cockpit-variant-row_menu-open', 'cockpit-variant-row_status-open'));
+    _variantIdFromMenu(menuElement) {
+        return menuElement?.dataset?.variantId || menuElement?.dataset?.id || null;
     }
 
-    _isPointerInsideVariantMenuUi(target) {
-        if (!target || typeof target.closest !== 'function') {
-            return false;
-        }
-        return !!target.closest(
-            '.cockpit-status-picker, .cockpit-status-menu, .cockpit-quick-action-menu, .slds-dropdown, .slds-popover'
-        );
+    _blurOtherButtonMenus(keepMenu) {
+        this.template.querySelectorAll('lightning-button-menu').forEach(menu => {
+            if (menu !== keepMenu) {
+                menu.blur();
+            }
+        });
     }
 
-    _dismissButtonMenu(menu) {
-        if (!menu) {
+    _onVariantMenuOpen(event, kind) {
+        event.stopPropagation();
+        const menu = event.currentTarget;
+        const variantId = this._variantIdFromMenu(menu);
+        if (!variantId) {
             return;
         }
-        menu.blur();
-        menu.dispatchEvent(new KeyboardEvent('keydown', {
-            key: 'Escape',
-            code: 'Escape',
-            keyCode: 27,
-            bubbles: true,
-            composed: true,
-        }));
+        const prev = this._activeVariantMenu;
+        if (!prev || prev.variantId !== variantId || prev.kind !== kind) {
+            this._blurOtherButtonMenus(menu);
+        }
+        this._activeVariantMenu = { variantId, kind };
     }
 
-    _closeAllVariantButtonMenus(exceptMenu = null) {
-        this.template.querySelectorAll('lightning-button-menu').forEach(menu => {
-            if (exceptMenu && menu === exceptMenu) {
-                return;
-            }
-            this._dismissButtonMenu(menu);
-        });
-        if (!exceptMenu) {
-            this._clearVariantRowElevations();
+    _onVariantMenuClose(event) {
+        event.stopPropagation();
+        const variantId = this._variantIdFromMenu(event.currentTarget);
+        if (this._activeVariantMenu?.variantId === variantId) {
+            this._activeVariantMenu = null;
         }
+    }
+
+    _closeActiveVariantMenu() {
+        this._activeVariantMenu = null;
     }
 
     get weightEditValue() {
@@ -1160,26 +1146,24 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     }
 
     handleStatusMenuOpen(event) {
-        event.stopPropagation();
-        const menu = event.currentTarget;
-        const row = menu.closest('.cockpit-variant-row');
-        this._closeAllVariantButtonMenus(menu);
-        row?.classList.remove('cockpit-variant-row_menu-open');
-        row?.classList.add('cockpit-variant-row_status-open');
+        this._onVariantMenuOpen(event, 'status');
     }
 
     handleStatusMenuClose(event) {
-        event.stopPropagation();
-        event.currentTarget.closest('.cockpit-variant-row')?.classList.remove('cockpit-variant-row_status-open');
+        this._onVariantMenuClose(event);
     }
 
-    handleVariantStatusMenuSelect(event) {
-        this.handleVariantStatusChange(event);
+    handleActionsMenuOpen(event) {
+        this._onVariantMenuOpen(event, 'actions');
+    }
+
+    handleActionsMenuClose(event) {
+        this._onVariantMenuClose(event);
     }
 
     handleVariantStatusChange(event) {
         event.stopPropagation();
-        this._clearVariantRowElevations();
+        this._closeActiveVariantMenu();
         const recordId = event.currentTarget.dataset.id
             || event.target?.dataset?.id
             || event.target?.closest?.('[data-id]')?.dataset?.id;
@@ -1617,22 +1601,8 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         const value = event.detail.value || '';
         const sep = value.indexOf(':');
         if (sep < 0) return;
-        this._clearVariantRowElevations();
+        this._closeActiveVariantMenu();
         this._runVariantQuickAction(value.substring(0, sep), value.substring(sep + 1));
-    }
-
-    handleVariantMenuOpen(event) {
-        event.stopPropagation();
-        const menu = event.currentTarget;
-        const row = menu.closest('.cockpit-variant-row');
-        this._closeAllVariantButtonMenus(menu);
-        row?.classList.remove('cockpit-variant-row_status-open');
-        row?.classList.add('cockpit-variant-row_menu-open');
-    }
-
-    handleVariantMenuClose(event) {
-        event.stopPropagation();
-        event.currentTarget?.closest('.cockpit-variant-row')?.classList.remove('cockpit-variant-row_menu-open');
     }
 
     _runVariantQuickAction(action, recordId) {

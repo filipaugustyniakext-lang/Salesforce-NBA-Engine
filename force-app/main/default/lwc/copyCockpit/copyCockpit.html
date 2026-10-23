@@ -375,16 +375,15 @@
                                                                     icon-size="xx-small"
                                                                     menu-alignment="auto"
                                                                     class="cockpit-status-menu"
-                                                                    data-id={v.Id}
+                                                                    data-variant-id={v.Id}
                                                                     onopen={handleStatusMenuOpen}
                                                                     onclose={handleStatusMenuClose}
-                                                                    onselect={handleVariantStatusMenuSelect}>
+                                                                    onselect={handleVariantStatusChange}>
                                                                     <template for:each={v.statusMenuItems} for:item="opt">
                                                                         <lightning-menu-item
                                                                             key={opt.itemKey}
                                                                             value={opt.value}
-                                                                            label={opt.label}
-                                                                            checked={opt.checked}>
+                                                                            label={opt.label}>
                                                                         </lightning-menu-item>
                                                                     </template>
                                                                 </lightning-button-menu>
@@ -453,8 +452,8 @@
                                                                 variant="border-filled"
                                                                 class="cockpit-quick-action-menu"
                                                                 data-variant-id={v.Id}
-                                                                onopen={handleVariantMenuOpen}
-                                                                onclose={handleVariantMenuClose}
+                                                                onopen={handleActionsMenuOpen}
+                                                                onclose={handleActionsMenuClose}
                                                                 onselect={handleVariantOverflowAction}>
                                                                 <template for:each={v.variantQuickActionMenuItems} for:item="act">
                                                                     <template lwc:if={act.prefixDivider}>

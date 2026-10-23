@@ -298,13 +298,6 @@
     z-index: 3;
 }
 
-.cockpit-variant-row_status-open .cockpit-status-cell {
-    z-index: 110;
-}
-
-.cockpit-variant-row_menu-open .cockpit-col-actions_sticky {
-    z-index: 111;
-}
 .cockpit-col-modified { min-width: 0; max-width: var(--col-modified); overflow: hidden; }
 .cockpit-col-spacer { min-width: 0; }
 .cockpit-col-actions  {
@@ -471,18 +464,9 @@
     background: #dceefa;
 }
 
-.cockpit-variant-row_menu-open,
-.cockpit-variant-row_status-open {
-    z-index: 100;
+.cockpit-variant-row_menu-overlay {
+    z-index: 200;
     isolation: isolate;
-}
-
-.cockpit-variant-row_status-open:hover {
-    background: #fafbfc;
-}
-
-.cockpit-variant-row_selected.cockpit-variant-row_status-open:hover {
-    background: #e8f0fa;
 }
 
 /* checkbox */
