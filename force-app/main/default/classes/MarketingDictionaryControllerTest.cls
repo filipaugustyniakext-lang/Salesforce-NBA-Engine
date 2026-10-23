@@ -130,6 +130,20 @@ private class MarketingDictionaryControllerTest {
     }
 
     @IsTest
+    static void getCampaignConfigurationView_returnsWizardPayload() {
+        Campaign camp = new Campaign(Name = 'Config View Camp', Status = 'Planned', IsActive = false);
+        insert camp;
+
+        Test.startTest();
+        Map<String, Object> payload = MarketingDictionaryController.getCampaignConfigurationView(camp.Id);
+        Test.stopTest();
+
+        System.assertNotEquals(null, payload.get('campaign'));
+        System.assertNotEquals(null, payload.get('offers'));
+        System.assertNotEquals(null, payload.get('copyVariants'));
+    }
+
+    @IsTest
     static void saveCampaignCopyVariants_persistsOnlyPublishedRows() {
         Campaign camp = new Campaign(Name = 'Copy Camp', Status = 'Planned', IsActive = false);
         insert camp;
@@ -164,5 +178,35 @@ private class MarketingDictionaryControllerTest {
         List<Map<String, String>> loaded = MarketingDictionaryController.getCampaignCopyVariants(camp.Id);
         System.assertEquals(1, loaded.size());
         System.assertEquals(published.Id, loaded[0].get('id'));
+    }
+
+    @isTest
+    static void searchSuppressionReports_returnsReportsWithFormat() {
+        Test.startTest();
+        List<Map<String, String>> allReports = MarketingDictionaryController.searchSuppressionReports('');
+        List<Map<String, String>> filtered = MarketingDictionaryController.searchSuppressionReports('ZZZ_NO_MATCH_');
+        Test.stopTest();
+
+        System.assertNotEquals(null, allReports);
+        System.assertEquals(0, filtered.size(), 'Non-matching search returns empty list');
+    }
+
+    @isTest
+    static void searchSuppressionCampaigns_returnsActiveWithStatus() {
+        insert new List<Campaign>{
+            new Campaign(Name = 'Alpha Active', IsActive = true, Status = 'In Progress'),
+            new Campaign(Name = 'Solo Active', IsActive = true, Status = 'Completed'),
+            new Campaign(Name = 'Inactive Campaign', IsActive = false, Status = 'Completed')
+        };
+
+        Test.startTest();
+        List<Map<String, String>> allActive = MarketingDictionaryController.searchSuppressionCampaigns('');
+        List<Map<String, String>> filtered = MarketingDictionaryController.searchSuppressionCampaigns('Solo');
+        Test.stopTest();
+
+        System.assert(allActive.size() >= 2, 'Active campaigns are returned');
+        System.assertEquals('In Progress', allActive[0].get('status'));
+        System.assertEquals(1, filtered.size());
+        System.assertEquals('Solo Active', filtered[0].get('name'));
     }
 }

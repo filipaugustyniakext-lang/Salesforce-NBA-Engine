@@ -1,0 +1,268 @@
+<template>
+    <template lwc:if={loadError}>
+        <div class="slds-notify slds-notify_alert slds-alert_error" role="alert">
+            <span>{loadError}</span>
+        </div>
+    </template>
+
+    <template lwc:if={hasData}>
+        <div class="campaign-config-view">
+            <template lwc:if={hasCatalogGap}>
+                <div class="slds-notify slds-notify_alert slds-theme_warning slds-m-bottom_medium" role="alert">
+                    Some assigned offers or copy variants are not eligible at runtime. Processing uses only eligible catalogue rows.
+                </div>
+            </template>
+
+            <template lwc:if={isWizardMode}>
+            <p class="campaign-config-intro slds-m-bottom_medium">
+                Configuration aligned with the campaign wizard steps. Edit the campaign in the wizard to change these settings.
+            </p>
+
+            <!-- Step 1: Properties -->
+            <section class="config-step-card slds-m-bottom_medium">
+                <header class="config-step-header">
+                    <span class="config-step-badge">Step 1</span>
+                    <h3 class="config-step-title">Campaign Properties</h3>
+                </header>
+                <div class="config-step-grid">
+                    <div class="config-block">
+                        <h4 class="config-block-title">Basic</h4>
+                        <dl class="config-dl">
+                            <dt>Campaign Name</dt><dd>{campaign.Name}</dd>
+                            <dt>Status</dt><dd>{campaign.Status}</dd>
+                            <dt>Active</dt><dd>{isActiveLabel}</dd>
+                            <dt>Activation Type</dt><dd>{campaign.Activation_Type__c}</dd>
+                            <dt>Campaign Group</dt><dd>{campaignGroupName}</dd>
+                            <dt>Active From</dt><dd>{activeFromLabel}</dd>
+                            <dt>Active To</dt><dd>{activeToLabel}</dd>
+                            <dt>Campaign Duration (Days)</dt><dd>{durationDaysLabel}</dd>
+                        </dl>
+                    </div>
+                    <div class="config-block">
+                        <h4 class="config-block-title">Priority &amp; Exclusions</h4>
+                        <dl class="config-dl">
+                            <dt>Priority Tier</dt><dd>{campaign.Priority_Tier__c}</dd>
+                            <dt>Exclude Onboarding</dt><dd>{excludeOnboardingLabel}</dd>
+                            <dt>Exclude Other Marketing Activations</dt><dd>{excludeOtherMarketingLabel}</dd>
+                        </dl>
+                        <template lwc:if={hasExclusions}>
+                            <h4 class="config-block-title slds-m-top_small">Manual exclusions</h4>
+                            <table class="slds-table slds-table_cell-buffer slds-table_bordered config-copy-table">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Source</th>
+                                        <th scope="col">Target</th>
+                                        <th scope="col">Member key mapping</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template for:each={exclusionRows} for:item="ex">
+                                        <tr key={ex.key}>
+                                            <td>{ex.source}</td>
+                                            <td>{ex.display}</td>
+                                            <td>{ex.mapping}</td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </template>
+                    </div>
+                    <div class="config-block">
+                        <h4 class="config-block-title">Channels</h4>
+                        <dl class="config-dl">
+                            <dt>Assigned Channels</dt><dd>{campaign.Assigned_Channels__c}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Step 2: Topic & Offering -->
+            <section class="config-step-card slds-m-bottom_medium">
+                <header class="config-step-header">
+                    <span class="config-step-badge">Step 2</span>
+                    <h3 class="config-step-title">Topic &amp; Offering</h3>
+                </header>
+                <div class="config-step-grid config-step-grid--single">
+                    <div class="config-block">
+                        <dl class="config-dl">
+                            <dt>Topic</dt><dd>{topicName}</dd>
+                            <dt>Offering Type</dt><dd>{campaign.Offering_Type__c}</dd>
+                            <dt>Selected Offerings</dt><dd>{offeringItemsLabel}</dd>
+                        </dl>
+                    </div>
+                    <div class="config-block">
+                        <h4 class="config-block-title">Assigned offers</h4>
+                        <template lwc:if={hasOffers}>
+                            <table class="slds-table slds-table_cell-buffer slds-table_bordered config-copy-table">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Offer</th>
+                                        <th scope="col">Status</th>
+                                        <th scope="col">Runtime</th>
+                                        <th scope="col">Note</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template for:each={offers} for:item="offer">
+                                        <tr key={offer.id}>
+                                            <td>
+                                                <button type="button" class="slds-button slds-button_reset config-link-btn" data-id={offer.id} onclick={handleOpenOffer}>{offer.name}</button>
+                                            </td>
+                                            <td>{offer.status}</td>
+                                            <td><span class={offer.eligibleClass}>{offer.eligibleLabel}</span></td>
+                                            <td>{offer.note}</td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </template>
+                        <template lwc:else>
+                            <p class="slds-text-color_weak">No offers linked on this campaign.</p>
+                        </template>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Step 3: Copy -->
+            <section class="config-step-card slds-m-bottom_medium">
+                <header class="config-step-header">
+                    <span class="config-step-badge">Step 3</span>
+                    <h3 class="config-step-title">Copy Assignment</h3>
+                </header>
+                <template lwc:if={hasCopyVariants}>
+                    <div class="slds-scrollable_x">
+                        <table class="slds-table slds-table_cell-buffer slds-table_bordered config-copy-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Channel</th>
+                                    <th scope="col">Message</th>
+                                    <th scope="col">Variant #</th>
+                                    <th scope="col">Weight</th>
+                                    <th scope="col">Status</th>
+                                    <th scope="col">Runtime</th>
+                                    <th scope="col">Note</th>
+                                    <th scope="col"><span class="slds-assistive-text">Open</span></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template for:each={copyVariants} for:item="row">
+                                    <tr key={row.id}>
+                                        <td>{row.channel}</td>
+                                        <td>{row.messageName}</td>
+                                        <td>{row.variantNumber}</td>
+                                        <td>{row.weightLabel}</td>
+                                        <td><span class={row.statusClass}>{row.status}</span></td>
+                                        <td><span class={row.eligibleClass}>{row.eligibleLabel}</span></td>
+                                        <td>{row.note}</td>
+                                        <td>
+                                            <button type="button" class="slds-button slds-button_icon slds-button_icon-border" title="Open in Copy Center" data-id={row.id} onclick={handleOpenCopyVariant}>
+                                                <lightning-icon icon-name="utility:chevronright" size="xx-small"></lightning-icon>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </template>
+                <template lwc:else>
+                    <p class="slds-text-color_weak">No copy variants assigned.</p>
+                </template>
+            </section>
+
+            <!-- Step 4: Scoring -->
+            <section class="config-step-card">
+                <header class="config-step-header">
+                    <span class="config-step-badge">Step 4</span>
+                    <h3 class="config-step-title">Scoring</h3>
+                </header>
+                <dl class="config-dl config-dl--inline">
+                    <dt>Scoring Method</dt><dd>{campaign.Scoring_Method__c}</dd>
+                    <dt>Overall Score</dt><dd>{overallScoreLabel}</dd>
+                    <dt>Scoring Model</dt><dd>{scoringModelName}</dd>
+                    <dt>Fallback A-Priori Score</dt><dd>{fallbackScoreLabel}</dd>
+                </dl>
+            </section>
+            </template>
+
+            <template lwc:if={isCataloguesMode}>
+                <section class="config-step-card slds-m-bottom_medium">
+                    <header class="config-step-header">
+                        <h3 class="config-step-title">Campaign offers</h3>
+                    </header>
+                    <template lwc:if={hasOffers}>
+                        <table class="slds-table slds-table_cell-buffer slds-table_bordered config-copy-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Offer</th>
+                                    <th scope="col">Status</th>
+                                    <th scope="col">Runtime</th>
+                                    <th scope="col">Note</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template for:each={offers} for:item="offer">
+                                    <tr key={offer.id}>
+                                        <td>
+                                            <button type="button" class="slds-button slds-button_reset config-link-btn" data-id={offer.id} onclick={handleOpenOffer}>{offer.name}</button>
+                                        </td>
+                                        <td>{offer.status}</td>
+                                        <td><span class={offer.eligibleClass}>{offer.eligibleLabel}</span></td>
+                                        <td>{offer.note}</td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </template>
+                    <template lwc:else>
+                        <p class="slds-text-color_weak">No offers assigned.</p>
+                    </template>
+                </section>
+                <section class="config-step-card">
+                    <header class="config-step-header">
+                        <h3 class="config-step-title">Campaign copy variants (Copy Cockpit)</h3>
+                    </header>
+                    <template lwc:if={hasCopyVariants}>
+                        <div class="slds-scrollable_x">
+                            <table class="slds-table slds-table_cell-buffer slds-table_bordered config-copy-table">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Channel</th>
+                                        <th scope="col">Message</th>
+                                        <th scope="col">Variant #</th>
+                                        <th scope="col">Weight</th>
+                                        <th scope="col">Status</th>
+                                        <th scope="col">Runtime</th>
+                                        <th scope="col">Note</th>
+                                        <th scope="col"><span class="slds-assistive-text">Open</span></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template for:each={copyVariants} for:item="row">
+                                        <tr key={row.id}>
+                                            <td>{row.channel}</td>
+                                            <td>{row.messageName}</td>
+                                            <td>{row.variantNumber}</td>
+                                            <td>{row.weightLabel}</td>
+                                            <td><span class={row.statusClass}>{row.status}</span></td>
+                                            <td><span class={row.eligibleClass}>{row.eligibleLabel}</span></td>
+                                            <td>{row.note}</td>
+                                            <td>
+                                                <button type="button" class="slds-button slds-button_icon slds-button_icon-border" title="Open in Copy Center" data-id={row.id} onclick={handleOpenCopyVariant}>
+                                                    <lightning-icon icon-name="utility:chevronright" size="xx-small"></lightning-icon>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </template>
+                    <template lwc:else>
+                        <p class="slds-text-color_weak">No copy variants assigned.</p>
+                    </template>
+                </section>
+            </template>
+        </div>
+    </template>
+</template>
