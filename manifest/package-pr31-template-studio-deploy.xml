@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+    <types>
+        <members>ChannelTemplateController</members>
+        <members>ChannelTemplateControllerTest</members>
+        <members>CopyCockpitController</members>
+        <members>CopyCockpitModificationService</members>
+        <members>MarketingCloudCopySync</members>
+        <members>MceDeleteLogService</members>
+        <name>ApexClass</name>
+    </types>
+    <types>
+        <members>copyCockpit</members>
+        <members>copyCockpitEditor</members>
+        <members>copyMessageNaming</members>
+        <members>copyTemplatePreview</members>
+        <members>copyTemplatePreviewPanel</members>
+        <members>masterTemplateStudio</members>
+        <name>LightningComponentBundle</name>
+    </types>
+    <types>
+        <members>MCE_Delete_Log__c</members>
+        <name>CustomObject</name>
+    </types>
+    <types>
+        <members>MCE_Delete_Log__c.Operation__c</members>
+        <members>MCE_Delete_Log__c.Source__c</members>
+        <name>CustomField</name>
+    </types>
+    <version>66.0</version>
+</Package>
