@@ -344,7 +344,8 @@ function buildGroups(
     editingWeightId,
     isSyncingMCE = false,
     quickActionMenuOpenId = null,
-    syncingVariantIds = null
+    syncingVariantIds = null,
+    statusPickerOpenId = null
 ) {
     const map = new Map();
     for (const r of records) {
@@ -411,7 +412,7 @@ function buildGroups(
                 isVariantSyncing:   !!(syncingVariantIds && syncingVariantIds[v.Id]),
                 variantRowClass:    `cockpit-variant-row${isSelected ? ' cockpit-variant-row_selected' : ''}${
                     quickActionMenuOpenId === v.Id ? ' cockpit-variant-row_menu-open' : ''
-                }`,
+                }${statusPickerOpenId === v.Id ? ' cockpit-variant-row_status-open' : ''}`,
                 sourceTemplateBadge: v.Source_Template__r?.Name || null,
                 canChangeSourceTemplate: (v.Status__c || '').toLowerCase() !== 'published',
                 sourceTemplateButtonDisabled: (v.Status__c || '').toLowerCase() === 'published',
@@ -527,6 +528,8 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     @track _quickActionMenuOpenId = null;
     /** Record ids currently syncing from MCE (per-row spinners). */
     @track _syncingVariantIds = {};
+    @track _statusPickerOpenId = null;
+    _statusPickerCloseTimer;
 
     get isEditorOpen() { return !!this._editorRecordId; }
     get editorOpenScheduleIntent() { return this._editorOpenScheduleIntent; }
@@ -671,6 +674,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             this.isSyncingMCE,
             this._quickActionMenuOpenId,
             this._syncingVariantIds,
+            this._statusPickerOpenId,
         );
     }
 
@@ -1098,8 +1102,36 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         event.stopPropagation();
     }
 
+    handleStatusPickerMouseDown(event) {
+        event.stopPropagation();
+        this._clearStatusPickerCloseTimer();
+        this._statusPickerOpenId = event.currentTarget.dataset.id || null;
+    }
+
+    handleStatusPickerFocusOut(event) {
+        const id = event.currentTarget.dataset.id;
+        this._clearStatusPickerCloseTimer();
+        // Delay so portaled dropdown option clicks still register before we drop z-index.
+        // eslint-disable-next-line @lwc/lwc/no-async-operation
+        this._statusPickerCloseTimer = window.setTimeout(() => {
+            if (this._statusPickerOpenId === id) {
+                this._statusPickerOpenId = null;
+            }
+            this._statusPickerCloseTimer = null;
+        }, 300);
+    }
+
+    _clearStatusPickerCloseTimer() {
+        if (this._statusPickerCloseTimer) {
+            window.clearTimeout(this._statusPickerCloseTimer);
+            this._statusPickerCloseTimer = null;
+        }
+    }
+
     handleVariantStatusChange(event) {
         event.stopPropagation();
+        this._clearStatusPickerCloseTimer();
+        this._statusPickerOpenId = null;
         const recordId = event.currentTarget.dataset.id
             || event.target?.dataset?.id
             || event.target?.closest?.('[data-id]')?.dataset?.id;

@@ -367,7 +367,9 @@
                                                             <div
                                                                 class={v.statusPickerClass}
                                                                 data-id={v.Id}
-                                                                onclick={handleStatusPickerClick}>
+                                                                onclick={handleStatusPickerClick}
+                                                                onmousedown={handleStatusPickerMouseDown}
+                                                                onfocusout={handleStatusPickerFocusOut}>
                                                                 <lightning-combobox
                                                                     value={v.Status__c}
                                                                     options={v.variantStatusOptions}

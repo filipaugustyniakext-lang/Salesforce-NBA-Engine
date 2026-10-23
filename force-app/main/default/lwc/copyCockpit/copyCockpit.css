@@ -299,8 +299,9 @@
 }
 
 .cockpit-variant-row:focus-within .cockpit-status-cell,
-.cockpit-variant-row_menu-open .cockpit-status-cell {
-    z-index: 60;
+.cockpit-variant-row_menu-open .cockpit-status-cell,
+.cockpit-variant-row_status-open .cockpit-status-cell {
+    z-index: 110;
 }
 
 .cockpit-status-cell .cockpit-variant-status-combobox {
@@ -475,13 +476,24 @@
 }
 
 .cockpit-variant-row:focus-within,
-.cockpit-variant-row_menu-open {
-    z-index: 50;
+.cockpit-variant-row_menu-open,
+.cockpit-variant-row_status-open {
+    z-index: 100;
+    isolation: isolate;
 }
 
 .cockpit-variant-row:focus-within .cockpit-col-actions_sticky,
-.cockpit-variant-row_menu-open .cockpit-col-actions_sticky {
-    z-index: 51;
+.cockpit-variant-row_menu-open .cockpit-col-actions_sticky,
+.cockpit-variant-row_status-open .cockpit-col-actions_sticky {
+    z-index: 101;
+}
+
+.cockpit-variant-row_status-open:hover {
+    background: #fafbfc;
+}
+
+.cockpit-variant-row_selected.cockpit-variant-row_status-open:hover {
+    background: #e8f0fa;
 }
 
 /* checkbox */
@@ -668,7 +680,7 @@
     display: flex;
     gap: 0.25rem;
     justify-content: flex-end;
-    padding-right: 0.35rem;
+    padding-right: 1rem;
     min-width: 3rem;
     width: auto;
 }
@@ -781,7 +793,8 @@ button.cockpit-template-action:disabled lightning-icon {
     --lwc-heightInput: 1.25rem;
     --slds-c-input-color-border: transparent;
     --slds-c-input-shadow: none;
-    --slds-c-input-shadow-focus: 0 0 0 1px rgba(255, 255, 255, 0.35);
+    --slds-c-input-shadow-focus: none;
+    --slds-c-input-color-border-focus: transparent;
     --slds-c-input-color-background: transparent;
     --slds-c-input-color-background-focus: transparent;
     --slds-c-input-spacing-horizontal-start: 0;
