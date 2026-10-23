@@ -15,34 +15,6 @@
         <div class="vtab-content" role="tabpanel">
             <template lwc:if={isDefinitions}>
             <div class="slds-p-around_small">
-                <!-- Model Groups -->
-                <div class="cd-section-header slds-m-bottom_x-small">
-                    <h3 class="slds-text-title_caps slds-text-color_weak">Model Groups</h3>
-                    <lightning-button label="Add Model Group" icon-name="utility:add" variant="neutral"
-                        onclick={handleNewModelGroup}>
-                    </lightning-button>
-                </div>
-                <template lwc:if={hasScoringModelGroups}>
-                    <div class="slds-m-bottom_medium cd-badge-row">
-                        <template for:each={scoringModelGroups} for:item="grp">
-                            <span key={grp.Id} class="slds-badge cd-group-badge slds-m-right_xx-small slds-m-bottom_xx-small">
-                                {grp.Name}
-                                <lightning-button-icon icon-name="utility:edit" variant="bare" size="x-small"
-                                    alternative-text="Edit" title="Edit" class="slds-m-left_xx-small"
-                                    data-id={grp.Id} onclick={handleEditModelGroup}>
-                                </lightning-button-icon>
-                                <lightning-button-icon icon-name="utility:close" variant="bare" size="x-small"
-                                    alternative-text="Delete" title="Delete"
-                                    data-id={grp.Id} data-name={grp.Name} onclick={handleDeleteModelGroup}>
-                                </lightning-button-icon>
-                            </span>
-                        </template>
-                    </div>
-                </template>
-                <template lwc:else>
-                    <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_medium">No model groups yet. Add a group before creating scoring models.</p>
-                </template>
-
                 <!-- Scoring Models list -->
                 <div class="cd-toolbar slds-m-bottom_small">
                     <h2 class="slds-text-heading_small">
@@ -70,7 +42,11 @@
                                 onchange={handleScoringSearch} class="cd-search-input">
                             </lightning-input>
                         </div>
-                        <div class="slds-col slds-no-flex">
+                        <div class="slds-col slds-no-flex slds-grid slds-grid_vertical-align-center">
+                            <lightning-button label="Add Model Group" icon-name="utility:labels" variant="neutral"
+                                title="Manage model groups" onclick={handleOpenModelGroupsManager}
+                                class="slds-m-right_x-small scoring-toolbar-group-btn">
+                            </lightning-button>
                             <lightning-button label="Add Model Definition" icon-name="utility:add" variant="brand"
                                 onclick={handleNewScoring}>
                             </lightning-button>
@@ -243,27 +219,67 @@
     <!-- ══════════════════════════════════════════════════════════
          SCORING MODEL GROUP MODAL
     ══════════════════════════════════════════════════════════ -->
-    <template lwc:if={isModelGroupModalOpen}>
+    <template lwc:if={isModelGroupsManagerOpen}>
         <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="smg-modal-title"
             class="slds-modal slds-fade-in-open">
             <div class="slds-modal__container">
                 <div class="slds-modal__header">
-                    <h2 id="smg-modal-title" class="slds-modal__title">{modelGroupModalTitle}</h2>
+                    <h2 id="smg-modal-title" class="slds-modal__title">
+                        <template lwc:if={isModelGroupsEditView}>{modelGroupModalTitle}</template>
+                        <template lwc:else>Model Groups</template>
+                    </h2>
                     <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse"
-                        onclick={closeModelGroupModal} title="Close">
+                        onclick={closeModelGroupsManager} title="Close">
                         <lightning-icon icon-name="utility:close" size="small" alternative-text="Close"></lightning-icon>
                     </button>
                 </div>
                 <div class="slds-modal__content slds-p-around_medium">
-                    <lightning-input label="Group Name" required value={editModelGroup.Name}
-                        data-field="Name" onchange={handleModelGroupFieldChange}>
-                    </lightning-input>
+                    <template lwc:if={isModelGroupsEditView}>
+                        <lightning-input label="Group Name" required value={editModelGroup.Name}
+                            data-field="Name" onchange={handleModelGroupFieldChange}>
+                        </lightning-input>
+                    </template>
+                    <template lwc:else>
+                        <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
+                            Define groups used when creating model definitions (for example Client Models, A-priori Models).
+                        </p>
+                        <template lwc:if={hasScoringModelGroups}>
+                            <ul class="slds-has-dividers_bottom-space model-groups-manager-list">
+                                <template for:each={scoringModelGroups} for:item="grp">
+                                    <li key={grp.Id} class="slds-item slds-grid slds-grid_align-spread slds-p-vertical_x-small">
+                                        <span class="slds-text-body_regular slds-truncate" title={grp.Name}>{grp.Name}</span>
+                                        <div class="slds-button-group">
+                                            <lightning-button-icon icon-name="utility:edit" variant="border-filled" size="small"
+                                                alternative-text="Edit" title="Edit"
+                                                data-id={grp.Id} onclick={handleEditModelGroup}>
+                                            </lightning-button-icon>
+                                            <lightning-button-icon icon-name="utility:delete" variant="border-filled" size="small"
+                                                alternative-text="Delete" title="Delete"
+                                                data-id={grp.Id} data-name={grp.Name} onclick={handleDeleteModelGroup}>
+                                            </lightning-button-icon>
+                                        </div>
+                                    </li>
+                                </template>
+                            </ul>
+                        </template>
+                        <template lwc:else>
+                            <p class="slds-text-body_small slds-text-color_weak">No model groups yet. Add one to use in model definitions.</p>
+                        </template>
+                    </template>
                 </div>
                 <div class="slds-modal__footer">
-                    <lightning-button label="Cancel" onclick={closeModelGroupModal}></lightning-button>
-                    <lightning-button label="Save" variant="brand" class="slds-m-left_x-small"
-                        onclick={handleSaveModelGroup} disabled={isSaving}>
-                    </lightning-button>
+                    <template lwc:if={isModelGroupsEditView}>
+                        <lightning-button label="Back" onclick={handleModelGroupsManagerBack}></lightning-button>
+                        <lightning-button label="Save" variant="brand" class="slds-m-left_x-small"
+                            onclick={handleSaveModelGroup} disabled={isSaving}>
+                        </lightning-button>
+                    </template>
+                    <template lwc:else>
+                        <lightning-button label="Close" onclick={closeModelGroupsManager}></lightning-button>
+                        <lightning-button label="Add Model Group" icon-name="utility:add" variant="brand"
+                            class="slds-m-left_x-small" onclick={handleNewModelGroup}>
+                        </lightning-button>
+                    </template>
                 </div>
             </div>
         </section>

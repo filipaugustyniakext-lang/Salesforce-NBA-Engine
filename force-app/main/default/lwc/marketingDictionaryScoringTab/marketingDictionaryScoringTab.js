@@ -59,7 +59,9 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
     @track isLoading = true;
     @track isSaving = false;
     @track isScoringModalOpen = false;
-    @track isModelGroupModalOpen = false;
+    @track isModelGroupsManagerOpen = false;
+    /** @type {'list'|'edit'} */
+    @track modelGroupsManagerView = 'list';
     @track isExpireConfirmOpen = false;
     @track isDeleteModalOpen = false;
     @track dependencyReport = null;
@@ -280,6 +282,14 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
     }
     get modelGroupModalTitle() {
         return this.editModelGroup.Id ? 'Edit Model Group' : 'Add Model Group';
+    }
+
+    get isModelGroupsListView() {
+        return this.modelGroupsManagerView === 'list';
+    }
+
+    get isModelGroupsEditView() {
+        return this.modelGroupsManagerView === 'edit';
     }
 
     get allScorings() {
@@ -740,24 +750,49 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
         this.selectAllFamilyOfNeeds = this.familyOfNeedsOptions.length > 0
             && this.familyOfNeedsOptions.every(o => o.checked);
     }
+    handleOpenModelGroupsManager() {
+        this.modelGroupsManagerView = 'list';
+        this.isModelGroupsManagerOpen = true;
+    }
+
+    closeModelGroupsManager() {
+        this.isModelGroupsManagerOpen = false;
+        this.modelGroupsManagerView = 'list';
+    }
+
     handleNewModelGroup() {
         this.editModelGroup = EMPTY_MODEL_GROUP();
-        this.isModelGroupModalOpen = true;
+        this.modelGroupsManagerView = 'edit';
+        this.isModelGroupsManagerOpen = true;
     }
-    closeModelGroupModal() { this.isModelGroupModalOpen = false; }
+
+    handleModelGroupsManagerBack() {
+        this.modelGroupsManagerView = 'list';
+        this.editModelGroup = EMPTY_MODEL_GROUP();
+    }
+
     handleEditModelGroup(e) {
         const rec = this._allRecords.find(r => r.Id === e.currentTarget.dataset.id);
-        if (rec) { this.editModelGroup = { ...rec }; this.isModelGroupModalOpen = true; }
+        if (rec) {
+            this.editModelGroup = { ...rec };
+            this.modelGroupsManagerView = 'edit';
+            this.isModelGroupsManagerOpen = true;
+        }
     }
+
     handleModelGroupFieldChange(e) {
         this.editModelGroup = { ...this.editModelGroup, [e.target.dataset.field]: e.target.value };
     }
+
     async handleSaveModelGroup() {
         if (!this.editModelGroup.Name?.trim()) {
             this._showToast('Validation', 'Group Name is required.', 'warning');
             return;
         }
-        await this._saveCampaignRecord(this.editModelGroup, () => { this.isModelGroupModalOpen = false; });
+        await this._saveCampaignRecord(this.editModelGroup, () => {
+            this.modelGroupsManagerView = 'list';
+            this.editModelGroup = EMPTY_MODEL_GROUP();
+        });
     }
     handleDeleteModelGroup(e) {
         this._openDeleteModal(e.currentTarget.dataset.id, e.currentTarget.dataset.name, 'campaignRecord');

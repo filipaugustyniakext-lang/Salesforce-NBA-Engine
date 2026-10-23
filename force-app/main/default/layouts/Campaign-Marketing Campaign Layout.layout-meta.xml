@@ -7,7 +7,7 @@
         <customLabel>true</customLabel>
         <detailHeading>true</detailHeading>
         <editHeading>true</editHeading>
-        <label>Step 1 — Campaign Properties (Basic)</label>
+        <label>Step 1 — Campaign Properties</label>
         <layoutColumns>
             <layoutItems>
                 <behavior>Required</behavior>
@@ -23,12 +23,18 @@
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
+                <field>Type</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
                 <field>Activation_Type__c</field>
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
                 <field>Campaign_Group_Dict__c</field>
             </layoutItems>
+        </layoutColumns>
+        <layoutColumns>
             <layoutItems>
                 <behavior>Edit</behavior>
                 <field>Active_From__c</field>
@@ -41,19 +47,9 @@
                 <behavior>Edit</behavior>
                 <field>Duration_Days__c</field>
             </layoutItems>
-        </layoutColumns>
-        <layoutColumns>
             <layoutItems>
                 <behavior>Edit</behavior>
                 <field>OwnerId</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Readonly</behavior>
-                <field>CreatedById</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Readonly</behavior>
-                <field>LastModifiedById</field>
             </layoutItems>
             <layoutItems>
                 <behavior>Required</behavior>
@@ -76,15 +72,27 @@
                 <behavior>Edit</behavior>
                 <field>Exclude_Onboarding__c</field>
             </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>Exclude_Other_Marketing_Activations__c</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>Campaign_Exclusions_JSON__c</field>
+            </layoutItems>
         </layoutColumns>
         <layoutColumns>
             <layoutItems>
                 <behavior>Edit</behavior>
-                <field>StartDate</field>
+                <field>Suppression_Campaign__c</field>
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
-                <field>EndDate</field>
+                <field>Suppression_Report_Id__c</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>Suppression_Segment__c</field>
             </layoutItems>
         </layoutColumns>
         <style>TwoColumnsLeftToRight</style>
@@ -93,7 +101,7 @@
         <customLabel>true</customLabel>
         <detailHeading>true</detailHeading>
         <editHeading>true</editHeading>
-        <label>Step 1 — Campaign Channels</label>
+        <label>Step 1 — Assigned Channels</label>
         <layoutColumns>
             <layoutItems>
                 <behavior>Edit</behavior>
@@ -114,7 +122,7 @@
                 <field>Topic_Dict__c</field>
             </layoutItems>
             <layoutItems>
-                <behavior>Edit</behavior>
+                <behavior>Readonly</behavior>
                 <field>Topic_Name__c</field>
             </layoutItems>
             <layoutItems>
@@ -128,7 +136,7 @@
                 <field>Product_Family__c</field>
             </layoutItems>
             <layoutItems>
-                <behavior>Edit</behavior>
+                <behavior>Readonly</behavior>
                 <field>Product_Family_Ids__c</field>
             </layoutItems>
             <layoutItems>
@@ -136,7 +144,7 @@
                 <field>Family_of_Needs__c</field>
             </layoutItems>
             <layoutItems>
-                <behavior>Edit</behavior>
+                <behavior>Readonly</behavior>
                 <field>Family_of_Needs_Ids__c</field>
             </layoutItems>
         </layoutColumns>
@@ -154,17 +162,17 @@
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
-                <field>Scoring_Model_Dict__c</field>
+                <field>Overall_Score__c</field>
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
-                <field>Fallback_Score__c</field>
+                <field>Scoring_Model_Dict__c</field>
             </layoutItems>
         </layoutColumns>
         <layoutColumns>
             <layoutItems>
                 <behavior>Edit</behavior>
-                <field>Overall_Score__c</field>
+                <field>Fallback_Score__c</field>
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
@@ -177,8 +185,16 @@
         <customLabel>true</customLabel>
         <detailHeading>true</detailHeading>
         <editHeading>false</editHeading>
-        <label>System</label>
+        <label>Audit &amp; Marketing (system)</label>
         <layoutColumns>
+            <layoutItems>
+                <behavior>Readonly</behavior>
+                <field>CreatedById</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Readonly</behavior>
+                <field>LastModifiedById</field>
+            </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
                 <field>Description</field>
@@ -189,6 +205,14 @@
             </layoutItems>
         </layoutColumns>
         <layoutColumns>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>StartDate</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>EndDate</field>
+            </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
                 <field>Timing_Type__c</field>
@@ -216,11 +240,25 @@
     </layoutSections>
     <relatedLists>
         <fields>NAME</fields>
+        <fields>Offer_Name__c</fields>
+        <fields>Offer_Status__c</fields>
         <relatedList>Campaign_Offer__c.Campaign__c</relatedList>
     </relatedLists>
     <relatedLists>
         <fields>NAME</fields>
+        <fields>Message_Name__c</fields>
+        <fields>Channel_Type__c</fields>
+        <fields>Copy_Status__c</fields>
+        <fields>Runtime_Eligible__c</fields>
         <relatedList>Campaign_Copy_Variant__c.Campaign__c</relatedList>
+    </relatedLists>
+    <relatedLists>
+        <fields>Name</fields>
+        <fields>FlowType</fields>
+        <fields>ProgressStatus</fields>
+        <fields>StartSource</fields>
+        <fields>LastModifiedDate</fields>
+        <relatedList>RelatedFlowList</relatedList>
     </relatedLists>
     <relatedLists>
         <fields>MEMBER_TYPE</fields>
@@ -244,14 +282,19 @@
         <fields>LastViewDate</fields>
         <relatedList>RelatedContentDistributionList</relatedList>
     </relatedLists>
-    <relatedLists>
-        <fields>Name</fields>
-        <fields>FlowType</fields>
-        <fields>ProgressStatus</fields>
-        <fields>StartSource</fields>
-        <fields>LastModifiedDate</fields>
-        <relatedList>RelatedFlowList</relatedList>
-    </relatedLists>
+    <platformActionList>
+        <actionListContext>Record</actionListContext>
+        <platformActionListItems>
+            <actionName>Campaign.Campaign_Configuration_Summary</actionName>
+            <actionType>QuickAction</actionType>
+            <sortOrder>10</sortOrder>
+        </platformActionListItems>
+        <platformActionListItems>
+            <actionName>Campaign.Campaign_Catalogues</actionName>
+            <actionType>QuickAction</actionType>
+            <sortOrder>11</sortOrder>
+        </platformActionListItems>
+    </platformActionList>
     <showEmailCheckbox>false</showEmailCheckbox>
     <showHighlightsPanel>false</showHighlightsPanel>
     <showInteractionLogPanel>false</showInteractionLogPanel>
@@ -277,17 +320,17 @@
             <posY>0</posY>
         </summaryLayoutItems>
         <summaryLayoutItems>
-            <field>ParentId</field>
+            <field>Priority_Tier__c</field>
             <posX>1</posX>
             <posY>1</posY>
         </summaryLayoutItems>
         <summaryLayoutItems>
-            <field>Description</field>
+            <field>Topic_Name__c</field>
             <posX>2</posX>
             <posY>0</posY>
         </summaryLayoutItems>
         <summaryLayoutItems>
-            <field>Priority_Tier__c</field>
+            <field>Scoring_Method__c</field>
             <posX>2</posX>
             <posY>1</posY>
         </summaryLayoutItems>

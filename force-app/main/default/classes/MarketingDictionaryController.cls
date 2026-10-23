@@ -31,26 +31,50 @@ public with sharing class MarketingDictionaryController {
 
     @AuraEnabled(cacheable=false)
     public static Campaign getCampaignById(Id campaignId) {
-        if (campaignId == null) return null;
-        List<Campaign> campaigns = [
-            SELECT Id, Name, StartDate, EndDate, Campaign_Group_Dict__c, Campaign_Group_Dict__r.Name,
-                   Type, Topic_Name__c, Topic_Dict__c, Topic_Dict__r.Name,
-                   Priority_Tier__c, Activation_Type__c,
-                   Timing_From__c, Timing_To__c, Validity_Days__c, Duration_Days__c,
-                   Scoring_Method__c, Offering_Type__c, Status, IsActive,
-                   Overall_Score__c, Fallback_Score__c,
-                   Scoring_Model_Dict__c, Scoring_Model_Dict__r.Name,
-                   Assigned_Channels__c,
-                   Product_Family__c, Product_Family_Ids__c,
-                   Family_of_Needs__c, Family_of_Needs_Ids__c,
-                   Exclude_Onboarding__c, Exclude_Other_Marketing_Activations__c,
-                   Campaign_Exclusions_JSON__c,
-                   Suppression_Campaign__c, Suppression_Report_Id__c, Suppression_Segment__c
-            FROM Campaign
-            WHERE Id = :campaignId
-            LIMIT 1
-        ];
+        if (campaignId == null) {
+            return null;
+        }
+        String soql = 'SELECT ' + String.join(campaignDetailSelectFields(), ', ')
+            + ' FROM Campaign WHERE Id = :campaignId LIMIT 1';
+        List<Campaign> campaigns = Database.query(soql);
         return campaigns.isEmpty() ? null : campaigns[0];
+    }
+
+    private static List<String> campaignDetailSelectFields() {
+        Map<String, Schema.SObjectField> fieldMap = Schema.SObjectType.Campaign.fields.getMap();
+        List<String> fields = new List<String>{
+            'Id', 'Name', 'StartDate', 'EndDate', 'Campaign_Group_Dict__c', 'Campaign_Group_Dict__r.Name',
+            'Type', 'Topic_Name__c', 'Topic_Dict__c', 'Topic_Dict__r.Name',
+            'Priority_Tier__c', 'Activation_Type__c',
+            'Timing_From__c', 'Timing_To__c', 'Active_From__c', 'Active_To__c',
+            'Validity_Days__c', 'Duration_Days__c',
+            'Scoring_Method__c', 'Offering_Type__c', 'Status', 'IsActive',
+            'Overall_Score__c', 'Fallback_Score__c',
+            'Scoring_Model_Dict__c', 'Scoring_Model_Dict__r.Name',
+            'Assigned_Channels__c',
+            'Product_Family__c', 'Product_Family_Ids__c',
+            'Family_of_Needs__c', 'Family_of_Needs_Ids__c'
+        };
+        addCampaignSelectField(fields, fieldMap, 'Exclude_Onboarding__c');
+        addCampaignSelectField(fields, fieldMap, 'Exclude_Other_Marketing_Activations__c');
+        addCampaignSelectField(fields, fieldMap, 'Campaign_Exclusions_JSON__c');
+        addCampaignSelectField(fields, fieldMap, 'Suppression_Report_Id__c');
+        addCampaignSelectField(fields, fieldMap, 'Suppression_Segment__c');
+        if (fieldMap.containsKey('Suppression_Campaign__c')) {
+            fields.add('Suppression_Campaign__c');
+            fields.add('Suppression_Campaign__r.Name');
+        }
+        return fields;
+    }
+
+    private static void addCampaignSelectField(
+        List<String> fields,
+        Map<String, Schema.SObjectField> fieldMap,
+        String apiName
+    ) {
+        if (fieldMap.containsKey(apiName)) {
+            fields.add(apiName);
+        }
     }
 
     /**
@@ -293,28 +317,78 @@ public with sharing class MarketingDictionaryController {
 
     @AuraEnabled(cacheable=false)
     public static List<Map<String, String>> searchSuppressionCampaigns(String searchTerm) {
-        String q = '%' + String.escapeSingleQuotes(searchTerm) + '%';
+        String term = searchTerm == null ? '' : searchTerm.trim();
+        String likeQ = '%' + String.escapeSingleQuotes(term) + '%';
+        List<Campaign> campaigns = String.isBlank(term)
+            ? [
+                SELECT Id, Name, Status, Campaign_Group_Dict__c, Campaign_Group_Dict__r.Name
+                FROM Campaign
+                WHERE IsActive = true
+                LIMIT 500
+            ]
+            : [
+                SELECT Id, Name, Status, Campaign_Group_Dict__c, Campaign_Group_Dict__r.Name
+                FROM Campaign
+                WHERE IsActive = true AND Name LIKE :likeQ
+                ORDER BY Name ASC
+                LIMIT 200
+            ];
+
+        campaigns.sort(new SuppressionCampaignComparator());
+
         List<Map<String, String>> results = new List<Map<String, String>>();
-        for (Campaign c : [
-            SELECT Id, Name FROM Campaign
-            WHERE Name LIKE :q AND IsActive = true
-            ORDER BY Name ASC LIMIT 20
-        ]) {
-            results.add(new Map<String, String>{ 'id' => c.Id, 'name' => c.Name });
+        for (Campaign c : campaigns) {
+            String groupName = c.Campaign_Group_Dict__r != null ? c.Campaign_Group_Dict__r.Name : null;
+            results.add(new Map<String, String>{
+                'id' => c.Id,
+                'name' => c.Name,
+                'status' => c.Status,
+                'groupId' => c.Campaign_Group_Dict__c,
+                'groupName' => groupName,
+                'groupKey' => String.isBlank(c.Campaign_Group_Dict__c)
+                    ? ''
+                    : String.valueOf(c.Campaign_Group_Dict__c)
+            });
         }
         return results;
     }
 
+    private class SuppressionCampaignComparator implements System.Comparator<Campaign> {
+        public Integer compare(Campaign a, Campaign b) {
+            String groupA = a.Campaign_Group_Dict__r != null ? a.Campaign_Group_Dict__r.Name : null;
+            String groupB = b.Campaign_Group_Dict__r != null ? b.Campaign_Group_Dict__r.Name : null;
+            String sortA = String.isBlank(groupA) ? '\uFFFF' + (a.Name == null ? '' : a.Name) : groupA + '|' + (a.Name == null ? '' : a.Name);
+            String sortB = String.isBlank(groupB) ? '\uFFFF' + (b.Name == null ? '' : b.Name) : groupB + '|' + (b.Name == null ? '' : b.Name);
+            return sortA.toLowerCase().compareTo(sortB.toLowerCase());
+        }
+    }
+
     @AuraEnabled(cacheable=false)
     public static List<Map<String, String>> searchSuppressionReports(String searchTerm) {
-        String q = '%' + String.escapeSingleQuotes(searchTerm) + '%';
+        String term = searchTerm == null ? '' : searchTerm.trim();
+        String likeQ = '%' + String.escapeSingleQuotes(term) + '%';
+        List<Report> reports = String.isBlank(term)
+            ? [
+                SELECT Id, Name, Format
+                FROM Report
+                ORDER BY Name ASC
+                LIMIT 500
+            ]
+            : [
+                SELECT Id, Name, Format
+                FROM Report
+                WHERE Name LIKE :likeQ
+                ORDER BY Name ASC
+                LIMIT 200
+            ];
+
         List<Map<String, String>> results = new List<Map<String, String>>();
-        for (Report r : [
-            SELECT Id, Name FROM Report
-            WHERE Name LIKE :q
-            ORDER BY Name ASC LIMIT 20
-        ]) {
-            results.add(new Map<String, String>{ 'id' => r.Id, 'name' => r.Name });
+        for (Report r : reports) {
+            results.add(new Map<String, String>{
+                'id' => r.Id,
+                'name' => r.Name,
+                'format' => r.Format
+            });
         }
         return results;
     }
@@ -344,6 +418,87 @@ public with sharing class MarketingDictionaryController {
     @AuraEnabled
     public static void saveCampaignCopyVariants(Id campaignId, List<Id> messageVariantIds) {
         new CopyVariantQuery().replaceCampaignCopyVariants(campaignId, messageVariantIds);
+    }
+
+    /**
+     * Wizard-aligned campaign configuration for Campaign Configuration View LWC
+     * (Marketing app record page — replaces reading scattered layout sections).
+     */
+    @AuraEnabled(cacheable=true)
+    public static Map<String, Object> getCampaignConfigurationView(Id campaignId) {
+        Map<String, Object> payload = new Map<String, Object>();
+        if (campaignId == null) {
+            payload.put('campaign', null);
+            payload.put('offers', new List<Map<String, Object>>());
+            payload.put('copyVariants', new List<Map<String, Object>>());
+            payload.put('hasCatalogGap', false);
+            return payload;
+        }
+
+        payload.put('campaign', getCampaignById(campaignId));
+
+        Map<String, Object> catalog = CampaignRuntimeCatalogService.getCampaignCatalogAssignmentSummary(campaignId);
+        payload.put('hasCatalogGap', catalog.get('hasCatalogGap') == true);
+
+        List<Map<String, Object>> offerRows = new List<Map<String, Object>>();
+        for (Object rowObj : (List<Object>) catalog.get('offers')) {
+            Map<String, Object> row = (Map<String, Object>) rowObj;
+            offerRows.add(new Map<String, Object>{
+                'id' => row.get('id'),
+                'name' => row.get('name'),
+                'status' => row.get('status'),
+                'eligible' => row.get('eligibleNow') == true,
+                'note' => row.get('note')
+            });
+        }
+        payload.put('offers', offerRows);
+
+        Map<Id, Map<String, Object>> copyMetaById = copyVariantDisplayMetaByCampaign(campaignId);
+        List<Map<String, Object>> copyRows = new List<Map<String, Object>>();
+        for (Object rowObj : (List<Object>) catalog.get('copyVariants')) {
+            Map<String, Object> row = (Map<String, Object>) rowObj;
+            Id variantId = (Id) row.get('id');
+            Map<String, Object> meta = copyMetaById.get(variantId);
+            Decimal weightPct = null;
+            if (meta != null && meta.get('weightPercent') != null) {
+                weightPct = (Decimal) meta.get('weightPercent');
+            }
+            copyRows.add(new Map<String, Object>{
+                'id' => variantId,
+                'name' => row.get('name'),
+                'channel' => row.get('channelType'),
+                'status' => row.get('status'),
+                'eligible' => row.get('eligibleNow') == true,
+                'note' => row.get('note'),
+                'weight' => weightPct == null ? null : weightPct.setScale(2, System.RoundingMode.HALF_UP),
+                'version' => meta == null ? null : meta.get('version')
+            });
+        }
+        payload.put('copyVariants', copyRows);
+        return payload;
+    }
+
+    private static Map<Id, Map<String, Object>> copyVariantDisplayMetaByCampaign(Id campaignId) {
+        Map<Id, Map<String, Object>> byId = new Map<Id, Map<String, Object>>();
+        for (Campaign_Copy_Variant__c junction : [
+            SELECT Message_Variant__c,
+                   Message_Variant__r.Version__c,
+                   Message_Variant__r.Display_Probability_Manual__c,
+                   Message_Variant__r.Display_Probability__c
+            FROM Campaign_Copy_Variant__c
+            WHERE Campaign__c = :campaignId
+            AND Message_Variant__c != null
+        ]) {
+            Decimal manual = junction.Message_Variant__r.Display_Probability_Manual__c;
+            Decimal auto = junction.Message_Variant__r.Display_Probability__c;
+            Decimal fraction = manual != null ? manual : auto;
+            Decimal weightPercent = fraction == null ? null : (fraction * 100).setScale(2, System.RoundingMode.HALF_UP);
+            byId.put(junction.Message_Variant__c, new Map<String, Object>{
+                'version' => junction.Message_Variant__r.Version__c,
+                'weightPercent' => weightPercent
+            });
+        }
+        return byId;
     }
 
     /**
@@ -416,35 +571,7 @@ public with sharing class MarketingDictionaryController {
         }
 
         List<Map<String, String>> fetchCampaignOffers(Id campaignId) {
-            if (campaignId == null) return new List<Map<String, String>>();
-
-            Set<Id> savedOfferIds = new Set<Id>();
-            for (Campaign_Offer__c co : [
-                SELECT Offer__c
-                FROM Campaign_Offer__c
-                WHERE Campaign__c = :campaignId
-            ]) {
-                savedOfferIds.add(co.Offer__c);
-            }
-
-            if (savedOfferIds.isEmpty()) return new List<Map<String, String>>();
-
-            List<Map<String, String>> results = new List<Map<String, String>>();
-            for (Offer__c o : [
-                SELECT Id, Name, Offer_Status__c
-                FROM Offer__c
-                WHERE Id IN :savedOfferIds
-                AND Offer_Status__c = 'Active'
-                ORDER BY Name ASC
-                LIMIT 200
-            ]) {
-                results.add(new Map<String, String>{
-                    'id'     => o.Id,
-                    'name'   => o.Name,
-                    'status' => o.Offer_Status__c
-                });
-            }
-            return results;
+            return CampaignRuntimeCatalogService.resolveEligibleOffersForCampaign(campaignId);
         }
 
         void replaceCampaignOffers(Id campaignId, List<Id> offerIds) {
@@ -582,27 +709,7 @@ public with sharing class MarketingDictionaryController {
 
     private without sharing class CopyVariantQuery {
         List<Map<String, String>> fetchCampaignCopyVariants(Id campaignId) {
-            if (campaignId == null) {
-                return new List<Map<String, String>>();
-            }
-
-            List<Map<String, String>> results = new List<Map<String, String>>();
-            for (Campaign_Copy_Variant__c row : [
-                SELECT Message_Variant__c, Message_Variant__r.Status__c
-                FROM Campaign_Copy_Variant__c
-                WHERE Campaign__c = :campaignId
-                AND Is_Eligible__c = true
-                AND Message_Variant__r.Status__c = 'Published'
-            ]) {
-                if (row.Message_Variant__c == null) {
-                    continue;
-                }
-                results.add(new Map<String, String>{
-                    'id' => row.Message_Variant__c,
-                    'status' => row.Message_Variant__r.Status__c
-                });
-            }
-            return results;
+            return CampaignRuntimeCatalogService.resolveEligibleCopyVariantsForCampaign(campaignId);
         }
 
         void replaceCampaignCopyVariants(Id campaignId, List<Id> messageVariantIds) {
