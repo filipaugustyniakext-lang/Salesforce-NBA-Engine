@@ -994,15 +994,27 @@
     flex-wrap: nowrap;
 }
 
+.editor-panel-right .slds-panel__header-actions lightning-icon.editor-preview-theme-icon {
+    --slds-c-icon-color-background: transparent;
+    --sds-c-icon-color-background: transparent;
+    --slds-c-icon-color-foreground: #fff;
+    --sds-c-icon-color-foreground-default: #fff;
+}
+
+.editor-panel-right .slds-panel__header-actions .slds-button_icon-border:not(.slds-is-selected) lightning-icon.editor-preview-theme-icon {
+    --slds-c-icon-color-foreground: #0176d3;
+    --slds-c-icon-color-foreground-default: #0176d3;
+}
+
 .editor-preview-body {
     flex: 1;
-    overflow-y: auto;
+    min-height: 12rem;
+    overflow: auto;
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 1rem 0.75rem;
+    padding: 20px;
     background: #f3f2f2;
-    height:100%;
 }
 
 .editor-preview__mock-wrap {
@@ -1023,10 +1035,10 @@
 .editor-preview_desktop { width: 100%; max-width: 648px; }
 
 .editor-preview_mobile {
-    width: 288px;
     height: 600px;
     border-radius: 45px;
     border: 8px solid #3e3e3c;
+    flex-shrink: 0;
 }
 
 .editor-preview_light { background: #fff; }
@@ -1039,6 +1051,11 @@
     background: #f3f2f2;
     border-bottom: 1px solid #e0e5ee;
     flex-shrink: 0;
+}
+
+.editor-preview_dark .editor-preview__browser-bar {
+    background: #2a2a2a;
+    border-bottom-color: #3e3e3c;
 }
 
 .editor-preview__browser-dot { width: 7px; height: 7px; border-radius: 50%; background: #dddbda; }
@@ -1062,22 +1079,35 @@
     flex: 1;
     padding: 1.75rem 0.5rem;
     min-height: 200px;
-    overflow-y: auto;
+    overflow: hidden;
 }
 
 .editor-preview__content_document {
     padding: 0;
     display: flex;
     flex-direction: column;
-    min-height: 520px;
+    min-height: 8rem;
+    flex: 1;
 }
 
 .editor-preview__shell {
     flex: 1;
     width: 100%;
-    min-height: 520px;
+    min-height: 8rem;
     overflow: auto;
     background: #fff;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.editor-preview__shell::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+}
+
+.editor-preview_dark .editor-preview__shell {
+    background: #1a1a1a;
 }
 
 .cc-preview table:not([width]):not([style*="width"]) {
@@ -1088,7 +1118,15 @@
 
 .editor-preview_mobile .editor-preview__shell {
     min-height: 0;
-    height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+.editor-preview__shell .cc-preview table.mobile-full,
+.editor-preview__shell .cc-preview table.mobile-full td,
+.editor-preview__shell .cc-preview table.mobile-full th {
+    border: 0 !important;
+    outline: none !important;
 }
 
 .block-content-fields {

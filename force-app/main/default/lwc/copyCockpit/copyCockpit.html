@@ -183,6 +183,7 @@
 
                         <!-- Message groups -->
                         <template lwc:elseif={hasGroups}>
+                            <div class="cockpit-list-region">
                             <div class="cockpit-list" style={columnWidthStyle} role="list">
 
                                 <!-- Column header -->
@@ -431,6 +432,9 @@
                                                                 menu-alignment="right"
                                                                 variant="border-filled"
                                                                 class="cockpit-quick-action-menu"
+                                                                data-variant-id={v.Id}
+                                                                onopen={handleVariantMenuOpen}
+                                                                onclose={handleVariantMenuClose}
                                                                 onselect={handleVariantOverflowAction}>
                                                                 <template for:each={v.variantQuickActionMenuItems} for:item="act">
                                                                     <template lwc:if={act.prefixDivider}>
@@ -458,6 +462,7 @@
 
                                     </div>
                                 </template>
+                            </div>
                             </div>
                         </template>
 

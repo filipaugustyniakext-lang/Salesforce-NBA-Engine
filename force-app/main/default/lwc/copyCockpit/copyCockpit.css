@@ -1,7 +1,9 @@
 /* ─── Container ─────────────────────────────────────────────────────────── */
 
 .cockpit-container {
-    min-height: 500px;
+    min-height: calc(100vh - 10rem);
+    display: flex;
+    flex-direction: column;
 }
 
 /* ─── Skeleton states ─────────────────────────────────────────────────────── */
@@ -10,7 +12,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 300px;
+    flex: 1 1 auto;
+    min-height: 12rem;
 }
 
 .cockpit-empty,
@@ -19,6 +22,8 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    flex: 1 1 auto;
+    min-height: 12rem;
     padding: 3rem 2rem;
     text-align: center;
     color: #706e6b;
@@ -28,11 +33,12 @@
 
 .ch-layout {
     display: flex;
-    align-items: flex-start;
+    align-items: stretch;
     border: 1px solid #e0e5ee;
     border-radius: 0.25rem;
     background: #fff;
-    min-height: 500px;
+    flex: 1 1 auto;
+    min-height: calc(100vh - 10rem);
 }
 
 .ch-sidebar {
@@ -43,7 +49,6 @@
     background: #f8f9fb;
     border-radius: 0.25rem 0 0 0.25rem;
     overflow-y: auto;
-    max-height: 700px;
     align-self: stretch;
 }
 
@@ -107,7 +112,27 @@
 
 .ch-sidebar__type { color: #706e6b; font-size: 0.7rem; }
 
-.ch-detail { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ch-detail {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.cockpit-list-region {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: #fff;
+}
+
+.cockpit-list-region .cockpit-list {
+    flex: 1 1 auto;
+    min-height: 0;
+}
 
 /* ─── Panel header ────────────────────────────────────────────────────────── */
 
@@ -200,6 +225,7 @@
      ─────────────────────────────────────────────────────────────────────────────── */
 
 :host {
+    display: block;
     --col-check:    32px;
     --col-name:     280px;
     --col-status:   128px;
@@ -211,7 +237,7 @@
 
 .cockpit-list {
     width: 100%;
-    overflow-x: auto;
+    overflow: auto;
     --col-name: 280px;
     --col-status: 128px;
     --col-weight: 72px;
@@ -289,13 +315,13 @@
 .cockpit-col-actions_sticky {
     position: sticky;
     right: 0;
-    z-index: 5;
+    z-index: 2;
     background: #fff;
 }
 
 .cockpit-list-header .cockpit-col-actions_sticky {
     background: #f3f2f2;
-    z-index: 6;
+    z-index: 3;
 }
 
 .cockpit-list-header-actions {
@@ -304,10 +330,15 @@
 
 /* ─── Group / master row ──────────────────────────────────────────────────── */
 
-.cockpit-group { border-bottom: 1px solid #e8ecf0; }
+.cockpit-group {
+    border-bottom: 1px solid #e8ecf0;
+    overflow: visible;
+}
 .cockpit-group:last-child { border-bottom: none; }
 
 .cockpit-master-row {
+    position: relative;
+    z-index: 1;
     display: flex;
     align-items: center;
     padding: 0 0 0 0.5rem;
@@ -410,9 +441,15 @@
 
 /* ─── Variant rows ────────────────────────────────────────────────────────── */
 
-.cockpit-variants { background: #fafbfc; border-top: 1px solid #e8ecf0; }
+.cockpit-variants {
+    background: #fafbfc;
+    border-top: 1px solid #e8ecf0;
+    overflow: visible;
+}
 
 .cockpit-variant-row {
+    position: relative;
+    z-index: 1;
     display: grid;
     grid-template-columns:
         var(--col-check)
@@ -453,8 +490,28 @@
     background: #dceefa;
 }
 
+.cockpit-variant-row:focus-within,
+.cockpit-variant-row_menu-open {
+    z-index: 50;
+}
+
+.cockpit-variant-row:focus-within .cockpit-col-actions_sticky,
+.cockpit-variant-row_menu-open .cockpit-col-actions_sticky {
+    z-index: 51;
+}
+
 .cockpit-variants .cockpit-col-actions_sticky {
     background: #fafbfc;
+}
+
+.cockpit-variant-row:focus-within .cockpit-col-actions_sticky,
+.cockpit-variant-row_menu-open .cockpit-col-actions_sticky {
+    background: #fff;
+}
+
+.cockpit-variant-row:hover:focus-within .cockpit-col-actions_sticky,
+.cockpit-variant-row:hover.cockpit-variant-row_menu-open .cockpit-col-actions_sticky {
+    background: #f0f5fb;
 }
 
 /* checkbox */
@@ -545,7 +602,12 @@
 .cockpit-quick-action-menu {
     flex-shrink: 0;
     position: relative;
-    z-index: 42;
+    z-index: 52;
+}
+
+.cockpit-variant-actions {
+    position: relative;
+    z-index: 52;
 }
 
 .cockpit-menu-item_destructive {

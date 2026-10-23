@@ -335,7 +335,16 @@ function buildVariantQuickActions(v, isSyncingMCE = false) {
     return { variantQuickActionMenuItems };
 }
 
-function buildGroups(records, expandedSet, editingGroupName, selectedIds, versionCounts, editingWeightId, isSyncingMCE = false) {
+function buildGroups(
+    records,
+    expandedSet,
+    editingGroupName,
+    selectedIds,
+    versionCounts,
+    editingWeightId,
+    isSyncingMCE = false,
+    quickActionMenuOpenId = null
+) {
     const map = new Map();
     for (const r of records) {
         const key = masterGroupKey(r);
@@ -398,7 +407,9 @@ function buildGroups(records, expandedSet, editingGroupName, selectedIds, versio
                 lastModifiedBy:     modBy,
                 isSelected,
                 checkboxLabel:      `Select ${v.Name || 'variant'}`,
-                variantRowClass:    `cockpit-variant-row${isSelected ? ' cockpit-variant-row_selected' : ''}`,
+                variantRowClass:    `cockpit-variant-row${isSelected ? ' cockpit-variant-row_selected' : ''}${
+                    quickActionMenuOpenId === v.Id ? ' cockpit-variant-row_menu-open' : ''
+                }`,
                 sourceTemplateBadge: v.Source_Template__r?.Name || null,
                 canChangeSourceTemplate: (v.Status__c || '').toLowerCase() !== 'published',
                 sourceTemplateButtonDisabled: (v.Status__c || '').toLowerCase() === 'published',
@@ -511,6 +522,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
 
     @track _editorRecordId = null;
     @track _editorOpenScheduleIntent = null;
+    @track _quickActionMenuOpenId = null;
 
     get isEditorOpen() { return !!this._editorRecordId; }
     get editorOpenScheduleIntent() { return this._editorOpenScheduleIntent; }
@@ -653,6 +665,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             this._versionCounts,
             this._editingWeightId,
             this.isSyncingMCE,
+            this._quickActionMenuOpenId,
         );
     }
 
@@ -1512,7 +1525,19 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         const value = event.detail.value || '';
         const sep = value.indexOf(':');
         if (sep < 0) return;
+        this._quickActionMenuOpenId = null;
         this._runVariantQuickAction(value.substring(0, sep), value.substring(sep + 1));
+    }
+
+    handleVariantMenuOpen(event) {
+        event.stopPropagation();
+        const id = event.currentTarget?.dataset?.variantId;
+        this._quickActionMenuOpenId = id || null;
+    }
+
+    handleVariantMenuClose(event) {
+        event.stopPropagation();
+        this._quickActionMenuOpenId = null;
     }
 
     _runVariantQuickAction(action, recordId) {

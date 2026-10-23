@@ -1102,12 +1102,12 @@
                                 </button>
                             </div>
                             <div class="slds-button-group slds-m-left_x-small" role="group" aria-label="Theme">
-                                <button class={themeLightClass} onclick={handleThemeLight} title="Light mode" aria-pressed={isLightTheme}>
-                                    <lightning-icon icon-name="utility:daylight" size="x-small" variant={themeLightVariant} class="slds-button__icon"></lightning-icon>
+                                <button class={themeLightClass} type="button" onclick={handleThemeLight} title="Light mode" aria-pressed={isLightTheme}>
+                                    <lightning-icon icon-name="custom:custom3" size="x-small" variant={themeLightVariant} class="slds-button__icon editor-preview-theme-icon"></lightning-icon>
                                     <span class="slds-assistive-text">Light</span>
                                 </button>
-                                <button class={themeDarkClass} onclick={handleThemeDark} title="Dark mode" aria-pressed={isDarkTheme}>
-                                    <lightning-icon icon-name="utility:night" size="x-small" variant={themeDarkVariant} class="slds-button__icon"></lightning-icon>
+                                <button class={themeDarkClass} type="button" onclick={handleThemeDark} title="Dark mode" aria-pressed={isDarkTheme}>
+                                    <lightning-icon icon-name="custom:custom10" size="x-small" variant={themeDarkVariant} class="slds-button__icon editor-preview-theme-icon"></lightning-icon>
                                     <span class="slds-assistive-text">Dark</span>
                                 </button>
                             </div>
