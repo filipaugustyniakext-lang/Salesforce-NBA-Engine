@@ -510,8 +510,8 @@
                                     <div><dt>Content blocks</dt>
                                         <dd>
                                             <ul class="studio-tile__list">
-                                                <template for:each={summaryBlockNames} for:item="name">
-                                                    <li key={name}>{name}</li>
+                                                <template for:each={summaryBlockEntries} for:item="entry">
+                                                    <li key={entry.key}>{entry.label}</li>
                                                 </template>
                                             </ul>
                                         </dd>

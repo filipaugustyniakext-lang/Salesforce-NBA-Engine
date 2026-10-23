@@ -321,11 +321,18 @@ export default class MasterTemplateStudio extends LightningElement {
         return (this.shellRegions || []).length > 0;
     }
 
-    get summaryBlockNames() {
-        const fromAssets = this.blockHtmlAssets.map(a => a.name);
-        return fromAssets.length
-            ? fromAssets
-            : ['None — optional for shell-only templates (not required to activate).'];
+    get summaryBlockEntries() {
+        const definitions = this._savedBlockDefinitions();
+        if (!definitions.length) {
+            return [{
+                key: 'summary-blocks-none',
+                label: 'None — optional for shell-only templates (not required to activate).'
+            }];
+        }
+        return definitions.map((component, index) => ({
+            key: `summary-block-${component.type || index}`,
+            label: component.label || component.fileName || component.type || 'Content block'
+        }));
     }
 
     get summaryValidationLines() {
@@ -526,7 +533,7 @@ export default class MasterTemplateStudio extends LightningElement {
         this.pendingBlockDelete = {
             type: blockType,
             title: component.label || component.fileName || blockType,
-            documentId: this._contentBlockDocumentId(component.fileName)
+            fileName: component.fileName || ''
         };
     }
 
@@ -545,10 +552,14 @@ export default class MasterTemplateStudio extends LightningElement {
                 templateId: this.draft.Id,
                 componentsJson: JSON.stringify(rows)
             });
-            if (pending.documentId) {
+            const documentIds = this._contentBlockDocumentIdsToRemove(
+                pending.fileName,
+                rows.length === 0
+            );
+            for (const documentId of documentIds) {
                 await deleteTemplateAsset({
                     templateId: this.draft.Id,
-                    documentId: pending.documentId
+                    documentId
                 });
             }
             if (
@@ -784,14 +795,34 @@ export default class MasterTemplateStudio extends LightningElement {
     }
 
     _contentBlockDocumentId(fileName) {
-        if (!fileName) return null;
+        const ids = this._contentBlockDocumentIdsForFile(fileName);
+        return ids[0] || null;
+    }
+
+    _contentBlockDocumentIdsForFile(fileName) {
+        if (!fileName) return [];
         const target = fileName.toLowerCase().replace(/\.html$/i, '');
-        const asset = this.blockHtmlAssets.find(item => {
-            const name = (item.name || '').toLowerCase();
-            const base = name.replace(/\.html$/i, '');
-            return name === fileName.toLowerCase() || base === target;
-        });
-        return asset?.documentId || null;
+        return this.blockHtmlAssets
+            .filter(item => {
+                const name = (item.name || '').toLowerCase();
+                const base = name.replace(/\.html$/i, '');
+                return name === fileName.toLowerCase() || base === target;
+            })
+            .map(item => item.documentId)
+            .filter(Boolean);
+    }
+
+    /** After catalog changes, drop orphaned CONTENT_BLOCK uploads (e.g. repeat uploads of the same file). */
+    _contentBlockDocumentIdsToRemove(deletedFileName, catalogNowEmpty) {
+        const ids = new Set();
+        if (catalogNowEmpty) {
+            this.blockHtmlAssets.forEach(asset => {
+                if (asset.documentId) ids.add(asset.documentId);
+            });
+            return [...ids];
+        }
+        this._contentBlockDocumentIdsForFile(deletedFileName).forEach(id => ids.add(id));
+        return [...ids];
     }
 
     _assets(assetType) {

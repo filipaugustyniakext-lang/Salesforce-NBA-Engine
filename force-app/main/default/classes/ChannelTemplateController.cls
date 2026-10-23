@@ -125,6 +125,7 @@ public with sharing class ChannelTemplateController {
             definition.validatedAt = record.Validated_At__c;
             definition.lastModifiedDate = record.LastModifiedDate;
             definition.components = readCatalog(record.Manifest_JSON__c);
+            definition.contentBlockNames = catalogContentBlockNames(definition.components);
             definition.shellPreviewRegions = scanCcPreviewRegionsInOrder(readShellHtmlForTemplate(record.Id));
             byId.put(record.Id, definition);
         }
@@ -178,9 +179,6 @@ public with sharing class ChannelTemplateController {
                 if (definition == null) continue;
                 TemplateAsset asset = toAsset(link);
                 definition.assets.add(asset);
-                if (asset.assetType == 'CONTENT_BLOCK') {
-                    definition.contentBlockNames.add(asset.name);
-                }
             }
         }
 
@@ -1253,6 +1251,26 @@ public with sharing class ChannelTemplateController {
         }
         Integer dot = normalized.lastIndexOf('.');
         return dot > 0 ? bodies.get(normalized.substring(0, dot)) : null;
+    }
+
+    private static List<String> catalogContentBlockNames(List<CatalogComponent> components) {
+        List<String> names = new List<String>();
+        if (components == null) {
+            return names;
+        }
+        for (CatalogComponent component : components) {
+            if (component == null) {
+                continue;
+            }
+            if (String.isNotBlank(component.label)) {
+                names.add(component.label);
+            } else if (String.isNotBlank(component.fileName)) {
+                names.add(component.fileName);
+            } else if (String.isNotBlank(component.type)) {
+                names.add(component.type);
+            }
+        }
+        return names;
     }
 
     private static List<CatalogComponent> readCatalog(String jsonText) {
