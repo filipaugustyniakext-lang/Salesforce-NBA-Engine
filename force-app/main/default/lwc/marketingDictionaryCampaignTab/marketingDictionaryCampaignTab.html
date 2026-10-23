@@ -29,6 +29,11 @@
                 <lightning-icon icon-name="utility:process" size="x-small" class="vtab-icon" alternative-text=""></lightning-icon>
                 Sales Process Types
             </button>
+            <button role="tab" class={vtabClass.locales} data-tab="locales" onclick={handleSubTabClick}
+                aria-selected={vtabSelected.locales}>
+                <lightning-icon icon-name="utility:world" size="x-small" class="vtab-icon" alternative-text=""></lightning-icon>
+                Locales
+            </button>
         </nav>
         </template>
 
@@ -430,6 +435,60 @@
             </div>
         </template>
 
+        <!-- ══════════════════════════════════════════════════════════
+             G. LOCALES (countryCode-languageCode for Copy Center)
+        ══════════════════════════════════════════════════════════ -->
+        <template lwc:if={isTab.locales}>
+            <div class="slds-p-around_small">
+                <div class="cd-toolbar slds-m-bottom_small">
+                    <h2 class="slds-text-heading_small">
+                        Locales
+                        <span class="slds-badge slds-badge_lightest slds-m-left_x-small">{localeCount}</span>
+                    </h2>
+                    <lightning-button label="Add Locale" icon-name="utility:add" variant="brand"
+                        onclick={handleNewLocale}>
+                    </lightning-button>
+                </div>
+                <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
+                    Locales combine a country code and language code (e.g. <code>pl-PL</code>) for Copy Center message naming.
+                </p>
+
+                <template lwc:if={hasLocales}>
+                    <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_striped">
+                        <thead>
+                            <tr class="slds-line-height_reset">
+                                <th><span class="slds-truncate">Locale</span></th>
+                                <th><span class="slds-truncate">Description</span></th>
+                                <th class="action-col"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template for:each={locales} for:item="loc">
+                                <tr key={loc.Id}>
+                                    <td><span class="slds-text-title_bold">{loc.Name}</span></td>
+                                    <td>{loc.Topic_Description__c}</td>
+                                    <td class="action-col">
+                                        <lightning-button-icon icon-name="utility:edit" variant="border-filled"
+                                            size="x-small" alternative-text="Edit" title="Edit"
+                                            data-id={loc.Id} onclick={handleEditLocale}
+                                            class="slds-m-right_xx-small">
+                                        </lightning-button-icon>
+                                        <lightning-button-icon icon-name="utility:delete" variant="border-filled"
+                                            size="x-small" alternative-text="Delete" title="Delete"
+                                            data-id={loc.Id} data-name={loc.Name} onclick={handleDeleteCampaignRecord}>
+                                        </lightning-button-icon>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </template>
+                <template lwc:else>
+                    <p class="slds-text-body_small slds-text-color_weak">No locales defined yet.</p>
+                </template>
+            </div>
+        </template>
+
         </div><!-- /vtab-content -->
     </div><!-- /vtab-layout -->
 
@@ -787,6 +846,49 @@
     <!-- ══════════════════════════════════════════════════════════
          SALES PROCESS TYPE MODAL
     ══════════════════════════════════════════════════════════ -->
+    <template lwc:if={isLocaleModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="locale-modal-title"
+            class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <div class="slds-modal__header">
+                    <h2 id="locale-modal-title" class="slds-modal__title">{localeModalTitle}</h2>
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse"
+                        onclick={closeLocaleModal} title="Close">
+                        <lightning-icon icon-name="utility:close" size="small" alternative-text="Close"></lightning-icon>
+                    </button>
+                </div>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <div class="slds-grid slds-gutters slds-wrap">
+                        <div class="slds-col slds-size_1-of-2">
+                            <lightning-input label="Country Code" required placeholder="pl"
+                                value={editLocaleCountryCode} onchange={handleLocaleCountryChange}>
+                            </lightning-input>
+                        </div>
+                        <div class="slds-col slds-size_1-of-2">
+                            <lightning-input label="Language Code" required placeholder="PL"
+                                value={editLocaleLanguageCode} onchange={handleLocaleLanguageChange}>
+                            </lightning-input>
+                        </div>
+                    </div>
+                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_small">
+                        Locale token: <strong>{editLocalePreview}</strong>
+                    </p>
+                    <lightning-textarea label="Description (optional)" value={editLocale.Topic_Description__c}
+                        data-field="Topic_Description__c" onchange={handleLocaleFieldChange}
+                        class="slds-m-top_small">
+                    </lightning-textarea>
+                </div>
+                <div class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={closeLocaleModal}></lightning-button>
+                    <lightning-button label="Save" variant="brand" class="slds-m-left_x-small"
+                        onclick={handleSaveLocale} disabled={isSaving}>
+                    </lightning-button>
+                </div>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
     <template lwc:if={isSalesProcessTypeModalOpen}>
         <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="sp-modal-title"
             class="slds-modal slds-fade-in-open">

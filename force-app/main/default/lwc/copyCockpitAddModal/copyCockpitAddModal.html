@@ -5,10 +5,7 @@
             <!-- Header -->
             <header class="slds-modal__header">
                 <lightning-icon icon-name="utility:add" size="small" class="slds-m-right_x-small add-modal-header-icon"></lightning-icon>
-                <h2 id="add-modal-title" class="slds-modal__title add-modal-title-name">{composedNamePreview}</h2>
-                <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">
-                    {channelName} &middot; {channelType} &middot; <code>{namingConventionHint}</code>
-                </p>
+                <h2 id="add-modal-title" class="slds-modal__title">{modalTitle}</h2>
             </header>
 
             <!-- Body -->
@@ -16,24 +13,25 @@
 
                 <!-- ── Section: Message Name ───────────────────────────────── -->
                 <div class="add-modal-fields">
-
-                    <!-- Composed name: ChannelPrefix_Locale_MessageName_VariantNumber (Locale = CountryCode-LanguageCode) -->
                     <div class="add-modal-field-full">
                         <div class="add-modal-name-row">
-                            <div class="add-modal-field-prefix-box">
-                                <span class="add-modal-prefix-label">Channel Prefix</span>
-                                <span class="add-modal-prefix-value" title="Auto from channel type">{channelPrefix}</span>
-                            </div>
                             <lightning-input
-                                label="Country Code"
-                                placeholder="PL"
-                                value={countryCode}
-                                maxlength="10"
-                                class="add-modal-name-country"
-                                required
-                                onkeyup={handleCountryCodeChange}
-                                onchange={handleCountryCodeChange}
+                                label="Channel Prefix"
+                                value={channelPrefix}
+                                class="add-modal-field-prefix"
+                                disabled
                             ></lightning-input>
+                            <lightning-combobox
+                                label="Locale"
+                                placeholder="Select locale…"
+                                value={localeToken}
+                                options={localeOptions}
+                                required
+                                disabled={isLocaleLocked}
+                                field-level-help={localeHelp}
+                                onchange={handleLocaleChange}
+                                class="add-modal-field-locale"
+                            ></lightning-combobox>
                             <lightning-input
                                 label="Message Name"
                                 placeholder="CashLoan_Welcome"
@@ -43,11 +41,17 @@
                                 onkeyup={handleMessageNameChange}
                                 onchange={handleMessageNameChange}
                             ></lightning-input>
-                            <div class="add-modal-field-prefix-box add-modal-field-variant-box">
-                                <span class="add-modal-prefix-label">Variant</span>
-                                <span class="add-modal-prefix-value" title={variantHint}>{version}</span>
-                            </div>
+                            <lightning-input
+                                label="Variant"
+                                value={versionDisplay}
+                                class="add-modal-field-variant"
+                                disabled
+                                field-level-help={variantHint}
+                            ></lightning-input>
                         </div>
+                        <template lwc:if={localesLoading}>
+                            <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">Loading locales…</p>
+                        </template>
                         <template lwc:if={hasDuplicateVariant}>
                             <div class="add-modal-version-error slds-m-top_x-small">
                                 <lightning-icon icon-name="utility:warning" size="xx-small" class="slds-m-right_xx-small add-modal-icon-warn"></lightning-icon>
@@ -55,96 +59,126 @@
                             </div>
                         </template>
                     </div>
-
-                    <div class="add-modal-field-row">
-                        <lightning-combobox
-                            label="Language"
-                            value={language}
-                            options={languageOptions}
-                            required
-                            disabled={isLanguageLocked}
-                            onchange={handleLanguageChange}
-                            class="add-modal-field-lang"
-                            field-level-help={languageHelp}
-                        ></lightning-combobox>
-                    </div>
-
                 </div>
 
                 <template lwc:if={showSourceTemplatePicker}>
                     <div class="add-modal-section-divider"></div>
-                    <lightning-combobox
-                        label="Source Template"
-                        placeholder="Select a validated template…"
-                        value={sourceTemplateId}
-                        options={templateOptions}
-                        required
-                        disabled={templatesLoading}
-                        field-level-help="Active, validated templates for this channel. The editor preview uses this shell."
-                        onchange={handleSourceTemplateChange}>
-                    </lightning-combobox>
-                    <template lwc:if={templatesLoading}>
-                        <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">Loading templates…</p>
-                    </template>
-                    <template lwc:if={showMissingTemplate}>
-                        <p class="slds-text-color_error slds-text-body_small slds-m-top_xx-small">
-                            No active validated template is available for this channel.
-                        </p>
-                    </template>
-                </template>
-
-                <!-- ── Section: Product Family & Offer ────────────────────── -->
-                <div class="add-modal-section-divider"></div>
-                <div class="add-modal-section-header">
-                    <h3 class="add-modal-section-title">
-                        Product
-                        <abbr class="slds-required" title="required">*</abbr>
-                    </h3>
-                </div>
-                <div class="add-modal-fields">
-
-                    <!-- Product Family (required) -->
-                    <div class="add-modal-field-full">
-                        <template lwc:if={isFamiliesLoading}>
-                            <div class="add-modal-offers-loading">
-                                <lightning-spinner size="x-small" alternative-text="Loading families..."></lightning-spinner>
-                                <span class="slds-text-body_small slds-m-left_x-small">Loading product families…</span>
-                            </div>
-                        </template>
-                        <template lwc:else>
-                            <lightning-combobox
-                                label="Product Family"
-                                placeholder="Select a product family…"
-                                value={productFamilyId}
-                                options={familyOptions}
-                                required
-                                onchange={handleFamilyChange}
-                            ></lightning-combobox>
-                        </template>
+                    <div class="add-modal-section-header">
+                        <h3 class="add-modal-section-title">
+                            Product &amp; Template
+                            <abbr class="slds-required" title="required">*</abbr>
+                        </h3>
                     </div>
-
-                    <!-- Active Offer (optional — visible after family chosen) -->
-                    <template lwc:if={showOfferSection}>
-                        <div class="add-modal-field-full">
-                            <template lwc:if={isLoadingOffers}>
+                    <div class="add-modal-two-col">
+                        <div class="add-modal-two-col__col">
+                            <lightning-combobox
+                                label="Source Template"
+                                placeholder="Select a validated template…"
+                                value={sourceTemplateId}
+                                options={templateOptions}
+                                required
+                                disabled={templatesLoading}
+                                field-level-help="Active, validated templates for this channel. The editor preview uses this shell."
+                                onchange={handleSourceTemplateChange}>
+                            </lightning-combobox>
+                            <template lwc:if={templatesLoading}>
+                                <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">Loading templates…</p>
+                            </template>
+                            <template lwc:if={showMissingTemplate}>
+                                <p class="slds-text-color_error slds-text-body_small slds-m-top_xx-small">
+                                    No active validated template is available for this channel.
+                                </p>
+                            </template>
+                        </div>
+                        <div class="add-modal-two-col__col">
+                            <template lwc:if={isFamiliesLoading}>
                                 <div class="add-modal-offers-loading">
-                                    <lightning-spinner size="x-small" alternative-text="Loading offers..."></lightning-spinner>
-                                    <span class="slds-text-body_small slds-m-left_x-small">Loading offers…</span>
+                                    <lightning-spinner size="x-small" alternative-text="Loading families..." variant="brand"></lightning-spinner>
+                                    <span class="slds-text-body_small slds-m-left_x-small">Loading product families…</span>
                                 </div>
                             </template>
                             <template lwc:else>
                                 <lightning-combobox
-                                    label="Offer (optional)"
-                                    placeholder="Select an active offer…"
-                                    value={offerId}
-                                    options={offerOptions}
-                                    onchange={handleOfferChange}
+                                    label="Product Family"
+                                    placeholder="Select a product family…"
+                                    value={productFamilyId}
+                                    options={familyOptions}
+                                    required
+                                    onchange={handleFamilyChange}
+                                ></lightning-combobox>
+                            </template>
+                            <template lwc:if={showOfferSection}>
+                                <div class="slds-m-top_small">
+                                    <template lwc:if={isLoadingOffers}>
+                                        <div class="add-modal-offers-loading">
+                                            <lightning-spinner size="x-small" alternative-text="Loading offers..." variant="brand"></lightning-spinner>
+                                            <span class="slds-text-body_small slds-m-left_x-small">Loading offers…</span>
+                                        </div>
+                                    </template>
+                                    <template lwc:else>
+                                        <lightning-combobox
+                                            label="Offer (optional)"
+                                            placeholder="Select an active offer…"
+                                            value={offerId}
+                                            options={offerOptions}
+                                            onchange={handleOfferChange}
+                                        ></lightning-combobox>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+
+                <template lwc:else>
+                    <!-- Product only when template tiles drive source template -->
+                    <div class="add-modal-section-divider"></div>
+                    <div class="add-modal-section-header">
+                        <h3 class="add-modal-section-title">
+                            Product
+                            <abbr class="slds-required" title="required">*</abbr>
+                        </h3>
+                    </div>
+                    <div class="add-modal-fields">
+                        <div class="add-modal-field-full">
+                            <template lwc:if={isFamiliesLoading}>
+                                <div class="add-modal-offers-loading">
+                                    <lightning-spinner size="x-small" alternative-text="Loading families..." variant="brand"></lightning-spinner>
+                                    <span class="slds-text-body_small slds-m-left_x-small">Loading product families…</span>
+                                </div>
+                            </template>
+                            <template lwc:else>
+                                <lightning-combobox
+                                    label="Product Family"
+                                    placeholder="Select a product family…"
+                                    value={productFamilyId}
+                                    options={familyOptions}
+                                    required
+                                    onchange={handleFamilyChange}
                                 ></lightning-combobox>
                             </template>
                         </div>
-                    </template>
-
-                </div>
+                        <template lwc:if={showOfferSection}>
+                            <div class="add-modal-field-full">
+                                <template lwc:if={isLoadingOffers}>
+                                    <div class="add-modal-offers-loading">
+                                        <lightning-spinner size="x-small" alternative-text="Loading offers..." variant="brand"></lightning-spinner>
+                                        <span class="slds-text-body_small slds-m-left_x-small">Loading offers…</span>
+                                    </div>
+                                </template>
+                                <template lwc:else>
+                                    <lightning-combobox
+                                        label="Offer (optional)"
+                                        placeholder="Select an active offer…"
+                                        value={offerId}
+                                        options={offerOptions}
+                                        onchange={handleOfferChange}
+                                    ></lightning-combobox>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </template>
 
                 <!-- ── Section: Banner Placeholders ───────────────────────── -->
                 <template lwc:if={isBannerChannel}>

@@ -183,6 +183,20 @@ public with sharing class CopyCockpitController {
         ];
     }
 
+    /** Active locale tokens (countryCode-languageCode) for Copy Center message naming. */
+    @AuraEnabled(cacheable=true)
+    public static List<Marketing_Dictionary__c> getMarketingLocales() {
+        return [
+            SELECT Id, Name, Topic_Description__c, Is_Active__c
+            FROM Marketing_Dictionary__c
+            WHERE RecordType.DeveloperName = 'Campaign'
+              AND Dictionary_Sub_Type__c = 'Locale'
+              AND Is_Active__c = true
+            ORDER BY Name ASC
+            LIMIT 500
+        ];
+    }
+
     @AuraEnabled(cacheable=true)
     public static List<Channel_Banner_Placement__c> getPlaceholders() {
         return [
@@ -459,12 +473,13 @@ public with sharing class CopyCockpitController {
                 : 1;
             if (version == null || version < 1) version = 1;
 
-            // Prefer client-composed full name; ensure it ends with _<version>.
             String stem = stripVariantSuffix(fullName);
             if (String.isBlank(stem)) {
-                throw new AuraHandledException('Invalid message name. Expected ChannelPrefix_Locale_MessageName_Variant.');
+                throw new AuraHandledException(
+                    'Invalid message name. Expected ChannelPrefix-Locale-MessageName-Variant.'
+                );
             }
-            String composed = stem + '_' + String.valueOf(version.intValue());
+            String composed = appendVariantSuffix(stem, version);
 
             String channelType = (String) data.get('channelType');
             List<CC_Message_Metadata__c> existing = queryByStem(stem, channelType);
@@ -930,12 +945,31 @@ public with sharing class CopyCockpitController {
         return false;
     }
 
+    private static String variantSeparatorForStem(String stem) {
+        if (String.isBlank(stem)) return '_';
+        return stem.contains('-') && !stem.contains('_') ? '-' : '_';
+    }
+
+    private static String appendVariantSuffix(String stem, Decimal version) {
+        if (String.isBlank(stem) || version == null || version < 1) return stem;
+        String sep = variantSeparatorForStem(stem);
+        return stem + sep + String.valueOf(version.intValue());
+    }
+
     private static String stripVariantSuffix(String fullName) {
         if (String.isBlank(fullName)) return fullName;
-        List<String> parts = fullName.split('_');
-        if (parts.size() < 4) return fullName;
+        String trimmed = fullName.trim();
+        Integer lastHyphen = trimmed.lastIndexOf('-');
+        if (lastHyphen > 0 && trimmed.contains('-') && !trimmed.contains('_')) {
+            String suffix = trimmed.substring(lastHyphen + 1);
+            if (suffix.isNumeric() && trimmed.indexOf('-') >= 0) {
+                return trimmed.substring(0, lastHyphen);
+            }
+        }
+        List<String> parts = trimmed.split('_');
+        if (parts.size() < 4) return trimmed;
         String last = parts[parts.size() - 1];
-        if (!last.isNumeric()) return fullName;
+        if (!last.isNumeric()) return trimmed;
         List<String> stemParts = new List<String>();
         for (Integer i = 0; i < parts.size() - 1; i++) stemParts.add(parts[i]);
         return String.join(stemParts, '_');
@@ -945,9 +979,12 @@ public with sharing class CopyCockpitController {
         if (versionField != null) {
             return versionField;
         }
-        if (String.isNotBlank(fullName) && String.isNotBlank(stem) && fullName.startsWith(stem + '_')) {
-            String suffix = fullName.substring(stem.length() + 1);
-            if (suffix.isNumeric()) return Decimal.valueOf(suffix);
+        if (String.isNotBlank(fullName) && String.isNotBlank(stem)) {
+            String sep = variantSeparatorForStem(stem);
+            if (fullName.startsWith(stem + sep)) {
+                String suffix = fullName.substring(stem.length() + 1);
+                if (suffix.isNumeric()) return Decimal.valueOf(suffix);
+            }
         }
         ParsedName p = parseName(fullName);
         if (p.variant != null) return p.variant;
@@ -968,13 +1005,20 @@ public with sharing class CopyCockpitController {
         if (String.isBlank(stem) || String.isBlank(channelType)) {
             return new List<CC_Message_Metadata__c>();
         }
-        String likePattern = stem + '_%';
+        String sep = variantSeparatorForStem(stem);
+        String likePattern = stem + sep + '%';
+        String legacyLike = stem + '_%';
         List<CC_Message_Metadata__c> candidates = [
             SELECT Id, Name, Version__c, Language__c, MessageName__c, MessageVariant__c,
                    MessageVariantId__c, Message_Variant_Id__c
             FROM CC_Message_Metadata__c
             WHERE Channel_Type__c = :channelType
-              AND (MessageName__c = :stem OR Name = :stem OR Name LIKE :likePattern)
+              AND (
+                  MessageName__c = :stem
+                  OR Name = :stem
+                  OR Name LIKE :likePattern
+                  OR Name LIKE :legacyLike
+              )
             LIMIT 500
         ];
         List<CC_Message_Metadata__c> matched = new List<CC_Message_Metadata__c>();
@@ -988,9 +1032,16 @@ public with sharing class CopyCockpitController {
                 matched.add(r);
                 continue;
             }
-            if (r.Name != null && r.Name.startsWith(stem + '_')) {
-                String suffix = r.Name.substring(stem.length() + 1);
-                if (suffix.isNumeric()) matched.add(r);
+            if (r.Name != null) {
+                if (r.Name.startsWith(stem + sep)) {
+                    String suffix = r.Name.substring(stem.length() + 1);
+                    if (suffix.isNumeric()) matched.add(r);
+                    continue;
+                }
+                if (r.Name.startsWith(stem + '_')) {
+                    String suffix = r.Name.substring(stem.length() + 1);
+                    if (suffix.isNumeric()) matched.add(r);
+                }
             }
         }
         return matched;

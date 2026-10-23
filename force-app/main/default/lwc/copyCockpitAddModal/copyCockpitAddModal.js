@@ -3,13 +3,14 @@ import getProductFamilies from '@salesforce/apex/CopyCockpitController.getProduc
 import getActiveOffersByFamily from '@salesforce/apex/CopyCockpitController.getActiveOffersByFamily';
 import getPlaceholders from '@salesforce/apex/CopyCockpitController.getPlaceholders';
 import getStemVariantInfo from '@salesforce/apex/CopyCockpitController.getStemVariantInfo';
+import getMarketingLocales from '@salesforce/apex/CopyCockpitController.getMarketingLocales';
 import getSelectableTemplates from '@salesforce/apex/ChannelTemplateController.getSelectableTemplates';
 import {
     channelPrefixForType,
-    composeFullName,
-    composeLocale,
-    composeStem,
-    nextAvailableVariant
+    composeFullNameFromLocale,
+    composeStemFromLocale,
+    nextAvailableVariant,
+    parseLocale
 } from 'c/copyMessageNaming';
 
 const SUBTYPE_OPTIONS = {
@@ -23,38 +24,26 @@ const SUBTYPE_OPTIONS = {
     ],
 };
 
-const LANGUAGE_OPTIONS = [
-    { label: 'PL', value: 'PL' },
-    { label: 'EN', value: 'EN' },
-    { label: 'ES', value: 'ES' },
-];
-
 export default class CopyCockpitAddModal extends LightningElement {
 
     @api channelName = '';
     @api channelType = '';
 
-    // Editable name parts (master-level)
-    @track countryCode = '';
+    @track localeToken = '';
     @track messageName = '';
 
-    // Auto parts
     @track version  = 1;
     @track language = 'PL';
 
-    // Product family
     @track productFamilyId   = null;
     @track productFamilyName = null;
 
-    // Offers — lazy loaded after family selection
     @track offers          = [];
     @track isLoadingOffers = false;
     @track offerId         = '';
 
-    // Placeholders — Banner only
     @track selectedPlaceholders = [];
 
-    // Per-channel subtype
     @track selectedSubtype = null;
     @track sourceTemplateId = '';
 
@@ -65,44 +54,58 @@ export default class CopyCockpitAddModal extends LightningElement {
 
     _takenVariants    = [];
     _variantCheckStem = '';
+
     @wire(getProductFamilies)
     _wiredFamilies;
 
     @wire(getPlaceholders)
     _wiredPlaceholders;
 
+    @wire(getMarketingLocales)
+    _wiredLocales;
+
     @wire(getSelectableTemplates, { channelName: '$channelName', channelType: '$channelType' })
     _wiredTemplates;
 
-    // ── derived ───────────────────────────────────────────────────────────────
+    get modalTitle() {
+        const label = (this.channelName || this.channelType || 'Channel').trim();
+        return `New ${label} Message`;
+    }
 
     get channelPrefix() {
         return channelPrefixForType(this.channelType);
     }
 
+    get versionDisplay() {
+        return this.version != null ? String(this.version) : '';
+    }
+
     get nameStem() {
-        return composeStem(this.channelPrefix, this.countryCode, this.language, this.messageName);
+        return composeStemFromLocale(this.channelPrefix, this.localeToken, this.messageName);
     }
 
     get composedName() {
-        return composeFullName(
-            this.channelPrefix, this.countryCode, this.language, this.messageName, this.version
+        return composeFullNameFromLocale(
+            this.channelPrefix, this.localeToken, this.messageName, this.version
         );
     }
 
-    get composedNamePreview() {
-        const cc = (this.countryCode || '').trim().toUpperCase() || '<CountryCode>';
-        const lang = (this.language || '').trim().toUpperCase() || '<Language>';
-        const mn = (this.messageName || '').trim() || '<MessageName>';
-        const v  = this.version != null ? this.version : '<Variant>';
-        return `${this.channelPrefix}_${cc}-${lang}_${mn}_${v}`;
+    get localeOptions() {
+        return (this._wiredLocales?.data || []).map(row => ({
+            value: row.Name,
+            label: row.Topic_Description__c
+                ? `${row.Name} — ${row.Topic_Description__c}`
+                : row.Name
+        }));
     }
 
-    get namingConventionHint() {
-        return 'ChannelPrefix_Locale_MessageName_VariantNumber';
+    get localesLoading() {
+        return !this._wiredLocales?.data && !this._wiredLocales?.error;
     }
 
-    get languageOptions() { return LANGUAGE_OPTIONS; }
+    get hasLocaleOptions() {
+        return this.localeOptions.length > 0;
+    }
 
     get templateOptions() {
         return (this._wiredTemplates?.data || []).map(template => ({
@@ -201,7 +204,6 @@ export default class CopyCockpitAddModal extends LightningElement {
 
     get hasDuplicateVariant() { return !!this.variantError; }
     get versionError()        { return this.variantError; }
-    get versionSuggested()    { return this.variantSuggested; }
 
     get variantHint() {
         if (this.isExistingMaster) {
@@ -210,21 +212,24 @@ export default class CopyCockpitAddModal extends LightningElement {
         return 'New message — Variant 1.';
     }
 
-    get isLanguageLocked() {
+    get isLocaleLocked() {
         return this.isExistingMaster;
     }
 
-    get languageHelp() {
-        return this.isExistingMaster
-            ? 'Locked to the existing master message language. Change it from the master row.'
-            : 'Shared by all variants of this message. Change later from the master row.';
+    get localeHelp() {
+        if (this.isExistingMaster) {
+            return 'Locked to the existing master locale. Change it from the master row.';
+        }
+        if (!this.hasLocaleOptions && !this.localesLoading) {
+            return 'Add locales under Marketing Dictionary → Campaigns → Locales.';
+        }
+        return 'Country and language combination (e.g. pl-PL).';
     }
 
     get canSave() {
-        if (!(this.countryCode || '').trim())  return false;
+        if (!(this.localeToken || '').trim())  return false;
         if (!(this.messageName || '').trim())  return false;
         if (!this.version || this.version < 1) return false;
-        if (!this.language)                    return false;
         if (!this.sourceTemplateId)            return false;
         if (!this.productFamilyId)             return false;
         if (this.hasDuplicateVariant)          return false;
@@ -236,10 +241,12 @@ export default class CopyCockpitAddModal extends LightningElement {
     get saveDisabled()        { return !this.canSave || this.isSaving; }
     get saveAndEditDisabled() { return !this.canSave || this.isSaving; }
 
-    // ── handlers ──────────────────────────────────────────────────────────────
-
-    handleCountryCodeChange(e) {
-        this.countryCode = e.target.value;
+    handleLocaleChange(e) {
+        this.localeToken = e.detail?.value || e.target?.value || '';
+        const parsed = parseLocale(this.localeToken);
+        if (parsed.language) {
+            this.language = parsed.language;
+        }
         this._onNamePartChanged();
     }
 
@@ -250,11 +257,6 @@ export default class CopyCockpitAddModal extends LightningElement {
 
     handleSourceTemplateChange(e) {
         this.sourceTemplateId = e.detail?.value || '';
-    }
-
-    handleLanguageChange(e) {
-        this.language = e.detail?.value || e.target?.value || '';
-        this._onNamePartChanged();
     }
 
     handleFamilyChange(e) {
@@ -294,8 +296,6 @@ export default class CopyCockpitAddModal extends LightningElement {
     }
 
     @api resetSaving() { this.isSaving = false; }
-
-    // ── private ───────────────────────────────────────────────────────────────
 
     _onNamePartChanged() {
         this.variantError     = '';
@@ -346,13 +346,14 @@ export default class CopyCockpitAddModal extends LightningElement {
     _dispatchSave(action) {
         this.isSaving = true;
         const fullName = this.composedName;
+        const loc = parseLocale(this.localeToken);
         const selectedTemplate = (this._wiredTemplates?.data || []).find(template => template.id === this.sourceTemplateId);
         this.dispatchEvent(new CustomEvent('save', {
             detail: {
                 messageName:       fullName,
                 nameStem:          this.nameStem,
-                countryCode:       (this.countryCode || '').trim().toUpperCase(),
-                locale:            composeLocale(this.countryCode, this.language),
+                countryCode:       loc.countryCode,
+                locale:            this.localeToken.trim(),
                 messageNamePart:   (this.messageName || '').trim(),
                 channelPrefix:     this.channelPrefix,
                 version:           Number(this.version),

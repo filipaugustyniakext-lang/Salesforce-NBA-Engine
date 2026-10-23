@@ -25,16 +25,7 @@
     align-items: flex-start;
 }
 
-.add-modal-field-lang { flex: 1; }
-
-.add-modal-title-name {
-    font-family: 'Courier New', Courier, monospace;
-    color: #014486;
-    letter-spacing: 0.01em;
-    word-break: break-all;
-}
-
-/* ─── Composed name ───────────────────────────────────────────────────────── */
+/* ─── Composed name row ───────────────────────────────────────────────────── */
 
 .add-modal-name-row {
     display: flex;
@@ -43,39 +34,14 @@
     flex-wrap: wrap;
 }
 
-.add-modal-field-prefix-box {
-    flex: 0 0 auto;
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
+.add-modal-field-prefix {
+    flex: 0 0 7rem;
+    min-width: 6rem;
 }
 
-.add-modal-prefix-label {
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: #3e3e3c;
-    line-height: 1.5;
-}
-
-.add-modal-prefix-value {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 0.75rem;
-    height: 2rem;
-    background: #f3f3f3;
-    border: 1px solid #dddbda;
-    border-radius: 0.25rem;
-    font-size: 0.875rem;
-    font-weight: 700;
-    color: #0176d3;
-    letter-spacing: 0.05em;
-    white-space: nowrap;
-    min-width: 3.5rem;
-}
-
-.add-modal-name-country {
-    flex: 0 0 110px;
+.add-modal-field-locale {
+    flex: 0 0 11rem;
+    min-width: 9rem;
 }
 
 .add-modal-name-part {
@@ -83,8 +49,26 @@
     min-width: 10rem;
 }
 
-.add-modal-field-variant-box {
-    flex: 0 0 auto;
+.add-modal-field-variant {
+    flex: 0 0 5.5rem;
+    min-width: 5rem;
+}
+
+.add-modal-two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    align-items: start;
+}
+
+@media (max-width: 640px) {
+    .add-modal-two-col {
+        grid-template-columns: 1fr;
+    }
+}
+
+.add-modal-two-col__col {
+    min-width: 0;
 }
 
 /* ─── Version feedback ────────────────────────────────────────────────────── */

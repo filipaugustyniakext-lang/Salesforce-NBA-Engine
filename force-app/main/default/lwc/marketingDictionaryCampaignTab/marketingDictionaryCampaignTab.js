@@ -23,6 +23,7 @@ import {
     buildTierExclusionChips,
     buildTierTypeChips
 } from 'c/nbaTierConfig';
+import { formatLocaleToken, parseLocale } from 'c/copyMessageNaming';
 
 const SLDS_ICON_PATTERN = /^(utility|action|standard|doctype|custom):[a-zA-Z0-9_-]+$/;
 
@@ -40,6 +41,7 @@ const EMPTY_TOPIC_GROUP      = () => ({ Name: '', Dictionary_Sub_Type__c: 'Topic
 const EMPTY_TOPIC            = () => ({ Name: '', Dictionary_Sub_Type__c: 'Topic', Topic_Group_Dict__c: null, Topic_Description__c: '' });
 const EMPTY_PATH             = () => ({ Name: '', Dictionary_Sub_Type__c: 'Activation Path', Is_Active__c: true, Distribution_Percent__c: 0 });
 const EMPTY_SALES_PROCESS    = () => ({ Name: '', Dictionary_Sub_Type__c: 'Sales Process Type', Topic_Description__c: '' });
+const EMPTY_LOCALE           = () => ({ Name: '', Dictionary_Sub_Type__c: 'Locale', Topic_Description__c: '', Is_Active__c: true });
 const EMPTY_MODEL_GROUP      = () => ({ Name: '', Dictionary_Sub_Type__c: 'Scoring Model Group' });
 const EMPTY_TIER             = () => ({
     Tier_Number__c: null, Description__c: '', Supported_Campaign_Types__c: '',
@@ -91,6 +93,7 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
     @track isTopicModalOpen = false;
     @track isPathModalOpen = false;
     @track isSalesProcessTypeModalOpen = false;
+    @track isLocaleModalOpen = false;
     @track isDeleteModalOpen = false;
 
     @track editCampaignType = EMPTY_CAMPAIGN_TYPE();
@@ -104,6 +107,9 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
     @track editTopic = EMPTY_TOPIC();
     @track editPath = EMPTY_PATH();
     @track editSalesProcessType = EMPTY_SALES_PROCESS();
+    @track editLocale = EMPTY_LOCALE();
+    @track editLocaleCountryCode = '';
+    @track editLocaleLanguageCode = '';
 
     @track scoringAsNewMaster = true;
     @track scoringNameLocked = false;
@@ -330,6 +336,7 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
             topics: this.activeSubTab === 'topics',
             activationPaths: this.activeSubTab === 'activationPaths',
             salesProcessTypes: this.activeSubTab === 'salesProcessTypes',
+            locales: this.activeSubTab === 'locales',
         };
     }
 
@@ -343,6 +350,7 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
             topics: this.activeSubTab === 'topics' ? active : base,
             activationPaths: this.activeSubTab === 'activationPaths' ? active : base,
             salesProcessTypes: this.activeSubTab === 'salesProcessTypes' ? active : base,
+            locales: this.activeSubTab === 'locales' ? active : base,
         };
     }
 
@@ -354,6 +362,7 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
             topics: this.activeSubTab === 'topics',
             activationPaths: this.activeSubTab === 'activationPaths',
             salesProcessTypes: this.activeSubTab === 'salesProcessTypes',
+            locales: this.activeSubTab === 'locales',
         };
     }
 
@@ -1033,6 +1042,14 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
     get salesProcessTypeCount() { return this.salesProcessTypes.length; }
     get salesProcessTypeModalTitle() { return this.editSalesProcessType.Id ? 'Edit Sales Process Type' : 'Add Sales Process Type'; }
 
+    get locales() { return this._allRecords.filter(r => r.Dictionary_Sub_Type__c === 'Locale'); }
+    get hasLocales() { return this.locales.length > 0; }
+    get localeCount() { return this.locales.length; }
+    get localeModalTitle() { return this.editLocale.Id ? 'Edit Locale' : 'Add Locale'; }
+    get editLocalePreview() {
+        return formatLocaleToken(this.editLocaleCountryCode, this.editLocaleLanguageCode) || '—';
+    }
+
     handleNewCampaignType() {
         this.editCampaignType = EMPTY_CAMPAIGN_TYPE();
         this._initCampaignTypeGroupDraft(null);
@@ -1702,6 +1719,52 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
     async handleSaveSalesProcessType() {
         if (!this.editSalesProcessType.Name?.trim()) { this._showToast('Validation', 'Name is required.', 'warning'); return; }
         await this._saveCampaignRecord(this.editSalesProcessType, () => { this.isSalesProcessTypeModalOpen = false; });
+    }
+
+    handleNewLocale() {
+        this.editLocale = EMPTY_LOCALE();
+        this.editLocaleCountryCode = '';
+        this.editLocaleLanguageCode = '';
+        this.isLocaleModalOpen = true;
+    }
+
+    closeLocaleModal() { this.isLocaleModalOpen = false; }
+
+    handleEditLocale(e) {
+        const rec = this._allRecords.find(r => r.Id === e.currentTarget.dataset.id);
+        if (!rec) return;
+        this.editLocale = { ...rec };
+        const parsed = parseLocale(rec.Name);
+        this.editLocaleCountryCode = parsed.countryCode ? parsed.countryCode.toLowerCase() : '';
+        this.editLocaleLanguageCode = parsed.language || '';
+        this.isLocaleModalOpen = true;
+    }
+
+    handleLocaleCountryChange(e) {
+        this.editLocaleCountryCode = e.target.value;
+    }
+
+    handleLocaleLanguageChange(e) {
+        this.editLocaleLanguageCode = e.target.value;
+    }
+
+    handleLocaleFieldChange(e) {
+        this.editLocale = { ...this.editLocale, [e.target.dataset.field]: e.target.value };
+    }
+
+    async handleSaveLocale() {
+        const token = formatLocaleToken(this.editLocaleCountryCode, this.editLocaleLanguageCode);
+        if (!token || token.indexOf('-') < 0) {
+            this._showToast('Validation', 'Country code and language code are required.', 'warning');
+            return;
+        }
+        const record = {
+            ...this.editLocale,
+            Name: token,
+            Dictionary_Sub_Type__c: 'Locale',
+            Is_Active__c: true
+        };
+        await this._saveCampaignRecord(record, () => { this.isLocaleModalOpen = false; });
     }
 
     handleDeleteCampaignRecord(e) { this._openDeleteModal(e.currentTarget.dataset.id, e.currentTarget.dataset.name, 'campaignRecord'); }

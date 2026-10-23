@@ -1,8 +1,8 @@
 /**
  * Copy Center message naming helpers.
- * Full name: ChannelPrefix_Locale_MessageName_VariantNumber
- * Locale:     CountryCode-LanguageCode  (e.g. PL-EN)
- * Stem:       ChannelPrefix_Locale_MessageName
+ * Current full name: ChannelPrefix-Locale-MessageName-VariantNumber
+ * Locale:            countryCode-LanguageCode (e.g. pl-PL from Marketing Dictionary)
+ * Legacy underscore names are still parsed for existing rows.
  */
 export const CHANNEL_PREFIX_MAP = {
     Email: 'EMA',
@@ -33,7 +33,7 @@ export function normalizeMessageNamePart(raw) {
     return String(raw || '').trim();
 }
 
-/** Locale token: CountryCode-LanguageCode */
+/** Locale token: CountryCode-LanguageCode (normalized casing). */
 export function composeLocale(countryCode, language) {
     const cc = normalizeCountryCode(countryCode);
     const lang = normalizeLanguage(language);
@@ -41,6 +41,17 @@ export function composeLocale(countryCode, language) {
     if (!cc) return lang;
     if (!lang) return cc;
     return `${cc}-${lang}`;
+}
+
+/** Build locale token for dictionary / display (e.g. pl-PL). */
+export function formatLocaleToken(countryCode, language) {
+    const cc = String(countryCode || '').trim().toLowerCase();
+    const lang = String(language || '').trim();
+    if (!cc && !lang) return '';
+    if (!cc) return lang;
+    if (!lang) return cc;
+    const langPart = lang.length <= 3 ? lang.toUpperCase() : lang;
+    return `${cc}-${langPart}`;
 }
 
 export function parseLocale(token) {
@@ -55,17 +66,48 @@ export function parseLocale(token) {
     return { countryCode, language, locale: composeLocale(countryCode, language) };
 }
 
-/** Stem without variant: PREFIX_CC-LANG_MessageName */
+export function variantSeparatorForStem(stem) {
+    const s = String(stem || '');
+    if (!s) return '-';
+    return s.includes('-') && !s.includes('_') ? '-' : '_';
+}
+
+/** Stem without variant (hyphen convention). */
+export function composeStemFromLocale(prefix, localeToken, messageName) {
+    const pre = String(prefix || '').trim();
+    const loc = String(localeToken || '').trim();
+    const mn = normalizeMessageNamePart(messageName);
+    if (!pre || !loc || loc.indexOf('-') < 0 || !mn) return '';
+    return `${pre}-${loc}-${mn}`;
+}
+
+/** Full persisted Name (hyphen convention). */
+export function composeFullNameFromLocale(prefix, localeToken, messageName, variant) {
+    const stem = composeStemFromLocale(prefix, localeToken, messageName);
+    const v = Number(variant);
+    if (!stem || !v || v < 1) return '';
+    return `${stem}-${v}`;
+}
+
+/** Stem without variant (legacy underscore or hyphen via locale token). */
 export function composeStem(prefix, countryCode, language, messageName) {
     const locale = composeLocale(countryCode, language);
+    return composeStemFromLocale(prefix, locale, messageName)
+        || composeStemLegacy(prefix, locale, messageName);
+}
+
+function composeStemLegacy(prefix, locale, messageName) {
     const mn = normalizeMessageNamePart(messageName);
     if (!prefix || !locale || locale.indexOf('-') < 0 || !mn) return '';
     return `${prefix}_${locale}_${mn}`;
 }
 
-/** Full persisted Name: PREFIX_CC-LANG_MessageName_Variant */
+/** Full persisted Name (prefers hyphen; falls back to legacy underscore). */
 export function composeFullName(prefix, countryCode, language, messageName, variant) {
-    const stem = composeStem(prefix, countryCode, language, messageName);
+    const locale = composeLocale(countryCode, language);
+    const hyphen = composeFullNameFromLocale(prefix, locale, messageName, variant);
+    if (hyphen) return hyphen;
+    const stem = composeStemLegacy(prefix, locale, messageName);
     const v = Number(variant);
     if (!stem || !v || v < 1) return '';
     return `${stem}_${v}`;
@@ -85,11 +127,13 @@ function emptyParsed() {
     };
 }
 
-function fromParts(prefix, localeToken, messageName, variant, isLegacy) {
+function fromParts(prefix, localeToken, messageName, variant, isLegacy, useHyphenStem) {
     const loc = parseLocale(localeToken);
     const stem = prefix && localeToken && messageName
-        ? `${prefix}_${localeToken}_${messageName}`
-        : [prefix, localeToken, messageName].filter(Boolean).join('_');
+        ? (useHyphenStem
+            ? composeStemFromLocale(prefix, localeToken, messageName)
+            : `${prefix}_${localeToken}_${messageName}`)
+        : [prefix, localeToken, messageName].filter(Boolean).join(useHyphenStem ? '-' : '_');
     return {
         prefix: prefix || '',
         locale: loc.locale || localeToken || '',
@@ -103,24 +147,43 @@ function fromParts(prefix, localeToken, messageName, variant, isLegacy) {
     };
 }
 
+function parseHyphenFullName(name) {
+    const parts = name.split('-');
+    if (parts.length < 4) return null;
+    const last = parts[parts.length - 1];
+    if (!/^\d+$/.test(last)) return null;
+    const variant = Number(last);
+    const prefix = parts[0];
+    const localeToken = `${parts[1]}-${parts[2]}`;
+    const messageName = parts.slice(3, -1).join('-');
+    if (!messageName) return null;
+    return fromParts(prefix, localeToken, messageName, variant, false, true);
+}
+
 /**
  * Parse a stored Name into parts.
- * Current: PREFIX_CC-LANG_MessageName_Variant
- * Legacy:  PREFIX_CC_MessageName[_Variant] (no hyphen in locale)
+ * Current: PREFIX-Locale-MessageName-Variant (Locale = cc-LL)
+ * Legacy:  PREFIX_CC-LANG_MessageName_Variant or older PREFIX_CC_MessageName
  */
 export function parseFullName(fullName) {
     const name = String(fullName || '').trim();
     if (!name) return emptyParsed();
+
+    if (name.includes('-') && !name.includes('_')) {
+        const hyphen = parseHyphenFullName(name);
+        if (hyphen) return hyphen;
+    }
+
     const parts = name.split('_');
     if (parts.length < 3) {
-        return fromParts(parts[0] || '', parts[1] || '', parts.slice(2).join('_'), null, true);
+        return fromParts(parts[0] || '', parts[1] || '', parts.slice(2).join('_'), null, true, false);
     }
     const last = parts[parts.length - 1];
     const lastIsVariant = /^\d+$/.test(last);
     if (lastIsVariant && parts.length >= 4) {
-        return fromParts(parts[0], parts[1], parts.slice(2, -1).join('_'), Number(last), false);
+        return fromParts(parts[0], parts[1], parts.slice(2, -1).join('_'), Number(last), false, false);
     }
-    return fromParts(parts[0], parts[1], parts.slice(2).join('_'), null, true);
+    return fromParts(parts[0], parts[1], parts.slice(2).join('_'), null, true, false);
 }
 
 export function groupKeyFromName(fullName) {
@@ -130,7 +193,7 @@ export function groupKeyFromName(fullName) {
 
 /**
  * Master row key for Copy Center grouping.
- * MCE rows: MessageName__c (e.g. EMA_PL_Email_1, EMA_PL_Email_2) — not parsed Name suffix.
+ * MCE rows: MessageName__c — not parsed Name suffix.
  */
 export function masterGroupKey(record) {
     if (record && record.MessageName__c && String(record.MessageName__c).trim()) {
@@ -180,7 +243,8 @@ export function nameBelongsToStem(fullName, stem) {
     if (!stem) return false;
     const name = String(fullName || '');
     if (name === stem) return true;
-    if (!name.startsWith(`${stem}_`)) return false;
+    const sep = variantSeparatorForStem(stem);
+    if (!name.startsWith(`${stem}${sep}`)) return false;
     const suffix = name.substring(stem.length + 1);
     return /^\d+$/.test(suffix);
 }

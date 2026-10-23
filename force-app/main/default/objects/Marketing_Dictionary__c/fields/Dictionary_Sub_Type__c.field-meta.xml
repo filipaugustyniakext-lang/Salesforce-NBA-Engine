@@ -77,6 +77,11 @@
                 <default>false</default>
                 <label>Scoring Model Group</label>
             </value>
+            <value>
+                <fullName>Locale</fullName>
+                <default>false</default>
+                <label>Locale</label>
+            </value>
         </valueSetDefinition>
     </valueSet>
 </CustomField>
