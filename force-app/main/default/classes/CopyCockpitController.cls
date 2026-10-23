@@ -520,6 +520,13 @@ public with sharing class CopyCockpitController {
             if (data.get('messageSubtype') != null) {
                 rec.Subject__c = (String) data.get('messageSubtype');
             }
+            String nameStem = (String) data.get('nameStem');
+            rec.MessageName__c = String.isNotBlank(nameStem) ? nameStem.trim() : stem;
+            rec.Message_Type__c = channelType;
+            rec.MessageVariant__c = version;
+            String variantGuid = generateMessageVariantGuid();
+            rec.MessageVariantId__c = variantGuid;
+            rec.Message_Variant_Id__c = variantGuid;
             CopyCockpitModificationService.insertMetadata(rec);
             return rec.Id;
         } catch (AuraHandledException e) {
@@ -642,8 +649,9 @@ public with sharing class CopyCockpitController {
             copy.Message_Variant__c = String.valueOf(newVersion.intValue());
             copy.MessageVariant__c = newVersion;
             copy.Status__c  = 'Draft';
-            copy.Message_Variant_Id__c = null;
-            copy.MessageVariantId__c = null;
+            String variantGuid = generateMessageVariantGuid();
+            copy.Message_Variant_Id__c = variantGuid;
+            copy.MessageVariantId__c = variantGuid;
             String masterMessageName = src.MessageName__c;
             for (CC_Message_Metadata__c sibling : existing) {
                 if (String.isNotBlank(sibling.MessageName__c)) {
@@ -862,6 +870,16 @@ public with sharing class CopyCockpitController {
             return;
         }
         delete [SELECT Id FROM CC_Message_Blocks_All__c WHERE Id IN :blockIds];
+    }
+
+    /** Primary key for CC_Message_Metadata rows in Marketing Cloud data extensions. */
+    private static String generateMessageVariantGuid() {
+        String hex = EncodingUtil.convertToHex(Crypto.generateAesKey(128)).toLowerCase();
+        return hex.substring(0, 8) + '-'
+            + hex.substring(8, 12) + '-'
+            + hex.substring(12, 16) + '-'
+            + hex.substring(16, 20) + '-'
+            + hex.substring(20, 32);
     }
 
     private static String resolveExternalVariantId(CC_Message_Metadata__c row) {
