@@ -535,7 +535,10 @@
     flex-shrink: 0;
     vertical-align: middle;
     position: relative;
+    background: transparent;
     --slds-c-spinner-color-foreground: var(--lwc-brandAccessible, #0176d3);
+    --slds-c-spinner-color-background: transparent;
+    --sds-c-spinner-color-background: transparent;
 }
 
 .cockpit-source-template-badge {
