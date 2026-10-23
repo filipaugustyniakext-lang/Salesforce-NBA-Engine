@@ -5,7 +5,13 @@ import getMessageById from '@salesforce/apex/CopyCockpitController.getMessageByI
 import saveMessageEditor from '@salesforce/apex/CopyCockpitController.saveMessageEditor';
 import getVersionsByMessageId from '@salesforce/apex/CopyCockpitController.getVersionsByMessageId';
 import getTemplateRenderSource from '@salesforce/apex/ChannelTemplateController.getTemplateRenderSource';
-import { renderTemplatePreview, scopePreviewDocument } from './templatePreview';
+import {
+    renderTemplatePreview,
+    scopePreviewDocument,
+    parsePreviewLayoutFromShell,
+    previewPanelWidthPx,
+    previewFrameWidthPx
+} from './templatePreview';
 import { parseBlockTemplate, alignLayout } from 'c/contentBindingModel';
 
 const STATUS_OPTIONS = [
@@ -695,6 +701,26 @@ export default class CopyCockpitEditor extends LightningElement {
         return 'slds-panel slds-size_medium slds-panel_docked slds-panel_docked-right slds-panel_drawer editor-panel-right'
             + device + (this._rightOpen ? ' slds-is-open' : '');
     }
+
+    get _previewLayout() {
+        return parsePreviewLayoutFromShell(this._renderSource?.shellHtml || '');
+    }
+
+    get rightPanelOpenStyle() {
+        if (!this._rightOpen) {
+            return '';
+        }
+        const width = previewPanelWidthPx(this._previewDevice, this._previewLayout);
+        return `width: ${width}px; max-width: 100%; border-left-width: 1px;`;
+    }
+
+    get previewFrameStyle() {
+        const frameWidth = previewFrameWidthPx(this._previewDevice, this._previewLayout);
+        if (this._previewDevice === 'mobile') {
+            return `width: ${frameWidth}px;`;
+        }
+        return `width: 100%; max-width: ${frameWidth}px;`;
+    }
     get rightPanelAriaHidden() { return this._rightOpen ? 'false' : 'true'; }
     get rightPanelOpen()       { return this._rightOpen ? 'true' : 'false'; }
     get rightToggleTitle()     { return this._rightOpen ? 'Collapse Preview panel' : 'Expand Preview panel'; }
@@ -906,10 +932,25 @@ export default class CopyCockpitEditor extends LightningElement {
 
     // ── handlers: preview controls ────────────────────────────────────────────
 
-    handleDeviceDesktop() { this._previewDevice = 'desktop'; }
-    handleDeviceMobile()  { this._previewDevice = 'mobile'; }
-    handleThemeLight()    { this._previewTheme  = 'light'; }
-    handleThemeDark()     { this._previewTheme  = 'dark'; }
+    handleDeviceDesktop() {
+        this._previewDevice = 'desktop';
+        this._previewTick += 1;
+    }
+
+    handleDeviceMobile() {
+        this._previewDevice = 'mobile';
+        this._previewTick += 1;
+    }
+
+    handleThemeLight() {
+        this._previewTheme = 'light';
+        this._previewTick += 1;
+    }
+
+    handleThemeDark() {
+        this._previewTheme = 'dark';
+        this._previewTick += 1;
+    }
 
     // ── handlers: add popover ─────────────────────────────────────────────────
 

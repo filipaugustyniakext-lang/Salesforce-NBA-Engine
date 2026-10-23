@@ -316,7 +316,7 @@
     position: sticky;
     right: 0;
     z-index: 2;
-    background: #fff;
+    background: inherit;
 }
 
 .cockpit-list-header .cockpit-col-actions_sticky {
@@ -394,20 +394,8 @@
     min-width: 0;
 }
 
-.cockpit-master-row .cockpit-col-actions_sticky {
+.cockpit-master-row {
     background: #fff;
-}
-
-.cockpit-master-row:hover .cockpit-col-actions_sticky {
-    background: #f8f9fb;
-}
-
-.cockpit-master-row_expanded .cockpit-col-actions_sticky {
-    background: #f0f5fb;
-}
-
-.cockpit-master-row_expanded:hover .cockpit-col-actions_sticky {
-    background: #e8f0fa;
 }
 
 .cockpit-msg-name {
@@ -450,6 +438,7 @@
 .cockpit-variant-row {
     position: relative;
     z-index: 1;
+    background: #fafbfc;
     display: grid;
     grid-template-columns:
         var(--col-check)
@@ -470,23 +459,11 @@
 .cockpit-variant-row:last-child { border-bottom: none; }
 .cockpit-variant-row:hover { background: #f0f5fb; }
 
-.cockpit-variant-row:hover .cockpit-col-actions_sticky {
-    background: #f0f5fb;
-}
-
 .cockpit-variant-row_selected {
     background: #e8f0fa;
 }
 
-.cockpit-variant-row_selected .cockpit-col-actions_sticky {
-    background: #e8f0fa;
-}
-
 .cockpit-variant-row_selected:hover {
-    background: #dceefa;
-}
-
-.cockpit-variant-row_selected:hover .cockpit-col-actions_sticky {
     background: #dceefa;
 }
 
@@ -498,20 +475,6 @@
 .cockpit-variant-row:focus-within .cockpit-col-actions_sticky,
 .cockpit-variant-row_menu-open .cockpit-col-actions_sticky {
     z-index: 51;
-}
-
-.cockpit-variants .cockpit-col-actions_sticky {
-    background: #fafbfc;
-}
-
-.cockpit-variant-row:focus-within .cockpit-col-actions_sticky,
-.cockpit-variant-row_menu-open .cockpit-col-actions_sticky {
-    background: #fff;
-}
-
-.cockpit-variant-row:hover:focus-within .cockpit-col-actions_sticky,
-.cockpit-variant-row:hover.cockpit-variant-row_menu-open .cockpit-col-actions_sticky {
-    background: #f0f5fb;
 }
 
 /* checkbox */
@@ -688,6 +651,9 @@
     display: flex;
     gap: 0.25rem;
     justify-content: flex-end;
+    padding-right: 0.35rem;
+    min-width: 3rem;
+    width: auto;
 }
 
 .cockpit-quick-action {
