@@ -263,7 +263,7 @@ export default class CopyTemplatePreviewPanel extends LightningElement {
             device: this._previewDevice,
             theme: this._previewTheme
         });
-        pinPreviewWidths(host);
+        pinPreviewWidths(host, { device: this._previewDevice });
         host._previewStamp = stamp;
     }
 }

@@ -5,5 +5,5 @@ export {
     pinPreviewWidths,
     parsePreviewLayoutFromShell,
     previewPanelWidthPx,
-    previewFrameWidthPx
+    previewFrameWidthPx,
 } from 'c/copyTemplatePreview';

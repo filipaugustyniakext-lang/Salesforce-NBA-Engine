@@ -52,6 +52,19 @@ export function normalizeEmailConditionalComments(html) {
     return result;
 }
 
+/** Shell HTML mobile rules when the preview frame is narrower than SFMC desktop (288px). */
+function mobileShellPreviewCss() {
+    const s = PREVIEW_SCOPE;
+    return `${s}{width:100%!important;max-width:100%!important;box-sizing:border-box!important;overflow-x:hidden!important;}`
+        + `${s} table.mobile-full,${s} table.mobile-full-td{width:100%!important;max-width:100%!important;box-sizing:border-box!important;}`
+        + `${s} table[width="600"],${s} table[style*="width:600px"],${s} table[style*="width: 600px"]{width:100%!important;max-width:100%!important;}`
+        + `${s} .padding-mobile{padding:11px 10px!important;box-sizing:border-box!important;}`
+        + `${s} div[style*="max-width:600px"],${s} div[style*="max-width: 600px"]{max-width:100%!important;width:100%!important;box-sizing:border-box!important;}`
+        + `${s} .padding-mobile div,${s} .padding-mobile a,${s} .padding-mobile p{word-break:break-word!important;overflow-wrap:anywhere!important;white-space:normal!important;}`
+        + `${s} .desktop-img{display:none!important;max-height:0!important;overflow:hidden!important;}`
+        + `${s} .mobile-img{display:block!important;width:100%!important;height:auto!important;max-height:none!important;overflow:visible!important;}`;
+}
+
 function mjColumnPreviewCss(device) {
     const columns = [
         ['mj-column-per-100', 100],
@@ -91,7 +104,8 @@ export function scopePreviewDocument(html, options = {}) {
             ? `${PREVIEW_SCOPE} .desktopHide{display:none !important;}`
             : `${PREVIEW_SCOPE} .mobileHide{display:none !important;}`)
         + (device === 'mobile'
-            ? `${PREVIEW_SCOPE} td[style*="direction: rtl"],${PREVIEW_SCOPE} td[style*="direction:rtl"]{direction:ltr!important;text-align:center!important;}`
+            ? mobileShellPreviewCss()
+                + `${PREVIEW_SCOPE} td[style*="direction: rtl"],${PREVIEW_SCOPE} td[style*="direction:rtl"]{direction:ltr!important;text-align:center!important;}`
             : '');
     return `<div class="cc-preview"><style>${styles.join('\n')}\n${guard}</style>${body}</div>`;
 }
@@ -684,9 +698,20 @@ export function buildSamplePreviewBlocks(renderSource) {
     }));
 }
 
-export function pinPreviewWidths(root) {
+export function pinPreviewWidths(root, options = {}) {
     if (!root) return;
+    const mobile = options.device === 'mobile';
     root.querySelectorAll('table[width], td[width], th[width]').forEach(el => {
+        if (mobile) {
+            const table = el.tagName === 'TABLE' ? el : el.closest('table');
+            if (table?.classList?.contains('mobile-full')) {
+                return;
+            }
+            const tableWidth = table?.getAttribute('width');
+            if (tableWidth === '600' || tableWidth === 600) {
+                return;
+            }
+        }
         if (el.style.width) return;
         const raw = String(el.getAttribute('width') || '').trim();
         if (/^\d+$/.test(raw)) el.style.width = `${raw}px`;

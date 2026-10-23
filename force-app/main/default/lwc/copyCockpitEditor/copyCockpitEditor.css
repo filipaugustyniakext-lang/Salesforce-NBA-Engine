@@ -1116,13 +1116,6 @@
     overflow-y: auto;
 }
 
-.editor-preview__shell .cc-preview table.mobile-full,
-.editor-preview__shell .cc-preview table.mobile-full td,
-.editor-preview__shell .cc-preview table.mobile-full th {
-    border: 0 !important;
-    outline: none !important;
-}
-
 .block-content-fields {
     padding: 0.75rem;
 }
