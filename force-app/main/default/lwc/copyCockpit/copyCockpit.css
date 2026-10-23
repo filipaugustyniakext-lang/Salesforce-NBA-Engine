@@ -787,30 +787,27 @@ button.cockpit-template-action:disabled lightning-icon {
     background-color: var(--slds-g-color-palette-orange-90);
 }
 
-.cockpit-variant-status-combobox {
-    min-width: 5.5rem;
-    max-width: 7rem;
+.cockpit-status-menu {
+    position: relative;
+    z-index: 52;
 }
 
-.cockpit-status-picker .cockpit-variant-status-combobox {
-    --lwc-heightInput: 1.25rem;
-    --slds-c-input-color-border: transparent;
-    --slds-c-input-color-border-hover: transparent;
-    --slds-c-input-color-border-focus: transparent;
-    --slds-c-input-shadow: none;
-    --slds-c-input-shadow-focus: none;
-    --slds-c-input-color-background: transparent;
-    --slds-c-input-color-background-focus: transparent;
-    --slds-c-input-color-background-hover: transparent;
-    --slds-c-input-outline-focus: 0;
-    --slds-c-input-spacing-horizontal-start: 0;
-    --slds-c-input-spacing-horizontal-end: 0.15rem;
-    --slds-c-input-spacing-block-start: 0;
-    --slds-c-input-spacing-block-end: 0;
-    --slds-c-input-font-size: 0.75rem;
-    --slds-c-input-font-weight: 700;
-    --slds-c-input-text-color: currentColor;
-    --slds-c-icon-color-foreground-default: currentColor;
+.cockpit-status-picker .cockpit-status-menu {
+    display: inline-flex;
+    max-width: 100%;
+    vertical-align: middle;
+    --slds-c-button-color-background: transparent;
+    --slds-c-button-color-background-hover: transparent;
+    --slds-c-button-color-background-active: transparent;
+    --slds-c-button-color-border: transparent;
+    --slds-c-button-color-border-hover: transparent;
+    --slds-c-button-shadow: none;
+    --slds-c-button-shadow-focus: none;
+    --slds-c-button-line-height: 1.25rem;
+    --slds-c-button-text-color: currentColor;
+    --slds-c-button-spacing-inline-start: 0;
+    --slds-c-button-spacing-inline-end: 0;
+    --slds-c-icon-color-foreground: currentColor;
 }
 
 /* ─── Last modified cell ──────────────────────────────────────────────────── */

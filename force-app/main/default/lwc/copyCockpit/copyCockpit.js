@@ -159,6 +159,15 @@ function variantStatusOptionsFor(fromStatus) {
     return VARIANT_STATUS_OPTIONS.filter(o => allowed.has(o.value));
 }
 
+function buildStatusMenuItems(recordId, currentStatus) {
+    return variantStatusOptionsFor(currentStatus).map(o => ({
+        label: o.label,
+        value: o.value,
+        checked: o.value === currentStatus,
+        itemKey: `${recordId}_${o.value}`,
+    }));
+}
+
 const STATUS_FILTERS = [
     { value: 'All',       label: 'All' },
     { value: 'Draft',     label: 'Draft' },
@@ -379,7 +388,7 @@ function buildGroups(
                 statusClass:        statusBadgeClass(v.Status__c),
                 statusPickerClass:  statusPickerClass(v.Status__c),
                 statusAriaLabel:    `Status for ${v.Name || 'variant'}`,
-                variantStatusOptions: variantStatusOptionsFor(v.Status__c),
+                statusMenuItems:    buildStatusMenuItems(v.Id, v.Status__c),
                 validFromFmt:       fmtDate(v.Valid_From__c),
                 validToFmt:         fmtDate(v.Valid_To__c),
                 campaignName:       v.Campaign__r?.Name || null,
@@ -1095,7 +1104,9 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     }
 
     handleListPointerDown(event) {
-        if (!event.target.closest('.cockpit-status-picker') && !event.target.closest('.cockpit-quick-action-menu')) {
+        if (!event.target.closest('.cockpit-status-picker')
+            && !event.target.closest('.cockpit-status-menu')
+            && !event.target.closest('.cockpit-quick-action-menu')) {
             this._clearVariantRowElevations();
         }
     }
@@ -1104,10 +1115,19 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         event.stopPropagation();
     }
 
-    handleStatusPickerMouseDown(event) {
+    handleStatusMenuOpen(event) {
         event.stopPropagation();
         this._clearVariantRowElevations();
         event.currentTarget.closest('.cockpit-variant-row')?.classList.add('cockpit-variant-row_status-open');
+    }
+
+    handleStatusMenuClose(event) {
+        event.stopPropagation();
+        event.currentTarget.closest('.cockpit-variant-row')?.classList.remove('cockpit-variant-row_status-open');
+    }
+
+    handleVariantStatusMenuSelect(event) {
+        this.handleVariantStatusChange(event);
     }
 
     handleVariantStatusChange(event) {

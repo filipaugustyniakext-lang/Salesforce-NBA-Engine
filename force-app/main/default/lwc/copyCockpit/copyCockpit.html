@@ -367,18 +367,27 @@
                                                             <div
                                                                 class={v.statusPickerClass}
                                                                 data-id={v.Id}
-                                                                onclick={handleStatusPickerClick}
-                                                                onmousedown={handleStatusPickerMouseDown}>
-                                                                <lightning-combobox
-                                                                    value={v.Status__c}
-                                                                    options={v.variantStatusOptions}
-                                                                    variant="label-hidden"
-                                                                    dropdown-alignment="auto"
+                                                                onclick={handleStatusPickerClick}>
+                                                                <lightning-button-menu
+                                                                    label={v.Status__c}
+                                                                    alternative-text={v.statusAriaLabel}
+                                                                    variant="bare"
+                                                                    icon-size="xx-small"
+                                                                    menu-alignment="auto"
+                                                                    class="cockpit-status-menu"
                                                                     data-id={v.Id}
-                                                                    aria-label={v.statusAriaLabel}
-                                                                    class="cockpit-variant-status-combobox"
-                                                                    onchange={handleVariantStatusChange}>
-                                                                </lightning-combobox>
+                                                                    onopen={handleStatusMenuOpen}
+                                                                    onclose={handleStatusMenuClose}
+                                                                    onselect={handleVariantStatusMenuSelect}>
+                                                                    <template for:each={v.statusMenuItems} for:item="opt">
+                                                                        <lightning-menu-item
+                                                                            key={opt.itemKey}
+                                                                            value={opt.value}
+                                                                            label={opt.label}
+                                                                            checked={opt.checked}>
+                                                                        </lightning-menu-item>
+                                                                    </template>
+                                                                </lightning-button-menu>
                                                             </div>
                                                         </div>
 
