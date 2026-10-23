@@ -16,12 +16,17 @@
         <members>ChannelTemplateFileVersionGuard</members>
         <members>ChannelTemplateManifestService</members>
         <members>ChannelTemplateTriggerHandler</members>
+        <members>CheckWeather</members>
         <members>CommunitiesLandingControllerTest</members>
         <members>CommunitiesLoginControllerTest</members>
         <members>CommunitiesSelfRegConfirmControllerTest</members>
         <members>CommunitiesSelfRegControllerTest</members>
+        <members>CopyCockpitCloneTest</members>
         <members>CopyCockpitController</members>
+        <members>CopyCockpitModificationService</members>
         <members>CopyCockpitSettingsTest</members>
+        <members>CurrentDate</members>
+        <members>CurrentDateTest</members>
         <members>DataCloudTransformManagerTest</members>
         <members>DataGraphRefreshSchedulerTest</members>
         <members>DynamicScenarioPickerTest</members>
@@ -40,14 +45,23 @@
         <members>MCE_Exit_DataExtensionCallout</members>
         <members>MCE_Exit_DataExtensionCalloutTest</members>
         <members>MCE_HttpMockFactory</members>
+        <members>MarketingCloudCopyDelete</members>
+        <members>MarketingCloudCopyDeleteQueueable</members>
+        <members>MarketingCloudCopyDeleteTest</members>
         <members>MarketingCloudCopySync</members>
         <members>MarketingCloudCopySyncTest</members>
         <members>MarketingCloudCopySyncUpdateTest</members>
         <members>MarketingCloudDERequest</members>
         <members>MarketingDictionaryController</members>
         <members>MarketingDictionaryControllerTest</members>
+        <members>MarketingDictionaryDeleteGuard</members>
+        <members>MarketingDictionaryDeleteGuardTest</members>
+        <members>MarketingDictionaryFonCustomerTypeTest</members>
         <members>MarketingDictionaryManagerController</members>
         <members>MarketingDictionaryManagerControllerTest</members>
+        <members>MarketingDictionaryScoringModelListTest</members>
+        <members>MarketingDictionaryTopicGroupDeleteTest</members>
+        <members>MceDeleteLogService</members>
         <members>MicrobatchSelfRegControllerTest</members>
         <members>MyProfilePageControllerTest</members>
         <members>OfferAttractivenessCalculator</members>
@@ -60,6 +74,8 @@
         <members>SiteLoginControllerTest</members>
         <members>SiteRegisterControllerTest</members>
         <members>TopicManagerController</members>
+        <members>WeatherService</members>
+        <members>WeatherServiceTest</members>
         <name>ApexClass</name>
     </types>
     <types>
@@ -70,6 +86,7 @@
         <name>ApexPage</name>
     </types>
     <types>
+        <members>CC_Message_Blocks_AllTrigger</members>
         <members>CC_Message_Metadata_Trigger</members>
         <members>CampaignOfferingLabelSyncTrigger</members>
         <members>ChannelTemplateFileLinkTrigger</members>
@@ -80,7 +97,6 @@
     </types>
     <types>
         <members>agentforceCampaignWizardAction</members>
-        <members>Marketing_Campaign_Record_Page</members>
         <members>offerManagerAction</members>
         <members>productManagerAction</members>
         <name>AuraDefinitionBundle</name>
@@ -91,6 +107,7 @@
     </types>
     <types>
         <members>MCE_Settings.Default</members>
+        <members>MCE_Settings__mdt.Default</members>
         <name>CustomMetadata</name>
     </types>
     <types>
@@ -109,6 +126,7 @@
         <members>Channel_Cooldown__c</members>
         <members>Channel_Template__c</members>
         <members>FamilyOfNeeds_CustomerType__c</members>
+        <members>MCE_Delete_Log__c</members>
         <members>MCE_Settings__mdt</members>
         <members>Marketing_Dictionary__c</members>
         <members>Offer_Attribute_Rule__c</members>
@@ -123,6 +141,7 @@
     </types>
     <types>
         <members>Copy_Cockpit_Editor</members>
+        <members>Copy_Editor</members>
         <members>Marketing_Dictionary</members>
         <name>CustomTab</name>
     </types>
@@ -135,6 +154,7 @@
         <members>CommandCenterApp_UtilityBar</members>
         <members>Contact_Record_Page_Three_Column</members>
         <members>Copy_Center_Editor</members>
+        <members>Copy_Cockpit_Editor</members>
         <members>DataGovernanceConsole_UtilityBar</members>
         <members>EasyConsole_UtilityBar</members>
         <members>EasyHome_UtilityBar</members>
@@ -151,6 +171,7 @@
         <members>LightningSales_UtilityBar</members>
         <members>LightningService_UtilityBar</members>
         <members>Marketing_Dictionaries</members>
+        <members>Marketing_Dictionary</members>
         <members>MediaAdSalesManagement_UtilityBar</members>
         <members>Offer_Record_Page</members>
         <members>Opportunity_Record_Page_Three_Column</members>
@@ -165,6 +186,7 @@
     </types>
     <types>
         <members>FL_Trigger_DataStreamObject_Refresh</members>
+        <members>Get_Resort_Hours</members>
         <name>Flow</name>
     </types>
     <types>
@@ -215,9 +237,9 @@
         <members>copyCockpit</members>
         <members>copyCockpitAddModal</members>
         <members>copyCockpitEditor</members>
+        <members>copyMessageNaming</members>
         <members>copyTemplatePreview</members>
         <members>copyTemplatePreviewPanel</members>
-        <members>copyMessageNaming</members>
         <members>createMarketingDictionaryModal</members>
         <members>deactivateOfferAction</members>
         <members>decommissionOfferAction</members>
@@ -225,12 +247,16 @@
         <members>marketingDictionaryBlackoutTab</members>
         <members>marketingDictionaryCampaignTab</members>
         <members>marketingDictionaryChannelTab</members>
-        <members>masterTemplateStudio</members>
+        <members>marketingDictionaryDeleteHelper</members>
+        <members>marketingDictionaryDependencyDialog</members>
         <members>marketingDictionaryManager</members>
         <members>marketingDictionaryOfferTab</members>
         <members>marketingDictionaryPersonTab</members>
         <members>marketingDictionaryProductTab</members>
+        <members>marketingDictionaryRenamePrompt</members>
         <members>marketingDictionaryScoringTab</members>
+        <members>marketingDictionaryState</members>
+        <members>masterTemplateStudio</members>
         <members>nbaTierConfig</members>
         <members>offerAttractivenessHeader</members>
         <members>offerManager</members>
@@ -242,11 +268,14 @@
     </types>
     <types>
         <members>ClientActivationCenter</members>
+        <members>Resort_Admin</members>
+        <members>Resort_Agent</members>
         <name>PermissionSet</name>
     </types>
     <types>
         <members>MarketingCloudAuth</members>
         <members>MarketingCloudRest</members>
+        <members>MarketingCloudSoap</members>
         <name>RemoteSiteSetting</name>
     </types>
     <version>66.0</version>

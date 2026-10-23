@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+    <!-- Deploy Copy Center UI + naming + MCE delete as one unit (cac-sandbox). -->
+    <types>
+        <members>CopyCockpitController</members>
+        <members>CopyCockpitModificationService</members>
+        <members>MarketingCloudCopyDelete</members>
+        <members>MarketingCloudCopyDeleteQueueable</members>
+        <members>MarketingCloudCopyDeleteTest</members>
+        <members>MarketingCloudCopySync</members>
+        <members>MceDeleteLogService</members>
+        <name>ApexClass</name>
+    </types>
+    <types>
+        <members>CC_Message_Metadata_Trigger</members>
+        <name>ApexTrigger</name>
+    </types>
+    <types>
+        <members>copyCockpit</members>
+        <members>copyCockpitAddModal</members>
+        <members>copyCockpitEditor</members>
+        <members>copyMessageNaming</members>
+        <members>marketingDictionaryCampaignTab</members>
+        <name>LightningComponentBundle</name>
+    </types>
+    <types>
+        <members>MCE_Delete_Log__c</members>
+        <name>CustomObject</name>
+    </types>
+    <types>
+        <members>Marketing_Dictionary__c.Dictionary_Sub_Type__c</members>
+        <name>CustomField</name>
+    </types>
+    <types>
+        <members>Marketing_Dictionary__c.Campaign</members>
+        <name>RecordType</name>
+    </types>
+    <types>
+        <members>MarketingCloudSoap</members>
+        <name>RemoteSiteSetting</name>
+    </types>
+    <types>
+        <members>ClientActivationCenter</members>
+        <name>PermissionSet</name>
+    </types>
+    <version>66.0</version>
+</Package>

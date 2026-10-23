@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <deploymentStatus>Deployed</deploymentStatus>
+    <description>Audit trail for Marketing Cloud data extension deletes triggered from Copy Cockpit.</description>
+    <enableActivities>false</enableActivities>
+    <enableBulkApi>true</enableBulkApi>
+    <enableFeeds>false</enableFeeds>
+    <enableHistory>false</enableHistory>
+    <enableReports>true</enableReports>
+    <enableSearch>true</enableSearch>
+    <label>MCE Delete Log</label>
+    <nameField>
+        <displayFormat>MCE-DEL-{00000}</displayFormat>
+        <label>Log Number</label>
+        <type>AutoNumber</type>
+    </nameField>
+    <pluralLabel>MCE Delete Logs</pluralLabel>
+    <sharingModel>ReadWrite</sharingModel>
+</CustomObject>

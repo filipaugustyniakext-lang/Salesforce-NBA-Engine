@@ -1,6 +1,10 @@
-# Make the Salesforce org the source of truth
+# Metadata manifests and source of truth
 
-Git `main` and the org have diverged. To reset the repo to **what is deployed now**, run the snapshot on a machine that is already logged into that org (Code Builder). This cloud agent has the CLI but no authorized org, so it cannot retrieve or replace `main` itself.
+**Day-to-day development:** Git **`main`** is the source of truth for Client Activation Center metadata. Merge feature branches into `main` before sandbox deploys when possible. For Copy Center, use the unified manifest described in [DEPLOY-COPY-CENTER.md](./DEPLOY-COPY-CENTER.md) so Apex, triggers, and LWCs stay in sync.
+
+## Make the Salesforce org the source of truth (snapshot reset)
+
+Git `main` and the org can still diverge after manual org edits. To reset the repo to **what is deployed now**, run the snapshot on a machine that is already logged into that org (Code Builder).
 
 ## Replace `force-app` with the org
 
