@@ -338,6 +338,49 @@ private class ChannelTemplateControllerTest {
     }
 
     @IsTest
+    static void syncDraftBlockCatalogPreservesMetadataAndDedupesFiles() {
+        Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
+        Id templateId = createDraftTemplate(channel.Id, 'Sync Blocks', 7);
+        Id blockId = uploadFile(
+            templateId,
+            'HTML_GL_TEXTIMAGE - NoBindings.html',
+            '<td>{{copy}}</td>'
+        );
+        System.assertEquals(null, ChannelTemplateController.classifyUploadedFiles(
+            templateId, new List<Id>{ blockId }, 'CONTENT_BLOCK'
+        ));
+        ChannelTemplateController.saveComponentCatalog(
+            templateId,
+            JSON.serialize(new List<Object>{
+                new Map<String, Object>{
+                    'type' => 'html_gl_textimage_nobindings',
+                    'label' => 'Text image block',
+                    'description' => 'Imported HTML block',
+                    'icon' => '',
+                    'fileName' => 'HTML_GL_TEXTIMAGE - NoBindings.html',
+                    'status' => 'Draft'
+                }
+            })
+        );
+
+        Test.startTest();
+        ChannelTemplateController.syncDraftBlockCatalog(templateId);
+        List<ChannelTemplateController.TemplateDefinition> definitions =
+            ChannelTemplateController.getChannelTemplates(channel.Id);
+        Test.stopTest();
+
+        ChannelTemplateController.TemplateDefinition definition = null;
+        for (ChannelTemplateController.TemplateDefinition item : definitions) {
+            if (item.id == templateId) definition = item;
+        }
+        System.assertNotEquals(null, definition);
+        System.assertEquals(1, definition.components.size(), 'One uploaded block should produce one catalog row.');
+        System.assertEquals('Text image block', definition.components[0].label);
+        System.assertEquals('html_gl_textimage_nobindings', definition.components[0].type);
+        System.assertEquals('HTML_GL_TEXTIMAGE - NoBindings.html', definition.components[0].fileName);
+    }
+
+    @IsTest
     static void contentBlockPlaceholdersMustBeBound() {
         Marketing_Dictionary__c channel = [SELECT Id FROM Marketing_Dictionary__c LIMIT 1];
         Id templateId = createDraftTemplate(channel.Id, 'Bound Blocks', 6);

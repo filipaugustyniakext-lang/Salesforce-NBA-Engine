@@ -217,7 +217,8 @@ export default class CopyTemplatePreviewPanel extends LightningElement {
             if (block?.type) merged.set(block.type, block);
         });
         studio.forEach(block => {
-            if (block?.type) merged.set(block.type, block);
+            const key = block?.type || block?.fileName;
+            if (key) merged.set(key, block);
         });
         return { ...this._renderSource, blocks: [...merged.values()] };
     }

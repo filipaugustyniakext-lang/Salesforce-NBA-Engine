@@ -187,18 +187,34 @@ export default class MasterTemplateStudio extends LightningElement {
         return this.draft.Status__c === 'Active';
     }
 
+    get blockDefinitionFormTitle() {
+        return this.isEditingExistingBlock
+            ? 'Edit content block definition'
+            : 'New content block definition';
+    }
+
+    get isEditingExistingBlock() {
+        return !!this._findBlockDefinition(
+            this.pendingBlockDraft.draftKey,
+            this.pendingBlockDraft.fileName
+        );
+    }
+
     get contentBlockCards() {
         return this._savedBlockDefinitions()
             .filter(component => !(
                 this.showNewBlockDefinitionForm
-                && this.pendingBlockDraft.draftKey
-                && component.type === this.pendingBlockDraft.draftKey
+                && (
+                    (this.pendingBlockDraft.draftKey && component.type === this.pendingBlockDraft.draftKey)
+                    || (this.pendingBlockDraft.fileName
+                        && component.fileName === this.pendingBlockDraft.fileName)
+                )
             ))
             .map((component, index) => {
             const status = (component.status || 'Draft').trim();
             const validated = status === 'Ready' || status === 'Active';
-            const previewKey = component.type || component.fileName || '';
-            const selected = previewKey && previewKey === this.previewBlockKey;
+            const previewKey = this._blockPreviewKey(component);
+            const selected = this._previewKeysMatch(previewKey, this.previewBlockKey);
             return {
                 key: `${component.type || 'block'}-${index}`,
                 type: component.type,
@@ -405,12 +421,15 @@ export default class MasterTemplateStudio extends LightningElement {
         if (source.id) this._refreshShellRegions(source.id);
     }
 
-    handleNavSelect(event) {
+    async handleNavSelect(event) {
         const step = event.currentTarget.dataset.step;
         if (!step) return;
         this.wizardStep = step;
         if (step === 'shell' || step === 'blocks' || step === 'summary') {
             this._refreshShellRegions(this.draft.Id);
+        }
+        if (step === 'blocks' && this.draft.Id) {
+            await this._syncDraftBlockCatalogIfNeeded();
         }
         if (step === 'shell' || step === 'blocks') {
             // eslint-disable-next-line @lwc/lwc/no-async-operation
@@ -472,6 +491,13 @@ export default class MasterTemplateStudio extends LightningElement {
                 return;
             }
             this.wizardStep = 'blocks';
+            if (this.draft.Id) {
+                // eslint-disable-next-line @lwc/lwc/no-async-operation
+                Promise.resolve(this._syncDraftBlockCatalogIfNeeded()).then(() => {
+                    // eslint-disable-next-line @lwc/lwc/no-async-operation
+                    requestAnimationFrame(() => this._refreshStudioPreviews());
+                });
+            }
             return;
         }
         if (this.isBlocksStep) {
@@ -501,15 +527,18 @@ export default class MasterTemplateStudio extends LightningElement {
         this.previewBlockKey = previewKey;
         this.showNewBlockDefinitionForm = false;
         this._resetPendingBlockDraft();
+        // eslint-disable-next-line @lwc/lwc/no-async-operation
+        requestAnimationFrame(() => this._refreshStudioPreviews());
     }
 
     handleEditBlockDefinition(event) {
         event.stopPropagation();
         const blockType = event.currentTarget.dataset.type;
-        const component = this._savedBlockDefinitions().find(item => item.type === blockType);
+        const fileName = event.currentTarget.dataset.fileName;
+        const component = this._findBlockDefinition(blockType, fileName);
         if (!component) return;
         const status = (component.status || 'Draft').trim();
-        this.previewBlockKey = component.type || component.fileName || '';
+        this.previewBlockKey = this._blockPreviewKey(component);
         this.pendingBlockDraft = {
             label: component.label || '',
             description: component.description || '',
@@ -518,6 +547,8 @@ export default class MasterTemplateStudio extends LightningElement {
             validated: status === 'Ready' || status === 'Active'
         };
         this.showNewBlockDefinitionForm = true;
+        // eslint-disable-next-line @lwc/lwc/no-async-operation
+        requestAnimationFrame(() => this._refreshStudioPreviews());
     }
 
     handleCancelBlockDefinition() {
@@ -528,7 +559,8 @@ export default class MasterTemplateStudio extends LightningElement {
     handleDeleteBlockDefinition(event) {
         event.stopPropagation();
         const blockType = event.currentTarget.dataset.type;
-        const component = this._savedBlockDefinitions().find(item => item.type === blockType);
+        const fileName = event.currentTarget.dataset.fileName;
+        const component = this._findBlockDefinition(blockType, fileName);
         if (!component) return;
         this.pendingBlockDelete = {
             type: blockType,
@@ -787,6 +819,41 @@ export default class MasterTemplateStudio extends LightningElement {
         );
     }
 
+    _findBlockDefinition(type, fileName) {
+        const defs = this._savedBlockDefinitions();
+        const normalizedType = String(type || '').trim();
+        const normalizedFile = String(fileName || '').trim();
+        if (normalizedType) {
+            const byType = defs.find(item => item.type === normalizedType);
+            if (byType) return byType;
+        }
+        if (normalizedFile) {
+            const targetKey = this._normalizeBlockFileKey(normalizedFile);
+            return defs.find(item => this._normalizeBlockFileKey(item.fileName) === targetKey);
+        }
+        return null;
+    }
+
+    _blockPreviewKey(component) {
+        if (!component) return '';
+        return (component.type || component.fileName || '').trim();
+    }
+
+    _normalizeBlockFileKey(fileName) {
+        const text = String(fileName || '').trim().toLowerCase();
+        if (!text) return '';
+        const base = text.replace(/^.*[/\\]/, '');
+        return base.endsWith('.html') ? base.slice(0, -5) : base;
+    }
+
+    _previewKeysMatch(left, right) {
+        if (!left || !right) return false;
+        const normalizedLeft = this._normalizeBlockFileKey(left);
+        const normalizedRight = this._normalizeBlockFileKey(right);
+        if (normalizedLeft && normalizedLeft === normalizedRight) return true;
+        return String(left).trim().toLowerCase() === String(right).trim().toLowerCase();
+    }
+
     _blockStatusBadgeClass(status) {
         const normalized = (status || 'Draft').toLowerCase();
         if (normalized === 'active') return 'slds-badge slds-theme_success';
@@ -980,6 +1047,16 @@ export default class MasterTemplateStudio extends LightningElement {
         this.template.querySelectorAll('c-copy-template-preview-panel').forEach(panel => {
             panel.refreshPreview();
         });
+    }
+
+    async _syncDraftBlockCatalogIfNeeded() {
+        if (!this.draft.Id || !this.blockHtmlAssets.length) return;
+        try {
+            await syncDraftBlockCatalog({ templateId: this.draft.Id });
+            await refreshApex(this._wiredTemplates);
+        } catch (error) {
+            this._toast('Content blocks', this._apexErrorMessage(error), 'error');
+        }
     }
 
     _apexErrorMessage(error) {
