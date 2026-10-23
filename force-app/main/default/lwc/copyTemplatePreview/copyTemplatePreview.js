@@ -52,6 +52,25 @@ export function normalizeEmailConditionalComments(html) {
     return result;
 }
 
+function mjColumnPreviewCss(device) {
+    const columns = [
+        ['mj-column-per-100', 100],
+        ['mj-column-per-60', 60],
+        ['mj-column-per-50', 50],
+        ['mj-column-per-40', 40],
+        ['mj-column-per-32', 32],
+        ['mj-column-per-2', 2]
+    ];
+    if (device === 'mobile') {
+        return columns.map(([cls]) => (
+            `${PREVIEW_SCOPE} .${cls}{width:100%!important;max-width:100%!important;}`
+        )).join('');
+    }
+    return columns.map(([cls, pct]) => (
+        `${PREVIEW_SCOPE} .${cls}{width:${pct}%!important;max-width:${pct}%;}`
+    )).join('');
+}
+
 export function scopePreviewDocument(html, options = {}) {
     const device = options.device === 'desktop' ? 'desktop' : 'mobile';
     const theme = options.theme === 'dark' ? 'dark' : 'light';
@@ -65,12 +84,15 @@ export function scopePreviewDocument(html, options = {}) {
     });
     const bodyMatch = withoutStyles.match(/<body\b[^>]*>([\s\S]*)<\/body>/i);
     const body = previewTokens(bodyMatch ? bodyMatch[1] : withoutStyles).replace(/<custom\b[^>]*\/?>/gi, '');
-    // Page CSS such as `table { width: 100% }` stretches shrink-wrapped email tables,
-    // so an image with width:100% ignores the pixel width on its cell.
-    const guard = `${PREVIEW_SCOPE} table:not([width]):not([style*="width"]){width:max-content !important;max-width:100% !important;margin:0 auto;}`
+    // Shrink-wrap only presentation tables (e.g. image wrappers), not MJML bullet/list tables.
+    const guard = `${PREVIEW_SCOPE} table[role="presentation"]:not([width]):not([style*="width"]){width:max-content !important;max-width:100% !important;margin:0 auto;}`
+        + mjColumnPreviewCss(device)
         + (device === 'desktop'
             ? `${PREVIEW_SCOPE} .desktopHide{display:none !important;}`
-            : `${PREVIEW_SCOPE} .mobileHide{display:none !important;}`);
+            : `${PREVIEW_SCOPE} .mobileHide{display:none !important;}`)
+        + (device === 'mobile'
+            ? `${PREVIEW_SCOPE} td[style*="direction: rtl"],${PREVIEW_SCOPE} td[style*="direction:rtl"]{direction:ltr!important;text-align:center!important;}`
+            : '');
     return `<div class="cc-preview"><style>${styles.join('\n')}\n${guard}</style>${body}</div>`;
 }
 

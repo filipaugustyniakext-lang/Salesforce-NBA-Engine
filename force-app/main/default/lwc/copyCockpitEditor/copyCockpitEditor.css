@@ -1104,7 +1104,7 @@
     background: #1a1a1a;
 }
 
-.cc-preview table:not([width]):not([style*="width"]) {
+.cc-preview table[role="presentation"]:not([width]):not([style*="width"]) {
     width: max-content !important;
     max-width: 100% !important;
     margin: 0 auto;
