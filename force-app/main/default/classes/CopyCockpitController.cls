@@ -695,32 +695,38 @@ public with sharing class CopyCockpitController {
             throw new AuraHandledException('Country Code, Language, and Message Name are required.');
         }
 
-        ParsedName oldParsed = parseName(oldStem);
-        String prefix = String.isNotBlank(oldParsed.prefix) ? oldParsed.prefix : oldStem.split('_')[0];
-        String locale = cc + '-' + lang;
-        String newStem = prefix + '_' + locale + '_' + mn;
+        String oldTrim = oldStem.trim();
+        ParsedName oldParsed = parseMasterStem(oldTrim);
+        String prefix = String.isNotBlank(oldParsed.prefix) ? oldParsed.prefix : oldTrim.split('_')[0];
+        if (String.isBlank(prefix)) {
+            prefix = oldTrim.split('-')[0];
+        }
+        String localeToken = cc.toLowerCase() + '-' + lang.toUpperCase();
+        String newStem = composeMasterStem(prefix, localeToken, mn);
 
-        List<CC_Message_Metadata__c> rows = queryByStem(oldStem.trim(), channelType);
+        List<CC_Message_Metadata__c> rows = queryByStem(oldTrim, channelType);
         if (rows.isEmpty()) {
             throw new AuraHandledException('No message variants found for this master.');
         }
 
-        if (newStem != oldStem.trim()) {
+        if (!newStem.equalsIgnoreCase(oldTrim)) {
             List<CC_Message_Metadata__c> collisions = queryByStem(newStem, channelType);
             if (!collisions.isEmpty()) {
                 throw new AuraHandledException(
-                    'A message with locale "' + locale + '" and Message Name "' + mn
+                    'A message with locale "' + localeToken + '" and Message Name "' + mn
                     + '" already exists on this channel.'
                 );
             }
         }
 
         for (CC_Message_Metadata__c r : rows) {
-            Decimal v = resolveVariantNumber(r, oldStem.trim());
+            Decimal v = resolveVariantNumber(r, oldTrim);
             if (v == null) v = 1;
-            r.Name = newStem + '_' + String.valueOf(v.intValue());
+            r.Name = appendVariantSuffix(newStem, v);
+            r.MessageName__c = newStem;
             r.Version__c = v;
             r.Message_Variant__c = String.valueOf(v.intValue());
+            r.MessageVariant__c = v;
             r.Language__c = lang;
         }
         try {
@@ -918,6 +924,34 @@ public with sharing class CopyCockpitController {
             p.countryCode = token.toUpperCase();
             p.locale = p.countryCode;
         }
+    }
+
+    /** Master stem without variant (hyphen convention: PREFIX-locale-MessageName). */
+    private static String composeMasterStem(String prefix, String localeToken, String messageName) {
+        if (String.isBlank(prefix) || String.isBlank(localeToken) || String.isBlank(messageName)) {
+            return '';
+        }
+        return prefix.trim() + '-' + localeToken.trim() + '-' + messageName.trim();
+    }
+
+    private static ParsedName parseMasterStem(String stem) {
+        ParsedName p = new ParsedName();
+        if (String.isBlank(stem)) return p;
+        String trimmed = stem.trim();
+        if (trimmed.contains('-') && !trimmed.contains('_')) {
+            List<String> parts = trimmed.split('-');
+            if (parts.size() >= 4) {
+                p.prefix = parts[0];
+                applyLocaleToken(p, parts[1] + '-' + parts[2]);
+                List<String> mnParts = new List<String>();
+                for (Integer i = 3; i < parts.size(); i++) {
+                    mnParts.add(parts[i]);
+                }
+                p.messageName = String.join(mnParts, '-');
+                return p;
+            }
+        }
+        return parseName(trimmed);
     }
 
     private static ParsedName parseName(String fullName) {

@@ -124,7 +124,8 @@ public with sharing class ChannelTemplateController {
             definition.validationMessage = record.Validation_Message__c;
             definition.validatedAt = record.Validated_At__c;
             definition.lastModifiedDate = record.LastModifiedDate;
-            definition.components = readCatalog(record.Manifest_JSON__c);
+            definition.components = dedupeCatalogByFileName(readCatalog(record.Manifest_JSON__c));
+            definition.contentBlockNames = catalogContentBlockNames(definition.components);
             definition.shellPreviewRegions = scanCcPreviewRegionsInOrder(readShellHtmlForTemplate(record.Id));
             byId.put(record.Id, definition);
         }
@@ -178,9 +179,6 @@ public with sharing class ChannelTemplateController {
                 if (definition == null) continue;
                 TemplateAsset asset = toAsset(link);
                 definition.assets.add(asset);
-                if (asset.assetType == 'CONTENT_BLOCK') {
-                    definition.contentBlockNames.add(asset.name);
-                }
             }
         }
 
@@ -378,19 +376,62 @@ public with sharing class ChannelTemplateController {
     @AuraEnabled
     public static void syncDraftBlockCatalog(Id templateId) {
         if (templateId == null) return;
-        Map<String, String> bodies = contentBlockBodies(templateId);
-        if (bodies.isEmpty()) return;
-        List<Object> rows = new List<Object>();
-        for (String fileName : bodies.keySet()) {
-            rows.add(new Map<String, Object>{
-                'type' => '',
-                'label' => '',
-                'description' => '',
-                'icon' => '',
-                'fileName' => fileName,
-                'status' => 'Draft'
-            });
+        Channel_Template__c template = [
+            SELECT Id, Manifest_JSON__c
+            FROM Channel_Template__c
+            WHERE Id = :templateId
+            LIMIT 1
+        ];
+        List<CatalogComponent> existing = dedupeCatalogByFileName(readCatalog(template.Manifest_JSON__c));
+        Map<String, CatalogComponent> byFileKey = new Map<String, CatalogComponent>();
+        for (CatalogComponent component : existing) {
+            if (String.isBlank(component.fileName)) continue;
+            String key = catalogBlockFileKey(component.fileName);
+            if (!byFileKey.containsKey(key)) {
+                byFileKey.put(key, component);
+            }
         }
+        Set<String> uploadedKeys = new Set<String>();
+        List<Object> rows = new List<Object>();
+        List<ContentDocumentLink> links = [
+            SELECT ContentDocument.Title
+            FROM ContentDocumentLink
+            WHERE LinkedEntityId = :templateId
+        ];
+        for (ContentDocumentLink link : links) {
+            if (link.ContentDocument == null || !isContentBlockTitle(link.ContentDocument.Title)) continue;
+            String fileName = stripKnownPrefix(link.ContentDocument.Title);
+            if (String.isBlank(fileName)) continue;
+            if (!fileName.toLowerCase().endsWith('.html')) {
+                fileName = fileName + '.html';
+            }
+            String key = catalogBlockFileKey(fileName);
+            if (uploadedKeys.contains(key)) continue;
+            uploadedKeys.add(key);
+            CatalogComponent prior = byFileKey.get(key);
+            if (prior != null) {
+                rows.add(catalogComponentToRow(prior));
+            } else {
+                rows.add(new Map<String, Object>{
+                    'type' => '',
+                    'label' => '',
+                    'description' => '',
+                    'icon' => '',
+                    'fileName' => fileName,
+                    'status' => 'Draft',
+                    'placeholders' => new List<String>(),
+                    'blockSettings' => new List<String>(),
+                    'bindings' => new List<Object>()
+                });
+            }
+        }
+        for (CatalogComponent component : existing) {
+            if (String.isBlank(component.fileName)) continue;
+            String key = catalogBlockFileKey(component.fileName);
+            if (uploadedKeys.contains(key)) continue;
+            rows.add(catalogComponentToRow(component));
+        }
+        if (rows.isEmpty()) return;
         saveComponentCatalog(templateId, JSON.serialize(rows));
     }
 
@@ -1255,6 +1296,26 @@ public with sharing class ChannelTemplateController {
         return dot > 0 ? bodies.get(normalized.substring(0, dot)) : null;
     }
 
+    private static List<String> catalogContentBlockNames(List<CatalogComponent> components) {
+        List<String> names = new List<String>();
+        if (components == null) {
+            return names;
+        }
+        for (CatalogComponent component : components) {
+            if (component == null) {
+                continue;
+            }
+            if (String.isNotBlank(component.label)) {
+                names.add(component.label);
+            } else if (String.isNotBlank(component.fileName)) {
+                names.add(component.fileName);
+            } else if (String.isNotBlank(component.type)) {
+                names.add(component.type);
+            }
+        }
+        return names;
+    }
+
     private static List<CatalogComponent> readCatalog(String jsonText) {
         List<CatalogComponent> components = new List<CatalogComponent>();
         if (String.isBlank(jsonText)) return components;
@@ -1480,6 +1541,72 @@ public with sharing class ChannelTemplateController {
 
     private static String catalogBlockFileKey(String fileName) {
         return baseName(String.valueOf(fileName)).toLowerCase();
+    }
+
+    private static List<CatalogComponent> dedupeCatalogByFileName(List<CatalogComponent> components) {
+        List<CatalogComponent> deduped = new List<CatalogComponent>();
+        if (components == null || components.isEmpty()) return deduped;
+        Map<String, CatalogComponent> bestByKey = new Map<String, CatalogComponent>();
+        for (CatalogComponent component : components) {
+            String key = String.isNotBlank(component.fileName)
+                ? catalogBlockFileKey(component.fileName)
+                : 'type:' + String.valueOf(component.type).toLowerCase();
+            if (String.isBlank(key) || key == 'type:') continue;
+            CatalogComponent prior = bestByKey.get(key);
+            if (prior == null || catalogComponentScore(component) > catalogComponentScore(prior)) {
+                bestByKey.put(key, component);
+            }
+        }
+        for (CatalogComponent component : components) {
+            String key = String.isNotBlank(component.fileName)
+                ? catalogBlockFileKey(component.fileName)
+                : 'type:' + String.valueOf(component.type).toLowerCase();
+            if (bestByKey.containsKey(key) && bestByKey.get(key) == component) {
+                deduped.add(component);
+            }
+        }
+        return deduped;
+    }
+
+    private static Integer catalogComponentScore(CatalogComponent component) {
+        if (component == null) return 0;
+        Integer score = 0;
+        if (String.isNotBlank(component.label)) score += 4;
+        if (String.isNotBlank(component.type)) score += 2;
+        if (String.isNotBlank(component.description)) score += 1;
+        if (String.isNotBlank(component.icon)) score += 1;
+        return score;
+    }
+
+    private static Map<String, Object> catalogComponentToRow(CatalogComponent component) {
+        List<Object> bindingRows = new List<Object>();
+        if (component.bindings != null) {
+            for (PlaceholderBinding binding : component.bindings) {
+                bindingRows.add(new Map<String, Object>{
+                    'placeholder' => binding.placeholder,
+                    'source' => binding.source
+                });
+            }
+        }
+        Map<String, Object> row = new Map<String, Object>{
+            'type' => component.type,
+            'label' => component.label,
+            'description' => component.description,
+            'icon' => component.icon,
+            'fileName' => component.fileName,
+            'status' => String.isBlank(component.status) ? 'Draft' : component.status,
+            'placeholders' => component.placeholders != null ? component.placeholders : new List<String>(),
+            'blockSettings' => component.blockSettings != null ? component.blockSettings : new List<String>(),
+            'bindings' => bindingRows
+        };
+        if (String.isNotBlank(component.layoutJson)) {
+            try {
+                row.put('layout', JSON.deserializeUntyped(component.layoutJson));
+            } catch (Exception error) {
+                // Keep catalog row without layout when stored JSON is invalid.
+            }
+        }
+        return row;
     }
 
     private static void appendOrphanStudioBlocks(

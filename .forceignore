@@ -19,3 +19,6 @@ force-app/main/default/permissionsets/Resort_Agent.permissionset-meta.xml
 **/__tests__/**
 
 node_modules/
+
+# Agent authoring bundles — CLI metadata type not in this project's API version registry.
+force-app/main/default/aiAuthoringBundles/**

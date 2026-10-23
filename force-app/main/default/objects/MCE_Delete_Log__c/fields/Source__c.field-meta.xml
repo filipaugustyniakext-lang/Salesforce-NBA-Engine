@@ -19,6 +19,21 @@
                 <default>false</default>
                 <label>REST Future</label>
             </value>
+            <value>
+                <fullName>On-Demand Sync</fullName>
+                <default>false</default>
+                <label>On-Demand Sync</label>
+            </value>
+            <value>
+                <fullName>Scheduled Apex Job</fullName>
+                <default>false</default>
+                <label>Scheduled Apex Job</label>
+            </value>
+            <value>
+                <fullName>Copy Center Save</fullName>
+                <default>false</default>
+                <label>Copy Center Save</label>
+            </value>
         </valueSetDefinition>
     </valueSet>
 </CustomField>

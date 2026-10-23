@@ -21,6 +21,18 @@ public with sharing class CopyCockpitModificationService {
         String guid = newMessageVariantGuid();
         record.MessageVariantId__c = guid;
         record.Message_Variant_Id__c = guid;
+        if (record.MessageVariant__c == null && record.Version__c != null) {
+            record.MessageVariant__c = record.Version__c;
+        }
+    }
+
+    private static void ensureMceVariantIds(List<CC_Message_Metadata__c> records) {
+        if (records == null) {
+            return;
+        }
+        for (CC_Message_Metadata__c record : records) {
+            ensureMceVariantId(record);
+        }
     }
 
     private static String newMessageVariantGuid() {
@@ -78,16 +90,14 @@ public with sharing class CopyCockpitModificationService {
         ensureMceVariantId(record);
         stampMetadata(record);
         insert record;
-        MarketingCloudCopySync.scheduleMetadataPush(new Set<Id>{ record.Id });
+        MarketingCloudCopySync.scheduleMetadataPush(new Set<Id>{ record.Id }, 'Create');
     }
 
     public static void insertMetadata(List<CC_Message_Metadata__c> records) {
         if (records == null || records.isEmpty()) {
             return;
         }
-        for (CC_Message_Metadata__c record : records) {
-            ensureMceVariantId(record);
-        }
+        ensureMceVariantIds(records);
         stampMetadata(records);
         insert records;
         Set<Id> ids = new Set<Id>();
@@ -96,16 +106,14 @@ public with sharing class CopyCockpitModificationService {
                 ids.add(record.Id);
             }
         }
-        MarketingCloudCopySync.scheduleMetadataPush(ids);
+        MarketingCloudCopySync.scheduleMetadataPush(ids, 'Create');
     }
 
     public static void updateMetadata(List<CC_Message_Metadata__c> records) {
         if (records == null || records.isEmpty()) {
             return;
         }
-        for (CC_Message_Metadata__c record : records) {
-            ensureMceVariantId(record);
-        }
+        ensureMceVariantIds(records);
         stampMetadata(records);
         update records;
         Set<Id> ids = new Set<Id>();
@@ -114,7 +122,7 @@ public with sharing class CopyCockpitModificationService {
                 ids.add(record.Id);
             }
         }
-        MarketingCloudCopySync.scheduleMetadataPush(ids);
+        MarketingCloudCopySync.scheduleMetadataPush(ids, 'Update');
     }
 
     public static void updateMetadata(CC_Message_Metadata__c record) {

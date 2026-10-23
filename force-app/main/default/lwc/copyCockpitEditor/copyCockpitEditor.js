@@ -10,7 +10,8 @@ import {
     scopePreviewDocument,
     parsePreviewLayoutFromShell,
     previewPanelWidthPx,
-    previewFrameWidthPx
+    previewFrameWidthPx,
+    pinPreviewWidths,
 } from './templatePreview';
 import { parseBlockTemplate, alignLayout } from 'c/contentBindingModel';
 
@@ -1416,7 +1417,7 @@ export default class CopyCockpitEditor extends LightningElement {
             device: this._previewDevice,
             theme: this._previewTheme,
         });
-        pinPreviewWidths(host);
+        pinPreviewWidths(host, { device: this._previewDevice });
         host._previewStamp = stamp;
     }
 
@@ -1452,15 +1453,6 @@ export default class CopyCockpitEditor extends LightningElement {
             })
             .finally(() => { this._renderSourceLoading = false; });
     }
-}
-
-function pinPreviewWidths(root) {
-    root.querySelectorAll('table[width], td[width], th[width]').forEach(el => {
-        if (el.style.width) return;
-        const raw = String(el.getAttribute('width') || '').trim();
-        if (/^\d+$/.test(raw)) el.style.width = `${raw}px`;
-        else if (/^\d+%$/.test(raw)) el.style.width = raw;
-    });
 }
 
 function parseCanvas(raw) {

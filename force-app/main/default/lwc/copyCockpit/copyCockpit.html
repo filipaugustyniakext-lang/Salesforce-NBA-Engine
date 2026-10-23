@@ -263,7 +263,7 @@
                                                     onclick={handleNameCellClick}
                                                     ondblclick={handleGroupNameDblClick}
                                                     data-name={grp.messageName}>
-                                                    <span class="cockpit-msg-name" title="Double-click to edit Message Name, Country Code, and Language">{grp.displayName}</span>
+                                                    <span class="cockpit-msg-name" title="Double-click to open message settings">{grp.displayName}</span>
                                                     <template lwc:if={grp.language}>
                                                         <span class="cockpit-copy-lang">{grp.language}</span>
                                                     </template>
@@ -280,15 +280,6 @@
                                                 <div class="cockpit-col-modified"></div>
                                                 <div class="cockpit-col-spacer" aria-hidden="true"></div>
                                                 <div class="cockpit-col-actions cockpit-col-actions_sticky">
-                                                    <lightning-button-icon 
-                                                        icon-name="utility:insert_template" 
-                                                        variant="border-filled" 
-                                                        onclick={handleMasterChangeSourceTemplate} 
-                                                        alternative-text="Change Source Template" 
-                                                        title="Change Source Template"
-                                                        data-name={grp.messageName}
-                                                        size="small" >    
-                                                    </lightning-button-icon>
                                                     <lightning-button-icon 
                                                         icon-name="utility:settings" 
                                                         variant="border-filled" 
@@ -787,68 +778,69 @@
 
     <!-- Master Row Edit modal -->
     <template lwc:if={isMasterEditOpen}>
-        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="master-edit-title" class="slds-modal slds-fade-in-open slds-modal_large">
-            <div class="slds-modal__container">
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="master-edit-title" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container master-edit-modal-container">
                 <header class="slds-modal__header">
                     <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse" title="Close" onclick={handleMasterEditCancel}>
                         <lightning-icon icon-name="utility:close" size="small" variant="inverse"></lightning-icon>
                     </button>
                     <lightning-icon icon-name="utility:settings" size="small" class="slds-m-right_x-small"></lightning-icon>
-                    <h2 id="master-edit-title" class="slds-modal__title">{masterEditModal.messageName}</h2>
+                    <h2 id="master-edit-title" class="slds-modal__title">Message settings</h2>
+                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">{masterEditModal.messageName}</p>
                 </header>
                 <div class="slds-modal__content slds-p-around_medium">
 
-                    <!-- Product Family + Active Offer -->
+                    <!-- 1. Message Name -->
                     <div class="master-edit-section">
-                        <h3 class="master-edit-section__title">Source Product Family &amp; Offer</h3>
-
-                        <!-- Current offer pill -->
-                        <template lwc:if={masterEditModal.currentOfferName}>
-                            <div class="master-edit-current-offer">
-                                <span class="master-edit-current-offer__label">Current offer:</span>
-                                <span class="master-edit-current-offer__name">{masterEditModal.currentOfferName}</span>
-                            </div>
-                        </template>
-
-                        <!-- Family picker -->
-                        <template lwc:if={masterEditModal.isLoadingFamilies}>
-                            <lightning-spinner size="small" alternative-text="Loading product families..."></lightning-spinner>
-                        </template>
-                        <template lwc:else>
+                        <div class="master-edit-section__head">
+                            <h3 class="master-edit-section__title">Message Name</h3>
+                            <lightning-button-icon
+                                icon-name={masterEditNameLockIcon}
+                                variant="border-filled"
+                                alternative-text={masterEditNameLockTitle}
+                                title={masterEditNameLockTitle}
+                                onclick={handleMasterEditToggleNameLock}
+                                size="small"
+                            ></lightning-button-icon>
+                        </div>
+                        <p class="master-edit-section__desc">
+                            Locale and message name apply to every variant via the shared master reference. Unlock to edit consciously.
+                        </p>
+                        <div class="master-edit-name-row">
+                            <lightning-input
+                                label="Channel Prefix"
+                                value={masterEditModal.channelPrefix}
+                                class="master-edit-field-prefix"
+                                disabled
+                            ></lightning-input>
                             <lightning-combobox
-                                label="Product Family"
-                                placeholder="Select a product family..."
-                                value={masterEditModal.productFamilyId}
-                                options={masterEditFamilyOptions}
-                                onchange={handleMasterEditFamilyChange}
+                                label="Locale"
+                                placeholder="Select locale…"
+                                value={masterEditModal.localeToken}
+                                options={masterEditLocaleOptions}
+                                disabled={masterEditNamingDisabled}
+                                onchange={handleMasterEditLocaleChange}
+                                class="master-edit-field-locale"
                             ></lightning-combobox>
-                        </template>
-
-                        <!-- Offer picker (shown after family selected) -->
-                        <template lwc:if={masterEditModal.productFamilyId}>
-                            <div class="slds-m-top_small">
-                                <template lwc:if={masterEditModal.isLoadingOffers}>
-                                    <lightning-spinner size="small" alternative-text="Loading offers..."></lightning-spinner>
-                                </template>
-                                <template lwc:else>
-                                    <lightning-combobox
-                                        label="Active Offer"
-                                        placeholder="Select an active offer..."
-                                        value={masterEditModal.offerId}
-                                        options={masterEditOfferOptions}
-                                        disabled={masterEditNoOffers}
-                                        onchange={handleMasterEditOfferChange}
-                                    ></lightning-combobox>
-                                    <template lwc:if={masterEditNoOffers}>
-                                        <p class="master-edit-no-offers">No active offers found for this product family.</p>
-                                    </template>
-                                </template>
-                            </div>
+                            <lightning-input
+                                label="Message Name"
+                                value={masterEditModal.messageNamePart}
+                                disabled={masterEditNamingDisabled}
+                                onchange={handleMasterEditMessageNameChange}
+                                class="master-edit-name-part"
+                            ></lightning-input>
+                        </div>
+                        <template lwc:if={masterEditNamingError}>
+                            <div class="slds-text-color_error slds-m-top_x-small slds-text-body_small">{masterEditNamingError}</div>
                         </template>
                     </div>
 
-                    <div class="master-edit-section slds-m-top_large">
+                    <!-- 2. Source Template -->
+                    <div class="master-edit-section">
                         <h3 class="master-edit-section__title">Source Template</h3>
+                        <p class="master-edit-section__desc">
+                            Changing the template here updates every variant in this message. Use bulk actions or variant menus to change selected variants only.
+                        </p>
                         <template lwc:if={masterEditModal.currentSourceTemplateName}>
                             <div class="master-edit-current-offer slds-m-bottom_x-small">
                                 <span class="master-edit-current-offer__label">Current template:</span>
@@ -864,10 +856,57 @@
                                 placeholder="Select a validated template..."
                                 value={masterEditModal.sourceTemplateId}
                                 options={selectableTemplateOptions}
-                                field-level-help="Active, validated templates from Marketing Dictionary → Channels → Templates. Applies to all variants in this master row when you save settings."
+                                field-level-help="Active, validated templates from Marketing Dictionary → Channels → Templates."
                                 onchange={handleMasterEditSourceTemplateChange}
                             ></lightning-combobox>
                         </template>
+                    </div>
+
+                    <!-- 3. Offering -->
+                    <div class="master-edit-section">
+                        <h3 class="master-edit-section__title">Offering</h3>
+                        <template lwc:if={masterEditModal.currentOfferName}>
+                            <div class="master-edit-current-offer">
+                                <span class="master-edit-current-offer__label">Current offer:</span>
+                                <span class="master-edit-current-offer__name">{masterEditModal.currentOfferName}</span>
+                            </div>
+                        </template>
+                        <div class="master-edit-offering-grid">
+                            <div class="master-edit-offering-grid__col">
+                                <template lwc:if={masterEditModal.isLoadingFamilies}>
+                                    <lightning-spinner size="small" alternative-text="Loading product families..."></lightning-spinner>
+                                </template>
+                                <template lwc:else>
+                                    <lightning-combobox
+                                        label="Product Family"
+                                        placeholder="Select a product family..."
+                                        value={masterEditModal.productFamilyId}
+                                        options={masterEditFamilyOptions}
+                                        onchange={handleMasterEditFamilyChange}
+                                    ></lightning-combobox>
+                                </template>
+                            </div>
+                            <div class="master-edit-offering-grid__col">
+                                <template lwc:if={masterEditModal.productFamilyId}>
+                                    <template lwc:if={masterEditModal.isLoadingOffers}>
+                                        <lightning-spinner size="small" alternative-text="Loading offers..."></lightning-spinner>
+                                    </template>
+                                    <template lwc:else>
+                                        <lightning-combobox
+                                            label="Offer Selection"
+                                            placeholder="Optional — select an active offer…"
+                                            value={masterEditModal.offerId}
+                                            options={masterEditOfferOptions}
+                                            disabled={masterEditNoOffers}
+                                            onchange={handleMasterEditOfferChange}
+                                        ></lightning-combobox>
+                                        <template lwc:if={masterEditNoOffers}>
+                                            <p class="master-edit-no-offers">No active offers for this product family.</p>
+                                        </template>
+                                    </template>
+                                </template>
+                            </div>
+                        </div>
                     </div>
 
                 </div>

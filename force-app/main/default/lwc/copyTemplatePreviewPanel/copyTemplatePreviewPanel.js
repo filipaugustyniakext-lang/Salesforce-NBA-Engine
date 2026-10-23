@@ -217,7 +217,8 @@ export default class CopyTemplatePreviewPanel extends LightningElement {
             if (block?.type) merged.set(block.type, block);
         });
         studio.forEach(block => {
-            if (block?.type) merged.set(block.type, block);
+            const key = block?.type || block?.fileName;
+            if (key) merged.set(key, block);
         });
         return { ...this._renderSource, blocks: [...merged.values()] };
     }
@@ -263,7 +264,7 @@ export default class CopyTemplatePreviewPanel extends LightningElement {
             device: this._previewDevice,
             theme: this._previewTheme
         });
-        pinPreviewWidths(host);
+        pinPreviewWidths(host, { device: this._previewDevice });
         host._previewStamp = stamp;
     }
 }

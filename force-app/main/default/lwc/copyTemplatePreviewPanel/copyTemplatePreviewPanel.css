@@ -182,10 +182,3 @@
     overflow-x: hidden;
     overflow-y: auto;
 }
-
-.preview-panel__document .cc-preview table.mobile-full,
-.preview-panel__document .cc-preview table.mobile-full td,
-.preview-panel__document .cc-preview table.mobile-full th {
-    border: 0 !important;
-    outline: none !important;
-}

@@ -360,6 +360,7 @@
                                                             <lightning-button
                                                                 label="Edit"
                                                                 data-type={block.type}
+                                                                data-file-name={block.fileName}
                                                                 onclick={handleEditBlockDefinition}>
                                                             </lightning-button>
                                                             <lightning-button-icon
@@ -369,6 +370,7 @@
                                                                 alternative-text="Delete content block definition"
                                                                 title="Delete content block definition"
                                                                 data-type={block.type}
+                                                                data-file-name={block.fileName}
                                                                 onclick={handleDeleteBlockDefinition}>
                                                             </lightning-button-icon>
                                                         </div>
@@ -388,7 +390,7 @@
                                                         <header class="slds-media slds-media_center slds-has-flexi-truncate">
                                                             <div class="slds-media__body">
                                                                 <h3 class="slds-card__header-title">
-                                                                    <span>New content block definition</span>
+                                                                    <span>{blockDefinitionFormTitle}</span>
                                                                 </h3>
                                                             </div>
                                                         </header>
@@ -510,8 +512,8 @@
                                     <div><dt>Content blocks</dt>
                                         <dd>
                                             <ul class="studio-tile__list">
-                                                <template for:each={summaryBlockNames} for:item="name">
-                                                    <li key={name}>{name}</li>
+                                                <template for:each={summaryBlockEntries} for:item="entry">
+                                                    <li key={entry.key}>{entry.label}</li>
                                                 </template>
                                             </ul>
                                         </dd>

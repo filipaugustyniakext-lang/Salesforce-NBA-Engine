@@ -37,10 +37,57 @@ export function renderTemplatePreview(source, blocks, device) {
 
 const PREVIEW_SCOPE = '.cc-preview';
 
+/**
+ * Outlook conditional comments use nested <!-- … <![endif]--> closers.
+ * A naive strip can match from `<!--[if !mso]><!-->` through the inner `<!--<![endif]-->`
+ * and drop the opening <td>, leaving list text as orphan nodes outside the table.
+ */
+export function normalizeEmailConditionalComments(html) {
+    let result = String(html || '');
+    result = result.replace(/<!--\[if\s+mso[^>]*\]>[\s\S]*?<!\[endif\]-->/gi, '');
+    result = result.replace(/<!--\[if\s+!mso\]><!-->/gi, '');
+    result = result.replace(/<!--<!\[endif\]-->/gi, '');
+    result = result.replace(/<!--\[if\s+!IE\]><!-->/gi, '');
+    result = result.replace(/<!--\[if[^\]]*\]>[\s\S]*?<!\[endif\]-->/gi, '');
+    return result;
+}
+
+/** Shell HTML mobile rules when the preview frame is narrower than SFMC desktop (288px). */
+function mobileShellPreviewCss() {
+    const s = PREVIEW_SCOPE;
+    return `${s}{width:100%!important;max-width:100%!important;box-sizing:border-box!important;overflow-x:hidden!important;}`
+        + `${s} table.mobile-full,${s} table.mobile-full-td{width:100%!important;max-width:100%!important;box-sizing:border-box!important;}`
+        + `${s} table[width="600"],${s} table[style*="width:600px"],${s} table[style*="width: 600px"]{width:100%!important;max-width:100%!important;}`
+        + `${s} .padding-mobile{padding:11px 10px!important;box-sizing:border-box!important;}`
+        + `${s} div[style*="max-width:600px"],${s} div[style*="max-width: 600px"]{max-width:100%!important;width:100%!important;box-sizing:border-box!important;}`
+        + `${s} .padding-mobile div,${s} .padding-mobile a,${s} .padding-mobile p{word-break:break-word!important;overflow-wrap:anywhere!important;white-space:normal!important;}`
+        + `${s} .desktop-img{display:none!important;max-height:0!important;overflow:hidden!important;}`
+        + `${s} .mobile-img{display:block!important;width:100%!important;height:auto!important;max-height:none!important;overflow:visible!important;}`;
+}
+
+function mjColumnPreviewCss(device) {
+    const columns = [
+        ['mj-column-per-100', 100],
+        ['mj-column-per-60', 60],
+        ['mj-column-per-50', 50],
+        ['mj-column-per-40', 40],
+        ['mj-column-per-32', 32],
+        ['mj-column-per-2', 2]
+    ];
+    if (device === 'mobile') {
+        return columns.map(([cls]) => (
+            `${PREVIEW_SCOPE} .${cls}{width:100%!important;max-width:100%!important;}`
+        )).join('');
+    }
+    return columns.map(([cls, pct]) => (
+        `${PREVIEW_SCOPE} .${cls}{width:${pct}%!important;max-width:${pct}%;}`
+    )).join('');
+}
+
 export function scopePreviewDocument(html, options = {}) {
     const device = options.device === 'desktop' ? 'desktop' : 'mobile';
     const theme = options.theme === 'dark' ? 'dark' : 'light';
-    const source = String(html || '').replace(/<!--\[if[\s\S]*?<!\[endif\]-->/gi, '');
+    const source = normalizeEmailConditionalComments(html);
     const styles = [];
     const withoutStyles = source.replace(/<style\b([^>]*)>([\s\S]*?)<\/style>/gi, (match, attrs, css) => {
         const media = /media\s*=\s*(['"])(.*?)\1/i.exec(attrs || '');
@@ -50,12 +97,16 @@ export function scopePreviewDocument(html, options = {}) {
     });
     const bodyMatch = withoutStyles.match(/<body\b[^>]*>([\s\S]*)<\/body>/i);
     const body = previewTokens(bodyMatch ? bodyMatch[1] : withoutStyles).replace(/<custom\b[^>]*\/?>/gi, '');
-    // Page CSS such as `table { width: 100% }` stretches shrink-wrapped email tables,
-    // so an image with width:100% ignores the pixel width on its cell.
-    const guard = `${PREVIEW_SCOPE} table:not([width]):not([style*="width"]){width:max-content !important;max-width:100% !important;margin:0 auto;}`
+    // Shrink-wrap only presentation tables (e.g. image wrappers), not MJML bullet/list tables.
+    const guard = `${PREVIEW_SCOPE} table[role="presentation"]:not([width]):not([style*="width"]){width:max-content !important;max-width:100% !important;margin:0 auto;}`
+        + mjColumnPreviewCss(device)
         + (device === 'desktop'
             ? `${PREVIEW_SCOPE} .desktopHide{display:none !important;}`
-            : `${PREVIEW_SCOPE} .mobileHide{display:none !important;}`);
+            : `${PREVIEW_SCOPE} .mobileHide{display:none !important;}`)
+        + (device === 'mobile'
+            ? mobileShellPreviewCss()
+                + `${PREVIEW_SCOPE} td[style*="direction: rtl"],${PREVIEW_SCOPE} td[style*="direction:rtl"]{direction:ltr!important;text-align:center!important;}`
+            : '');
     return `<div class="cc-preview"><style>${styles.join('\n')}\n${guard}</style>${body}</div>`;
 }
 
@@ -647,9 +698,20 @@ export function buildSamplePreviewBlocks(renderSource) {
     }));
 }
 
-export function pinPreviewWidths(root) {
+export function pinPreviewWidths(root, options = {}) {
     if (!root) return;
+    const mobile = options.device === 'mobile';
     root.querySelectorAll('table[width], td[width], th[width]').forEach(el => {
+        if (mobile) {
+            const table = el.tagName === 'TABLE' ? el : el.closest('table');
+            if (table?.classList?.contains('mobile-full')) {
+                return;
+            }
+            const tableWidth = table?.getAttribute('width');
+            if (tableWidth === '600' || tableWidth === 600) {
+                return;
+            }
+        }
         if (el.style.width) return;
         const raw = String(el.getAttribute('width') || '').trim();
         if (/^\d+$/.test(raw)) el.style.width = `${raw}px`;
