@@ -21,6 +21,7 @@ This bundle includes:
 - Copy Cockpit LWCs (`copyCockpit`, `copyCockpitAddModal`, `copyCockpitEditor`, `copyMessageNaming`)
 - Marketing Dictionary Campaign tab (Locales)
 - `CopyCockpitController` (variant delete → `MarketingCloudCopyDelete.enqueueVariantDeletes`)
+- `CopyCockpitModificationService` (insert/update → `MarketingCloudCopySync.scheduleMetadataPush` for MCE DE upserts)
 - MCE delete Apex, trigger, delete log object, SOAP remote site, permission set field access
 
 ## MCE delete only (hotfix)
@@ -43,7 +44,7 @@ sf project deploy start \
 
 ## Do not
 
-- Deploy **only** `CopyCockpitController` without the MCE delete classes and trigger.
+- Deploy **only** `CopyCockpitController` without `CopyCockpitModificationService`, MCE delete classes, and the trigger.
 - Deploy **only** LWCs when Apex naming or delete behavior changed in the same change set.
 
 ## Refresh manifest from repo
