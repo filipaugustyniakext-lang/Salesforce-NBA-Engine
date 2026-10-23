@@ -37,10 +37,25 @@ export function renderTemplatePreview(source, blocks, device) {
 
 const PREVIEW_SCOPE = '.cc-preview';
 
+/**
+ * Outlook conditional comments use nested <!-- … <![endif]--> closers.
+ * A naive strip can match from `<!--[if !mso]><!-->` through the inner `<!--<![endif]-->`
+ * and drop the opening <td>, leaving list text as orphan nodes outside the table.
+ */
+export function normalizeEmailConditionalComments(html) {
+    let result = String(html || '');
+    result = result.replace(/<!--\[if\s+mso[^>]*\]>[\s\S]*?<!\[endif\]-->/gi, '');
+    result = result.replace(/<!--\[if\s+!mso\]><!-->/gi, '');
+    result = result.replace(/<!--<!\[endif\]-->/gi, '');
+    result = result.replace(/<!--\[if\s+!IE\]><!-->/gi, '');
+    result = result.replace(/<!--\[if[^\]]*\]>[\s\S]*?<!\[endif\]-->/gi, '');
+    return result;
+}
+
 export function scopePreviewDocument(html, options = {}) {
     const device = options.device === 'desktop' ? 'desktop' : 'mobile';
     const theme = options.theme === 'dark' ? 'dark' : 'light';
-    const source = String(html || '').replace(/<!--\[if[\s\S]*?<!\[endif\]-->/gi, '');
+    const source = normalizeEmailConditionalComments(html);
     const styles = [];
     const withoutStyles = source.replace(/<style\b([^>]*)>([\s\S]*?)<\/style>/gi, (match, attrs, css) => {
         const media = /media\s*=\s*(['"])(.*?)\1/i.exec(attrs || '');
