@@ -47,7 +47,7 @@ public with sharing class CopyCockpitModificationService {
         }
         stampMetadata(record);
         insert record;
-        MarketingCloudCopySync.scheduleMetadataPush(new Set<Id>{ record.Id });
+        MarketingCloudCopySync.scheduleMetadataPush(new Set<Id>{ record.Id }, 'Create');
     }
 
     public static void insertMetadata(List<CC_Message_Metadata__c> records) {
@@ -62,7 +62,7 @@ public with sharing class CopyCockpitModificationService {
                 ids.add(record.Id);
             }
         }
-        MarketingCloudCopySync.scheduleMetadataPush(ids);
+        MarketingCloudCopySync.scheduleMetadataPush(ids, 'Create');
     }
 
     public static void updateMetadata(List<CC_Message_Metadata__c> records) {
@@ -77,7 +77,7 @@ public with sharing class CopyCockpitModificationService {
                 ids.add(record.Id);
             }
         }
-        MarketingCloudCopySync.scheduleMetadataPush(ids);
+        MarketingCloudCopySync.scheduleMetadataPush(ids, 'Update');
     }
 
     public static void updateMetadata(CC_Message_Metadata__c record) {

@@ -2164,8 +2164,11 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         const groupRecords = this._messages.filter(m => recordBelongsToMasterGroup(m, stem));
         const first = groupRecords[0] || {};
         const parsed = parseFullName(first.MessageName__c || first.Name || stem);
-        const channelPrefix =
-            parsed.prefix || channelPrefixForType(this.activeChannel?.Channel_Type__c);
+        const channelTypePrefix = channelPrefixForType(this.activeChannel?.Channel_Type__c);
+        let channelPrefix = parsed.prefix || channelTypePrefix;
+        if (channelPrefix && channelPrefix.includes('-')) {
+            channelPrefix = channelTypePrefix;
+        }
         const localeToken =
             formatLocaleToken(parsed.countryCode, parsed.language)
             || parsed.locale

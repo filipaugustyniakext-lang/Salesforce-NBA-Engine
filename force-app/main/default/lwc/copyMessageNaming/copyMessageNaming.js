@@ -160,6 +160,17 @@ function parseHyphenFullName(name) {
     return fromParts(prefix, localeToken, messageName, variant, false, true);
 }
 
+/** Master stem / MessageName__c without variant suffix (PREFIX-locale-MessageName). */
+function parseHyphenMasterStem(name) {
+    const parts = name.split('-');
+    if (parts.length < 4) return null;
+    const prefix = parts[0];
+    const localeToken = `${parts[1]}-${parts[2]}`;
+    const messageName = parts.slice(3).join('-');
+    if (!messageName) return null;
+    return fromParts(prefix, localeToken, messageName, null, false, true);
+}
+
 /**
  * Parse a stored Name into parts.
  * Current: PREFIX-Locale-MessageName-Variant (Locale = cc-LL)
@@ -172,6 +183,8 @@ export function parseFullName(fullName) {
     if (name.includes('-') && !name.includes('_')) {
         const hyphen = parseHyphenFullName(name);
         if (hyphen) return hyphen;
+        const masterStem = parseHyphenMasterStem(name);
+        if (masterStem) return masterStem;
     }
 
     const parts = name.split('_');

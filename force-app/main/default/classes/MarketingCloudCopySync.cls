@@ -42,21 +42,41 @@ public with sharing class MarketingCloudCopySync {
 
     @AuraEnabled
     public static SyncResult syncAllWithMCE(Integer minutesBack) {
+        return syncAllWithMCE(minutesBack, MceDeleteLogService.SOURCE_SCHEDULED);
+    }
+
+    public static SyncResult syncAllWithMCE(Integer minutesBack, String logSource) {
+        String source = String.isNotBlank(logSource)
+            ? logSource
+            : MceDeleteLogService.SOURCE_SCHEDULED;
         try {
             MCE_Settings__mdt settings = loadSettings();
             String token = requestToken(settings);
             Map<String, Object> dataExtension = findDataExtension(settings, token);
-            
-            // Pass the minutesBack parameter to limit the rowset
-            SyncResult result = fetchRows(settings, token, dataExtension, null, minutesBack); 
-            
-            // Initiate the block sync asynchronously, passing the same window
+
+            SyncResult result = fetchRows(settings, token, dataExtension, null, minutesBack);
+
             syncBlocksAsync(null, minutesBack);
-            
+
+            MceDeleteLogService.logInboundSync(source, result, null);
             return result;
         } catch (AuraHandledException ex) {
+            MceDeleteLogService.logFailure(
+                MceDeleteLogService.OP_INBOUND_SYNC,
+                source,
+                null,
+                ex.getMessage(),
+                null
+            );
             throw ex;
         } catch (Exception ex) {
+            MceDeleteLogService.logFailure(
+                MceDeleteLogService.OP_INBOUND_SYNC,
+                source,
+                null,
+                ex.getMessage(),
+                ex.getStackTraceString()
+            );
             throw auraError(ex.getMessage());
         }
     }
@@ -66,8 +86,8 @@ public with sharing class MarketingCloudCopySync {
      */
     @AuraEnabled
     public static SyncResult syncVariantsWithMCE(List<String> messageVariantIds) {
+        List<String> variantIds = normalizeVariantIds(messageVariantIds);
         try {
-            List<String> variantIds = normalizeVariantIds(messageVariantIds);
             if (variantIds.isEmpty()) {
                 throw auraError('Select at least one variant with a Marketing Cloud variant id.');
             }
@@ -103,10 +123,29 @@ public with sharing class MarketingCloudCopySync {
 
             upsertRows(rows, result);
             syncBlocksForVariantsAsync(variantIds);
+            MceDeleteLogService.logInboundSync(
+                MceDeleteLogService.SOURCE_ON_DEMAND,
+                result,
+                variantIds
+            );
             return result;
         } catch (AuraHandledException ex) {
+            MceDeleteLogService.logFailure(
+                MceDeleteLogService.OP_INBOUND_SYNC,
+                MceDeleteLogService.SOURCE_ON_DEMAND,
+                variantIds,
+                ex.getMessage(),
+                null
+            );
             throw ex;
         } catch (Exception ex) {
+            MceDeleteLogService.logFailure(
+                MceDeleteLogService.OP_INBOUND_SYNC,
+                MceDeleteLogService.SOURCE_ON_DEMAND,
+                variantIds,
+                ex.getMessage(),
+                ex.getStackTraceString()
+            );
             throw auraError(ex.getMessage());
         }
     }
@@ -120,17 +159,34 @@ public with sharing class MarketingCloudCopySync {
             MCE_Settings__mdt settings = loadSettings();
             String token = requestToken(settings);
             Map<String, Object> dataExtension = findDataExtension(settings, token);
-            
-            // Pass the parameter from the UI
+
             SyncResult result = fetchRows(settings, token, dataExtension, channel.trim(), minutesBack);
-            
-            // Initiate the block sync asynchronously
+
             syncBlocksAsync(channel.trim(), minutesBack);
-            
+
+            MceDeleteLogService.logInboundSync(
+                MceDeleteLogService.SOURCE_ON_DEMAND,
+                result,
+                null
+            );
             return result;
         } catch (AuraHandledException ex) {
+            MceDeleteLogService.logFailure(
+                MceDeleteLogService.OP_INBOUND_SYNC,
+                MceDeleteLogService.SOURCE_ON_DEMAND,
+                null,
+                ex.getMessage(),
+                null
+            );
             throw ex;
         } catch (Exception ex) {
+            MceDeleteLogService.logFailure(
+                MceDeleteLogService.OP_INBOUND_SYNC,
+                MceDeleteLogService.SOURCE_ON_DEMAND,
+                null,
+                ex.getMessage(),
+                ex.getStackTraceString()
+            );
             throw auraError(ex.getMessage());
         }
     }
@@ -1183,62 +1239,126 @@ public with sharing class MarketingCloudCopySync {
     }
 
     public static void scheduleMetadataPush(Set<Id> metadataIds) {
+        scheduleMetadataPush(metadataIds, 'Update');
+    }
+
+    public static void scheduleMetadataPush(Set<Id> metadataIds, String pushKind) {
         if (metadataIds == null || metadataIds.isEmpty()) {
             return;
         }
+        Map<String, Object> payload = new Map<String, Object>{
+            'ids' => new List<Id>(metadataIds),
+            'kind' => String.isNotBlank(pushKind) ? pushKind : 'Update',
+            'source' => MceDeleteLogService.SOURCE_COPY_CENTER,
+            'target' => 'Metadata'
+        };
         if (System.isFuture() || System.isBatch()) {
-            pushMetadataToMce(new List<Id>(metadataIds));
+            pushMetadataToMce(parsePushIds(payload), (String) payload.get('kind'), (String) payload.get('source'));
             return;
         }
-        pushMetadataToMceFuture(JSON.serialize(new List<Id>(metadataIds)));
+        pushMetadataToMceFuture(JSON.serialize(payload));
     }
 
     public static void scheduleBlockPush(Set<Id> blockIds) {
         if (blockIds == null || blockIds.isEmpty()) {
             return;
         }
+        Map<String, Object> payload = new Map<String, Object>{
+            'ids' => new List<Id>(blockIds),
+            'kind' => 'Update',
+            'source' => MceDeleteLogService.SOURCE_COPY_CENTER,
+            'target' => 'Blocks'
+        };
         if (System.isFuture() || System.isBatch()) {
-            pushBlocksToMce(new List<Id>(blockIds));
+            pushBlocksToMce(parsePushIds(payload), (String) payload.get('kind'), (String) payload.get('source'));
             return;
         }
-        pushBlocksToMceFuture(JSON.serialize(new List<Id>(blockIds)));
+        pushBlocksToMceFuture(JSON.serialize(payload));
+    }
+
+    private static List<Id> parsePushIds(Map<String, Object> payload) {
+        List<Id> ids = new List<Id>();
+        if (payload == null) {
+            return ids;
+        }
+        Object rawIds = payload.get('ids');
+        if (!(rawIds instanceof List<Object>)) {
+            return ids;
+        }
+        for (Object rawId : (List<Object>) rawIds) {
+            if (rawId != null) {
+                ids.add((Id) String.valueOf(rawId));
+            }
+        }
+        return ids;
     }
 
     @future(callout=true)
-    public static void pushMetadataToMceFuture(String metadataIdsJson) {
-        if (String.isBlank(metadataIdsJson)) {
+    public static void pushMetadataToMceFuture(String payloadJson) {
+        if (String.isBlank(payloadJson)) {
             return;
         }
-        List<Object> rawIds = (List<Object>) JSON.deserializeUntyped(metadataIdsJson);
-        List<Id> metadataIds = new List<Id>();
-        for (Object rawId : rawIds) {
-            if (rawId != null) {
-                metadataIds.add((Id) String.valueOf(rawId));
+        Object parsed = JSON.deserializeUntyped(payloadJson);
+        if (parsed instanceof List<Object>) {
+            List<Id> metadataIds = new List<Id>();
+            for (Object rawId : (List<Object>) parsed) {
+                if (rawId != null) {
+                    metadataIds.add((Id) String.valueOf(rawId));
+                }
             }
+            pushMetadataToMce(
+                metadataIds,
+                'Update',
+                MceDeleteLogService.SOURCE_COPY_CENTER
+            );
+            return;
         }
-        pushMetadataToMce(metadataIds);
+        Map<String, Object> payload = (Map<String, Object>) parsed;
+        pushMetadataToMce(
+            parsePushIds(payload),
+            (String) payload.get('kind'),
+            (String) payload.get('source')
+        );
     }
 
     @future(callout=true)
-    public static void pushBlocksToMceFuture(String blockIdsJson) {
-        if (String.isBlank(blockIdsJson)) {
+    public static void pushBlocksToMceFuture(String payloadJson) {
+        if (String.isBlank(payloadJson)) {
             return;
         }
-        List<Object> rawIds = (List<Object>) JSON.deserializeUntyped(blockIdsJson);
-        List<Id> blockIds = new List<Id>();
-        for (Object rawId : rawIds) {
-            if (rawId != null) {
-                blockIds.add((Id) String.valueOf(rawId));
+        Object parsed = JSON.deserializeUntyped(payloadJson);
+        if (parsed instanceof List<Object>) {
+            List<Id> blockIds = new List<Id>();
+            for (Object rawId : (List<Object>) parsed) {
+                if (rawId != null) {
+                    blockIds.add((Id) String.valueOf(rawId));
+                }
             }
+            pushBlocksToMce(
+                blockIds,
+                'Update',
+                MceDeleteLogService.SOURCE_COPY_CENTER
+            );
+            return;
         }
-        pushBlocksToMce(blockIds);
+        Map<String, Object> payload = (Map<String, Object>) parsed;
+        pushBlocksToMce(
+            parsePushIds(payload),
+            (String) payload.get('kind'),
+            (String) payload.get('source')
+        );
     }
 
     @TestVisible
-    private static void pushMetadataToMce(List<Id> metadataIds) {
+    private static void pushMetadataToMce(List<Id> metadataIds, String pushKind, String logSource) {
         if (metadataIds == null || metadataIds.isEmpty()) {
             return;
         }
+        String source = String.isNotBlank(logSource)
+            ? logSource
+            : MceDeleteLogService.SOURCE_COPY_CENTER;
+        String kind = String.isNotBlank(pushKind) ? pushKind : 'Update';
+        List<String> variantKeys = new List<String>();
         try {
             MCE_Settings__mdt settings = loadSettings();
             String token = requestToken(settings);
@@ -1253,25 +1373,57 @@ public with sharing class MarketingCloudCopySync {
             ];
             List<Object> items = new List<Object>();
             for (CC_Message_Metadata__c row : rows) {
+                String variantId = String.isNotBlank(row.MessageVariantId__c)
+                    ? row.MessageVariantId__c.trim()
+                    : (String.isNotBlank(row.Message_Variant_Id__c) ? row.Message_Variant_Id__c.trim() : null);
+                if (String.isNotBlank(variantId)) {
+                    variantKeys.add(variantId);
+                }
                 Map<String, Object> item = buildMetadataPushItem(row);
                 if (item != null) {
                     items.add(item);
                 }
             }
             if (items.isEmpty()) {
+                MceDeleteLogService.logFailure(
+                    MceDeleteLogService.OP_OUTBOUND_PUSH,
+                    source,
+                    variantKeys,
+                    'Metadata push skipped — no rows with MessageVariantId.',
+                    null
+                );
                 return;
             }
             pushAsyncDataExtensionRows(settings, token, settings.Data_Extension_Key__c, items);
+            MceDeleteLogService.logSuccess(
+                MceDeleteLogService.OP_OUTBOUND_PUSH,
+                source,
+                variantKeys,
+                'Outbound metadata push (' + kind + '): ' + items.size() + ' row(s) to CC_Message_Metadata DE.',
+                null
+            );
         } catch (Exception ex) {
+            MceDeleteLogService.logFailure(
+                MceDeleteLogService.OP_OUTBOUND_PUSH,
+                source,
+                variantKeys,
+                'Metadata push failed (' + kind + '): ' + ex.getMessage(),
+                ex.getStackTraceString()
+            );
             System.debug(LoggingLevel.WARN, 'MCE metadata push failed: ' + ex.getMessage());
         }
     }
 
     @TestVisible
-    private static void pushBlocksToMce(List<Id> blockIds) {
+    private static void pushBlocksToMce(List<Id> blockIds, String pushKind, String logSource) {
         if (blockIds == null || blockIds.isEmpty()) {
             return;
         }
+        String source = String.isNotBlank(logSource)
+            ? logSource
+            : MceDeleteLogService.SOURCE_COPY_CENTER;
+        String kind = String.isNotBlank(pushKind) ? pushKind : 'Update';
+        List<String> variantKeys = new List<String>();
         try {
             MCE_Settings__mdt settings = loadSettings();
             String token = requestToken(settings);
@@ -1284,17 +1436,46 @@ public with sharing class MarketingCloudCopySync {
                 WHERE Id IN :blockIds
             ];
             List<Object> items = new List<Object>();
+            Set<String> seenVariants = new Set<String>();
             for (CC_Message_Blocks_All__c row : rows) {
+                if (String.isNotBlank(row.MessageVariantId__c)) {
+                    String key = row.MessageVariantId__c.trim();
+                    if (!seenVariants.contains(key)) {
+                        seenVariants.add(key);
+                        variantKeys.add(key);
+                    }
+                }
                 Map<String, Object> item = buildBlockPushItem(row);
                 if (item != null) {
                     items.add(item);
                 }
             }
             if (items.isEmpty()) {
+                MceDeleteLogService.logFailure(
+                    MceDeleteLogService.OP_OUTBOUND_PUSH,
+                    source,
+                    variantKeys,
+                    'Block push skipped — no valid block rows.',
+                    null
+                );
                 return;
             }
             pushAsyncDataExtensionRows(settings, token, BLOCKS_DATA_EXTENSION_KEY, items);
+            MceDeleteLogService.logSuccess(
+                MceDeleteLogService.OP_OUTBOUND_PUSH,
+                source,
+                variantKeys,
+                'Outbound block push (' + kind + '): ' + items.size() + ' row(s) to CC_Message_Blocks_All DE.',
+                null
+            );
         } catch (Exception ex) {
+            MceDeleteLogService.logFailure(
+                MceDeleteLogService.OP_OUTBOUND_PUSH,
+                source,
+                variantKeys,
+                'Block push failed (' + kind + '): ' + ex.getMessage(),
+                ex.getStackTraceString()
+            );
             System.debug(LoggingLevel.WARN, 'MCE block push failed: ' + ex.getMessage());
         }
     }
