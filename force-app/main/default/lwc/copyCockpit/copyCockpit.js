@@ -343,9 +343,7 @@ function buildGroups(
     versionCounts,
     editingWeightId,
     isSyncingMCE = false,
-    quickActionMenuOpenId = null,
-    syncingVariantIds = null,
-    statusPickerOpenId = null
+    syncingVariantIds = null
 ) {
     const map = new Map();
     for (const r of records) {
@@ -410,9 +408,7 @@ function buildGroups(
                 isSelected,
                 checkboxLabel:      `Select ${v.Name || 'variant'}`,
                 isVariantSyncing:   !!(syncingVariantIds && syncingVariantIds[v.Id]),
-                variantRowClass:    `cockpit-variant-row${isSelected ? ' cockpit-variant-row_selected' : ''}${
-                    quickActionMenuOpenId === v.Id ? ' cockpit-variant-row_menu-open' : ''
-                }${statusPickerOpenId === v.Id ? ' cockpit-variant-row_status-open' : ''}`,
+                variantRowClass:    `cockpit-variant-row${isSelected ? ' cockpit-variant-row_selected' : ''}`,
                 sourceTemplateBadge: v.Source_Template__r?.Name || null,
                 canChangeSourceTemplate: (v.Status__c || '').toLowerCase() !== 'published',
                 sourceTemplateButtonDisabled: (v.Status__c || '').toLowerCase() === 'published',
@@ -525,11 +521,8 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
 
     @track _editorRecordId = null;
     @track _editorOpenScheduleIntent = null;
-    @track _quickActionMenuOpenId = null;
     /** Record ids currently syncing from MCE (per-row spinners). */
     @track _syncingVariantIds = {};
-    @track _statusPickerOpenId = null;
-    _statusPickerCloseTimer;
 
     get isEditorOpen() { return !!this._editorRecordId; }
     get editorOpenScheduleIntent() { return this._editorOpenScheduleIntent; }
@@ -672,10 +665,13 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             this._versionCounts,
             this._editingWeightId,
             this.isSyncingMCE,
-            this._quickActionMenuOpenId,
             this._syncingVariantIds,
-            this._statusPickerOpenId,
         );
+    }
+
+    _clearVariantRowElevations() {
+        this.template.querySelectorAll('.cockpit-variant-row_menu-open, .cockpit-variant-row_status-open')
+            .forEach(row => row.classList.remove('cockpit-variant-row_menu-open', 'cockpit-variant-row_status-open'));
     }
 
     get weightEditValue() {
@@ -1098,40 +1094,25 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             });
     }
 
+    handleListPointerDown(event) {
+        if (!event.target.closest('.cockpit-status-picker') && !event.target.closest('.cockpit-quick-action-menu')) {
+            this._clearVariantRowElevations();
+        }
+    }
+
     handleStatusPickerClick(event) {
         event.stopPropagation();
     }
 
     handleStatusPickerMouseDown(event) {
         event.stopPropagation();
-        this._clearStatusPickerCloseTimer();
-        this._statusPickerOpenId = event.currentTarget.dataset.id || null;
-    }
-
-    handleStatusPickerFocusOut(event) {
-        const id = event.currentTarget.dataset.id;
-        this._clearStatusPickerCloseTimer();
-        // Delay so portaled dropdown option clicks still register before we drop z-index.
-        // eslint-disable-next-line @lwc/lwc/no-async-operation
-        this._statusPickerCloseTimer = window.setTimeout(() => {
-            if (this._statusPickerOpenId === id) {
-                this._statusPickerOpenId = null;
-            }
-            this._statusPickerCloseTimer = null;
-        }, 300);
-    }
-
-    _clearStatusPickerCloseTimer() {
-        if (this._statusPickerCloseTimer) {
-            window.clearTimeout(this._statusPickerCloseTimer);
-            this._statusPickerCloseTimer = null;
-        }
+        this._clearVariantRowElevations();
+        event.currentTarget.closest('.cockpit-variant-row')?.classList.add('cockpit-variant-row_status-open');
     }
 
     handleVariantStatusChange(event) {
         event.stopPropagation();
-        this._clearStatusPickerCloseTimer();
-        this._statusPickerOpenId = null;
+        this._clearVariantRowElevations();
         const recordId = event.currentTarget.dataset.id
             || event.target?.dataset?.id
             || event.target?.closest?.('[data-id]')?.dataset?.id;
@@ -1569,19 +1550,19 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         const value = event.detail.value || '';
         const sep = value.indexOf(':');
         if (sep < 0) return;
-        this._quickActionMenuOpenId = null;
+        this._clearVariantRowElevations();
         this._runVariantQuickAction(value.substring(0, sep), value.substring(sep + 1));
     }
 
     handleVariantMenuOpen(event) {
         event.stopPropagation();
-        const id = event.currentTarget?.dataset?.variantId;
-        this._quickActionMenuOpenId = id || null;
+        this._clearVariantRowElevations();
+        event.currentTarget?.closest('.cockpit-variant-row')?.classList.add('cockpit-variant-row_menu-open');
     }
 
     handleVariantMenuClose(event) {
         event.stopPropagation();
-        this._quickActionMenuOpenId = null;
+        event.currentTarget?.closest('.cockpit-variant-row')?.classList.remove('cockpit-variant-row_menu-open');
     }
 
     _runVariantQuickAction(action, recordId) {

@@ -184,7 +184,7 @@
                         <!-- Message groups -->
                         <template lwc:elseif={hasGroups}>
                             <div class="cockpit-list-region">
-                            <div class="cockpit-list" style={columnWidthStyle} role="list">
+                            <div class="cockpit-list" style={columnWidthStyle} role="list" onmousedown={handleListPointerDown}>
 
                                 <!-- Column header -->
                                 <div class="cockpit-list-header">
@@ -313,7 +313,7 @@
                                         <template lwc:if={grp.isExpanded}>
                                             <div class="cockpit-variants">
                                                 <template for:each={grp.variants} for:item="v">
-                                                    <div key={v.Id} class={v.variantRowClass}>
+                                                    <div key={v.Id} class={v.variantRowClass} data-variant-row-id={v.Id}>
 
                                                         <!-- Checkbox -->
                                                         <div class="cockpit-col-check" onclick={handleCheckboxClick}>
@@ -368,8 +368,7 @@
                                                                 class={v.statusPickerClass}
                                                                 data-id={v.Id}
                                                                 onclick={handleStatusPickerClick}
-                                                                onmousedown={handleStatusPickerMouseDown}
-                                                                onfocusout={handleStatusPickerFocusOut}>
+                                                                onmousedown={handleStatusPickerMouseDown}>
                                                                 <lightning-combobox
                                                                     value={v.Status__c}
                                                                     options={v.variantStatusOptions}

@@ -461,7 +461,6 @@
     padding: 0 0 0 0.5rem;
     border-bottom: 1px solid #f3f2f2;
     min-height: 38px;
-    transition: background 0.1s;
 }
 
 .cockpit-variant-row:last-child { border-bottom: none; }
@@ -751,10 +750,9 @@ button.cockpit-template-action:disabled lightning-icon {
     font-weight: 700;
     line-height: 1.25;
     white-space: nowrap;
-    border-width: var(--slds-c-badge-sizing-border, var(--slds-g-sizing-border-1));
-    border-style: solid;
-    border-color: var(--slds-c-badge-color-border, transparent);
+    border: none;
     border-radius: var(--slds-c-badge-radius-border, var(--slds-g-radius-border-1));
+    cursor: pointer;
 }
 
 .cockpit-status-picker .fix-slds-input_faux {
@@ -784,6 +782,11 @@ button.cockpit-template-action:disabled lightning-icon {
     background-color: var(--slds-g-color-palette-neutral-95)
 }
 
+.cockpit-status-picker--inactive {
+    color: var(--slds-g-color-palette-orange-15);
+    background-color: var(--slds-g-color-palette-orange-90);
+}
+
 .cockpit-variant-status-combobox {
     min-width: 5.5rem;
     max-width: 7rem;
@@ -792,11 +795,14 @@ button.cockpit-template-action:disabled lightning-icon {
 .cockpit-status-picker .cockpit-variant-status-combobox {
     --lwc-heightInput: 1.25rem;
     --slds-c-input-color-border: transparent;
+    --slds-c-input-color-border-hover: transparent;
+    --slds-c-input-color-border-focus: transparent;
     --slds-c-input-shadow: none;
     --slds-c-input-shadow-focus: none;
-    --slds-c-input-color-border-focus: transparent;
     --slds-c-input-color-background: transparent;
     --slds-c-input-color-background-focus: transparent;
+    --slds-c-input-color-background-hover: transparent;
+    --slds-c-input-outline-focus: 0;
     --slds-c-input-spacing-horizontal-start: 0;
     --slds-c-input-spacing-horizontal-end: 0.15rem;
     --slds-c-input-spacing-block-start: 0;
