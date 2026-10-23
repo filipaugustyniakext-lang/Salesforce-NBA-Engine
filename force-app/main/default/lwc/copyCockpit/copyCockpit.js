@@ -544,6 +544,23 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         if (this._wiredChannels) {
             refreshApex(this._wiredChannels);
         }
+        this._documentPointerDownHandler = (event) => {
+            if (this.isEditorOpen) {
+                return;
+            }
+            if (this._isPointerInsideVariantMenuUi(event.target)) {
+                return;
+            }
+            this._closeAllVariantButtonMenus();
+        };
+        document.addEventListener('mousedown', this._documentPointerDownHandler, true);
+    }
+
+    disconnectedCallback() {
+        if (this._documentPointerDownHandler) {
+            document.removeEventListener('mousedown', this._documentPointerDownHandler, true);
+            this._documentPointerDownHandler = null;
+        }
     }
 
     @wire(CurrentPageReference)
@@ -681,6 +698,41 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     _clearVariantRowElevations() {
         this.template.querySelectorAll('.cockpit-variant-row_menu-open, .cockpit-variant-row_status-open')
             .forEach(row => row.classList.remove('cockpit-variant-row_menu-open', 'cockpit-variant-row_status-open'));
+    }
+
+    _isPointerInsideVariantMenuUi(target) {
+        if (!target || typeof target.closest !== 'function') {
+            return false;
+        }
+        return !!target.closest(
+            '.cockpit-status-picker, .cockpit-status-menu, .cockpit-quick-action-menu, .slds-dropdown, .slds-popover'
+        );
+    }
+
+    _dismissButtonMenu(menu) {
+        if (!menu) {
+            return;
+        }
+        menu.blur();
+        menu.dispatchEvent(new KeyboardEvent('keydown', {
+            key: 'Escape',
+            code: 'Escape',
+            keyCode: 27,
+            bubbles: true,
+            composed: true,
+        }));
+    }
+
+    _closeAllVariantButtonMenus(exceptMenu = null) {
+        this.template.querySelectorAll('lightning-button-menu').forEach(menu => {
+            if (exceptMenu && menu === exceptMenu) {
+                return;
+            }
+            this._dismissButtonMenu(menu);
+        });
+        if (!exceptMenu) {
+            this._clearVariantRowElevations();
+        }
     }
 
     get weightEditValue() {
@@ -1103,22 +1155,17 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             });
     }
 
-    handleListPointerDown(event) {
-        if (!event.target.closest('.cockpit-status-picker')
-            && !event.target.closest('.cockpit-status-menu')
-            && !event.target.closest('.cockpit-quick-action-menu')) {
-            this._clearVariantRowElevations();
-        }
-    }
-
     handleStatusPickerClick(event) {
         event.stopPropagation();
     }
 
     handleStatusMenuOpen(event) {
         event.stopPropagation();
-        this._clearVariantRowElevations();
-        event.currentTarget.closest('.cockpit-variant-row')?.classList.add('cockpit-variant-row_status-open');
+        const menu = event.currentTarget;
+        const row = menu.closest('.cockpit-variant-row');
+        this._closeAllVariantButtonMenus(menu);
+        row?.classList.remove('cockpit-variant-row_menu-open');
+        row?.classList.add('cockpit-variant-row_status-open');
     }
 
     handleStatusMenuClose(event) {
@@ -1576,8 +1623,11 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
 
     handleVariantMenuOpen(event) {
         event.stopPropagation();
-        this._clearVariantRowElevations();
-        event.currentTarget?.closest('.cockpit-variant-row')?.classList.add('cockpit-variant-row_menu-open');
+        const menu = event.currentTarget;
+        const row = menu.closest('.cockpit-variant-row');
+        this._closeAllVariantButtonMenus(menu);
+        row?.classList.remove('cockpit-variant-row_status-open');
+        row?.classList.add('cockpit-variant-row_menu-open');
     }
 
     handleVariantMenuClose(event) {

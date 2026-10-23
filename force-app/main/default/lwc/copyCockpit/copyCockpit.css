@@ -298,15 +298,12 @@
     z-index: 3;
 }
 
-.cockpit-variant-row:focus-within .cockpit-status-cell,
-.cockpit-variant-row_menu-open .cockpit-status-cell,
 .cockpit-variant-row_status-open .cockpit-status-cell {
     z-index: 110;
 }
 
-.cockpit-status-cell .cockpit-variant-status-combobox {
-    flex: 1 1 auto;
-    min-width: 0;
+.cockpit-variant-row_menu-open .cockpit-col-actions_sticky {
+    z-index: 111;
 }
 .cockpit-col-modified { min-width: 0; max-width: var(--col-modified); overflow: hidden; }
 .cockpit-col-spacer { min-width: 0; }
@@ -474,17 +471,10 @@
     background: #dceefa;
 }
 
-.cockpit-variant-row:focus-within,
 .cockpit-variant-row_menu-open,
 .cockpit-variant-row_status-open {
     z-index: 100;
     isolation: isolate;
-}
-
-.cockpit-variant-row:focus-within .cockpit-col-actions_sticky,
-.cockpit-variant-row_menu-open .cockpit-col-actions_sticky,
-.cockpit-variant-row_status-open .cockpit-col-actions_sticky {
-    z-index: 101;
 }
 
 .cockpit-variant-row_status-open:hover {
