@@ -4,6 +4,7 @@
     <template lwc:if={isEditorOpen}>
         <c-copy-cockpit-editor
             record-id={_editorRecordId}
+            open-schedule-intent={editorOpenScheduleIntent}
             onback={handleEditorBack}
         ></c-copy-cockpit-editor>
     </template>
@@ -424,36 +425,30 @@
                                                         <div class="cockpit-col-spacer" aria-hidden="true"></div>
 
                                                         <div class="cockpit-col-actions cockpit-col-actions_sticky cockpit-variant-actions">
-                                                            <template for:each={v.primaryQuickActions} for:item="act">
-                                                                <button
-                                                                    key={act.key}
-                                                                    type="button"
-                                                                    class="slds-button slds-button_icon slds-button_icon-border slds-button_icon-small cockpit-quick-action"
-                                                                    title={act.title}
-                                                                    data-id={v.Id}
-                                                                    data-action={act.key}
-                                                                    disabled={act.isDisabled}
-                                                                    onclick={handleVariantQuickAction}>
-                                                                    <lightning-icon icon-name={act.icon} size="xx-small" alternative-text={act.title}></lightning-icon>
-                                                                </button>
-                                                            </template>
-                                                            <template lwc:if={v.hasOverflowQuickActions}>
-                                                                <lightning-button-menu
-                                                                    alternative-text="More actions"
-                                                                    icon-size="x-small"
-                                                                    menu-alignment="right"
-                                                                    class="cockpit-quick-action-menu"
-                                                                    onselect={handleVariantOverflowAction}>
-                                                                    <template for:each={v.overflowQuickActions} for:item="act">
-                                                                        <lightning-menu-item
-                                                                            key={act.menuValue}
-                                                                            value={act.menuValue}
-                                                                            label={act.title}
-                                                                            disabled={act.isDisabled}>
-                                                                        </lightning-menu-item>
+                                                            <lightning-button-menu
+                                                                alternative-text="Variant actions"
+                                                                icon-size="x-small"
+                                                                menu-alignment="right"
+                                                                variant="border-filled"
+                                                                class="cockpit-quick-action-menu"
+                                                                onselect={handleVariantOverflowAction}>
+                                                                <template for:each={v.variantQuickActionMenuItems} for:item="act">
+                                                                    <template lwc:if={act.prefixDivider}>
+                                                                        <lightning-menu-divider
+                                                                            key={act.menuValueDividerKey}>
+                                                                        </lightning-menu-divider>
                                                                     </template>
-                                                                </lightning-button-menu>
-                                                            </template>
+                                                                    <lightning-menu-item
+                                                                        key={act.menuValue}
+                                                                        value={act.menuValue}
+                                                                        label={act.title}
+                                                                        prefix-icon-name={act.icon}
+                                                                        disabled={act.isDisabled}
+                                                                        class={act.menuItemClass}
+                                                                        variant={act.menuItemVariant}>
+                                                                    </lightning-menu-item>
+                                                                </template>
+                                                            </lightning-button-menu>
                                                         </div>
 
                                                     </div>
@@ -640,6 +635,38 @@
                         <lightning-button label="Incremental (Last 15 Mins)" onclick={handleSyncPartialConfirm} class="slds-m-right_x-small"></lightning-button>
                         <lightning-button label="Confirm Full Sync" variant="brand" onclick={handleSyncFullConfirm}></lightning-button>
                     </div>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+    <!-- Clone as new message -->
+    <template lwc:if={isCloneMessageModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="clone-message-modal-title" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header">
+                    <lightning-icon icon-name="utility:copy" size="small" class="slds-m-right_x-small"></lightning-icon>
+                    <h2 id="clone-message-modal-title" class="slds-modal__title">Clone as new Message</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <p class="slds-m-bottom_small">
+                        Create a new message (variant 1) from <strong>{cloneSourceName}</strong>.
+                    </p>
+                    <lightning-input
+                        label="Message name"
+                        value={cloneMessageNamePart}
+                        required
+                        onchange={handleCloneMessageNameChange}>
+                    </lightning-input>
+                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">
+                        New record: <strong>{cloneMessageProposedName}</strong>, status Draft.
+                    </p>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={handleCloneMessageCancel} class="slds-m-right_x-small" disabled={isCloning}></lightning-button>
+                    <lightning-button label="Create Copy" onclick={handleCloneMessageConfirm} class="slds-m-right_x-small" disabled={isCloning}></lightning-button>
+                    <lightning-button label="Create Copy &amp; Open Editor" variant="brand" onclick={handleCloneMessageConfirmAndEdit} disabled={isCloning}></lightning-button>
                 </footer>
             </div>
         </section>

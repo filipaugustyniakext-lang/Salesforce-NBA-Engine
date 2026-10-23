@@ -206,6 +206,19 @@ export default class CopyCockpitEditor extends LightningElement {
 
     @api recordId = null;
 
+    _openScheduleIntent = null;
+    _scheduleIntentConsumed = false;
+
+    @api
+    get openScheduleIntent() {
+        return this._openScheduleIntent;
+    }
+    set openScheduleIntent(value) {
+        this._openScheduleIntent = value || null;
+        this._scheduleIntentConsumed = false;
+        this._tryOpenScheduleIntent();
+    }
+
     @wire(CurrentPageReference)
     _pageRef(ref) {
         this._isStandalonePage = ref?.type === 'standard__navItemPage';
@@ -408,7 +421,7 @@ export default class CopyCockpitEditor extends LightningElement {
 
     get scheduleActionOptions() {
         const status = (this._record?.Status__c || 'Draft').toLowerCase();
-        if (status === 'active') {
+        if (status === 'active' || status === 'published') {
             return [
                 { value: 'updates',      label: 'Schedule Message Updates',      selected: this._scheduleAction === 'updates' },
                 { value: 'deactivation', label: 'Schedule Message Deactivation', selected: this._scheduleAction === 'deactivation' },
@@ -821,7 +834,7 @@ export default class CopyCockpitEditor extends LightningElement {
     handleScheduleConfirm() {
         const status = (this._record?.Status__c || 'Draft').toLowerCase();
         let newStatus;
-        if (status === 'active') {
+        if (status === 'active' || status === 'published') {
             newStatus            = 'Active Scheduled';
             this._scheduleIntent = this._scheduleAction; // 'updates' or 'deactivation'
         } else {
@@ -1316,6 +1329,19 @@ export default class CopyCockpitEditor extends LightningElement {
 
     // ── private ───────────────────────────────────────────────────────────────
 
+    _tryOpenScheduleIntent() {
+        if (this._scheduleIntentConsumed || !this._openScheduleIntent || !this._record || this._isLoading) {
+            return;
+        }
+        this._scheduleIntentConsumed = true;
+        this.handleToolbarSchedule();
+        if (this._openScheduleIntent === 'unpublishing') {
+            this._scheduleAction = 'deactivation';
+        } else if (this._openScheduleIntent === 'publication') {
+            this._scheduleAction = 'activation';
+        }
+    }
+
     _loadRecord() {
         if (!this.recordId) {
             this._isLoading = false;
@@ -1330,6 +1356,7 @@ export default class CopyCockpitEditor extends LightningElement {
                 this._canvasBlocks = parseCanvas(rec?.Canvas_Blocks_JSON__c);
                 this._isLoading = false;
                 this._loadRenderSource();
+                this._tryOpenScheduleIntent();
             })
             .catch(err => {
                 this._hasError = true;

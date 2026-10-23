@@ -302,34 +302,37 @@ function buildScheduleBadge(record) {
 }
 
 function buildVariantQuickActions(v, isSyncingMCE = false) {
-    const ordered = [
+    const isPublished = (v.Status__c || '').toLowerCase() === 'published';
+    const items = [
         { key: 'edit', title: 'Edit', icon: 'utility:edit' },
-        { key: 'clone', title: 'Clone variant', icon: 'utility:copy' },
-        { key: 'delete', title: 'Delete variant', icon: 'utility:delete' },
+        { key: 'clone', title: 'Clone as new Variant', icon: 'utility:copy' },
+        { key: 'clone-message', title: 'Clone as new Message', icon: 'utility:copy' },
+        {
+            key: 'sync',
+            title: 'Sync with MCE',
+            icon: 'utility:sync',
+            isDisabled: isSyncingMCE || !v.canSyncFromMCE,
+        },
+        isPublished
+            ? { key: 'schedule-unpublish', title: 'Schedule Unpublishing', icon: 'utility:date_input' }
+            : { key: 'schedule-publish', title: 'Schedule Publication', icon: 'utility:date_input' },
+        {
+            key: 'delete',
+            title: 'Delete',
+            icon: 'utility:delete',
+            isDestructive: true,
+            prefixDivider: true,
+        },
     ];
-    if (v.canSyncFromMCE) {
-        ordered.splice(2, 0, { key: 'sync', title: 'Sync from MCE', icon: 'utility:sync' });
-    }
-    ordered.push({
-        key: 'template',
-        title: v.sourceTemplateButtonTitle || 'Change Source Template',
-        icon: 'utility:insert_template',
-        disabled: v.sourceTemplateButtonDisabled === true,
-    });
-    const withDisabled = ordered.map(a => ({
-        ...a,
-        isDisabled: a.key === 'sync' ? isSyncingMCE : !!a.disabled,
-    }));
-    const primaryQuickActions = withDisabled.slice(0, 3);
-    const overflowQuickActions = withDisabled.slice(3).map(a => ({
+    const variantQuickActionMenuItems = items.map(a => ({
         ...a,
         menuValue: `${a.key}:${v.Id}`,
+        menuValueDividerKey: `${a.key}:${v.Id}:divider`,
+        isDisabled: !!a.isDisabled,
+        menuItemClass: a.isDestructive ? 'cockpit-menu-item_destructive' : '',
+        menuItemVariant: a.isDestructive ? 'destructive' : '',
     }));
-    return {
-        primaryQuickActions,
-        overflowQuickActions,
-        hasOverflowQuickActions: overflowQuickActions.length > 0,
-    };
+    return { variantQuickActionMenuItems };
 }
 
 function buildGroups(records, expandedSet, editingGroupName, selectedIds, versionCounts, editingWeightId, isSyncingMCE = false) {
@@ -387,12 +390,8 @@ function buildGroups(records, expandedSet, editingGroupName, selectedIds, versio
                     : 'Variant',
                 ...buildVariantQuickActions({
                     Id: v.Id,
+                    Status__c: v.Status__c,
                     canSyncFromMCE: !!mceVariantKey,
-                    sourceTemplateButtonDisabled: (v.Status__c || '').toLowerCase() === 'published',
-                    sourceTemplateButtonTitle:
-                        (v.Status__c || '').toLowerCase() === 'published'
-                            ? 'Published variants must be set to Inactive before changing the source template'
-                            : 'Change Source Template',
                 }, isSyncingMCE),
                 versionCount:       versionCounts?.[v.Id] || null,
                 lastModifiedFmt:    fmtDateTime(v.MCE_Updated_At__c || v.LastModifiedDate),
@@ -487,6 +486,8 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     @track _columnWidths = { ...COLUMN_WIDTH_DEFAULTS };
 
     @track isCloneModalOpen = false;
+    @track isCloneMessageModalOpen = false;
+    @track cloneMessageNamePart = '';
     @track isCloning = false;
     cloneSourceId = null;
     cloneMasterStem = '';
@@ -509,8 +510,10 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     _focusWeightInput = false;
 
     @track _editorRecordId = null;
+    @track _editorOpenScheduleIntent = null;
 
     get isEditorOpen() { return !!this._editorRecordId; }
+    get editorOpenScheduleIntent() { return this._editorOpenScheduleIntent; }
 
     _firstChannelSeeded = false;
     _pageRefSeeded = false;
@@ -525,9 +528,11 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     @wire(CurrentPageReference)
     _onPageRef(ref) {
         const id = ref?.state?.c__editId;
+        const schedule = ref?.state?.c__schedule;
         if (id && !this._pageRefSeeded) {
             this._pageRefSeeded = true;
             this._editorRecordId = id;
+            this._editorOpenScheduleIntent = schedule || null;
         }
     }
 
@@ -728,6 +733,19 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         const stem = this.cloneMasterStem || masterGroupKey({ Name: this.cloneSourceName });
         const v = this.cloneProposedVersion;
         return stem && v != null ? `${stem}_${v}` : (this.cloneSourceName || '');
+    }
+
+    get cloneMessageProposedName() {
+        const row = this._messageRecordById(this.cloneSourceId);
+        if (!row) return '';
+        const parsed = parseFullName(row.Name);
+        const stem = composeStem(
+            parsed.prefix,
+            parsed.countryCode,
+            parsed.language,
+            this.cloneMessageNamePart
+        );
+        return stem ? `${stem}_1` : '';
     }
 
     get expandAllLabel() { return this._allExpanded ? 'Collapse all' : 'Expand all'; }
@@ -1521,6 +1539,24 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
                 this.isCloneModalOpen = true;
                 break;
             }
+            case 'clone-message': {
+                const row = this._messageRecordById(recordId);
+                if (!row) return;
+                const parsed = parseFullName(row.Name);
+                this.cloneSourceId = recordId;
+                this.cloneSourceName = row.Name;
+                this.cloneMessageNamePart = parsed.messageName
+                    ? `${parsed.messageName}_Copy`
+                    : 'Copy';
+                this.isCloneMessageModalOpen = true;
+                break;
+            }
+            case 'schedule-unpublish':
+                this._openEditor(recordId, 'unpublishing');
+                break;
+            case 'schedule-publish':
+                this._openEditor(recordId, 'publication');
+                break;
             case 'delete':
                 this.handleDeletePrompt({
                     stopPropagation: () => {},
@@ -1775,6 +1811,22 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
 
     handleCloneConfirmAndEdit() {
         this._doClone(true);
+    }
+
+    handleCloneMessageCancel() {
+        this._resetCloneMessage();
+    }
+
+    handleCloneMessageNameChange(e) {
+        this.cloneMessageNamePart = e.target.value;
+    }
+
+    handleCloneMessageConfirm() {
+        this._doCloneMessage(false);
+    }
+
+    handleCloneMessageConfirmAndEdit() {
+        this._doCloneMessage(true);
     }
 
     handleDeletePrompt(e) {
@@ -2230,17 +2282,61 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         this.cloneProposedVersion = null;
     }
 
-    _openEditor(recordId) {
+    _resetCloneMessage() {
+        this.isCloneMessageModalOpen = false;
+        this.isCloning = false;
+        this.cloneSourceId = null;
+        this.cloneSourceName = '';
+        this.cloneMessageNamePart = '';
+    }
+
+    _doCloneMessage(openEditor) {
+        const sourceId = this.cloneSourceId;
+        const row = this._messageRecordById(sourceId);
+        if (!sourceId || !row) return;
+        const parsed = parseFullName(row.Name);
+        const masterStem = composeStem(
+            parsed.prefix,
+            parsed.countryCode,
+            parsed.language,
+            this.cloneMessageNamePart
+        );
+        if (!masterStem) {
+            this._showToast('Error', 'Enter a valid message name.', 'error');
+            return;
+        }
+        this.isCloning = true;
+        cloneMessage({ sourceId, newVersion: 1, masterStem })
+            .then(newId => {
+                this._showToast('Created', `"${this.cloneMessageProposedName}" saved as draft.`, 'success');
+                this._reloadActiveChannelMessages();
+                if (openEditor) this._openEditor(newId);
+            })
+            .catch(err => {
+                this._showToast('Error', err?.body?.message || 'Clone failed.', 'error');
+            })
+            .finally(() => {
+                this._resetCloneMessage();
+            });
+    }
+
+    _openEditor(recordId, scheduleIntent = null) {
+        this._editorOpenScheduleIntent = scheduleIntent;
         this._editorRecordId = recordId;
+        const state = { c__editId: recordId };
+        if (scheduleIntent) {
+            state.c__schedule = scheduleIntent;
+        }
         this[NavigationMixin.Navigate]({
             type: 'standard__navItemPage',
             attributes: { apiName: 'Copy_Center' },
-            state: { c__editId: recordId },
+            state,
         }, false);
     }
 
     handleEditorBack() {
         this._editorRecordId = null;
+        this._editorOpenScheduleIntent = null;
         this[NavigationMixin.Navigate]({
             type: 'standard__navItemPage',
             attributes: { apiName: 'Copy_Center' },

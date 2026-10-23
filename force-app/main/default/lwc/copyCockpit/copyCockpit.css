@@ -544,6 +544,13 @@
 
 .cockpit-quick-action-menu {
     flex-shrink: 0;
+    position: relative;
+    z-index: 42;
+}
+
+.cockpit-menu-item_destructive {
+    --slds-c-menu-item-text-color: var(--slds-g-color-danger-base-50, #ea001e);
+    --slds-c-menu-item-icon-color-foreground: var(--slds-g-color-danger-base-50, #ea001e);
 }
 
 .cockpit-variant-subject {
