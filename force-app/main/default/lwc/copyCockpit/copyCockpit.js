@@ -20,6 +20,7 @@ import saveMasterRowSettings from '@salesforce/apex/CopyCockpitController.saveMa
 import updateMessageSourceTemplates from '@salesforce/apex/CopyCockpitController.updateMessageSourceTemplates';
 import saveVariantDisplayWeight from '@salesforce/apex/CopyCockpitController.saveVariantDisplayWeight';
 import getSelectableTemplates from '@salesforce/apex/ChannelTemplateController.getSelectableTemplates';
+import getMarketingLocales from '@salesforce/apex/CopyCockpitController.getMarketingLocales';
 import updateMessageStatus from '@salesforce/apex/CopyCockpitController.updateMessageStatus';
 import syncWithMCE from '@salesforce/apex/MarketingCloudCopySync.syncWithMCE';
 import syncVariantsWithMCE from '@salesforce/apex/MarketingCloudCopySync.syncVariantsWithMCE';
@@ -29,6 +30,9 @@ import refreshStreamViaFlow from '@salesforce/apex/FlowInit_TriggerDataSourceObj
 import {
     channelPrefixForType,
     composeStem,
+    composeStemFromLocale,
+    formatLocaleToken,
+    parseLocale,
     groupKeyFromName,
     masterGroupKey,
     recordBelongsToMasterGroup,
@@ -316,6 +320,12 @@ function buildVariantQuickActions(v, isSyncingMCE = false) {
         { key: 'clone', title: 'Clone as new Variant', icon: 'utility:copy' },
         { key: 'clone-message', title: 'Clone as new Message', icon: 'utility:copy' },
         {
+            key: 'template',
+            title: 'Change Source Template',
+            icon: 'utility:insert_template',
+            isDisabled: (v.Status__c || '').toLowerCase() === 'published',
+        },
+        {
             key: 'sync',
             title: 'Sync with MCE',
             icon: 'utility:sync',
@@ -576,6 +586,9 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
 
     @wire(getSelectableTemplates, { channelName: '$activeChannelName', channelType: '$activeChannelType' })
     _wiredSelectableTemplates;
+
+    @wire(getMarketingLocales)
+    _wiredMarketingLocales;
 
     // ── channel state ──────────────────────────────────────────────────────
 
@@ -886,9 +899,36 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     get masterEditModal()         { return this._masterEditModal; }
     get masterEditFamilyOptions() { return this._masterEditModal?.families || []; }
     get masterEditOfferOptions()  { return this._masterEditModal?.offers  || []; }
+    get masterEditLocaleOptions() {
+        return (this._wiredMarketingLocales?.data || []).map(row => ({
+            value: row.Name,
+            label: row.Topic_Description__c
+                ? `${row.Name} — ${row.Topic_Description__c}`
+                : row.Name
+        }));
+    }
+
+    get masterEditNameLockIcon() {
+        return this._masterEditModal?.nameLocked ? 'utility:lock' : 'utility:unlock';
+    }
+
+    get masterEditNameLockTitle() {
+        return this._masterEditModal?.nameLocked
+            ? 'Unlock to edit message name and locale'
+            : 'Lock message name and locale';
+    }
+
+    get masterEditNamingDisabled() {
+        return !!this._masterEditModal?.nameLocked;
+    }
+
     get masterEditNoOffers() {
         const m = this._masterEditModal;
         return m?.productFamilyId && !m?.isLoadingOffers && (!m?.offers || m.offers.length === 0);
+    }
+
+    get masterEditNamingError() {
+        return this._masterEditModal?.namingError || '';
     }
 
     get isSourceTemplateModalOpen() {
@@ -906,8 +946,12 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     get templateReplaceConfirmMessage() {
         const names = this._templateReplaceConfirm?.messageNames || [];
         const list = names.length ? names.join(', ') : 'selected messages';
+        const masterNote =
+            this._templateReplaceConfirm?.context === 'masterEdit'
+                ? ' This updates the source template on every variant in this master message.'
+                : '';
         return (
-            `Are you sure you want to change source templates for these messages: ${list}? ` +
+            `Are you sure you want to change source templates for these messages: ${list}?${masterNote} ` +
             'If message copy data is missing data expected by the template, messages might not ' +
             'be rendered correctly or fail to send at all.'
         );
@@ -1534,27 +1578,6 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         });
     }
 
-    handleMasterChangeSourceTemplate(event) {
-        event.stopPropagation();
-        const stem = event.currentTarget.dataset.name;
-        const groupRecords = this._messages.filter(m => recordBelongsToMasterGroup(m, stem));
-        const ids = groupRecords.map(v => v.Id);
-        const { eligible, publishedLabels } = this._splitEligibleForTemplateChange(ids);
-        if (publishedLabels.length) {
-            this._toastPublishedTemplateBlock(publishedLabels);
-        }
-        if (!eligible.length) {
-            return;
-        }
-        const templateSource = groupRecords.find(m => m.Source_Template__c) || groupRecords[0];
-        this._openSourceTemplateModal({
-            title: 'Change Source Template',
-            subtitle: `Assign a validated template to ${eligible.length} eligible variant(s) in this master row.`,
-            variantIds: eligible,
-            selectedTemplateId: templateSource?.Source_Template__c || ''
-        });
-    }
-
     _openSourceTemplateModal({ title, subtitle, variantIds, selectedTemplateId }) {
         this._sourceTemplateModal = {
             title,
@@ -2133,11 +2156,21 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
 
     handleMasterEdit(e) {
         e.stopPropagation();
-        const stem = e.currentTarget.dataset.name;
-        const groupRecords = this._messages.filter(
-            m => recordBelongsToMasterGroup(m, stem)
-        );
+        this._openMasterEditModal(e.currentTarget.dataset.name);
+    }
+
+    _openMasterEditModal(stem) {
+        if (!stem) return;
+        const groupRecords = this._messages.filter(m => recordBelongsToMasterGroup(m, stem));
         const first = groupRecords[0] || {};
+        const parsed = parseFullName(first.MessageName__c || first.Name || stem);
+        const channelPrefix =
+            parsed.prefix || channelPrefixForType(this.activeChannel?.Channel_Type__c);
+        const localeToken =
+            formatLocaleToken(parsed.countryCode, parsed.language)
+            || parsed.locale
+            || '';
+        const messageNamePart = parsed.messageName || '';
         const familySource = groupRecords.find(m => m.Product_Family__c) || first;
         const offerSource = groupRecords.find(m => m.Offer__c) || first;
         const familyId = familySource.Product_Family__c || null;
@@ -2147,7 +2180,15 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         const templateSource = groupRecords.find(m => m.Source_Template__c) || first;
 
         this._masterEditModal = {
+            oldStem: stem,
             messageName: stem,
+            channelPrefix,
+            localeToken,
+            messageNamePart,
+            initialLocaleToken: localeToken,
+            initialMessageNamePart: messageNamePart,
+            nameLocked: true,
+            namingError: '',
             productFamilyId: familyId,
             productFamilyName: familyName,
             offerId: currentOfferId,
@@ -2159,6 +2200,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             isLoadingFamilies: true,
             isLoadingOffers: false,
             isSaving: false,
+            templateReplaceConfirmed: false,
             variantIds: groupRecords.map(v => v.Id),
         };
 
@@ -2241,6 +2283,66 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         this._masterEditModal = { ...this._masterEditModal, offerId: e.detail.value };
     }
 
+    handleMasterEditToggleNameLock() {
+        if (!this._masterEditModal) return;
+        this._masterEditModal = {
+            ...this._masterEditModal,
+            nameLocked: !this._masterEditModal.nameLocked,
+            namingError: '',
+        };
+    }
+
+    handleMasterEditLocaleChange(e) {
+        if (!this._masterEditModal) return;
+        this._masterEditModal = {
+            ...this._masterEditModal,
+            localeToken: e.detail.value || '',
+            namingError: '',
+        };
+    }
+
+    handleMasterEditMessageNameChange(e) {
+        if (!this._masterEditModal) return;
+        this._masterEditModal = {
+            ...this._masterEditModal,
+            messageNamePart: e.target.value,
+            namingError: '',
+        };
+    }
+
+    _isMasterNamingDirty(modal) {
+        if (!modal || modal.nameLocked) return false;
+        return (
+            (modal.localeToken || '') !== (modal.initialLocaleToken || '')
+            || (modal.messageNamePart || '').trim() !== (modal.initialMessageNamePart || '').trim()
+        );
+    }
+
+    _validateMasterNaming(modal) {
+        if (!this._isMasterNamingDirty(modal)) {
+            return { ok: true };
+        }
+        const loc = parseLocale(modal.localeToken);
+        const mn = (modal.messageNamePart || '').trim();
+        if (!modal.localeToken || !loc.countryCode || !loc.language || !mn) {
+            return { ok: false, error: 'Locale and Message Name are required when editing the master name.' };
+        }
+        const newStem = composeStemFromLocale(modal.channelPrefix, modal.localeToken, mn);
+        if (!newStem) {
+            return { ok: false, error: 'Could not build a valid message name from the selected locale and name.' };
+        }
+        if (newStem !== modal.oldStem) {
+            const collision = this.allGroups.some(g => g.messageName === newStem);
+            if (collision) {
+                return {
+                    ok: false,
+                    error: `A message with locale "${modal.localeToken}" and Message Name "${mn}" already exists.`,
+                };
+            }
+        }
+        return { ok: true, newStem, countryCode: loc.countryCode, language: loc.language, messageNamePart: mn };
+    }
+
     handleMasterEditSourceTemplateChange(e) {
         this._masterEditModal = {
             ...this._masterEditModal,
@@ -2255,6 +2357,11 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     handleMasterEditSave() {
         const modal = this._masterEditModal;
         if (!modal) {
+            return;
+        }
+        const namingCheck = this._validateMasterNaming(modal);
+        if (!namingCheck.ok) {
+            this._masterEditModal = { ...modal, namingError: namingCheck.error };
             return;
         }
         const variantIds = modal.variantIds || [];
@@ -2279,24 +2386,47 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     }
 
     _commitMasterEditSave(modal) {
-        this._masterEditModal = { ...modal, isSaving: true };
+        this._masterEditModal = { ...modal, isSaving: true, namingError: '' };
+        const namingCheck = this._validateMasterNaming(modal);
+        const namingPromise =
+            namingCheck.ok && namingCheck.newStem && namingCheck.newStem !== modal.oldStem
+                ? updateMessageMaster({
+                    oldStem: modal.oldStem,
+                    countryCode: namingCheck.countryCode,
+                    messageNamePart: namingCheck.messageNamePart,
+                    language: namingCheck.language,
+                    channelType: this.activeChannel?.Channel_Type__c,
+                })
+                : Promise.resolve();
+
         const settingsJson = JSON.stringify({
             offerId: modal.offerId || null,
             productFamilyId: modal.productFamilyId || null,
             sourceTemplateId: modal.sourceTemplateId || null,
             variantIds: modal.variantIds || [],
         });
-        saveMasterRowSettings({ settingsJson })
+
+        namingPromise
+            .then(() => saveMasterRowSettings({ settingsJson }))
             .then(() => {
                 this._masterEditModal = null;
                 this._templateReplaceConfirm = null;
-                this._showToast('Saved', `Settings for "${modal.messageName}" saved.`, 'success');
+                const label = namingCheck.newStem || modal.messageName;
+                this._showToast('Saved', `Settings for "${label}" saved.`, 'success');
                 this._reloadActiveChannelMessages();
             })
             .catch(err => {
                 if (!this._masterEditModal) return;
-                this._masterEditModal = { ...this._masterEditModal, isSaving: false };
-                this._showToast('Error', err?.body?.message || 'Save failed.', 'error');
+                const msg = err?.body?.message || 'Save failed.';
+                const isNaming = this._isMasterNamingDirty(modal);
+                this._masterEditModal = {
+                    ...this._masterEditModal,
+                    isSaving: false,
+                    namingError: isNaming ? msg : '',
+                };
+                if (!isNaming) {
+                    this._showToast('Error', msg, 'error');
+                }
             });
     }
 
@@ -2309,22 +2439,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
 
     handleGroupNameDblClick(e) {
         e.stopPropagation();
-        const stem = e.currentTarget.dataset.name;
-        const group = this.allGroups.find(g => g.messageName === stem);
-        const parsed = group
-            ? {
-                prefix: group.channelPrefix,
-                countryCode: group.countryCode,
-                language: group.language,
-                messageName: group.messageNamePart,
-            }
-            : parseFullName(stem);
-        this._editingGroupName = stem;
-        this._editingChannelPrefix = parsed.prefix || channelPrefixForType(this.activeChannel?.Channel_Type__c);
-        this._editingCountryCode = parsed.countryCode || '';
-        this._editingMessageNamePart = parsed.messageName || '';
-        this._editingLanguage = parsed.language || group?.language || 'PL';
-        this._renameError = '';
+        this._openMasterEditModal(e.currentTarget.dataset.name);
     }
 
     handleRenameCountryChange(e) {
