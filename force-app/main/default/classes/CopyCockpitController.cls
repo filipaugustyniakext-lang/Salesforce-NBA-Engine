@@ -520,6 +520,10 @@ public with sharing class CopyCockpitController {
             if (data.get('messageSubtype') != null) {
                 rec.Subject__c = (String) data.get('messageSubtype');
             }
+            String nameStem = (String) data.get('nameStem');
+            rec.MessageName__c = String.isNotBlank(nameStem) ? nameStem.trim() : stem;
+            rec.MessageVariant__c = version;
+            rec.Message_Type__c = channelType;
             CopyCockpitModificationService.insertMetadata(rec);
             return rec.Id;
         } catch (AuraHandledException e) {
