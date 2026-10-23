@@ -343,7 +343,8 @@ function buildGroups(
     versionCounts,
     editingWeightId,
     isSyncingMCE = false,
-    quickActionMenuOpenId = null
+    quickActionMenuOpenId = null,
+    syncingVariantIds = null
 ) {
     const map = new Map();
     for (const r of records) {
@@ -407,6 +408,7 @@ function buildGroups(
                 lastModifiedBy:     modBy,
                 isSelected,
                 checkboxLabel:      `Select ${v.Name || 'variant'}`,
+                isVariantSyncing:   !!(syncingVariantIds && syncingVariantIds[v.Id]),
                 variantRowClass:    `cockpit-variant-row${isSelected ? ' cockpit-variant-row_selected' : ''}${
                     quickActionMenuOpenId === v.Id ? ' cockpit-variant-row_menu-open' : ''
                 }`,
@@ -523,6 +525,8 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     @track _editorRecordId = null;
     @track _editorOpenScheduleIntent = null;
     @track _quickActionMenuOpenId = null;
+    /** Record ids currently syncing from MCE (per-row spinners). */
+    @track _syncingVariantIds = {};
 
     get isEditorOpen() { return !!this._editorRecordId; }
     get editorOpenScheduleIntent() { return this._editorOpenScheduleIntent; }
@@ -666,6 +670,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             this._editingWeightId,
             this.isSyncingMCE,
             this._quickActionMenuOpenId,
+            this._syncingVariantIds,
         );
     }
 
@@ -1089,8 +1094,15 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             });
     }
 
+    handleStatusPickerClick(event) {
+        event.stopPropagation();
+    }
+
     handleVariantStatusChange(event) {
-        const recordId = event.currentTarget.dataset.id;
+        event.stopPropagation();
+        const recordId = event.currentTarget.dataset.id
+            || event.target?.dataset?.id
+            || event.target?.closest?.('[data-id]')?.dataset?.id;
         const newStatus = event.detail.value;
         if (!recordId || !newStatus) {
             return;
@@ -1144,7 +1156,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     _statusTransitionHint(fromStatus) {
         const from = (fromStatus || '').toLowerCase();
         if (from === 'published') {
-            return 'Published messages can only be moved to Archived.';
+            return 'Published messages can only be moved to Inactive or Archived.';
         }
         if (from === 'archived') {
             return 'Archived messages can only be restored to Published.';
@@ -1685,6 +1697,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             return;
         }
 
+        this._setVariantsSyncing(recordIds, true);
         this.isSyncingMCE = true;
         syncVariantsWithMCE({ messageVariantIds: variantKeys })
             .then(result => {
@@ -1699,8 +1712,22 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
                 );
             })
             .finally(() => {
+                this._setVariantsSyncing(recordIds, false);
                 this.isSyncingMCE = false;
             });
+    }
+
+    _setVariantsSyncing(recordIds, syncing) {
+        const next = { ...this._syncingVariantIds };
+        for (const id of recordIds || []) {
+            if (!id) continue;
+            if (syncing) {
+                next[id] = true;
+            } else {
+                delete next[id];
+            }
+        }
+        this._syncingVariantIds = next;
     }
 
     _executeMceSync(minutesBack) {

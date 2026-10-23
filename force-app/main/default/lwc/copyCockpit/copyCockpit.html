@@ -330,6 +330,13 @@
                                                         <!-- Indent + name / label -->
                                                         <div class="cockpit-variant-name-cell">
                                                             <span class="slds-badge slds-badge_lightest cockpit-variant-badge" title={v.variantBadgeTitle}>{v.variantBadgeLabel}</span>
+                                                            <template lwc:if={v.isVariantSyncing}>
+                                                                <lightning-spinner
+                                                                    size="xx-small"
+                                                                    alternative-text="Syncing with MCE"
+                                                                    class="cockpit-variant-sync-spinner">
+                                                                </lightning-spinner>
+                                                            </template>
                                                             <template lwc:if={v.sourceTemplateBadge}>
                                                                 <span
                                                                     class="slds-badge slds-theme_lightest cockpit-source-template-badge"
@@ -357,7 +364,10 @@
                                                                     </lightning-icon>
                                                                 </button>
                                                             </template>
-                                                            <div class={v.statusPickerClass} data-id={v.Id}>
+                                                            <div
+                                                                class={v.statusPickerClass}
+                                                                data-id={v.Id}
+                                                                onclick={handleStatusPickerClick}>
                                                                 <lightning-combobox
                                                                     value={v.Status__c}
                                                                     options={v.variantStatusOptions}
