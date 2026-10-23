@@ -124,6 +124,10 @@
             <default>false</default>
         </values>
         <values>
+            <fullName>Locale</fullName>
+            <default>false</default>
+        </values>
+        <values>
             <fullName>Sales Process Type</fullName>
             <default>false</default>
         </values>
