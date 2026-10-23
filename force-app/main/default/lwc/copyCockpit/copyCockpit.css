@@ -226,6 +226,8 @@
 
 :host {
     display: block;
+    --lwc-zIndexDropdown: 10000;
+    --slds-c-dropdown-sizing-zindex: 10000;
     --col-check:    32px;
     --col-name:     280px;
     --col-status:   128px;
@@ -462,6 +464,19 @@
 
 .cockpit-variant-row_selected:hover {
     background: #dceefa;
+}
+
+.cockpit-list_has-variant-menu .cockpit-master-row,
+.cockpit-list_has-variant-menu .cockpit-variant-row:not(.cockpit-variant-row_menu-overlay) {
+    z-index: 0;
+    pointer-events: none;
+}
+
+.cockpit-list_has-variant-menu .cockpit-variant-row_menu-overlay {
+    position: relative;
+    z-index: 1000;
+    isolation: isolate;
+    pointer-events: auto;
 }
 
 .cockpit-variant-row_menu-overlay {

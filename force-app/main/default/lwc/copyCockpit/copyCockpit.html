@@ -184,7 +184,7 @@
                         <!-- Message groups -->
                         <template lwc:elseif={hasGroups}>
                             <div class="cockpit-list-region">
-                            <div class="cockpit-list" style={columnWidthStyle} role="list">
+                            <div class={variantListClass} style={columnWidthStyle} role="list">
 
                                 <!-- Column header -->
                                 <div class="cockpit-list-header">
@@ -376,6 +376,7 @@
                                                                     menu-alignment="auto"
                                                                     class="cockpit-status-menu"
                                                                     data-variant-id={v.Id}
+                                                                    onmousedown={handleStatusMenuMouseDown}
                                                                     onopen={handleStatusMenuOpen}
                                                                     onclose={handleStatusMenuClose}
                                                                     onselect={handleVariantStatusChange}>
@@ -452,6 +453,7 @@
                                                                 variant="border-filled"
                                                                 class="cockpit-quick-action-menu"
                                                                 data-variant-id={v.Id}
+                                                                onmousedown={handleActionsMenuMouseDown}
                                                                 onopen={handleActionsMenuOpen}
                                                                 onclose={handleActionsMenuClose}
                                                                 onselect={handleVariantOverflowAction}>

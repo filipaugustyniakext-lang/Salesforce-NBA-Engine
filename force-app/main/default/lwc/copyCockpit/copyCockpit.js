@@ -549,12 +549,13 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             refreshApex(this._wiredChannels);
         }
         this._variantMenuOutsideClickHandler = (event) => this._handleVariantMenuOutsideClick(event);
-        document.addEventListener('mousedown', this._variantMenuOutsideClickHandler, true);
+        // Use click (not mousedown) so the same gesture that opens a menu is not treated as outside.
+        document.addEventListener('click', this._variantMenuOutsideClickHandler, true);
     }
 
     disconnectedCallback() {
         if (this._variantMenuOutsideClickHandler) {
-            document.removeEventListener('mousedown', this._variantMenuOutsideClickHandler, true);
+            document.removeEventListener('click', this._variantMenuOutsideClickHandler, true);
             this._variantMenuOutsideClickHandler = null;
         }
     }
@@ -678,6 +679,12 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         return STATUS_FILTERS;
     }
 
+    get variantListClass() {
+        return this._activeVariantMenu
+            ? 'cockpit-list cockpit-list_has-variant-menu'
+            : 'cockpit-list';
+    }
+
     get allGroups() {
         return buildGroups(
             this._messages,
@@ -704,24 +711,44 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         });
     }
 
-    _onVariantMenuOpen(event, kind) {
+    _primeVariantMenu(event, kind) {
         event.stopPropagation();
         const menu = event.currentTarget;
         const variantId = this._variantIdFromMenu(menu);
         if (!variantId) {
             return;
         }
-        const prev = this._activeVariantMenu;
-        if (!prev || prev.variantId !== variantId || prev.kind !== kind) {
+        const active = this._activeVariantMenu;
+        if (!active || active.variantId !== variantId || active.kind !== kind) {
             this._blurOtherButtonMenus(menu);
         }
         this._activeVariantMenu = { variantId, kind };
     }
 
+    handleStatusMenuMouseDown(event) {
+        this._primeVariantMenu(event, 'status');
+    }
+
+    handleActionsMenuMouseDown(event) {
+        this._primeVariantMenu(event, 'actions');
+    }
+
+    _onVariantMenuOpen(event, kind) {
+        event.stopPropagation();
+        this._primeVariantMenu(event, kind);
+    }
+
+    _menuKindFromElement(menuElement) {
+        return menuElement?.classList?.contains('cockpit-status-menu') ? 'status' : 'actions';
+    }
+
     _onVariantMenuClose(event) {
         event.stopPropagation();
-        const variantId = this._variantIdFromMenu(event.currentTarget);
-        if (this._activeVariantMenu?.variantId === variantId) {
+        const menu = event.currentTarget;
+        const variantId = this._variantIdFromMenu(menu);
+        const kind = this._menuKindFromElement(menu);
+        const active = this._activeVariantMenu;
+        if (active?.variantId === variantId && active?.kind === kind) {
             this._dismissActiveVariantMenu();
         }
     }
