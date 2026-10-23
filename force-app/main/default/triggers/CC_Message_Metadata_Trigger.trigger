@@ -3,8 +3,13 @@ trigger CC_Message_Metadata_Trigger on CC_Message_Metadata__c (after delete, aft
         List<String> variantIdsToDelete = new List<String>();
 
         for (CC_Message_Metadata__c record : Trigger.old) {
-            if (String.isNotBlank(record.MessageVariantId__c)) {
-                variantIdsToDelete.add(record.MessageVariantId__c);
+            String variantKey = String.isNotBlank(record.MessageVariantId__c)
+                ? record.MessageVariantId__c.trim()
+                : (String.isNotBlank(record.Message_Variant_Id__c)
+                    ? record.Message_Variant_Id__c.trim()
+                    : null);
+            if (String.isNotBlank(variantKey)) {
+                variantIdsToDelete.add(variantKey);
             }
         }
 

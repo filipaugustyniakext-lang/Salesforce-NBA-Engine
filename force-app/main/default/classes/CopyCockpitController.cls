@@ -769,11 +769,23 @@ public with sharing class CopyCockpitController {
             throw new AuraHandledException('Message variant(s) not found.');
         }
 
+        List<String> mceVariantIds = new List<String>();
+        for (CC_Message_Metadata__c row : rows) {
+            String variantKey = resolveExternalVariantId(row);
+            if (String.isNotBlank(variantKey)) {
+                mceVariantIds.add(variantKey);
+            }
+        }
+
         try {
             deleteBlocksForMetadataRows(rows);
             delete rows;
         } catch (DmlException e) {
             throw new AuraHandledException('Delete failed: ' + e.getDmlMessage(0));
+        }
+
+        if (!mceVariantIds.isEmpty()) {
+            MarketingCloudCopyDelete.enqueueVariantDeletes(mceVariantIds);
         }
         return rows.size();
     }
