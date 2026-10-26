@@ -679,6 +679,25 @@
 }
 
 .priority-tile-body,
+.exclusion-method-box {
+    padding: 0.75rem 1rem;
+    border: 1px solid #e5e5e5;
+    border-radius: 0.375rem;
+    background: #fafaf9;
+}
+
+.exclusion-method-box--manual {
+    background: #fff;
+}
+
+.exclusion-method-title {
+    display: block;
+    font-weight: 700;
+    font-size: 0.8125rem;
+    text-transform: none;
+    color: #181818;
+}
+
 .exclusions-tile-body {
     flex: 1 1 auto;
     display: flex;
