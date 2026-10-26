@@ -382,7 +382,14 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
     wiredTiers(result) {
         this._wiredTiersResult = result;
         if (result.data) { this._allTiers = result.data; }
-        else if (result.error) { this._showToast('Error', 'Failed to load tiers.', 'error'); }
+        else if (result.error) {
+            const detail = result.error?.body?.message || result.error?.message || '';
+            this._showToast(
+                'Error',
+                detail ? `Failed to load tiers: ${detail}` : 'Failed to load tiers.',
+                'error'
+            );
+        }
     }
 
     _syncLocalPaths() {
