@@ -33,7 +33,9 @@ import {
     parseSupportedCampaignTypes as parseTierCampaignTypes,
     buildTierAttrRows,
     buildTierExclusionChips,
-    buildTierTypeChips
+    buildTierTypeChips,
+    isTierExclusionEnabled,
+    TIER_EXCL_FIELDS
 } from 'c/nbaTierConfig';
 
 const COPY_STATUS_BADGE_CLASS = {
@@ -332,12 +334,12 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     _tierAllowsManualExclusions(tierLabel) {
         const tier = this._tierRecordForLabel(tierLabel);
-        return !!(tier && tier.Excl_Manual_Suppressions__c);
+        return isTierExclusionEnabled(tier, 'Excl_Manual_Suppressions__c');
     }
 
     _tierAllowsOtherMarketingActivations(tierLabel) {
         const tier = this._tierRecordForLabel(tierLabel);
-        return !!(tier && tier.Excl_Other_Marketing_Activations__c);
+        return isTierExclusionEnabled(tier, 'Excl_Other_Marketing_Activations__c');
     }
 
     _hydrateExclusionsFromCampaign(campaign) {
@@ -2009,6 +2011,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     _onStepChanged() {
+        if (this.currentStep === 1) {
+            this.loadTiers();
+        }
         this.maybeLoadOfferSummaries();
         if (this.currentStepKey === 'copy') {
             this.fetchCopyVariantsForStep3();
@@ -2186,13 +2191,28 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get showManualExclusionDefinitions() {
-        const tier = this.selectedTierRecord;
-        return !!(tier && tier.Excl_Manual_Suppressions__c);
+        return isTierExclusionEnabled(this.selectedTierRecord, 'Excl_Manual_Suppressions__c');
     }
 
     get showOtherMarketingActivationsOption() {
+        return isTierExclusionEnabled(this.selectedTierRecord, 'Excl_Other_Marketing_Activations__c');
+    }
+
+    /** Tier dictionary flags → ordered exclusion sections in step 1 (shared with tier summary chips). */
+    get tierExclusionSections() {
         const tier = this.selectedTierRecord;
-        return !!(tier && tier.Excl_Other_Marketing_Activations__c);
+        if (!tier) return [];
+        return TIER_EXCL_FIELDS
+            .filter(ef => isTierExclusionEnabled(tier, ef.field))
+            .map(ef => ({
+                key: ef.field,
+                title: ef.label,
+                isOtherMarketing: ef.field === 'Excl_Other_Marketing_Activations__c',
+                isManual: ef.field === 'Excl_Manual_Suppressions__c',
+                boxClass: ef.field === 'Excl_Manual_Suppressions__c'
+                    ? 'exclusion-method-box exclusion-method-box--manual slds-m-bottom_small'
+                    : 'exclusion-method-box slds-m-bottom_small'
+            }));
     }
 
     get activationOptions() {

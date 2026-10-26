@@ -81,10 +81,17 @@ export function buildTierAttrRows(tier) {
     });
 }
 
+/** Checkbox tier flags may arrive as boolean or string from Apex / wire cache. */
+export function isTierExclusionEnabled(tier, fieldName) {
+    if (!tier || !fieldName) return false;
+    const value = tier[fieldName];
+    return value === true || value === 'true';
+}
+
 export function buildTierExclusionChips(tier) {
     if (!tier) return [];
     return TIER_EXCL_FIELDS
-        .filter(ef => !!tier[ef.field])
+        .filter(ef => isTierExclusionEnabled(tier, ef.field))
         .map(ef => ef.label);
 }
 

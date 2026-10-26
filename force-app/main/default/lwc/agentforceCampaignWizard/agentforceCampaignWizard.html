@@ -255,16 +255,24 @@
                                             Configure exclusions allowed for the selected priority tier.
                                         </p>
                                         <div class="exclusions-tile-body animate-fade-in">
-                                                    <template lwc:if={showOtherMarketingActivationsOption}>
-                                                        <lightning-input
-                                                            type="checkbox"
-                                                            label="Other Marketing Activations"
-                                                            checked={excludeOtherMarketingActivations}
-                                                            onchange={handleOtherMarketingActivationsChange}
-                                                            class="slds-m-bottom_small exclusion-other-marketing-checkbox">
-                                                        </lightning-input>
-                                                    </template>
-                                                    <template lwc:if={showManualExclusionDefinitions}>
+                                                    <template for:each={tierExclusionSections} for:item="section">
+                                                        <div
+                                                            key={section.key}
+                                                            class={section.boxClass}>
+                                                            <span class="exclusion-method-title">{section.title}</span>
+                                                            <template lwc:if={section.isOtherMarketing}>
+                                                                <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small slds-m-bottom_x-small">
+                                                                    Exclude clients who received other marketing activations outside this campaign.
+                                                                </p>
+                                                                <lightning-input
+                                                                    type="checkbox"
+                                                                    label="Exclude from other Marketing Activations"
+                                                                    checked={excludeOtherMarketingActivations}
+                                                                    onchange={handleOtherMarketingActivationsChange}
+                                                                    class="slds-m-top_x-small exclusion-other-marketing-checkbox">
+                                                                </lightning-input>
+                                                            </template>
+                                                            <template lwc:if={section.isManual}>
                                                     <template for:each={exclusionDefinitionRows} for:item="row">
                                                         <div key={row.id} class="exclusion-definition-row slds-m-bottom_medium">
                                                             <lightning-combobox
@@ -360,6 +368,8 @@
                                                         onclick={handleAddExclusionDefinition}
                                                         class="slds-m-top_x-small">
                                                     </lightning-button>
+                                                            </template>
+                                                        </div>
                                                     </template>
                                         </div>
                                     </template>

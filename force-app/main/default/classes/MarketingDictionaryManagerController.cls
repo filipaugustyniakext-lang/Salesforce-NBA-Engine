@@ -1009,7 +1009,7 @@ public with sharing class MarketingDictionaryManagerController {
         }
     }
 
-    @AuraEnabled(cacheable=true)
+    @AuraEnabled(cacheable=false)
     public static List<Campaign_Tier__c> getCampaignTiers() {
         return [
             SELECT Id, Name, Tier_Number__c, Description__c, Supported_Campaign_Types__c,

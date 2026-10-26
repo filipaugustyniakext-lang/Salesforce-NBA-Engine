@@ -568,6 +568,11 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
+        <field>Campaign.Exclude_Other_Marketing_Activations__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
         <field>Campaign.Fallback_Score__c</field>
         <readable>true</readable>
     </fieldPermissions>
@@ -784,6 +789,11 @@
     <fieldPermissions>
         <editable>true</editable>
         <field>Campaign_Tier__c.Excl_Manual_Suppressions__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Campaign_Tier__c.Excl_Other_Marketing_Activations__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
