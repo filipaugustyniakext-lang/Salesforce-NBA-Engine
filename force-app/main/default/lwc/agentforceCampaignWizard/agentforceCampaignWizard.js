@@ -1,7 +1,9 @@
 import { LightningElement, api, track, wire } from 'lwc';
 import { NavigationMixin } from 'lightning/navigation';
 import { createRecord, updateRecord } from 'lightning/uiRecordApi';
+import { getObjectInfo } from 'lightning/uiObjectInfoApi';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+import CAMPAIGN_OBJECT from '@salesforce/schema/Campaign';
 
 // Backend Apex Controllers
 import getChannelDictionaryRecords from '@salesforce/apex/MarketingDictionaryController.getChannelDictionaryRecords';
@@ -26,7 +28,9 @@ import { parseFullName } from 'c/copyMessageNaming';
 import getCampaignTiers from '@salesforce/apex/MarketingDictionaryManagerController.getCampaignTiers';
 import getCampaignTypes from '@salesforce/apex/MarketingDictionaryController.getCampaignTypes';
 import getCampaignRecords from '@salesforce/apex/MarketingDictionaryManagerController.getCampaignRecords';
-import getData360DmoOptions from '@salesforce/apex/MarketingDictionaryManagerController.getData360DmoOptions';
+import getExclusionOptions from '@salesforce/apex/CampaignExclusionController.getExclusionOptions';
+import searchDataCloudExclusionObjects from '@salesforce/apex/CampaignExclusionController.searchDataCloudExclusionObjects';
+import getExclusionRecordFieldOptions from '@salesforce/apex/CampaignExclusionController.getExclusionRecordFieldOptions';
 import searchSuppressionCampaigns from '@salesforce/apex/MarketingDictionaryController.searchSuppressionCampaigns';
 import searchSuppressionReports from '@salesforce/apex/MarketingDictionaryController.searchSuppressionReports';
 import {
@@ -34,8 +38,7 @@ import {
     buildTierAttrRows,
     buildTierExclusionChips,
     buildTierTypeChips,
-    isTierExclusionEnabled,
-    TIER_EXCL_FIELDS
+    isTierExclusionEnabled
 } from 'c/nbaTierConfig';
 
 const COPY_STATUS_BADGE_CLASS = {
@@ -50,13 +53,59 @@ function copyStatusBadgeClass(status) {
 }
 
 const EXCLUSION_SOURCE_OPTIONS = [
-    { label: 'Salesforce Campaign', value: 'campaign' },
-    { label: 'Salesforce Report', value: 'report' },
-    { label: 'Data360 Segment', value: 'segment' },
-    { label: 'Data360 DMO', value: 'dmo' }
+    { label: 'Salesforce Campaign', shortLabel: 'Campaigns', value: 'campaign', icon: 'standard:campaign' },
+    { label: 'Salesforce Report', shortLabel: 'Reports', value: 'report', icon: 'standard:report' },
+    { label: 'Data360 Segment', shortLabel: 'Segment', value: 'segment', icon: 'standard:segments' },
+    { label: 'Data360 DMO', shortLabel: 'DMO', value: 'dmo', icon: 'standard:data_model' },
+    { label: 'Data360 DLO', shortLabel: 'DLO', value: 'dlo', icon: 'standard:data_lake_objects' }
 ];
 
+const EXCLUSION_SOURCE_KEYS = EXCLUSION_SOURCE_OPTIONS.map(o => o.value);
+
+function emptyExclusionSelectedBySource() {
+    return {
+        campaign: [],
+        report: [],
+        segment: [],
+        dmo: [],
+        dlo: []
+    };
+}
+
+function emptyExclusionCatalogs() {
+    return {
+        campaignOptions: [],
+        reportOptions: [],
+        segmentOptions: [],
+        dmoOptions: [],
+        dloOptions: []
+    };
+}
+
+function exclusionMappingKey(source, recordId) {
+    return `${source}:${recordId}`;
+}
+
+function isExclusionRowMappingComplete(campaignMemberKey, foreignKeyColumn) {
+    return !!(String(campaignMemberKey || '').trim() && String(foreignKeyColumn || '').trim());
+}
+
 function newExclusionRow(overrides = {}) {
+    const selectedCampaignIds = overrides.selectedCampaignIds
+        ? [...overrides.selectedCampaignIds]
+        : [];
+    const selectedReportIds = overrides.selectedReportIds
+        ? [...overrides.selectedReportIds]
+        : [];
+    const selectedSegmentIds = overrides.selectedSegmentIds
+        ? [...overrides.selectedSegmentIds]
+        : [];
+    const selectedDmoIds = overrides.selectedDmoIds
+        ? [...overrides.selectedDmoIds]
+        : [];
+    const selectedDloIds = overrides.selectedDloIds
+        ? [...overrides.selectedDloIds]
+        : [];
     return {
         id: `excl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         source: '',
@@ -64,8 +113,149 @@ function newExclusionRow(overrides = {}) {
         display: '',
         searchTerm: '',
         lookupOptions: [],
-        ...overrides
+        campaignOptions: [],
+        selectedCampaignIds,
+        campaignSearchTerm: '',
+        campaignPickerOpen: false,
+        reportOptions: [],
+        selectedReportIds,
+        reportSearchTerm: '',
+        reportPickerOpen: false,
+        segmentOptions: [],
+        selectedSegmentIds,
+        segmentSearchTerm: '',
+        segmentPickerOpen: false,
+        dmoOptions: [],
+        selectedDmoIds,
+        dmoSearchTerm: '',
+        dmoPickerOpen: false,
+        dloOptions: [],
+        selectedDloIds,
+        dloSearchTerm: '',
+        dloPickerOpen: false,
+        ...overrides,
+        selectedCampaignIds,
+        selectedReportIds,
+        selectedSegmentIds,
+        selectedDmoIds,
+        selectedDloIds
     };
+}
+
+function mapReportOptionsFromApex(results) {
+    return (results || []).map(r => ({
+        id: r.id,
+        name: r.name,
+        format: r.format || ''
+    }));
+}
+
+function reportDisplayLabel(r) {
+    if (!r) return '';
+    return r.format ? `${r.name} (${r.format})` : r.name;
+}
+
+function buildReportExclusionDisplay(selectedIds, reportOptions) {
+    const options = reportOptions || [];
+    const labels = (selectedIds || []).map(id => {
+        const match = options.find(o => o.id === id);
+        return match ? reportDisplayLabel(match) : id;
+    });
+    return labels.join('; ');
+}
+
+function mapSegmentOptionsFromApex(results) {
+    return (results || []).map(s => ({
+        id: s.id,
+        name: s.name,
+        status: s.status || ''
+    }));
+}
+
+function mapDataCloudCatalogFromApex(results) {
+    return (results || []).map(d => ({
+        id: d.apiName,
+        apiName: d.apiName,
+        label: d.label || d.apiName
+    }));
+}
+
+function segmentDisplayLabel(s) {
+    if (!s) return '';
+    return s.status ? `${s.name} (${s.status})` : s.name;
+}
+
+function dataCloudCatalogDisplayLabel(d) {
+    if (!d) return '';
+    return d.label && d.apiName && d.label !== d.apiName
+        ? `${d.label} (${d.apiName})`
+        : (d.label || d.apiName);
+}
+
+function buildSegmentExclusionDisplay(selectedIds, segmentOptions) {
+    const options = segmentOptions || [];
+    return (selectedIds || []).map(id => {
+        const match = options.find(o => o.id === id);
+        return match ? segmentDisplayLabel(match) : id;
+    }).join('; ');
+}
+
+function buildDataCloudCatalogExclusionDisplay(selectedIds, catalogOptions) {
+    const options = catalogOptions || [];
+    return (selectedIds || []).map(id => {
+        const match = options.find(o => o.id === id);
+        return match ? dataCloudCatalogDisplayLabel(match) : id;
+    }).join('; ');
+}
+
+function parseMultiExclusionValues(row) {
+    if (Array.isArray(row.values) && row.values.length) {
+        return row.values.map(v => String(v));
+    }
+    if (row.value) {
+        return String(row.value).split(',').map(v => v.trim()).filter(Boolean);
+    }
+    return [];
+}
+
+function buildExclusionSourcePickerOptions(selectedSource) {
+    return EXCLUSION_SOURCE_OPTIONS.map(opt => ({
+        ...opt,
+        btnClass: `slds-button exclusion-source-btn${selectedSource === opt.value ? ' exclusion-source-btn--selected' : ''}`
+    }));
+}
+
+function campaignMetaLine(status, groupName) {
+    const parts = [];
+    if (status) parts.push(status);
+    if (groupName) parts.push(groupName);
+    return parts.join(' · ');
+}
+
+function mapCampaignOptionsFromApex(results) {
+    return (results || []).map(r => ({
+        id: r.id,
+        name: r.name,
+        status: r.status || '',
+        groupId: r.groupId || '',
+        groupName: r.groupName || '',
+        groupKey: r.groupKey || ''
+    }));
+}
+
+function campaignDisplayLabel(c) {
+    if (!c) return '';
+    const meta = campaignMetaLine(c.status, c.groupName);
+    return meta ? `${c.name} (${meta})` : c.name;
+}
+
+function buildCampaignExclusionDisplay(selectedIds, campaignOptions) {
+    const options = campaignOptions || [];
+    const labels = (selectedIds || []).map(id => {
+        const match = options.find(o => o.id === id);
+        return match ? campaignDisplayLabel(match) : id;
+    });
+    return labels.join('; ');
 }
 
 function wizardMessageNameFromRow(row) {
@@ -141,7 +331,28 @@ function formatNormalizedWeightPercent(variantWeight, selectedWeightSum, selecte
 }
 
 export default class AgentforceCampaignWizard extends NavigationMixin(LightningElement) {
-    @api recordId;
+    _recordId;
+    _campaignLoadStarted = false;
+    campaignObjectInfo;
+
+    @wire(getObjectInfo, { objectApiName: CAMPAIGN_OBJECT })
+    wiredCampaignObjectInfo(result) {
+        this.campaignObjectInfo = result;
+    }
+
+    @api
+    get recordId() {
+        return this._recordId;
+    }
+
+    set recordId(value) {
+        this._recordId = value;
+        if (value && !this._campaignLoadStarted) {
+            this.isEditMode = true;
+            this.loadExistingCampaign();
+        }
+    }
+
     @track isLoading = false;
     @track isEditMode = false;
     @track editRecordLoaded = false;
@@ -182,9 +393,17 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     // --- EXCLUSIONS (tier-gated: manual definitions + other marketing activations) ---
     @track exclusionDefinitions = [];
+    @track exclusionSelectedBySource = emptyExclusionSelectedBySource();
+    @track exclusionCampaignMemberKey = '';
+    @track exclusionForeignKeys = {};
+    @track exclusionFieldOptionsByKey = {};
+    @track exclusionCatalogHints = { segment: '', dmo: '', dlo: '' };
+    @track exclusionCatalogs = emptyExclusionCatalogs();
+    _exclusionWorkspaceInitialized = false;
+    _exclusionFieldOptionsLoadRequested = new Set();
     @track excludeOtherMarketingActivations = false;
-    @track dmoOptions = [];
-    _dmoOptionsLoadAttempted = false;
+    _data360ExclusionCatalogLoaded = false;
+    _data360ExclusionCatalogPromise = null;
     _exclusionSearchTimers = {};
 
     // --- SCORING (tiers 4+): model picklist or apriori slider ---
@@ -281,10 +500,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         this.loadScoringModels();
         this.loadTopicDictionary();
         this.loadProductOfferingCatalogue();
-        // Migrate any Campaign rows still showing Ids in display fields → Names.
-        healCampaignOfferingLabels().catch(() => {});
         document.addEventListener('click', this.handleOutsideClickBound = this.handleOutsideClick.bind(this));
-        if (this.recordId) {
+        if (this.recordId && !this._campaignLoadStarted) {
             this.isEditMode = true;
             this.loadExistingCampaign();
         }
@@ -292,6 +509,19 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     disconnectedCallback() {
         document.removeEventListener('click', this.handleOutsideClickBound);
+    }
+
+    renderedCallback() {
+        if (!this.showManualExclusionDefinitions) {
+            this._exclusionWorkspaceInitialized = false;
+            return;
+        }
+        if (this._exclusionWorkspaceInitialized) {
+            return;
+        }
+        this._ensureExclusionWorkspaceRow();
+        this._ensureSegmentExclusionCatalogOnly();
+        this._exclusionWorkspaceInitialized = true;
     }
 
     loadTiers() {
@@ -309,22 +539,35 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             .catch(err => console.error('Error loading campaign types:', err));
     }
 
-    loadDmoOptionsIfNeeded() {
-        if (this._dmoOptionsLoadAttempted) {
-            return;
+    _ensureData360ExclusionCatalog() {
+        if (this._data360ExclusionCatalogLoaded) {
+            return Promise.resolve();
         }
-        this._dmoOptionsLoadAttempted = true;
-        getData360DmoOptions()
+        if (this._data360ExclusionCatalogPromise) {
+            return this._data360ExclusionCatalogPromise;
+        }
+        this._data360ExclusionCatalogPromise = getExclusionOptions()
             .then(data => {
-                this.dmoOptions = (data || []).map(row => ({
-                    label: row.label,
-                    value: row.value
-                }));
+                const segmentOptions = mapSegmentOptionsFromApex(data?.segments);
+                this.exclusionCatalogHints = {
+                    segment: data?.segmentHint || '',
+                    dmo: data?.dmoHint || '',
+                    dlo: data?.dloHint || ''
+                };
+                this.exclusionCatalogs = {
+                    ...this.exclusionCatalogs,
+                    segmentOptions,
+                    dmoOptions: [],
+                    dloOptions: []
+                };
+                this._applyExclusionCatalogsToAllRows();
+                this._data360ExclusionCatalogLoaded = true;
             })
-            .catch(() => {
-                // Data Cloud DMO catalogue is optional; orgs without CDP should not spam the console.
-                this.dmoOptions = [];
+            .catch(err => {
+                console.error('Data360 exclusion catalogue load failed:', err);
+                this._data360ExclusionCatalogLoaded = true;
             });
+        return this._data360ExclusionCatalogPromise;
     }
 
     _tierRecordForLabel(tierLabel) {
@@ -333,17 +576,23 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     _tierAllowsManualExclusions(tierLabel) {
-        const tier = this._tierRecordForLabel(tierLabel);
-        return isTierExclusionEnabled(tier, 'Excl_Manual_Suppressions__c');
+        return isTierExclusionEnabled(this._tierRecordForLabel(tierLabel), 'Excl_Manual_Suppressions__c');
     }
 
     _tierAllowsOtherMarketingActivations(tierLabel) {
-        const tier = this._tierRecordForLabel(tierLabel);
-        return isTierExclusionEnabled(tier, 'Excl_Other_Marketing_Activations__c');
+        return isTierExclusionEnabled(
+            this._tierRecordForLabel(tierLabel),
+            'Excl_Other_Marketing_Activations__c'
+        );
     }
 
     _hydrateExclusionsFromCampaign(campaign) {
         this.exclusionDefinitions = [];
+        this.exclusionSelectedBySource = emptyExclusionSelectedBySource();
+        this.exclusionCampaignMemberKey = '';
+        this.exclusionForeignKeys = {};
+        this.exclusionFieldOptionsByKey = {};
+        this._exclusionFieldOptionsLoadRequested = new Set();
         if (!campaign) return;
 
         let parsed = [];
@@ -383,56 +632,312 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             }
         }
 
-        this.exclusionDefinitions = parsed.map(row => {
-            const lookupOptions = row.value
-                ? [{ label: row.display || row.value, value: row.value }]
-                : [];
-            return newExclusionRow({
-                source: row.source,
-                value: row.value || '',
-                display: row.display || row.value || '',
-                lookupOptions
+        const selected = emptyExclusionSelectedBySource();
+        const foreignKeys = {};
+        parsed.forEach(row => {
+            const ids = parseMultiExclusionValues(row);
+            ids.forEach(id => {
+                if (!(selected[row.source] || []).includes(id)) {
+                    selected[row.source].push(id);
+                }
+                if (row.mapping) {
+                    if (!this.exclusionCampaignMemberKey && row.mapping.qualificationColumn) {
+                        this.exclusionCampaignMemberKey = row.mapping.qualificationColumn;
+                    }
+                    if (row.mapping.foreignKeyColumn) {
+                        foreignKeys[exclusionMappingKey(row.source, id)] = row.mapping.foreignKeyColumn;
+                    }
+                }
             });
         });
-        if (this.exclusionDefinitions.some(row => row.source === 'dmo')) {
-            this.loadDmoOptionsIfNeeded();
+        this.exclusionSelectedBySource = selected;
+        this.exclusionForeignKeys = foreignKeys;
+
+        const firstActiveSource = EXCLUSION_SOURCE_KEYS.find(
+            key => (selected[key] || []).length > 0
+        ) || 'campaign';
+        this.exclusionDefinitions = [this._buildExclusionWorkspaceRow(firstActiveSource)];
+
+        if ((selected.segment || []).length) {
+            // Segments only — DMO/DLO are search-on-demand; campaign/report catalogs load when picker opens.
+            // eslint-disable-next-line @lwc/lwc/no-async-operation
+            setTimeout(() => this._ensureData360ExclusionCatalog(), 0);
         }
         this.excludeOtherMarketingActivations = !!campaign.Exclude_Other_Marketing_Activations__c;
+        // eslint-disable-next-line @lwc/lwc/no-async-operation
+        setTimeout(() => {
+            this._ensureExclusionWorkspaceRow();
+            EXCLUSION_SOURCE_KEYS.forEach(source => {
+                (this.exclusionSelectedBySource[source] || []).forEach(recordId => {
+                    this._requestExclusionFieldOptions(source, recordId);
+                });
+            });
+        }, 0);
+    }
+
+    _activeExclusionRow() {
+        return (this.exclusionDefinitions || [])[0] || null;
+    }
+
+    _applyExclusionCatalogsToRow(row) {
+        const catalogs = this.exclusionCatalogs || emptyExclusionCatalogs();
+        return {
+            ...row,
+            campaignOptions: catalogs.campaignOptions || [],
+            reportOptions: catalogs.reportOptions || [],
+            segmentOptions: catalogs.segmentOptions || [],
+            dmoOptions: catalogs.dmoOptions || [],
+            dloOptions: catalogs.dloOptions || []
+        };
+    }
+
+    _applyExclusionCatalogsToAllRows() {
+        this.exclusionDefinitions = (this.exclusionDefinitions || []).map(row =>
+            this._applyExclusionCatalogsToRow(row)
+        );
+    }
+
+    _buildExclusionWorkspaceRow(source) {
+        const selected = this.exclusionSelectedBySource || emptyExclusionSelectedBySource();
+        return this._applyExclusionCatalogsToRow(newExclusionRow({
+            source,
+            selectedCampaignIds: [...(selected.campaign || [])],
+            selectedReportIds: [...(selected.report || [])],
+            selectedSegmentIds: [...(selected.segment || [])],
+            selectedDmoIds: [...(selected.dmo || [])],
+            selectedDloIds: [...(selected.dlo || [])]
+        }));
+    }
+
+    _ensureSegmentExclusionCatalogOnly() {
+        if (!this.showManualExclusionDefinitions) {
+            return;
+        }
+        this._ensureData360ExclusionCatalog();
+    }
+
+    _syncActiveRowToSelectedStore() {
+        const row = this._activeExclusionRow();
+        if (!row) return;
+        const next = {
+            campaign: [...(row.selectedCampaignIds || [])],
+            report: [...(row.selectedReportIds || [])],
+            segment: [...(row.selectedSegmentIds || [])],
+            dmo: [...(row.selectedDmoIds || [])],
+            dlo: [...(row.selectedDloIds || [])]
+        };
+        const prev = this.exclusionSelectedBySource || emptyExclusionSelectedBySource();
+        const unchanged = EXCLUSION_SOURCE_KEYS.every(
+            key => JSON.stringify(prev[key] || []) === JSON.stringify(next[key] || [])
+        );
+        if (unchanged) {
+            return;
+        }
+        this.exclusionSelectedBySource = next;
+    }
+
+    _ensureExclusionWorkspaceRow() {
+        if (!this.showManualExclusionDefinitions) {
+            return;
+        }
+        if ((this.exclusionDefinitions || []).length === 0) {
+            this.exclusionDefinitions = [this._buildExclusionWorkspaceRow('campaign')];
+        }
+    }
+
+    _catalogOptionsForSource(source) {
+        const catalogs = this.exclusionCatalogs || emptyExclusionCatalogs();
+        if (source === 'campaign') return catalogs.campaignOptions || [];
+        if (source === 'report') return catalogs.reportOptions || [];
+        if (source === 'segment') return catalogs.segmentOptions || [];
+        if (source === 'dmo') return catalogs.dmoOptions || [];
+        if (source === 'dlo') return catalogs.dloOptions || [];
+        return [];
+    }
+
+    _displayLabelForExclusionRecord(source, recordId) {
+        const options = this._catalogOptionsForSource(source);
+        if (source === 'campaign') {
+            const match = options.find(o => o.id === recordId);
+            return match ? campaignDisplayLabel(match) : recordId;
+        }
+        if (source === 'report') {
+            const match = options.find(o => o.id === recordId);
+            return match ? reportDisplayLabel(match) : recordId;
+        }
+        if (source === 'segment') {
+            const match = options.find(o => o.id === recordId);
+            return match ? segmentDisplayLabel(match) : recordId;
+        }
+        if (source === 'dmo' || source === 'dlo') {
+            const match = options.find(o => o.id === recordId);
+            return match ? dataCloudCatalogDisplayLabel(match) : recordId;
+        }
+        return recordId;
     }
 
     _serializeExclusionDefinitions() {
-        return (this.exclusionDefinitions || [])
-            .filter(row => row.source && (row.value || '').toString().trim())
-            .map(row => ({
-                source: row.source,
-                value: (row.value || '').toString().trim(),
-                display: row.display || row.value
-            }));
+        this._syncActiveRowToSelectedStore();
+        const selected = this.exclusionSelectedBySource || emptyExclusionSelectedBySource();
+        const serialized = [];
+        EXCLUSION_SOURCE_KEYS.forEach(source => {
+            (selected[source] || []).forEach(recordId => {
+                const mapKey = exclusionMappingKey(source, recordId);
+                const foreignKeyColumn = this.exclusionForeignKeys[mapKey];
+                if (!isExclusionRowMappingComplete(this.exclusionCampaignMemberKey, foreignKeyColumn)) {
+                    return;
+                }
+                const display = this._displayLabelForExclusionRecord(source, recordId);
+                serialized.push({
+                    source,
+                    value: recordId,
+                    values: [recordId],
+                    display,
+                    mapping: {
+                        qualificationColumn: this.exclusionCampaignMemberKey.trim(),
+                        foreignKeyColumn: String(foreignKeyColumn).trim()
+                    }
+                });
+            });
+        });
+        return serialized;
+    }
+
+    _countSelectedExclusions() {
+        const selected = this.exclusionSelectedBySource || emptyExclusionSelectedBySource();
+        return EXCLUSION_SOURCE_KEYS.reduce(
+            (sum, key) => sum + (selected[key] || []).length,
+            0
+        );
+    }
+
+    _countUnmappedExclusions() {
+        const selected = this.exclusionSelectedBySource || emptyExclusionSelectedBySource();
+        let unmapped = 0;
+        EXCLUSION_SOURCE_KEYS.forEach(source => {
+            (selected[source] || []).forEach(recordId => {
+                const fk = this.exclusionForeignKeys[exclusionMappingKey(source, recordId)];
+                if (!isExclusionRowMappingComplete(this.exclusionCampaignMemberKey, fk)) {
+                    unmapped += 1;
+                }
+            });
+        });
+        return unmapped;
+    }
+
+    _validateExclusionMappingsForSave() {
+        if (!this.showManualExclusionDefinitions) {
+            return null;
+        }
+        this._syncActiveRowToSelectedStore();
+        const selectedCount = this._countSelectedExclusions();
+        if (selectedCount === 0) {
+            return null;
+        }
+        const unmapped = this._countUnmappedExclusions();
+        if (!String(this.exclusionCampaignMemberKey || '').trim()) {
+            return 'Enter the campaign member key used for qualification (segment or data graph).';
+        }
+        if (unmapped > 0) {
+            return `Select a match attribute for all ${unmapped} selected exclusion record(s). Only fully mapped exclusions are saved.`;
+        }
+        return null;
+    }
+
+    _requestExclusionFieldOptions(source, recordId) {
+        const key = exclusionMappingKey(source, recordId);
+        if (this.exclusionFieldOptionsByKey[key] || this._exclusionFieldOptionsLoadRequested.has(key)) {
+            return;
+        }
+        this._exclusionFieldOptionsLoadRequested.add(key);
+        getExclusionRecordFieldOptions({ source, recordKey: recordId })
+            .then(rows => {
+                const options = (rows || []).map(r => ({ label: r.label, value: r.value }));
+                this.exclusionFieldOptionsByKey = {
+                    ...this.exclusionFieldOptionsByKey,
+                    [key]: options
+                };
+            })
+            .catch(err => {
+                console.error('Exclusion field options load failed:', err);
+                this.exclusionFieldOptionsByKey = {
+                    ...this.exclusionFieldOptionsByKey,
+                    [key]: []
+                };
+            });
+    }
+
+    _afterExclusionSelectionChange(source, recordId) {
+        if (recordId) {
+            this._requestExclusionFieldOptions(source, recordId);
+        }
+    }
+
+    handleCampaignMemberKeyChange(event) {
+        this.exclusionCampaignMemberKey = event.target.value || '';
+    }
+
+    handleExclusionForeignKeyChange(event) {
+        const source = event.currentTarget.dataset.source;
+        const recordId = event.currentTarget.dataset.recordId;
+        const value = event.detail.value;
+        if (!source || !recordId) return;
+        this.exclusionForeignKeys = {
+            ...this.exclusionForeignKeys,
+            [exclusionMappingKey(source, recordId)]: value
+        };
+    }
+
+    _hasCampaignField(fieldApiName) {
+        const described = this.campaignObjectInfo?.data?.fields;
+        if (!described) {
+            return false;
+        }
+        return Object.prototype.hasOwnProperty.call(described, fieldApiName);
     }
 
     _applyExclusionsToSaveFields(fields) {
         const defs = this._serializeExclusionDefinitions();
-        fields['Campaign_Exclusions_JSON__c'] = defs.length ? JSON.stringify(defs) : null;
-        fields['Suppression_Campaign__c'] = null;
-        fields['Suppression_Report_Id__c'] = null;
-        fields['Suppression_Segment__c'] = null;
+        if (this._hasCampaignField('Campaign_Exclusions_JSON__c')) {
+            fields['Campaign_Exclusions_JSON__c'] = defs.length ? JSON.stringify(defs) : null;
+        }
+        if (this._hasCampaignField('Suppression_Campaign__c')) {
+            fields['Suppression_Campaign__c'] = null;
+        }
+        if (this._hasCampaignField('Suppression_Report_Id__c')) {
+            fields['Suppression_Report_Id__c'] = null;
+        }
+        if (this._hasCampaignField('Suppression_Segment__c')) {
+            fields['Suppression_Segment__c'] = null;
+        }
 
         const first = (source) => defs.find(d => d.source === source);
         const campaign = first('campaign');
         const report = first('report');
         const segment = first('segment');
-        if (campaign) {
-            fields['Suppression_Campaign__c'] = campaign.value;
+        if (campaign && this._hasCampaignField('Suppression_Campaign__c')) {
+            const firstId = Array.isArray(campaign.values) && campaign.values.length
+                ? campaign.values[0]
+                : (campaign.value || '').split(',')[0];
+            fields['Suppression_Campaign__c'] = firstId || null;
         }
-        if (report) {
-            fields['Suppression_Report_Id__c'] = report.value;
+        if (report && this._hasCampaignField('Suppression_Report_Id__c')) {
+            const firstReportId = Array.isArray(report.values) && report.values.length
+                ? report.values[0]
+                : (report.value || '').split(',')[0];
+            fields['Suppression_Report_Id__c'] = firstReportId || null;
         }
-        if (segment) {
-            fields['Suppression_Segment__c'] = segment.value;
+        if (segment && this._hasCampaignField('Suppression_Segment__c')) {
+            const firstSegment = Array.isArray(segment.values) && segment.values.length
+                ? segment.values[0]
+                : (segment.value || '').split(',')[0];
+            fields['Suppression_Segment__c'] = firstSegment || null;
         }
-        fields['Exclude_Other_Marketing_Activations__c'] = this.showOtherMarketingActivationsOption
-            ? this.excludeOtherMarketingActivations === true
-            : false;
+        if (this._hasCampaignField('Exclude_Other_Marketing_Activations__c')) {
+            fields['Exclude_Other_Marketing_Activations__c'] = this.showOtherMarketingActivationsOption
+                ? this.excludeOtherMarketingActivations === true
+                : false;
+        }
     }
 
     loadScoringModels() {
@@ -527,20 +1032,52 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     loadExistingCampaign() {
+        const campaignId = this.recordId;
+        if (!campaignId || this._campaignLoadStarted) {
+            return;
+        }
+        this._campaignLoadStarted = true;
         this.isLoading = true;
-        getCampaignById({ campaignId: this.recordId })
+
+        const loadPromise = getCampaignById({ campaignId });
+        const timeoutPromise = new Promise((_, reject) => {
+            // eslint-disable-next-line @lwc/lwc/no-async-operation
+            setTimeout(() => reject(new Error('Campaign load timed out')), 25000);
+        });
+
+        Promise.race([loadPromise, timeoutPromise])
             .then(campaign => {
+                this.isLoading = false;
                 if (!campaign) {
-                    this.isLoading = false;
+                    this.dispatchEvent(new ShowToastEvent({
+                        title: 'Campaign not found',
+                        message: 'Could not load this campaign record.',
+                        variant: 'warning'
+                    }));
                     return;
                 }
-                this.populateFromRecord(campaign);
-                this.editRecordLoaded = true;
-                this.isLoading = false;
+                try {
+                    this.populateFromRecord(campaign);
+                    this.editRecordLoaded = true;
+                    // Defer non-critical heal so it cannot compete with the edit load on the server.
+                    healCampaignOfferingLabels().catch(() => {});
+                } catch (err) {
+                    console.error('Error applying campaign record:', err);
+                    this.dispatchEvent(new ShowToastEvent({
+                        title: 'Could not open campaign',
+                        message: err?.message || 'Unexpected error while loading the wizard.',
+                        variant: 'error'
+                    }));
+                }
             })
             .catch(err => {
                 this.isLoading = false;
                 console.error('Error loading campaign:', err);
+                this.dispatchEvent(new ShowToastEvent({
+                    title: 'Could not load campaign',
+                    message: err?.body?.message || err?.message || 'Request failed or timed out.',
+                    variant: 'error'
+                }));
             });
     }
 
@@ -1041,6 +1578,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         if (!event.target.closest('.slds-combobox_container')) {
             this.isTopicDropdownOpen = false;
         }
+        if (!event.target.closest('.exclusion-multi-picker')) {
+            this._closeAllExclusionPickers();
+        }
     }
 
     // Place this method next to your other event handlers (e.g., near handleFamilyOfNeedsChange)
@@ -1200,6 +1740,16 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             this.selectedPriorityTier = newTier;
             if (!this._tierAllowsManualExclusions(newTier)) {
                 this.exclusionDefinitions = [];
+                this.exclusionSelectedBySource = emptyExclusionSelectedBySource();
+                this.exclusionCampaignMemberKey = '';
+                this.exclusionForeignKeys = {};
+                this.exclusionFieldOptionsByKey = {};
+                this._exclusionFieldOptionsLoadRequested = new Set();
+                this._exclusionWorkspaceInitialized = false;
+            } else {
+                this._ensureExclusionWorkspaceRow();
+                this._ensureSegmentExclusionCatalogOnly();
+                this._exclusionWorkspaceInitialized = true;
             }
             if (!this._tierAllowsOtherMarketingActivations(newTier)) {
                 this.excludeOtherMarketingActivations = false;
@@ -1223,85 +1773,563 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         };
     }
 
-    handleAddExclusionDefinition() {
-        this.exclusionDefinitions = [...this.exclusionDefinitions, newExclusionRow()];
-    }
-
-    handleRemoveExclusionDefinition(event) {
-        const rowId = event.currentTarget.dataset.rowId;
-        this.exclusionDefinitions = this.exclusionDefinitions.filter(row => row.id !== rowId);
-    }
-
-    handleExclusionSourceChange(event) {
-        const rowId = event.target.dataset.rowId;
-        const source = event.detail.value;
-        this.exclusionDefinitions = this.exclusionDefinitions.map(row => {
-            if (row.id !== rowId) return row;
-            return newExclusionRow({ id: row.id, source });
-        });
-        if (source === 'campaign' || source === 'report') {
-            this._runExclusionSearch(rowId, '');
+    handleExclusionSourcePick(event) {
+        const source = event.currentTarget.dataset.value;
+        if (!source) return;
+        this._ensureExclusionWorkspaceRow();
+        const row = this._activeExclusionRow();
+        if (!row) return;
+        this._syncActiveRowToSelectedStore();
+        const rowId = row.id;
+        this.exclusionDefinitions = [this._applyExclusionCatalogsToRow({
+            ...row,
+            source,
+            campaignPickerOpen: false,
+            reportPickerOpen: false,
+            segmentPickerOpen: false,
+            dmoPickerOpen: false,
+            dloPickerOpen: false
+        })];
+        if (source === 'campaign') {
+            this._ensureCampaignCatalogForRow(rowId);
+        } else if (source === 'report') {
+            this._ensureReportCatalogForRow(rowId);
+        } else if (source === 'segment') {
+            this._ensureData360ExclusionCatalog().then(() => this._openSegmentPicker(rowId));
         } else if (source === 'dmo') {
-            this.loadDmoOptionsIfNeeded();
+            this._ensureData360ExclusionCatalog();
+            this._openDmoPicker(rowId);
+        } else if (source === 'dlo') {
+            this._ensureData360ExclusionCatalog();
+            this._openDloPicker(rowId);
         }
     }
 
-    handleExclusionSearchInput(event) {
-        const rowId = event.target.dataset.rowId;
-        const term = event.target.value || '';
-        this.exclusionDefinitions = this.exclusionDefinitions.map(row =>
-            row.id === rowId ? { ...row, searchTerm: term } : row
-        );
-        clearTimeout(this._exclusionSearchTimers[rowId]);
-        this._exclusionSearchTimers[rowId] = setTimeout(() => {
-            this._runExclusionSearch(rowId, term);
-        }, 300);
+    _scheduleDataCloudExclusionSearch(kind, rowId, searchTerm) {
+        const timerKey = `${kind}-${rowId}`;
+        clearTimeout(this._exclusionSearchTimers[timerKey]);
+        const term = (searchTerm || '').trim();
+        if (term.length < 2) {
+            const patch = kind === 'dmo'
+                ? { dmoOptions: [], dmoPickerOpen: true }
+                : { dloOptions: [], dloPickerOpen: true };
+            this._updateExclusionRow(rowId, patch);
+            return;
+        }
+        // eslint-disable-next-line @lwc/lwc/no-async-operation
+        this._exclusionSearchTimers[timerKey] = setTimeout(() => {
+            searchDataCloudExclusionObjects({ kind, searchTerm: term })
+                .then(rows => {
+                    const options = mapDataCloudCatalogFromApex(rows);
+                    const row = this.exclusionDefinitions.find(r => r.id === rowId);
+                    const merged = this._mergeSelectedIntoDataCloudOptions(
+                        kind === 'dmo' ? row?.selectedDmoIds : row?.selectedDloIds,
+                        options
+                    );
+                    this._updateExclusionRow(rowId, kind === 'dmo'
+                        ? { dmoOptions: merged, dmoPickerOpen: true }
+                        : { dloOptions: merged, dloPickerOpen: true });
+                })
+                .catch(err => {
+                    console.error(`Data Cloud ${kind} search failed:`, err);
+                    const message = err?.body?.message || err?.message;
+                    if (message) {
+                        this.dispatchEvent(new ShowToastEvent({
+                            title: `Data Cloud ${kind.toUpperCase()} search`,
+                            message,
+                            variant: 'warning'
+                        }));
+                    }
+                    this._updateExclusionRow(rowId, kind === 'dmo'
+                        ? { dmoOptions: [], dmoPickerOpen: true }
+                        : { dloOptions: [], dloPickerOpen: true });
+                });
+        }, 400);
     }
 
-    _runExclusionSearch(rowId, term) {
-        const row = this.exclusionDefinitions.find(r => r.id === rowId);
-        if (!row) return;
-        const searchFn = row.source === 'campaign'
-            ? searchSuppressionCampaigns
-            : row.source === 'report'
-                ? searchSuppressionReports
-                : null;
-        if (!searchFn) return;
-        searchFn({ searchTerm: term || '' })
+    _mergeSelectedIntoDataCloudOptions(selectedIds, options) {
+        const merged = [...(options || [])];
+        const seen = new Set(merged.map(o => o.id));
+        (selectedIds || []).forEach(id => {
+            if (!seen.has(id)) {
+                merged.push({ id, apiName: id, label: id });
+                seen.add(id);
+            }
+        });
+        return merged;
+    }
+
+    handleRemoveExclusionSelection(event) {
+        const source = event.currentTarget.dataset.source;
+        const recordId = event.currentTarget.dataset.recordId;
+        if (!source || !recordId) return;
+        this._syncActiveRowToSelectedStore();
+        const next = { ...this.exclusionSelectedBySource };
+        next[source] = (next[source] || []).filter(id => id !== recordId);
+        this.exclusionSelectedBySource = next;
+        const mapKey = exclusionMappingKey(source, recordId);
+        if (this.exclusionForeignKeys[mapKey]) {
+            const foreignKeys = { ...this.exclusionForeignKeys };
+            delete foreignKeys[mapKey];
+            this.exclusionForeignKeys = foreignKeys;
+        }
+        if (this.exclusionFieldOptionsByKey[mapKey]) {
+            const fieldOptions = { ...this.exclusionFieldOptionsByKey };
+            delete fieldOptions[mapKey];
+            this.exclusionFieldOptionsByKey = fieldOptions;
+        }
+        this._exclusionFieldOptionsLoadRequested.delete(mapKey);
+        const row = this._activeExclusionRow();
+        if (row && row.source === source) {
+            if (source === 'campaign') {
+                row.selectedCampaignIds = [...next.campaign];
+            } else if (source === 'report') {
+                row.selectedReportIds = [...next.report];
+            } else if (source === 'segment') {
+                row.selectedSegmentIds = [...next.segment];
+            } else if (source === 'dmo') {
+                row.selectedDmoIds = [...next.dmo];
+            } else if (source === 'dlo') {
+                row.selectedDloIds = [...next.dlo];
+            }
+            this.exclusionDefinitions = [{ ...row }];
+        }
+    }
+
+    _loadCampaignOptionsForAllRows() {
+        searchSuppressionCampaigns({ searchTerm: '' })
             .then(results => {
-                const lookupOptions = (results || []).map(r => ({
-                    label: r.name,
-                    value: r.id
-                }));
+                const campaignOptions = mapCampaignOptionsFromApex(results);
+                this.exclusionCatalogs = { ...this.exclusionCatalogs, campaignOptions };
+                this._applyExclusionCatalogsToAllRows();
+            })
+            .catch(err => console.error('Campaign exclusion catalogue load failed:', err));
+    }
+
+    _ensureCampaignCatalogForRow(rowId) {
+        const catalogs = this.exclusionCatalogs || emptyExclusionCatalogs();
+        if ((catalogs.campaignOptions || []).length) {
+            this._updateExclusionRow(rowId, { campaignPickerOpen: true });
+            return;
+        }
+        searchSuppressionCampaigns({ searchTerm: '' })
+            .then(results => {
+                const campaignOptions = mapCampaignOptionsFromApex(results);
+                this.exclusionCatalogs = { ...this.exclusionCatalogs, campaignOptions };
                 this.exclusionDefinitions = this.exclusionDefinitions.map(r =>
-                    r.id === rowId ? { ...r, lookupOptions } : r
+                    r.id === rowId
+                        ? { ...this._applyExclusionCatalogsToRow(r), campaignPickerOpen: true }
+                        : this._applyExclusionCatalogsToRow(r)
                 );
             })
-            .catch(err => console.error('Exclusion lookup search failed:', err));
+            .catch(err => console.error('Campaign exclusion catalogue load failed:', err));
+    }
+
+    _loadReportOptionsForAllRows() {
+        searchSuppressionReports({ searchTerm: '' })
+            .then(results => {
+                const reportOptions = mapReportOptionsFromApex(results);
+                this.exclusionCatalogs = { ...this.exclusionCatalogs, reportOptions };
+                this._applyExclusionCatalogsToAllRows();
+            })
+            .catch(err => console.error('Report exclusion catalogue load failed:', err));
+    }
+
+    _ensureReportCatalogForRow(rowId) {
+        const catalogs = this.exclusionCatalogs || emptyExclusionCatalogs();
+        if ((catalogs.reportOptions || []).length) {
+            this._updateExclusionRow(rowId, { reportPickerOpen: true });
+            return;
+        }
+        searchSuppressionReports({ searchTerm: '' })
+            .then(results => {
+                const reportOptions = mapReportOptionsFromApex(results);
+                this.exclusionCatalogs = { ...this.exclusionCatalogs, reportOptions };
+                this.exclusionDefinitions = this.exclusionDefinitions.map(r =>
+                    r.id === rowId
+                        ? { ...this._applyExclusionCatalogsToRow(r), reportPickerOpen: true }
+                        : this._applyExclusionCatalogsToRow(r)
+                );
+            })
+            .catch(err => console.error('Report exclusion catalogue load failed:', err));
+    }
+
+    _closeAllExclusionPickers() {
+        const hasOpen = (this.exclusionDefinitions || []).some(
+            row => row.campaignPickerOpen || row.reportPickerOpen
+                || row.segmentPickerOpen || row.dmoPickerOpen || row.dloPickerOpen
+        );
+        if (!hasOpen) return;
+        this.exclusionDefinitions = this.exclusionDefinitions.map(row => ({
+            ...row,
+            campaignPickerOpen: false,
+            reportPickerOpen: false,
+            segmentPickerOpen: false,
+            dmoPickerOpen: false,
+            dloPickerOpen: false
+        }));
+    }
+
+    _closeOtherExclusionPickers(rowId) {
+        return (this.exclusionDefinitions || []).map(r => {
+            if (r.id === rowId) return r;
+            if (r.campaignPickerOpen || r.reportPickerOpen || r.segmentPickerOpen || r.dmoPickerOpen
+                || r.dloPickerOpen) {
+                return {
+                    ...r,
+                    campaignPickerOpen: false,
+                    reportPickerOpen: false,
+                    segmentPickerOpen: false,
+                    dmoPickerOpen: false,
+                    dloPickerOpen: false
+                };
+            }
+            return r;
+        });
+    }
+
+    _openSegmentPicker(rowId) {
+        this.exclusionDefinitions = this._closeOtherExclusionPickers(rowId).map(r =>
+            r.id === rowId ? { ...r, segmentPickerOpen: true } : r
+        );
+    }
+
+    _openDmoPicker(rowId) {
+        this.exclusionDefinitions = this._closeOtherExclusionPickers(rowId).map(r =>
+            r.id === rowId ? { ...r, dmoPickerOpen: true } : r
+        );
+    }
+
+    _openDloPicker(rowId) {
+        this.exclusionDefinitions = this._closeOtherExclusionPickers(rowId).map(r =>
+            r.id === rowId ? { ...r, dloPickerOpen: true } : r
+        );
+    }
+
+    _updateExclusionRow(rowId, patch) {
+        this.exclusionDefinitions = this.exclusionDefinitions.map(row =>
+            row.id === rowId ? { ...row, ...patch } : row
+        );
+        this._syncActiveRowToSelectedStore();
+    }
+
+    handleCampaignPickerToggle(event) {
+        event.stopPropagation();
+        const rowId = event.currentTarget.dataset.rowId;
+        const row = this.exclusionDefinitions.find(r => r.id === rowId);
+        if (!row) return;
+        const opening = !row.campaignPickerOpen;
+        this.exclusionDefinitions = this._closeOtherExclusionPickers(rowId).map(r =>
+            r.id === rowId
+                ? { ...r, campaignPickerOpen: opening, reportPickerOpen: false, segmentPickerOpen: false, dmoPickerOpen: false, dloPickerOpen: false }
+                : r
+        );
+        if (opening) {
+            this._ensureCampaignCatalogForRow(rowId);
+        }
+    }
+
+    handleCampaignPickerSearch(event) {
+        event.stopPropagation();
+        const rowId = event.currentTarget.dataset.rowId;
+        const term = event.target.value || '';
+        this._updateExclusionRow(rowId, { campaignSearchTerm: term, campaignPickerOpen: true });
+    }
+
+    handleCampaignExclusionToggle(event) {
+        event.stopPropagation();
+        const rowId = event.currentTarget.dataset.rowId;
+        const campaignId = event.currentTarget.dataset.campaignId;
+        const checked = event.target.checked;
+        const row = this.exclusionDefinitions.find(r => r.id === rowId);
+        if (!row || !campaignId) return;
+        const selected = new Set(row.selectedCampaignIds || []);
+        if (checked) {
+            selected.add(campaignId);
+        } else {
+            selected.delete(campaignId);
+        }
+        const selectedCampaignIds = [...selected];
+        this._updateExclusionRow(rowId, {
+            selectedCampaignIds,
+            value: selectedCampaignIds.join(','),
+            display: buildCampaignExclusionDisplay(selectedCampaignIds, row.campaignOptions)
+        });
+        if (checked) {
+            this._afterExclusionSelectionChange('campaign', campaignId);
+        }
+    }
+
+    handleSelectAllCampaignsInGroup(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        const rowId = event.currentTarget.dataset.rowId;
+        const groupKey = event.currentTarget.dataset.groupKey;
+        const row = this.exclusionDefinitions.find(r => r.id === rowId);
+        if (!row || !groupKey) return;
+        const selected = new Set(row.selectedCampaignIds || []);
+        (row.campaignOptions || []).forEach(c => {
+            if (c.groupKey === groupKey) {
+                selected.add(c.id);
+            }
+        });
+        const selectedCampaignIds = [...selected];
+        this._updateExclusionRow(rowId, {
+            selectedCampaignIds,
+            value: selectedCampaignIds.join(','),
+            display: buildCampaignExclusionDisplay(selectedCampaignIds, row.campaignOptions)
+        });
+    }
+
+    handleRemoveCampaignExclusionPill(event) {
+        const rowId = event.currentTarget.dataset.rowId;
+        const campaignId = event.currentTarget.dataset.campaignId;
+        const row = this.exclusionDefinitions.find(r => r.id === rowId);
+        if (!row) return;
+        const selectedCampaignIds = (row.selectedCampaignIds || []).filter(id => id !== campaignId);
+        this._updateExclusionRow(rowId, {
+            selectedCampaignIds,
+            value: selectedCampaignIds.join(','),
+            display: buildCampaignExclusionDisplay(selectedCampaignIds, row.campaignOptions)
+        });
+    }
+
+    handleReportPickerToggle(event) {
+        event.stopPropagation();
+        const rowId = event.currentTarget.dataset.rowId;
+        const row = this.exclusionDefinitions.find(r => r.id === rowId);
+        if (!row) return;
+        const opening = !row.reportPickerOpen;
+        this.exclusionDefinitions = this._closeOtherExclusionPickers(rowId).map(r =>
+            r.id === rowId
+                ? { ...r, reportPickerOpen: opening, campaignPickerOpen: false, segmentPickerOpen: false, dmoPickerOpen: false, dloPickerOpen: false }
+                : r
+        );
+        if (opening) {
+            this._ensureReportCatalogForRow(rowId);
+        }
+    }
+
+    handleSegmentPickerToggle(event) {
+        event.stopPropagation();
+        const rowId = event.currentTarget.dataset.rowId;
+        const row = this.exclusionDefinitions.find(r => r.id === rowId);
+        if (!row) return;
+        const opening = !row.segmentPickerOpen;
+        if (opening) {
+            this._ensureData360ExclusionCatalog().then(() => this._openSegmentPicker(rowId));
+        } else {
+            this._updateExclusionRow(rowId, { segmentPickerOpen: false });
+        }
+    }
+
+    handleSegmentPickerSearch(event) {
+        event.stopPropagation();
+        const rowId = event.currentTarget.dataset.rowId;
+        this._updateExclusionRow(rowId, { segmentSearchTerm: event.target.value || '', segmentPickerOpen: true });
+    }
+
+    handleSegmentExclusionToggle(event) {
+        event.stopPropagation();
+        const rowId = event.currentTarget.dataset.rowId;
+        const segmentId = event.currentTarget.dataset.segmentId;
+        const checked = event.target.checked;
+        const row = this.exclusionDefinitions.find(r => r.id === rowId);
+        if (!row || !segmentId) return;
+        const selected = new Set(row.selectedSegmentIds || []);
+        if (checked) selected.add(segmentId);
+        else selected.delete(segmentId);
+        const selectedSegmentIds = [...selected];
+        this._updateExclusionRow(rowId, {
+            selectedSegmentIds,
+            value: selectedSegmentIds.join(','),
+            display: buildSegmentExclusionDisplay(selectedSegmentIds, row.segmentOptions)
+        });
+        if (checked) {
+            this._afterExclusionSelectionChange('segment', segmentId);
+        }
+    }
+
+    handleRemoveSegmentExclusionPill(event) {
+        const rowId = event.currentTarget.dataset.rowId;
+        const segmentId = event.currentTarget.dataset.segmentId;
+        const row = this.exclusionDefinitions.find(r => r.id === rowId);
+        if (!row) return;
+        const selectedSegmentIds = (row.selectedSegmentIds || []).filter(id => id !== segmentId);
+        this._updateExclusionRow(rowId, {
+            selectedSegmentIds,
+            value: selectedSegmentIds.join(','),
+            display: buildSegmentExclusionDisplay(selectedSegmentIds, row.segmentOptions)
+        });
+    }
+
+    handleDmoPickerToggle(event) {
+        event.stopPropagation();
+        const rowId = event.currentTarget.dataset.rowId;
+        const row = this.exclusionDefinitions.find(r => r.id === rowId);
+        if (!row) return;
+        const opening = !row.dmoPickerOpen;
+        if (opening) {
+            this._openDmoPicker(rowId);
+        } else {
+            this._updateExclusionRow(rowId, { dmoPickerOpen: false });
+        }
+    }
+
+    handleDmoPickerSearch(event) {
+        event.stopPropagation();
+        const rowId = event.currentTarget.dataset.rowId;
+        const term = event.target.value || '';
+        this._updateExclusionRow(rowId, { dmoSearchTerm: term, dmoPickerOpen: true });
+        this._scheduleDataCloudExclusionSearch('dmo', rowId, term);
+    }
+
+    handleDmoExclusionToggle(event) {
+        event.stopPropagation();
+        const rowId = event.currentTarget.dataset.rowId;
+        const dmoId = event.currentTarget.dataset.dmoId;
+        const checked = event.target.checked;
+        const row = this.exclusionDefinitions.find(r => r.id === rowId);
+        if (!row || !dmoId) return;
+        const selected = new Set(row.selectedDmoIds || []);
+        if (checked) selected.add(dmoId);
+        else selected.delete(dmoId);
+        const selectedDmoIds = [...selected];
+        this._updateExclusionRow(rowId, {
+            selectedDmoIds,
+            value: selectedDmoIds.join(','),
+            display: buildDataCloudCatalogExclusionDisplay(selectedDmoIds, row.dmoOptions)
+        });
+        if (checked) {
+            this._afterExclusionSelectionChange('dmo', dmoId);
+        }
+    }
+
+    handleRemoveDmoExclusionPill(event) {
+        const rowId = event.currentTarget.dataset.rowId;
+        const dmoId = event.currentTarget.dataset.dmoId;
+        const row = this.exclusionDefinitions.find(r => r.id === rowId);
+        if (!row) return;
+        const selectedDmoIds = (row.selectedDmoIds || []).filter(id => id !== dmoId);
+        this._updateExclusionRow(rowId, {
+            selectedDmoIds,
+            value: selectedDmoIds.join(','),
+            display: buildDataCloudCatalogExclusionDisplay(selectedDmoIds, row.dmoOptions)
+        });
+    }
+
+    handleDloPickerToggle(event) {
+        event.stopPropagation();
+        const rowId = event.currentTarget.dataset.rowId;
+        const row = this.exclusionDefinitions.find(r => r.id === rowId);
+        if (!row) return;
+        const opening = !row.dloPickerOpen;
+        if (opening) {
+            this._openDloPicker(rowId);
+        } else {
+            this._updateExclusionRow(rowId, { dloPickerOpen: false });
+        }
+    }
+
+    handleDloPickerSearch(event) {
+        event.stopPropagation();
+        const rowId = event.currentTarget.dataset.rowId;
+        const term = event.target.value || '';
+        this._updateExclusionRow(rowId, { dloSearchTerm: term, dloPickerOpen: true });
+        this._scheduleDataCloudExclusionSearch('dlo', rowId, term);
+    }
+
+    handleDloExclusionToggle(event) {
+        event.stopPropagation();
+        const rowId = event.currentTarget.dataset.rowId;
+        const dloId = event.currentTarget.dataset.dloId;
+        const checked = event.target.checked;
+        const row = this.exclusionDefinitions.find(r => r.id === rowId);
+        if (!row || !dloId) return;
+        const selected = new Set(row.selectedDloIds || []);
+        if (checked) selected.add(dloId);
+        else selected.delete(dloId);
+        const selectedDloIds = [...selected];
+        this._updateExclusionRow(rowId, {
+            selectedDloIds,
+            value: selectedDloIds.join(','),
+            display: buildDataCloudCatalogExclusionDisplay(selectedDloIds, row.dloOptions)
+        });
+        if (checked) {
+            this._afterExclusionSelectionChange('dlo', dloId);
+        }
+    }
+
+    handleRemoveDloExclusionPill(event) {
+        const rowId = event.currentTarget.dataset.rowId;
+        const dloId = event.currentTarget.dataset.dloId;
+        const row = this.exclusionDefinitions.find(r => r.id === rowId);
+        if (!row) return;
+        const selectedDloIds = (row.selectedDloIds || []).filter(id => id !== dloId);
+        this._updateExclusionRow(rowId, {
+            selectedDloIds,
+            value: selectedDloIds.join(','),
+            display: buildDataCloudCatalogExclusionDisplay(selectedDloIds, row.dloOptions)
+        });
+    }
+
+    handleReportPickerSearch(event) {
+        event.stopPropagation();
+        const rowId = event.currentTarget.dataset.rowId;
+        const term = event.target.value || '';
+        this._updateExclusionRow(rowId, { reportSearchTerm: term, reportPickerOpen: true });
+    }
+
+    handleReportExclusionToggle(event) {
+        event.stopPropagation();
+        const rowId = event.currentTarget.dataset.rowId;
+        const reportId = event.currentTarget.dataset.reportId;
+        const checked = event.target.checked;
+        const row = this.exclusionDefinitions.find(r => r.id === rowId);
+        if (!row || !reportId) return;
+        const selected = new Set(row.selectedReportIds || []);
+        if (checked) {
+            selected.add(reportId);
+        } else {
+            selected.delete(reportId);
+        }
+        const selectedReportIds = [...selected];
+        this._updateExclusionRow(rowId, {
+            selectedReportIds,
+            value: selectedReportIds.join(','),
+            display: buildReportExclusionDisplay(selectedReportIds, row.reportOptions)
+        });
+        if (checked) {
+            this._afterExclusionSelectionChange('report', reportId);
+        }
+    }
+
+    handleRemoveReportExclusionPill(event) {
+        const rowId = event.currentTarget.dataset.rowId;
+        const reportId = event.currentTarget.dataset.reportId;
+        const row = this.exclusionDefinitions.find(r => r.id === rowId);
+        if (!row) return;
+        const selectedReportIds = (row.selectedReportIds || []).filter(id => id !== reportId);
+        this._updateExclusionRow(rowId, {
+            selectedReportIds,
+            value: selectedReportIds.join(','),
+            display: buildReportExclusionDisplay(selectedReportIds, row.reportOptions)
+        });
     }
 
     handleExclusionLookupSelect(event) {
         const rowId = event.target.dataset.rowId;
         const value = event.detail.value;
         const row = this.exclusionDefinitions.find(r => r.id === rowId);
-        let display = value;
-        if (row?.source === 'dmo') {
-            const opt = this.dmoOptions.find(o => o.value === value);
-            display = opt ? opt.label : value;
-        } else if (row) {
-            const opt = (row.lookupOptions || []).find(o => o.value === value);
-            display = opt ? opt.label : value;
+        if (row?.source === 'campaign' || row?.source === 'report'
+            || row?.source === 'segment' || row?.source === 'dmo' || row?.source === 'dlo') {
+            return;
         }
+        let display = value;
+        const opt = (row.lookupOptions || []).find(o => o.value === value);
+        display = opt ? opt.label : value;
         this.exclusionDefinitions = this.exclusionDefinitions.map(r =>
             r.id === rowId ? { ...r, value, display } : r
-        );
-    }
-
-    handleExclusionSegmentChange(event) {
-        const rowId = event.target.dataset.rowId;
-        const value = event.target.value || '';
-        this.exclusionDefinitions = this.exclusionDefinitions.map(row =>
-            row.id === rowId ? { ...row, value, display: value } : row
         );
     }
 
@@ -1594,21 +2622,232 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         return EXCLUSION_SOURCE_OPTIONS;
     }
 
-    get exclusionDefinitionRows() {
-        return (this.exclusionDefinitions || []).map((row, index) => ({
-            ...row,
-            isCampaign: row.source === 'campaign',
-            isReport: row.source === 'report',
-            isSegment: row.source === 'segment',
-            isDmo: row.source === 'dmo',
-            showRemove: this.exclusionDefinitions.length > 1 || index > 0
-        }));
+    get exclusionWorkspaceRows() {
+        return this.exclusionDefinitionRows;
     }
 
-    get addExclusionButtonLabel() {
-        return this.exclusionDefinitions.length === 0
-            ? 'Add Exclusion Definition'
-            : 'Add Exclusion';
+    get exclusionActiveCatalogHint() {
+        const row = this._activeExclusionRow();
+        if (!row) return '';
+        if (row.source === 'segment') return this.exclusionCatalogHints.segment || '';
+        return '';
+    }
+
+    get exclusionDmoInfoMessage() {
+        const row = this._activeExclusionRow();
+        if (!row || row.source !== 'dmo') return '';
+        return this.exclusionCatalogHints.dmo
+            || 'Search Profile DMOs by label or API name (minimum 2 characters). Engagement and other categories are excluded.';
+    }
+
+    get exclusionDloInfoMessage() {
+        const row = this._activeExclusionRow();
+        if (!row || row.source !== 'dlo') return '';
+        return this.exclusionCatalogHints.dlo
+            || 'Search Profile DLOs by label or API name (minimum 2 characters). Engagement and other categories are excluded.';
+    }
+
+    get exclusionHasSelectedRecords() {
+        return this._countSelectedExclusions() > 0;
+    }
+
+    get exclusionSummaryListItems() {
+        const selected = this.exclusionSelectedBySource || emptyExclusionSelectedBySource();
+        const items = [];
+        EXCLUSION_SOURCE_OPTIONS.forEach(opt => {
+            (selected[opt.value] || []).forEach(recordId => {
+                const mapKey = exclusionMappingKey(opt.value, recordId);
+                const foreignKeyColumn = this.exclusionForeignKeys[mapKey] || '';
+                const fieldOptions = this.exclusionFieldOptionsByKey[mapKey] || [];
+                const mapped = isExclusionRowMappingComplete(this.exclusionCampaignMemberKey, foreignKeyColumn);
+                items.push({
+                    key: mapKey,
+                    source: opt.value,
+                    recordId,
+                    icon: opt.icon,
+                    sourceName: this._displayLabelForExclusionRecord(opt.value, recordId),
+                    foreignKeyColumn,
+                    fieldOptions,
+                    hasFieldOptions: fieldOptions.length > 0,
+                    mapped,
+                    rowClass: mapped
+                        ? 'exclusion-summary-row exclusion-summary-row--mapped'
+                        : 'exclusion-summary-row exclusion-summary-row--pending'
+                });
+            });
+        });
+        return items;
+    }
+
+    get exclusionDefinitionRows() {
+        return (this.exclusionDefinitions || []).map((row) => {
+            const base = {
+                ...row,
+                isCampaign: row.source === 'campaign',
+                isReport: row.source === 'report',
+                isSegment: row.source === 'segment',
+                isDmo: row.source === 'dmo',
+                isDlo: row.source === 'dlo',
+                exclusionSourceOptions: buildExclusionSourcePickerOptions(row.source)
+            };
+            if (row.source === 'report') {
+                const term = (row.reportSearchTerm || '').trim().toLowerCase();
+                const options = (row.reportOptions && row.reportOptions.length)
+                    ? row.reportOptions
+                    : this._catalogOptionsForSource('report');
+                const filtered = options.filter(r => {
+                    if (!term) return true;
+                    return (r.name || '').toLowerCase().includes(term)
+                        || (r.format || '').toLowerCase().includes(term);
+                });
+                const selectedSet = new Set(row.selectedReportIds || []);
+                const filteredReportPickerRows = filtered.map(r => ({
+                    id: r.id,
+                    name: r.name,
+                    metaLine: r.format || '',
+                    isSelected: selectedSet.has(r.id)
+                }));
+                const selectedReportPills = (row.selectedReportIds || []).map(id => {
+                    const match = options.find(o => o.id === id);
+                    return { id, label: match ? reportDisplayLabel(match) : id };
+                });
+                return {
+                    ...base,
+                    reportPickerContainerClass: `custom-dropdown-container exclusion-multi-picker exclusion-report-picker ${row.reportPickerOpen ? 'slds-is-open' : ''}`,
+                    filteredReportPickerRows,
+                    selectedReportPills,
+                    hasSelectedReports: selectedReportPills.length > 0
+                };
+            }
+            if (row.source === 'segment') {
+                const term = (row.segmentSearchTerm || '').trim().toLowerCase();
+                const options = (row.segmentOptions && row.segmentOptions.length)
+                    ? row.segmentOptions
+                    : this._catalogOptionsForSource('segment');
+                const filtered = options.filter(s => {
+                    if (!term) return true;
+                    return (s.name || '').toLowerCase().includes(term)
+                        || (s.status || '').toLowerCase().includes(term);
+                });
+                const selectedSet = new Set(row.selectedSegmentIds || []);
+                const filteredSegmentPickerRows = filtered.map(s => ({
+                    id: s.id,
+                    name: s.name,
+                    metaLine: s.status || '',
+                    isSelected: selectedSet.has(s.id)
+                }));
+                const selectedSegmentPills = (row.selectedSegmentIds || []).map(id => {
+                    const match = options.find(o => o.id === id);
+                    return { id, label: match ? segmentDisplayLabel(match) : id };
+                });
+                return {
+                    ...base,
+                    segmentPickerContainerClass: `custom-dropdown-container exclusion-multi-picker exclusion-segment-picker ${row.segmentPickerOpen ? 'slds-is-open' : ''}`,
+                    filteredSegmentPickerRows,
+                    selectedSegmentPills,
+                    hasSelectedSegments: selectedSegmentPills.length > 0
+                };
+            }
+            if (row.source === 'dmo') {
+                const term = (row.dmoSearchTerm || '').trim().toLowerCase();
+                const options = this._mergeSelectedIntoDataCloudOptions(
+                    row.selectedDmoIds,
+                    row.dmoOptions || []
+                );
+                const filtered = options.filter(d => {
+                    if (!term) return true;
+                    return (d.label || '').toLowerCase().includes(term)
+                        || (d.apiName || '').toLowerCase().includes(term);
+                });
+                const selectedSet = new Set(row.selectedDmoIds || []);
+                const filteredDmoPickerRows = filtered.map(d => ({
+                    id: d.id,
+                    name: d.label || d.apiName,
+                    metaLine: d.apiName || '',
+                    isSelected: selectedSet.has(d.id)
+                }));
+                const selectedDmoPills = (row.selectedDmoIds || []).map(id => {
+                    const match = options.find(o => o.id === id);
+                    return { id, label: match ? dataCloudCatalogDisplayLabel(match) : id };
+                });
+                return {
+                    ...base,
+                    dmoPickerContainerClass: `custom-dropdown-container exclusion-multi-picker exclusion-dmo-picker ${row.dmoPickerOpen ? 'slds-is-open' : ''}`,
+                    filteredDmoPickerRows,
+                    selectedDmoPills,
+                    hasSelectedDmos: selectedDmoPills.length > 0
+                };
+            }
+            if (row.source === 'dlo') {
+                const term = (row.dloSearchTerm || '').trim().toLowerCase();
+                const options = this._mergeSelectedIntoDataCloudOptions(
+                    row.selectedDloIds,
+                    row.dloOptions || []
+                );
+                const filtered = options.filter(d => {
+                    if (!term) return true;
+                    return (d.label || '').toLowerCase().includes(term)
+                        || (d.apiName || '').toLowerCase().includes(term);
+                });
+                const selectedSet = new Set(row.selectedDloIds || []);
+                const filteredDloPickerRows = filtered.map(d => ({
+                    id: d.id,
+                    name: d.label || d.apiName,
+                    metaLine: d.apiName || '',
+                    isSelected: selectedSet.has(d.id)
+                }));
+                const selectedDloPills = (row.selectedDloIds || []).map(id => {
+                    const match = options.find(o => o.id === id);
+                    return { id, label: match ? dataCloudCatalogDisplayLabel(match) : id };
+                });
+                return {
+                    ...base,
+                    dloPickerContainerClass: `custom-dropdown-container exclusion-multi-picker exclusion-dlo-picker ${row.dloPickerOpen ? 'slds-is-open' : ''}`,
+                    filteredDloPickerRows,
+                    selectedDloPills,
+                    hasSelectedDlos: selectedDloPills.length > 0
+                };
+            }
+            if (row.source !== 'campaign') {
+                return base;
+            }
+            const term = (row.campaignSearchTerm || '').trim().toLowerCase();
+            const options = (row.campaignOptions && row.campaignOptions.length)
+                ? row.campaignOptions
+                : this._catalogOptionsForSource('campaign');
+            const filtered = options.filter(c => {
+                if (!term) return true;
+                return (c.name || '').toLowerCase().includes(term)
+                    || (c.status || '').toLowerCase().includes(term)
+                    || (c.groupName || '').toLowerCase().includes(term);
+            });
+            const selectedSet = new Set(row.selectedCampaignIds || []);
+            const filteredCampaignPickerRows = filtered.map(c => ({
+                id: c.id,
+                name: c.name,
+                metaLine: campaignMetaLine(c.status, c.groupName),
+                groupKey: c.groupKey,
+                isSelected: selectedSet.has(c.id),
+                showGroupAction: !!c.groupKey
+            }));
+            const selectedCampaignPills = (row.selectedCampaignIds || []).map(id => {
+                const match = options.find(o => o.id === id);
+                return {
+                    id,
+                    label: match ? campaignDisplayLabel(match) : id
+                };
+            });
+            return {
+                ...base,
+                campaignPickerContainerClass: `custom-dropdown-container exclusion-multi-picker exclusion-campaign-picker ${row.campaignPickerOpen ? 'slds-is-open' : ''}`,
+                filteredCampaignPickerRows,
+                selectedCampaignPills,
+                hasSelectedCampaigns: selectedCampaignPills.length > 0,
+                campaignPickerSummary: selectedCampaignPills.length
+                    ? `${selectedCampaignPills.length} campaign(s) selected`
+                    : 'Select campaigns...'
+            };
+        });
     }
 
     get summaryExclusionsLabel() {
@@ -2195,24 +3434,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get showOtherMarketingActivationsOption() {
-        return isTierExclusionEnabled(this.selectedTierRecord, 'Excl_Other_Marketing_Activations__c');
-    }
-
-    /** Tier dictionary flags → ordered exclusion sections in step 1 (shared with tier summary chips). */
-    get tierExclusionSections() {
-        const tier = this.selectedTierRecord;
-        if (!tier) return [];
-        return TIER_EXCL_FIELDS
-            .filter(ef => isTierExclusionEnabled(tier, ef.field))
-            .map(ef => ({
-                key: ef.field,
-                title: ef.label,
-                isOtherMarketing: ef.field === 'Excl_Other_Marketing_Activations__c',
-                isManual: ef.field === 'Excl_Manual_Suppressions__c',
-                boxClass: ef.field === 'Excl_Manual_Suppressions__c'
-                    ? 'exclusion-method-box exclusion-method-box--manual slds-m-bottom_small'
-                    : 'exclusion-method-box slds-m-bottom_small'
-            }));
+        return isTierExclusionEnabled(this.selectedTierRecord, 'Excl_Other_Marketing_Activations__c')
+            && this._hasCampaignField('Exclude_Other_Marketing_Activations__c');
     }
 
     get activationOptions() {
@@ -2741,6 +3964,16 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     executeSubCampaignSave({ activate = false, closeOnSuccess = true } = {}) {
+        const exclusionError = this._validateExclusionMappingsForSave();
+        if (exclusionError) {
+            this.isLoading = false;
+            this.dispatchEvent(new ShowToastEvent({
+                title: 'Exclusion mapping required',
+                message: exclusionError,
+                variant: 'warning'
+            }));
+            return;
+        }
         const fields = {};
         const num = (v) => v === '' || v === null || v === undefined ? null : Number(v);
 
@@ -2906,7 +4139,13 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     handleContainerClick(event) {
-        // Keep clicks inside the wizard from bubbling to the backdrop.
+        // Document outside-click does not run here because we stop propagation on the modal shell.
+        if (!event.target.closest('.exclusion-multi-picker')) {
+            this._closeAllExclusionPickers();
+        }
+        if (!event.target.closest('.slds-combobox_container')) {
+            this.isTopicDropdownOpen = false;
+        }
         event.stopPropagation();
     }
 

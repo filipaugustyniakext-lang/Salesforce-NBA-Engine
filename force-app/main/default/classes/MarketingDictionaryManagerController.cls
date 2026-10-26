@@ -553,6 +553,27 @@ public with sharing class MarketingDictionaryManagerController {
         return options;
     }
 
+    /**
+     * Data360 DLO options (Data Lake Objects). Same Connect API pattern as DMOs.
+     */
+    @AuraEnabled
+    public static List<Map<String, String>> getData360DloOptions() {
+        Map<String, Map<String, String>> byApi = new Map<String, Map<String, String>>();
+        String connectError;
+        try {
+            collectDataCloudDlos(byApi);
+        } catch (Exception e) {
+            connectError = e.getMessage();
+        }
+        collectEntityDefinitionDlos(byApi);
+        if (byApi.isEmpty() && String.isNotBlank(connectError)) {
+            throw auraError('Data360 DLOs could not be loaded from Data Cloud. ' + connectError);
+        }
+        List<Map<String, String>> options = byApi.values();
+        options.sort(new DmoOptionLabelSort());
+        return options;
+    }
+
     private static final List<String> DMO_CATEGORIES = new List<String>{
         null, 'Profile', 'Engagement', 'Related'
     };
@@ -579,6 +600,80 @@ public with sharing class MarketingDictionaryManagerController {
         }
         if (byApi.isEmpty() && !errors.isEmpty()) {
             throw auraError(errors[0]);
+        }
+    }
+
+    private static void collectDataCloudDlos(Map<String, Map<String, String>> byApi) {
+        List<String> spaces = dataSpaceApiNames();
+        if (spaces.isEmpty()) {
+            spaces.add(null);
+        }
+        List<String> errors = new List<String>();
+        for (String spaceName : spaces) {
+            try {
+                addSerializedDlos(byApi, connectApiAsUntyped(
+                    queryDataCloudMetadata('DataLakeObject', null, null, spaceName)
+                ));
+            } catch (Exception e) {
+                errors.add(e.getMessage());
+            }
+        }
+        if (byApi.isEmpty() && !errors.isEmpty()) {
+            throw auraError(errors[0]);
+        }
+    }
+
+    private static void addSerializedDlos(Map<String, Map<String, String>> byApi, Object raw) {
+        if (!(raw instanceof Map<String, Object>)) {
+            return;
+        }
+        Object rows = ((Map<String, Object>) raw).get('metadata');
+        if (!(rows instanceof List<Object>)) {
+            return;
+        }
+        for (Object row : (List<Object>) rows) {
+            if (!(row instanceof Map<String, Object>)) {
+                continue;
+            }
+            Map<String, Object> entity = (Map<String, Object>) row;
+            String api = firstString(entity, new List<String>{ 'name', 'apiName' });
+            String typeName = firstString(entity, new List<String>{ 'type' });
+            if (String.isBlank(api)) {
+                continue;
+            }
+            if (String.isNotBlank(typeName) && typeName != 'DataLakeObject') {
+                continue;
+            }
+            String label = firstString(entity, new List<String>{ 'displayName', 'label' });
+            if (String.isBlank(label)) {
+                label = api;
+            }
+            byApi.put(api.toLowerCase(), new Map<String, String>{
+                'label' => label + ' (' + api + ')',
+                'value' => api
+            });
+        }
+    }
+
+    private static void collectEntityDefinitionDlos(Map<String, Map<String, String>> byApi) {
+        try {
+            for (EntityDefinition ent : [
+                SELECT QualifiedApiName, Label
+                FROM EntityDefinition
+                WHERE QualifiedApiName LIKE '%__dll'
+                LIMIT 2000
+            ]) {
+                if (String.isBlank(ent.QualifiedApiName) || byApi.containsKey(ent.QualifiedApiName.toLowerCase())) {
+                    continue;
+                }
+                String label = String.isNotBlank(ent.Label) ? ent.Label : ent.QualifiedApiName;
+                byApi.put(ent.QualifiedApiName.toLowerCase(), new Map<String, String>{
+                    'label' => label + ' (' + ent.QualifiedApiName + ')',
+                    'value' => ent.QualifiedApiName
+                });
+            }
+        } catch (Exception e) {
+            // EntityDefinition often omits Data Cloud DLOs.
         }
     }
 
@@ -1715,8 +1810,20 @@ public with sharing class MarketingDictionaryManagerController {
      */
     @AuraEnabled
     public static List<Map<String, String>> getData360DmoFields(String dmoApiName) {
+        return formatDataCloudFieldOptions(queryDmoFieldRows(dmoApiName));
+    }
+
+    /**
+     * Columns on one Data360 DLO (Data Lake Object), same Connect query pattern as DMOs.
+     */
+    @AuraEnabled
+    public static List<Map<String, String>> getData360DloFields(String dloApiName) {
+        return formatDataCloudFieldOptions(queryDloFieldRows(dloApiName));
+    }
+
+    private static List<Map<String, String>> formatDataCloudFieldOptions(List<Map<String, String>> rows) {
         List<Map<String, String>> options = new List<Map<String, String>>();
-        for (Map<String, String> field : queryDmoFieldRows(dmoApiName)) {
+        for (Map<String, String> field : rows) {
             String api = field.get('value');
             String label = field.get('label');
             String dataType = field.get('dataType');
@@ -1882,11 +1989,29 @@ public with sharing class MarketingDictionaryManagerController {
     }
 
     private static List<Map<String, String>> queryDmoFieldRows(String dmoApiName) {
-        String dmo = dmoApiName == null ? '' : dmoApiName.trim();
-        if (String.isBlank(dmo) || !dmo.endsWithIgnoreCase('__dlm')) {
-            throw auraError(
-                'Enter a Data360 DMO API name that ends with __dlm, for example Sample_ScoringModels__dlm.'
-            );
+        return queryDataCloudObjectFieldRows(
+            dmoApiName,
+            '__dlm',
+            'Enter a Data360 DMO API name that ends with __dlm, for example Sample_ScoringModels__dlm.'
+        );
+    }
+
+    private static List<Map<String, String>> queryDloFieldRows(String dloApiName) {
+        return queryDataCloudObjectFieldRows(
+            dloApiName,
+            '__dll',
+            'Enter a Data360 DLO API name that ends with __dll, for example Account_Home__dll.'
+        );
+    }
+
+    private static List<Map<String, String>> queryDataCloudObjectFieldRows(
+        String objectApiName,
+        String requiredSuffix,
+        String invalidNameMessage
+    ) {
+        String api = objectApiName == null ? '' : objectApiName.trim();
+        if (String.isBlank(api) || !api.endsWithIgnoreCase(requiredSuffix)) {
+            throw auraError(invalidNameMessage);
         }
         String lastError;
         List<String> spaces = new List<String>{ null };
@@ -1897,7 +2022,7 @@ public with sharing class MarketingDictionaryManagerController {
         }
         for (String spaceName : spaces) {
             try {
-                List<Map<String, String>> rows = columnsFromDmoQuery(dmo, spaceName);
+                List<Map<String, String>> rows = columnsFromDmoQuery(api, spaceName);
                 if (!rows.isEmpty()) {
                     return rows;
                 }
@@ -1905,12 +2030,12 @@ public with sharing class MarketingDictionaryManagerController {
                 lastError = e.getMessage();
             }
         }
-        List<Map<String, String>> fromEntity = entityDefinitionFieldRows(dmo);
+        List<Map<String, String>> fromEntity = entityDefinitionFieldRows(api);
         if (!fromEntity.isEmpty()) {
             return fromEntity;
         }
         String detail = String.isNotBlank(lastError) ? ' ' + lastError : '';
-        throw auraError('No columns were returned for ' + dmo + '.' + detail);
+        throw auraError('No columns were returned for ' + api + '.' + detail);
     }
 
     /**
