@@ -1104,7 +1104,8 @@ public with sharing class MarketingDictionaryManagerController {
         }
     }
 
-    @AuraEnabled(cacheable=false)
+    /** Cacheable for Marketing Dictionary @wire; Campaign Wizard uses MarketingDictionaryController.getCampaignTiers for fresh loads. */
+    @AuraEnabled(cacheable=true)
     public static List<Campaign_Tier__c> getCampaignTiers() {
         return [
             SELECT Id, Name, Tier_Number__c, Description__c, Supported_Campaign_Types__c,

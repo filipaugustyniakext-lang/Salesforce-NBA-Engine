@@ -25,7 +25,7 @@ import getPublishedVariantsForWizard from '@salesforce/apex/CopyCockpitControlle
 import getAprioriContext from '@salesforce/apex/CampaignScoringAprioriController.getAprioriContext';
 import publishAprioriScores from '@salesforce/apex/CampaignScoringAprioriController.publishAprioriScores';
 import { parseFullName } from 'c/copyMessageNaming';
-import getCampaignTiers from '@salesforce/apex/MarketingDictionaryManagerController.getCampaignTiers';
+import getCampaignTiers from '@salesforce/apex/MarketingDictionaryController.getCampaignTiers';
 import getCampaignTypes from '@salesforce/apex/MarketingDictionaryController.getCampaignTypes';
 import getCampaignRecords from '@salesforce/apex/MarketingDictionaryManagerController.getCampaignRecords';
 import getExclusionOptions from '@salesforce/apex/CampaignExclusionController.getExclusionOptions';
