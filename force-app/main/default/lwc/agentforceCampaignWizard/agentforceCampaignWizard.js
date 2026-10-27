@@ -377,6 +377,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     @track activeFrom = '';
     @track activeTo = '';
     @track campaignDurationDays = '';
+    @track eventValidityWindowDays = '';
     @track selectedOfferingType = 'Product Family';
     @track selectedPriorityTier = '';
     // --- EMERGENCY STATE CONTROL ---
@@ -1131,6 +1132,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         this.campaignDurationDays = campaign.Duration_Days__c != null
             ? String(campaign.Duration_Days__c)
             : '';
+        this.eventValidityWindowDays = campaign.Validity_Days__c != null
+            ? String(campaign.Validity_Days__c)
+            : '';
 
         this.selectedTopicId = campaign.Topic_Dict__c || '';
         this.topicName = campaign.Topic_Dict__r?.Name
@@ -1678,6 +1682,10 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     handleCampaignDurationChange(event) {
         this.campaignDurationDays = event.target.value;
+    }
+
+    handleEventValidityWindowChange(event) {
+        this.eventValidityWindowDays = event.target.value;
     }
         
     handleOfferingTypeChange(event) {
@@ -3005,6 +3013,28 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         return key === 'alwayson';
     }
 
+    get isTriggeredActivation() {
+        const key = (this.parentActivationType || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        return key === 'triggered';
+    }
+
+    get isBatchEventsCampaignGroup() {
+        const opt = (this.campaignGroupOptions || []).find(
+            o => o.value === this.selectedCampaignGroupId
+        );
+        const name = (opt?.label || this.selectedCampaignGroupName || '').trim().toLowerCase();
+        return name === 'batch events';
+    }
+
+    get showCampaignDurationField() {
+        return this.isAlwaysOnActivation && !this.isBatchEventsCampaignGroup;
+    }
+
+    get showEventValidityWindowField() {
+        return this.isBatchEventsCampaignGroup
+            && (this.isAlwaysOnActivation || this.isTriggeredActivation);
+    }
+
     get hasValidActiveWindow() {
         if (!this.activeFrom || !this.activeTo) {
             return false;
@@ -3038,10 +3068,19 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         if (this.activeFrom && this.activeTo && !this.hasValidActiveWindow) {
             issues.push(this._issue('active-window', 'Active To must be on or after Active From.'));
         }
-        if (this.isAlwaysOnActivation) {
+        if (this.showCampaignDurationField) {
             const days = Number(this.campaignDurationDays);
             if (!this.campaignDurationDays || !Number.isInteger(days) || days < 1) {
                 issues.push(this._issue('duration', 'Enter Campaign Duration (Days) for Always-on campaigns.'));
+            }
+        }
+        if (this.showEventValidityWindowField) {
+            const days = Number(this.eventValidityWindowDays);
+            if (!this.eventValidityWindowDays || !Number.isInteger(days) || days < 1) {
+                issues.push(this._issue(
+                    'event-validity',
+                    'Enter Event Validity Window (Days) for Batch Events campaigns.'
+                ));
             }
         }
         if (this.showCampaignGroup && !this.selectedCampaignGroupId) {
@@ -4008,10 +4047,17 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get summaryCampaignDuration() {
-        if (!this.isAlwaysOnActivation) {
+        if (!this.showCampaignDurationField) {
             return '—';
         }
         return this.campaignDurationDays || '—';
+    }
+
+    get summaryEventValidityWindow() {
+        if (!this.showEventValidityWindowField) {
+            return '—';
+        }
+        return this.eventValidityWindowDays || '—';
     }
 
     formatSummaryDateTime(value) {
@@ -4076,7 +4122,12 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         fields['Activation_Type__c'] = this.parentActivationType || null;
         fields['Active_From__c'] = this.activeFrom || null;
         fields['Active_To__c'] = this.activeTo || null;
-        fields['Duration_Days__c'] = this.isAlwaysOnActivation
+        if (this._hasCampaignField('Validity_Days__c')) {
+            fields['Validity_Days__c'] = this.showEventValidityWindowField
+                ? num(this.eventValidityWindowDays)
+                : null;
+        }
+        fields['Duration_Days__c'] = this.showCampaignDurationField
             ? num(this.campaignDurationDays)
             : null;
         this._applyExclusionsToSaveFields(fields);
