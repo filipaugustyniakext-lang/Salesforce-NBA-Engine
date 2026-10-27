@@ -455,14 +455,17 @@
 }
 
 .primary-pill {
-    background-color: var(--md-color-accent, var(--slds-g-color-accent-2, #1b66ec));
-    color: var(--md-color-surface, var(--slds-g-color-surface-container-1, #ffffff));
-    border: none;
-    box-shadow: 0 2px 4px rgba(27, 102, 236, 0.2);
+    background-color: var(--md-color-accent-container, var(--md-color-accent, var(--slds-g-color-accent-container-1, #0176d3)));
+    color: var(--md-color-on-accent, var(--slds-g-color-on-accent-1, #ffffff));
+    border: 1px solid var(--md-color-accent, var(--slds-g-color-accent-2, #0176d3));
+    box-shadow: none;
 }
 
-.primary-pill:hover:not([disabled]) {
-    background-color: #0b52d6;
+.primary-pill:hover:not([disabled]),
+.primary-pill:focus-visible:not([disabled]) {
+    background-color: var(--md-color-accent-strong, var(--slds-g-color-accent-1, #032d60));
+    border-color: var(--md-color-accent-strong, var(--slds-g-color-accent-1, #032d60));
+    color: var(--md-color-on-accent, var(--slds-g-color-on-accent-1, #ffffff));
 }
 
 .primary-pill[disabled] {
