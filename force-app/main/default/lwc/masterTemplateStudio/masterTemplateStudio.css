@@ -308,7 +308,7 @@
 
 .studio-shell-layout__preview,
 .studio-block-binding-row code {
-    font-family: var(--lwc-fontFamilyMonospace, monospace);
+    font-family: monospace;
 }
 
 .studio-blocks-layout__preview {
