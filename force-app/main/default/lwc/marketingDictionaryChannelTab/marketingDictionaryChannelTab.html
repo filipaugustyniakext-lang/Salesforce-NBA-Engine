@@ -35,7 +35,7 @@
                             <span class="ch-sidebar__name">{ch.displayName}</span>
                             <span class="ch-sidebar__comm-badges">
                                 <template for:each={ch.commBadges} for:item="badge">
-                                    <span key={badge.key} class="slds-badge slds-badge_lightest ch-sidebar__comm-badge">{badge.label}</span>
+                                    <span key={badge.key} class="slds-badge ch-sidebar__comm-badge">{badge.label}</span>
                                 </template>
                             </span>
                         </div>
@@ -146,7 +146,7 @@
                                     <div class="slds-grid slds-grid_vertical-align-center slds-m-bottom_x-small">
                                         <div class="slds-col"></div>
                                         <div class="slds-col slds-no-flex">
-                                            <lightning-button label="Add Rule" icon-name="utility:add" variant="neutral"
+                                            <lightning-button label="Add Rule" icon-name="utility:add" variant="brand-outline"
                                                 size="x-small" data-channelid={activeChannel.Id} onclick={handleNewCooldown}
                                                 disabled={activeChannel.cooldownAddDisabled}>
                                             </lightning-button>

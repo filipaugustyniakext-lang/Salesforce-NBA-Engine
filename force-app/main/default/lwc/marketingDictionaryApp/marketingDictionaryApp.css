@@ -1,0 +1,47 @@
+/**
+ * Marketing Dictionary — theme tokens (inherit into child LWCs).
+ * Uses SLDS global styling hooks so Salesforce Brand / dark mode apply.
+ * @see https://www.lightningdesignsystem.com/2e1ef8501/v/0/p/98b493-styling-hook-index
+ */
+.md-app-root {
+    --md-color-surface: var(--slds-g-color-surface-container-1, var(--lwc-colorBackgroundAlt, #ffffff));
+    --md-color-surface-elevated: var(--slds-g-color-surface-container-2, var(--lwc-colorBackground, #f3f3f3));
+    --md-color-surface-sidebar: var(--slds-g-color-surface-container-3, var(--lwc-colorBackgroundRowNew, #f8f9fb));
+    --md-color-surface-hover: var(--slds-g-color-surface-container-2, var(--lwc-colorBackgroundRowHover, #eaf0f8));
+    --md-color-border: var(--slds-g-color-border-base-1, var(--lwc-colorBorder, #e0e5ee));
+    --md-color-border-subtle: var(--slds-g-color-border-base-2, var(--lwc-colorBorder, #e8ecf0));
+    --md-color-text: var(--slds-g-color-on-surface-1, var(--lwc-colorTextDefault, #181818));
+    --md-color-text-muted: var(--slds-g-color-on-surface-2, var(--lwc-colorTextLabel, #706e6b));
+    --md-color-text-default: var(--slds-g-color-on-surface-1, var(--lwc-colorTextDefault, #3e3e3c));
+    --md-color-accent: var(--slds-g-color-accent-2, var(--lwc-brandAccessible, #0176d3));
+    --md-color-accent-strong: var(--slds-g-color-accent-1, var(--lwc-brandAccessibleActive, #032d60));
+    --md-color-accent-container: var(--slds-g-color-accent-container-1, var(--lwc-brandAccessible, #0176d3));
+    --md-color-on-accent: var(--slds-g-color-on-accent-1, var(--lwc-colorTextBrandPrimary, #ffffff));
+    --md-color-success-bg: var(--slds-g-color-success-container-1, #daf5e3);
+    --md-color-success-text: var(--slds-g-color-on-success-1, #194e31);
+    --md-color-neutral-bg: var(--slds-g-color-neutral-base-95, var(--lwc-colorBackground, #f3f3f3));
+    --md-color-neutral-text: var(--slds-g-color-on-surface-2, var(--lwc-colorTextLabel, #706e6b));
+    --md-color-error: var(--slds-g-color-error-1, var(--lwc-colorTextError, #c23934));
+    --md-color-success: var(--slds-g-color-success-1, var(--lwc-colorTextSuccess, #2e844a));
+    --md-color-info-bg: var(--slds-g-color-info-container-1, #e8f4fd);
+    --md-color-info-border: var(--slds-g-color-info-container-2, #a8d5f5);
+    --md-color-warning-bg: var(--slds-g-color-warning-container-1, #fff5d6);
+    --md-color-error-bg: var(--slds-g-color-error-container-1, #fff5f5);
+    --md-color-warning-surface: var(--slds-g-color-warning-container-1, #fffce8);
+}
+
+:host {
+    display: block;
+}
+
+.md-app-root,
+.md-app-root .slds-card,
+.md-app-root .slds-card__body {
+    background-color: var(--md-color-surface);
+    color: var(--md-color-text);
+}
+
+.md-app-root lightning-tabset {
+    --slds-c-tabs-item-color-border-active: var(--md-color-accent);
+    --slds-c-tabs-item-text-color-active: var(--md-color-accent);
+}
