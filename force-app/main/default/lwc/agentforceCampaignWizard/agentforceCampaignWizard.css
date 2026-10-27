@@ -1,7 +1,7 @@
 :host {
     --md-color-surface: var(--slds-g-color-surface-container-1, #ffffff);
     --md-color-surface-elevated: var(--slds-g-color-surface-container-2, #f3f3f3);
-    --md-color-surface-sidebar: var(--slds-g-color-surface-container-3, #f8f9fb);
+    --md-color-surface-sidebar: transparent;
     --md-color-surface-hover: var(--slds-g-color-surface-container-2, #eaf0f8);
     --md-color-border: var(--slds-g-color-border-base-1, #e0e5ee);
     --md-color-border-subtle: var(--slds-g-color-border-base-2, #e8ecf0);
@@ -2025,7 +2025,7 @@
 }
 
 .copy-tabs-sidebar {
-    background: var(--md-color-surface-sidebar, var(--slds-g-color-surface-container-3, #f8f9fb));
+    background: transparent;
     border-right: 1px solid var(--md-color-border, var(--slds-g-color-border-base-1, #e0e5ee));
     padding: 0 !important;
 }
@@ -2064,7 +2064,7 @@
     align-items: center;
     justify-content: center;
     padding: 0 0.5rem;
-    background: var(--md-color-surface-sidebar, var(--slds-g-color-surface-container-3, #f3f4f6));
+    background: transparent;
     border-right: 1px solid var(--md-color-border-subtle, var(--slds-g-color-border-base-2, #e8ecf0));
 }
 
@@ -2076,12 +2076,13 @@
 
 
 .copy-channel-sidebar-row_disabled .copy-channel-tab-link {
-    opacity: 0.85;
+    opacity: 0.55;
 }
 
 .copy-channel-tab-link_disabled {
     color: var(--md-color-text-muted, var(--slds-g-color-on-surface-2, #706e6b));
-    cursor: pointer;
+    cursor: not-allowed;
+    pointer-events: none;
 }
 
 .copy-list-builder-container {

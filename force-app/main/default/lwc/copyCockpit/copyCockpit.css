@@ -46,7 +46,7 @@
     border-right: 1px solid #e0e5ee;
     display: flex;
     flex-direction: column;
-    background: #f8f9fb;
+    background: transparent;
     border-radius: 0.25rem 0 0 0.25rem;
     overflow-y: auto;
     align-self: stretch;
@@ -70,7 +70,7 @@
 .ch-sidebar__item:hover { background: #eaf0f8; }
 
 .ch-sidebar__item_active {
-    background: #fff;
+    background: #eaf0f8;
     border-left: 3px solid #0176d3;
     padding-left: calc(0.75rem - 3px);
     font-weight: 600;

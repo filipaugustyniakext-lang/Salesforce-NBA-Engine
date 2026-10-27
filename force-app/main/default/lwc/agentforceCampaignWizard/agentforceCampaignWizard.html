@@ -1042,6 +1042,8 @@
                                                             <a class={tab.linkClass}
                                                                role="tab"
                                                                aria-selected={tab.isActiveTab}
+                                                               aria-disabled={tab.tabAriaDisabled}
+                                                               tabindex={tab.tabTabIndex}
                                                                data-value={tab.value}
                                                                onclick={handleCopyChannelSelect}>
                                                                 <span class="slds-vertical-tabs__left-icon">
