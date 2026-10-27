@@ -421,6 +421,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     @track pendingAprioriScore = null;
     aprioriSliderResetKey = 0;
     _aprioriScoreCommitTimer = null;
+    @track aprioriScoreValueEditing = false;
+    @track aprioriScoreDraft = '';
     @track selectedScoringModelId = '';
     @track selectedScoringModelName = '';
     @track _scoringModels = [];
@@ -2414,19 +2416,65 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         }
     }
 
-    handleAprioriScoreChange(event) {
-        const next = Number(event.detail.value);
+    _clampAprioriScore(raw) {
+        const next = Number(raw);
         if (Number.isNaN(next)) {
-            return;
+            return null;
         }
-        const clamped = Math.min(1000, Math.max(0, Math.round(next)));
-        // Keep the thumb moving while dragging; confirm only after the user pauses on a new value.
+        return Math.min(1000, Math.max(0, Math.round(next)));
+    }
+
+    _queueAprioriScoreCommit(clamped) {
         this.aprioriScore = clamped;
         clearTimeout(this._aprioriScoreCommitTimer);
         // eslint-disable-next-line @lwc/lwc/no-async-operation
         this._aprioriScoreCommitTimer = setTimeout(() => {
             this.finalizeAprioriScoreSelection(clamped);
         }, 400);
+    }
+
+    handleAprioriRangeInput(event) {
+        const clamped = this._clampAprioriScore(event.target.value);
+        if (clamped === null) {
+            return;
+        }
+        this.aprioriScoreDraft = String(clamped);
+        this._queueAprioriScoreCommit(clamped);
+    }
+
+    handleAprioriValueEditStart() {
+        this.aprioriScoreDraft = String(this.aprioriScore);
+        this.aprioriScoreValueEditing = true;
+    }
+
+    handleAprioriValueInput(event) {
+        const clamped = this._clampAprioriScore(event.target.value);
+        if (clamped === null) {
+            this.aprioriScoreDraft = event.target.value;
+            return;
+        }
+        this.aprioriScoreDraft = String(clamped);
+        this._queueAprioriScoreCommit(clamped);
+    }
+
+    handleAprioriValueInputCommit() {
+        const clamped = this._clampAprioriScore(this.aprioriScoreDraft);
+        if (clamped !== null) {
+            this.aprioriScore = clamped;
+            this.aprioriScoreDraft = String(clamped);
+            this.finalizeAprioriScoreSelection(clamped);
+        }
+        this.aprioriScoreValueEditing = false;
+    }
+
+    handleAprioriValueInputKeydown(event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            this.handleAprioriValueInputCommit();
+        } else if (event.key === 'Escape') {
+            this.aprioriScoreDraft = String(this.aprioriScore);
+            this.aprioriScoreValueEditing = false;
+        }
     }
 
     finalizeAprioriScoreSelection(clamped) {
@@ -2456,6 +2504,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     handleAprioriPopoverCancel() {
         this.aprioriScore = this.aprioriBaselineScore;
+        this.aprioriScoreDraft = String(this.aprioriBaselineScore ?? this.aprioriScore);
+        this.aprioriScoreValueEditing = false;
         this.aprioriSliderResetKey += 1;
         this.showAprioriChangePopover = false;
         this.pendingAprioriScore = null;
@@ -2998,6 +3048,22 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             return `A shared apriori score (${this.aprioriBaselineScore}) already exists for this topic and product family selection. Changing it updates all campaigns using the same combination.`;
         }
         return 'No shared apriori score exists yet for this topic and product family selection. You can set a value from 0 to 1000.';
+    }
+
+    get scoringContentBoxClass() {
+        const base = 'scoring-content-box slds-m-top_medium';
+        return this.isAprioriScoreConfiguration ? `${base} scoring-content-box--apriori` : base;
+    }
+
+    get aprioriHintAlertClass() {
+        const tone = this.aprioriHasMixedSharedScores ? 'slds-alert_warning' : 'slds-alert_info';
+        return `preview-panel__help slds-notify slds-notify_alert ${tone} slds-m-bottom_small`;
+    }
+
+    get aprioriSliderTrackFillStyle() {
+        const score = this._clampAprioriScore(this.aprioriScore);
+        const pct = score === null ? 0 : (score / 1000) * 100;
+        return `width: ${pct}%`;
     }
 
     get scoringConfigurationOptions() {
