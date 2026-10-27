@@ -405,6 +405,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     @track excludeOtherMarketingActivations = false;
     @track excludeCampaignGroups = false;
     @track excludedCampaignGroupIds = [];
+    @track manualExclusionsEnabled = false;
     _data360ExclusionCatalogLoaded = false;
     _data360ExclusionCatalogPromise = null;
     _exclusionSearchTimers = {};
@@ -515,8 +516,10 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     renderedCallback() {
-        if (!this.showManualExclusionDefinitions) {
-            this._exclusionWorkspaceInitialized = false;
+        if (!this.isManualExclusionsActive) {
+            if (!this.showManualExclusionDefinitions) {
+                this._exclusionWorkspaceInitialized = false;
+            }
             return;
         }
         if (this._exclusionWorkspaceInitialized) {
@@ -671,6 +674,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             key => (selected[key] || []).length > 0
         ) || 'campaign';
         this.exclusionDefinitions = [this._buildExclusionWorkspaceRow(firstActiveSource)];
+        this.manualExclusionsEnabled = EXCLUSION_SOURCE_KEYS.some(
+            key => (selected[key] || []).length > 0
+        );
 
         if ((selected.segment || []).length) {
             // Segments only — DMO/DLO are search-on-demand; campaign/report catalogs load when picker opens.
@@ -728,7 +734,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     _ensureSegmentExclusionCatalogOnly() {
-        if (!this.showManualExclusionDefinitions) {
+        if (!this.isManualExclusionsActive) {
             return;
         }
         this._ensureData360ExclusionCatalog();
@@ -755,7 +761,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     _ensureExclusionWorkspaceRow() {
-        if (!this.showManualExclusionDefinitions) {
+        if (!this.isManualExclusionsActive) {
             return;
         }
         if ((this.exclusionDefinitions || []).length === 0) {
@@ -795,6 +801,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     _serializeExclusionDefinitions() {
+        if (!this.isManualExclusionsActive) {
+            return [];
+        }
         this._syncActiveRowToSelectedStore();
         const selected = this.exclusionSelectedBySource || emptyExclusionSelectedBySource();
         const serialized = [];
@@ -844,7 +853,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     _validateExclusionMappingsForSave() {
-        if (!this.showManualExclusionDefinitions) {
+        if (!this.isManualExclusionsActive) {
             return null;
         }
         this._syncActiveRowToSelectedStore();
@@ -1777,6 +1786,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             const stepKey = this.currentStepKey;
             this.selectedPriorityTier = newTier;
             if (!this._tierAllowsManualExclusions(newTier)) {
+                this.manualExclusionsEnabled = false;
                 this.exclusionDefinitions = [];
                 this.exclusionSelectedBySource = emptyExclusionSelectedBySource();
                 this.exclusionCampaignMemberKey = '';
@@ -1808,6 +1818,17 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         this.excludeCampaignGroups = event.target.checked;
         if (!this.excludeCampaignGroups) {
             this.excludedCampaignGroupIds = [];
+        }
+    }
+
+    handleManualExclusionsToggle(event) {
+        this.manualExclusionsEnabled = event.target.checked;
+        if (this.manualExclusionsEnabled) {
+            this._ensureExclusionWorkspaceRow();
+            this._ensureSegmentExclusionCatalogOnly();
+            this._exclusionWorkspaceInitialized = true;
+        } else {
+            this._exclusionWorkspaceInitialized = false;
         }
     }
 
@@ -3531,6 +3552,10 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     get showManualExclusionDefinitions() {
         return isTierExclusionEnabled(this.selectedTierRecord, 'Excl_Manual_Suppressions__c');
+    }
+
+    get isManualExclusionsActive() {
+        return this.showManualExclusionDefinitions && this.manualExclusionsEnabled;
     }
 
     get showOtherMarketingActivationsOption() {
