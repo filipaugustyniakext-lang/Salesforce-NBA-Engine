@@ -711,8 +711,7 @@ export default class MasterTemplateStudio extends LightningElement {
         this.previewBlockKey = previewKey;
         this.showNewBlockDefinitionForm = false;
         this._resetPendingBlockDraft();
-        // eslint-disable-next-line @lwc/lwc/no-async-operation
-        requestAnimationFrame(() => this._refreshStudioPreviews());
+        this._refreshStudioPreviews();
     }
 
     handleEditBlockDefinition(event) {

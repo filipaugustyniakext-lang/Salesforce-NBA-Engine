@@ -19,10 +19,24 @@ export function normalizeCcPreviewType(rawType) {
     return '';
 }
 
+function blockDefinitionMap(blocks) {
+    const map = new Map();
+    (blocks || []).forEach(block => {
+        if (!block) return;
+        if (block.type) map.set(block.type, block);
+        if (block.fileName) {
+            map.set(block.fileName, block);
+            const key = normalizeStudioBlockLookupKey(block.fileName);
+            if (key) map.set(key, block);
+        }
+    });
+    return map;
+}
+
 export function renderTemplatePreview(source, blocks, device) {
     const shell = unwrapTemplateStartWrapper(String(source?.shellHtml || ''));
     if (!shell) return '';
-    const definitions = new Map((source.blocks || []).map(block => [block.type, block]));
+    const definitions = blockDefinitionMap(source.blocks);
     const visible = (blocks || []).filter(block => isVisibleOnDevice(block, device, definitions.get(block.blockType)));
     const rendered = visible.map(block => {
         const definition = definitions.get(block.blockType);
@@ -290,9 +304,13 @@ function renderBlock(block, template, definition) {
         return prepared;
     }
     const values = bindings?.length ? boundValues(block, bindings) : legacyValues(block);
-    return prepared.replace(/\{\{\s*([A-Za-z0-9_.:-]+)\s*\}\}/g, (match, name) => (
-        Object.prototype.hasOwnProperty.call(values, name) ? values[name] : ''
-    ));
+    const studioPreview = String(block?.instanceId || '').startsWith('studio_');
+    return prepared.replace(/\{\{\s*([A-Za-z0-9_.:-]+)\s*\}\}/g, (match, name) => {
+        if (!Object.prototype.hasOwnProperty.call(values, name)) return match;
+        const rendered = values[name];
+        if (studioPreview && rendered === '') return match;
+        return rendered;
+    });
 }
 
 function boundValues(block, bindings) {
@@ -692,6 +710,7 @@ export function buildStudioPreviewBlocks(renderSource, blockKey) {
     });
     if (!def) return [];
     const blockType = def.type || def.fileName;
+    const label = def.label || def.fileName || blockType || 'Content block';
     return [{
         instanceId: 'studio_focus_0',
         blockType,
@@ -702,10 +721,10 @@ export function buildStudioPreviewBlocks(renderSource, blockKey) {
         padRight: '0',
         padBottom: '0',
         padLeft: '0',
-        copyText: '',
-        imageUrl: '',
-        altText: '',
-        legalText: '',
+        copyText: `Preview copy — ${label}. Authors replace this in Copy Center.`,
+        imageUrl: 'https://www.lightningdesignsystem.com/assets/images/carousel/carousel-01.jpg',
+        altText: 'Preview image alt text',
+        legalText: 'Preview legal / disclaimer text.',
         imageLayout: 'text-left',
         heightDesktop: '',
         heightMobile: '',
