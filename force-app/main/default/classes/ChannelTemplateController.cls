@@ -564,7 +564,7 @@ public with sharing class ChannelTemplateController {
         if (notes.isEmpty()) {
             result.message = 'Content block definition is valid and ready to activate.';
         } else {
-            result.message = String.join(' ', notes);
+            result.message = String.join(notes, ' ');
         }
         return result;
     }
