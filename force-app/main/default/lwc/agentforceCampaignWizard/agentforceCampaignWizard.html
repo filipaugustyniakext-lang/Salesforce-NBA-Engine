@@ -150,7 +150,7 @@
                                         <div class="slds-m-top_medium">
                                             <lightning-input
                                                 type="number"
-                                                label="Event Validity Window (Days)"
+                                                label="Event Validity (Days)"
                                                 value={eventValidityWindowDays}
                                                 onchange={handleEventValidityWindowChange}
                                                 min="1"
@@ -1346,7 +1346,7 @@
                                         </template>
                                         <template lwc:if={showEventValidityWindowField}>
                                             <div class="summary-row">
-                                                <span class="summary-label">Event Validity Window (Days)</span>
+                                                <span class="summary-label">Event Validity (Days)</span>
                                                 <span class="summary-value">{summaryEventValidityWindow}</span>
                                             </div>
                                         </template>
