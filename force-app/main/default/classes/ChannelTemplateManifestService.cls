@@ -300,7 +300,7 @@ public with sharing class ChannelTemplateManifestService {
             if (String.isNotBlank(icon) && !Pattern.matches('(utility|doctype|standard|custom|action):[A-Za-z0-9_]+', icon)) {
                 errors.add('Component "' + type + '" has an unsupported icon.');
             }
-            if (asset != null && component.containsKey('bindings')) {
+            if (asset != null) {
                 validateComponentBindings(type, component, asset.body, errors);
             }
         }
@@ -326,7 +326,11 @@ public with sharing class ChannelTemplateManifestService {
             errors.add('Component "' + blockType + '" bindings must be a list.');
             return;
         }
-        for (Object rawBinding : rawBindings == null ? new List<Object>() : (List<Object>) rawBindings) {
+        List<Object> bindingRows = rawBindings == null ? new List<Object>() : (List<Object>) rawBindings;
+        if (bindingRows.isEmpty()) {
+            return;
+        }
+        for (Object rawBinding : bindingRows) {
             Map<String, Object> binding = asMap(rawBinding);
             String placeholder = stringValue(binding.get('placeholder')).replace('{', '').replace('}', '').trim();
             String setting = stringValue(binding.get('source'));
@@ -337,10 +341,9 @@ public with sharing class ChannelTemplateManifestService {
             if (!bound.add(placeholder)) {
                 errors.add('Component "' + blockType + '" binds {{' + placeholder + '}} more than once.');
             }
-        }
-        for (String name : placeholderNames(source)) {
-            if (!bound.contains(name)) {
-                errors.add('Bind {{' + name + '}} on ' + blockType + ' to a Content Settings or Block Settings value.');
+            Set<String> inHtml = placeholderNames(source);
+            if (!inHtml.contains(placeholder)) {
+                errors.add('Component "' + blockType + '" binds {{' + placeholder + '}} which is not in its HTML.');
             }
         }
     }

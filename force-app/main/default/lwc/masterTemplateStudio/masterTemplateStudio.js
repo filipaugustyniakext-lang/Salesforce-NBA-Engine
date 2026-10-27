@@ -672,7 +672,9 @@ export default class MasterTemplateStudio extends LightningElement {
             }
             await this._persistBlockDefinition('Ready', { silent: true });
             this.pendingBlockDraft = { ...this.pendingBlockDraft, validated: true };
-            this._toast('Validated', result.message, 'success');
+            const variant = result?.hasBindingWarnings ? 'warning' : 'success';
+            const title = result?.hasBindingWarnings ? 'Validated with notes' : 'Validated';
+            this._toast(title, result.message, variant);
         } catch (error) {
             this._toast('Validation failed', this._apexErrorMessage(error), 'error');
         } finally {
