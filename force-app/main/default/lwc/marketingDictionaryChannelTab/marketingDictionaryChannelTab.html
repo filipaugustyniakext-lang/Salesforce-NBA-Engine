@@ -195,12 +195,12 @@
                                                     <span class="slds-text-title_caps">{day.name}</span>
                                                     <div class="bo-day-actions">
                                                         <template lwc:if={day.rule}>
-                                                            <lightning-button-icon icon-name="utility:edit" variant="bare" size="x-small"
+                                                            <lightning-button-icon icon-name="utility:edit" variant="border-filled" size="x-small"
                                                                 alternative-text="Edit rule" title="Edit rule"
                                                                 data-day={day.name} data-channelid={activeChannel.Id}
                                                                 onclick={handleEditDayRule}>
                                                             </lightning-button-icon>
-                                                            <lightning-button-icon icon-name="utility:delete" variant="bare" size="x-small"
+                                                            <lightning-button-icon icon-name="utility:delete" variant="border-filled" size="x-small"
                                                                 alternative-text="Remove rule" title="Remove rule"
                                                                 class="slds-m-left_xx-small"
                                                                 data-id={day.rule.Id} data-day={day.name}
@@ -208,7 +208,7 @@
                                                             </lightning-button-icon>
                                                         </template>
                                                         <template lwc:else>
-                                                            <lightning-button-icon icon-name="utility:add" variant="bare" size="x-small"
+                                                            <lightning-button-icon icon-name="utility:add" variant="border-filled" size="x-small"
                                                                 alternative-text="Add restriction" title="Add restriction"
                                                                 data-day={day.name} data-channelid={activeChannel.Id}
                                                                 onclick={handleNewDayRule}>
@@ -677,7 +677,7 @@
                                     </lightning-input>
                                 </div>
                                 <div class="slds-col slds-no-flex slds-p-bottom_xx-small">
-                                    <lightning-button-icon icon-name="utility:close" variant="bare"
+                                    <lightning-button-icon icon-name="utility:close" variant="border-filled"
                                         alternative-text="Remove" title="Remove"
                                         data-key={row.key} onclick={handleRemovePlacementRow}
                                         disabled={isSinglePlacementRow}>
@@ -726,7 +726,7 @@
                                 </lightning-input>
                             </div>
                             <div class="slds-col slds-no-flex slds-p-bottom_xx-small">
-                                <lightning-button-icon icon-name="utility:close" variant="bare"
+                                <lightning-button-icon icon-name="utility:close" variant="border-filled"
                                     alternative-text="Remove" title="Remove"
                                     data-key={row.key} onclick={handleRemoveIntentTargetRow}
                                     disabled={isSingleIntentTargetRow}>
@@ -806,7 +806,7 @@
                                     </lightning-combobox>
                                 </div>
                                 <div class="slds-col slds-no-flex slds-p-bottom_xx-small">
-                                    <lightning-button-icon icon-name="utility:close" variant="bare"
+                                    <lightning-button-icon icon-name="utility:close" variant="border-filled"
                                         alternative-text="Remove" title="Remove"
                                         data-key={row.key} onclick={handleRemoveIntentRow}
                                         disabled={isSingleIntentRow}>

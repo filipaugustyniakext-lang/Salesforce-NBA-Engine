@@ -27,11 +27,11 @@
                         <template for:each={scoringModelGroups} for:item="grp">
                             <span key={grp.Id} class="slds-badge cd-group-badge slds-m-right_xx-small slds-m-bottom_xx-small">
                                 {grp.Name}
-                                <lightning-button-icon icon-name="utility:edit" variant="bare" size="x-small"
+                                <lightning-button-icon icon-name="utility:edit" variant="border-filled" size="x-small"
                                     alternative-text="Edit" title="Edit" class="slds-m-left_xx-small"
                                     data-id={grp.Id} onclick={handleEditModelGroup}>
                                 </lightning-button-icon>
-                                <lightning-button-icon icon-name="utility:close" variant="bare" size="x-small"
+                                <lightning-button-icon icon-name="utility:close" variant="border-filled" size="x-small"
                                     alternative-text="Delete" title="Delete"
                                     data-id={grp.Id} data-name={grp.Name} onclick={handleDeleteModelGroup}>
                                 </lightning-button-icon>
