@@ -311,6 +311,28 @@
     font-family: monospace;
 }
 
+.studio-block-html-help {
+    position: relative;
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 0.5rem;
+}
+
+.studio-block-html-help-popover {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    z-index: 2;
+    width: min(22rem, 92vw);
+    max-height: 70vh;
+    overflow: auto;
+    margin-top: 0.375rem;
+}
+
+.studio-block-html-help-popover .studio-panel__aside-body {
+    text-align: left;
+}
+
 .studio-blocks-layout__preview {
     min-width: 0;
     max-width: 100%;
@@ -377,6 +399,12 @@
     align-items: flex-start;
     gap: 0.375rem;
     margin-top: 0.25rem;
+}
+
+.studio-detected-regions__badges_row {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
 }
 
 .studio-detected-regions__badges .slds-badge + .slds-badge {

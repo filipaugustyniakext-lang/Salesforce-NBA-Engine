@@ -72,6 +72,7 @@ export default class MasterTemplateStudio extends LightningElement {
         legacyBlockSettings: []
     };
     @track blockBindingTab = 'content';
+    @track showBlockHtmlHelp = false;
     /** Catalog type or uploaded file name — drives single-block preview on Content Blocks step. */
     @track previewBlockKey = '';
     acceptedHtml = ['.html'];
@@ -240,28 +241,41 @@ export default class MasterTemplateStudio extends LightningElement {
 
     get blockDetectedBindingBadges() {
         const scan = this.blockBindingScan;
+        const boundPlaceholders = this._boundPlaceholderNames();
+        const badgeLight = 'slds-badge slds-badge_lightest';
+        const badgeSuccess = 'slds-badge slds-theme_success';
         const badges = [];
         if (this.blockHasHtml) {
             badges.push({
                 key: 'container',
-                label: scan.hasContainer ? 'binding-container found' : 'No binding-container'
+                label: scan.hasContainer ? 'binding-container found' : 'No binding-container',
+                badgeClass: scan.hasContainer ? badgeSuccess : badgeLight
             });
             badges.push({
                 key: 'columns',
                 label: scan.columns?.length
                     ? `${scan.columns.length} binding-column region(s)`
-                    : 'No binding-column markers'
+                    : 'No binding-column markers',
+                badgeClass: (scan.columns?.length || 0) > 0 ? badgeSuccess : badgeLight
             });
         }
         const placeholders = this._placeholdersInBlockHtml();
         placeholders.filter(name => STRUCTURAL_PLACEHOLDERS.includes(name)).forEach(name => {
-            badges.push({ key: `struct-${name}`, label: `{{${name}}}` });
+            badges.push({
+                key: `struct-${name}`,
+                label: `{{${name}}}`,
+                badgeClass: boundPlaceholders.has(name) ? badgeSuccess : badgeLight
+            });
         });
         placeholders.filter(name => isContentPlaceholder(name, STRUCTURAL_PLACEHOLDERS)).forEach(name => {
-            badges.push({ key: `content-${name}`, label: `{{${name}}} (content)` });
+            badges.push({
+                key: `content-${name}`,
+                label: `{{${name}}} (content)`,
+                badgeClass: boundPlaceholders.has(name) ? badgeSuccess : badgeLight
+            });
         });
         if (this.blockHasHtml && !placeholders.length) {
-            badges.push({ key: 'none', label: 'No {{placeholders}} detected' });
+            badges.push({ key: 'none', label: 'No {{placeholders}} detected', badgeClass: badgeLight });
         }
         return badges;
     }
@@ -900,6 +914,14 @@ export default class MasterTemplateStudio extends LightningElement {
         this.pendingBlockDraft = { ...this.pendingBlockDraft, layout, validated: false };
     }
 
+    handleToggleBlockHtmlHelp() {
+        this.showBlockHtmlHelp = !this.showBlockHtmlHelp;
+    }
+
+    handleCloseBlockHtmlHelp() {
+        this.showBlockHtmlHelp = false;
+    }
+
     handleLegacyBlockSettingChange(event) {
         const value = event.currentTarget.dataset.value;
         const checked = !!event.target.checked;
@@ -1019,6 +1041,7 @@ export default class MasterTemplateStudio extends LightningElement {
         this.wizardStep = 'basic';
         this.shellRegions = [];
         this.showNewBlockDefinitionForm = false;
+        this.showBlockHtmlHelp = false;
         this._resetPendingBlockDraft();
         this.previewBlockKey = '';
     }
@@ -1205,6 +1228,17 @@ export default class MasterTemplateStudio extends LightningElement {
             legacyBlockSettings: []
         };
         this.blockBindingTab = 'content';
+    }
+
+    _boundPlaceholderNames() {
+        const scan = this.blockBindingScan;
+        if (!this.blockHasHtml) return new Set();
+        const layout = alignLayout(this.pendingBlockDraft.layout, scan);
+        const contentBindings = (this.pendingBlockDraft.bindings || []).filter(
+            row => row.placeholder && row.source && isContentBindingSource(row.source)
+        );
+        const merged = mergeBindingRows(contentBindings, layoutBindings(layout, scan));
+        return new Set(merged.map(row => row.placeholder));
     }
 
     _placeholdersInBlockHtml() {

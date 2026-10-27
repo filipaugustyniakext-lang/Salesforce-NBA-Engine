@@ -311,9 +311,6 @@
                                 <div class="studio-blocks-layout">
                                     <div class="studio-blocks-layout__main">
                                         <div class="studio-blocks-main__header">
-                                            <p class="slds-text-body_small slds-text-color_weak studio-blocks-main__intro">
-                                                Optional: define reusable content blocks for Copy Center. Shell-only templates can skip this step. Block styling must live in the Template Shell HTML file.
-                                            </p>
                                             <template lwc:if={showAddBlockDefinitionButton}>
                                                 <lightning-button
                                                     label="Add Content Block Definition"
@@ -458,9 +455,9 @@
                                                         <template lwc:if={blockHasHtml}>
                                                             <div class="studio-detected-regions slds-m-top_medium" aria-live="polite">
                                                                 <p class="slds-text-title_caps slds-m-bottom_x-small">Detected in uploaded HTML</p>
-                                                                <div class="studio-detected-regions__badges" role="list" aria-label="Detected block bindings">
+                                                                <div class="studio-detected-regions__badges studio-detected-regions__badges_row" role="list" aria-label="Detected block bindings">
                                                                     <template for:each={blockDetectedBindingBadges} for:item="badge">
-                                                                        <span key={badge.key} class="slds-badge slds-badge_lightest" role="listitem">{badge.label}</span>
+                                                                        <span key={badge.key} class={badge.badgeClass} role="listitem">{badge.label}</span>
                                                                     </template>
                                                                 </div>
                                                             </div>
@@ -610,36 +607,51 @@
                                     </div>
                                     <template lwc:if={hasRecordId}>
                                         <div class="studio-blocks-layout__preview">
-                                            <div
-                                                class="slds-notify slds-notify_alert slds-theme_info studio-shell-requirements slds-m-bottom_small"
-                                                role="alert"
-                                                aria-label="Content block HTML guidance">
-                                                <span class="slds-assistive-text">Information</span>
-                                                <lightning-icon
-                                                    icon-name="utility:info"
-                                                    alternative-text="Information"
-                                                    size="x-small"
-                                                    class="slds-m-right_x-small">
-                                                </lightning-icon>
-                                                <div class="studio-panel__aside-body">
-                                                    <h2 class="studio-panel__aside-title">Content block HTML requirements</h2>
-                                                    <ul class="studio-panel__aside-list">
-                                                        <li>Block HTML is a fragment inserted into the shell <code>blocks</code> region — no outer cc-preview wrapper.</li>
-                                                        <li>Keep block CSS in the Template Shell file; block uploads should be HTML only.</li>
-                                                        <li>Use <code>&#123;&#123;name&#125;&#125;</code> placeholders for text, images, and layout tokens the app should replace.</li>
-                                                    </ul>
-                                                    <p class="studio-panel__aside-label">Modern layout (recommended for multi-column blocks):</p>
-                                                    <ul class="studio-panel__aside-code">
-                                                        <li>Wrap columns in an element with attribute <code>binding-container</code>.</li>
-                                                        <li>Each column uses attribute <code>binding-column</code> (order = column index).</li>
-                                                        <li>Block tokens: &#123;&#123;blo-pad-dsk&#125;&#125;, &#123;&#123;blo-bg-color&#125;&#125;, &#123;&#123;column-dir&#125;&#125;, …</li>
-                                                        <li>Column tokens: &#123;&#123;col-pad-dsk&#125;&#125;, &#123;&#123;col-bg-color&#125;&#125;, …</li>
-                                                    </ul>
-                                                    <p class="studio-panel__aside-label">Content placeholders (bind on the Content tab):</p>
-                                                    <ul class="studio-panel__aside-code">
-                                                        <li>&#123;&#123;copy&#125;&#125;, &#123;&#123;imageUrl&#125;&#125;, &#123;&#123;altText&#125;&#125;, &#123;&#123;legal&#125;&#125;, or custom names you map manually.</li>
-                                                    </ul>
-                                                </div>
+                                            <div class="studio-block-html-help">
+                                                <button
+                                                    type="button"
+                                                    class="slds-button slds-button_icon slds-button_icon-border-filled"
+                                                    title="Content block HTML requirements"
+                                                    aria-label="Content block HTML requirements"
+                                                    aria-expanded={showBlockHtmlHelp}
+                                                    onclick={handleToggleBlockHtmlHelp}>
+                                                    <lightning-icon icon-name="utility:info" size="x-small" alternative-text="Content block HTML requirements"></lightning-icon>
+                                                    <span class="slds-assistive-text">Content block HTML requirements</span>
+                                                </button>
+                                                <template lwc:if={showBlockHtmlHelp}>
+                                                    <section
+                                                        class="slds-popover slds-popover_tooltip slds-nubbin_top-right studio-block-html-help-popover studio-shell-requirements"
+                                                        role="dialog"
+                                                        aria-label="Content block HTML requirements">
+                                                        <button
+                                                            type="button"
+                                                            class="slds-button slds-button_icon slds-button_icon-small slds-popover__close"
+                                                            title="Close"
+                                                            onclick={handleCloseBlockHtmlHelp}>
+                                                            <lightning-icon icon-name="utility:close" size="x-small" alternative-text="Close"></lightning-icon>
+                                                            <span class="slds-assistive-text">Close</span>
+                                                        </button>
+                                                        <div class="slds-popover__body studio-panel__aside-body">
+                                                            <h2 class="studio-panel__aside-title">Content block HTML requirements</h2>
+                                                            <ul class="studio-panel__aside-list">
+                                                                <li>Block HTML is a fragment inserted into the shell <code>blocks</code> region — no outer cc-preview wrapper.</li>
+                                                                <li>Keep block CSS in the Template Shell file; block uploads should be HTML only.</li>
+                                                                <li>Use <code>&#123;&#123;name&#125;&#125;</code> placeholders for text, images, and layout tokens the app should replace.</li>
+                                                            </ul>
+                                                            <p class="studio-panel__aside-label">Modern layout (recommended for multi-column blocks):</p>
+                                                            <ul class="studio-panel__aside-code">
+                                                                <li>Wrap columns in an element with attribute <code>binding-container</code>.</li>
+                                                                <li>Each column uses attribute <code>binding-column</code> (order = column index).</li>
+                                                                <li>Block tokens: &#123;&#123;blo-pad-dsk&#125;&#125;, &#123;&#123;blo-bg-color&#125;&#125;, &#123;&#123;column-dir&#125;&#125;, …</li>
+                                                                <li>Column tokens: &#123;&#123;col-pad-dsk&#125;&#125;, &#123;&#123;col-bg-color&#125;&#125;, …</li>
+                                                            </ul>
+                                                            <p class="studio-panel__aside-label">Content placeholders (bind on the Content tab):</p>
+                                                            <ul class="studio-panel__aside-code">
+                                                                <li>&#123;&#123;copy&#125;&#125;, &#123;&#123;imageUrl&#125;&#125;, &#123;&#123;altText&#125;&#125;, &#123;&#123;legal&#125;&#125;, or custom names you map manually.</li>
+                                                            </ul>
+                                                        </div>
+                                                    </section>
+                                                </template>
                                             </div>
                                             <c-copy-template-preview-panel
                                                 template-id={draft.Id}
