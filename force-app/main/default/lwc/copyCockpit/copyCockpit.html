@@ -11,7 +11,7 @@
 
     <!-- ── List view ─────────────────────────────────────────────────────── -->
     <template lwc:else>
-    <div class="cockpit-container">
+    <div class="cockpit-container md-app-root">
 
         <!-- Loading channels -->
         <template lwc:if={isLoading}>
@@ -59,7 +59,7 @@
                                 <span class="ch-sidebar__name">{ch.displayName}</span>
                                 <span class="ch-sidebar__comm-badges">
                                     <template for:each={ch.commBadges} for:item="badge">
-                                        <span key={badge.key} class="slds-badge slds-badge_lightest ch-sidebar__comm-badge">{badge.label}</span>
+                                        <span key={badge.key} class="slds-badge ch-sidebar__comm-badge">{badge.label}</span>
                                     </template>
                                 </span>
                             </div>
