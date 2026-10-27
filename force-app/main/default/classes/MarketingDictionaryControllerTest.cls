@@ -136,12 +136,10 @@ private class MarketingDictionaryControllerTest {
 
         CC_Message_Metadata__c published = new CC_Message_Metadata__c(
             Name = 'EMA_PL_CC_1',
-            Channel_Type__c = 'Email',
             Status__c = 'Published'
         );
         CC_Message_Metadata__c draft = new CC_Message_Metadata__c(
             Name = 'EMA_PL_CC_2',
-            Channel_Type__c = 'Email',
             Status__c = 'Draft'
         );
         insert new List<CC_Message_Metadata__c>{ published, draft };

@@ -1342,7 +1342,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 if (rec.Is_Active__c !== true) {
                     return;
                 }
-                const type = rec.Channel_Type__c || 'Other';
+                const type = (rec.Name || 'Other').trim() || 'Other';
                 const icon = rec.Channel_Icon__c || 'utility:connected_apps';
                 if (!iconByType[type]) {
                     iconByType[type] = icon;
@@ -1422,7 +1422,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         const seen = new Set();
         (records || []).forEach(rec => {
             if (rec.Is_Active__c !== true) return;
-            const type = (rec.Channel_Type__c || 'Other').trim() || 'Other';
+            const type = (rec.Name || 'Other').trim() || 'Other';
             if (seen.has(type)) return;
             seen.add(type);
             types.push(type);

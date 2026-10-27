@@ -7,7 +7,6 @@ private class ChannelTemplateControllerTest {
         insert new Marketing_Dictionary__c(
             Name = 'Email Main',
             RecordTypeId = channelRecordTypeId,
-            Channel_Type__c = 'Email',
             Is_Active__c = true
         );
     }
@@ -211,7 +210,7 @@ private class ChannelTemplateControllerTest {
 
     @IsTest
     static void selectableTemplateExposesShellAndBlockHtml() {
-        Marketing_Dictionary__c channel = [SELECT Id, Name, Channel_Type__c FROM Marketing_Dictionary__c LIMIT 1];
+        Marketing_Dictionary__c channel = [SELECT Id, Name FROM Marketing_Dictionary__c LIMIT 1];
         Id templateId = createDraftTemplate(channel.Id, 'Commercial Email', 3);
         Id shellId = uploadFile(
             templateId,
@@ -252,7 +251,7 @@ private class ChannelTemplateControllerTest {
         System.assertEquals(null, ChannelTemplateController.classifyUploadedFiles(
             templateId, new List<Id>{ manifestId }, 'MANIFEST'
         ));
-        System.assertEquals(0, ChannelTemplateController.getSelectableTemplates(channel.Name, channel.Channel_Type__c).size());
+        System.assertEquals(0, ChannelTemplateController.getSelectableTemplates(channel.Name, channel.Name).size());
 
         Test.startTest();
         ChannelTemplateController.saveTemplate(
@@ -260,7 +259,7 @@ private class ChannelTemplateControllerTest {
             channel.Id
         );
         List<ChannelTemplateController.TemplateOption> options =
-            ChannelTemplateController.getSelectableTemplates(channel.Name, channel.Channel_Type__c);
+            ChannelTemplateController.getSelectableTemplates(channel.Name, channel.Name);
         ChannelTemplateController.TemplateRenderSource source =
             ChannelTemplateController.getTemplateRenderSource(templateId);
         Test.stopTest();
@@ -489,7 +488,6 @@ private class ChannelTemplateControllerTest {
         Marketing_Dictionary__c bannerChannel = new Marketing_Dictionary__c(
             Name = 'Web Main Banner',
             RecordTypeId = channelRecordTypeId,
-            Channel_Type__c = 'Banner',
             Is_Active__c = true
         );
         insert bannerChannel;
@@ -671,7 +669,6 @@ private class ChannelTemplateControllerTest {
 
         CC_Message_Metadata__c variant = new CC_Message_Metadata__c(
             Name = 'EMA_PL_Guard_1',
-            Channel_Type__c = 'Email',
             Status__c = 'Published',
             Source_Template__c = activeId
         );
@@ -706,7 +703,6 @@ private class ChannelTemplateControllerTest {
 
         CC_Message_Metadata__c variant = new CC_Message_Metadata__c(
             Name = 'EMA_PL_Repoint_1',
-            Channel_Type__c = 'Email',
             Status__c = 'Published',
             Source_Template__c = firstId
         );

@@ -48,7 +48,7 @@
                             key={ch.Id}
                             class={ch.sidebarClass}
                             data-id={ch.Id}
-                            data-channeltype={ch.Channel_Type__c}
+                            data-channeltype={ch.messageTypeKey}
                             onclick={handleSelectChannel}
                             title={ch.displayName}
                         >
@@ -63,7 +63,6 @@
                                     </template>
                                 </span>
                             </div>
-                            <span class="ch-sidebar__type">{ch.Channel_Type__c}</span>
                         </button>
                     </template>
                 </div>
@@ -82,7 +81,6 @@
                                 ></lightning-icon>
                                 <div>
                                     <h2 class="slds-text-heading_small">{activeChannel.displayName}</h2>
-                                    <span class="slds-text-body_small slds-text-color_weak">{activeChannel.Channel_Type__c}</span>
                                 </div>
                                 <div>
                                     <span class="slds-badge">{messageGroupCountLabel}</span>

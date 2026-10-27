@@ -64,7 +64,6 @@ private class CopyCockpitSettingsTest {
         Marketing_Dictionary__c channel = new Marketing_Dictionary__c(
             Name = 'Wizard Email Channel',
             RecordTypeId = channelRt,
-            Channel_Type__c = 'Email',
             Is_Active__c = true
         );
         insert channel;
@@ -119,21 +118,18 @@ private class CopyCockpitSettingsTest {
 
         CC_Message_Metadata__c publishedMatch = new CC_Message_Metadata__c(
             Name = 'EMA_PL_Wiz_1',
-            Channel_Type__c = 'Email',
             Status__c = 'Published',
             Product_Family__c = family.Id,
             Offer__c = offer.Id
         );
         CC_Message_Metadata__c draftSame = new CC_Message_Metadata__c(
             Name = 'EMA_PL_Wiz_2',
-            Channel_Type__c = 'Email',
             Status__c = 'Draft',
             Product_Family__c = family.Id,
             Offer__c = offer.Id
         );
         CC_Message_Metadata__c publishedOtherChannel = new CC_Message_Metadata__c(
             Name = 'SMS_PL_Wiz_1',
-            Channel_Type__c = 'SMS',
             Status__c = 'Published',
             Product_Family__c = family.Id,
             Offer__c = offer.Id
@@ -174,7 +170,6 @@ private class CopyCockpitSettingsTest {
     static void updateMessageStatus_changesVariantStatus() {
         CC_Message_Metadata__c row = new CC_Message_Metadata__c(
             Name = 'EMA_PL_StatusTest_1',
-            Channel_Type__c = 'Email',
             Status__c = 'Draft'
         );
         insert row;
@@ -189,7 +184,6 @@ private class CopyCockpitSettingsTest {
     static void updateMessageStatus_blocksPublishedToDraft() {
         CC_Message_Metadata__c row = new CC_Message_Metadata__c(
             Name = 'EMA_PL_StatusBlock_1',
-            Channel_Type__c = 'Email',
             Status__c = 'Published'
         );
         insert row;
@@ -207,7 +201,6 @@ private class CopyCockpitSettingsTest {
     static void updateMessageStatus_allowsPublishedToInactive() {
         CC_Message_Metadata__c row = new CC_Message_Metadata__c(
             Name = 'EMA_PL_StatusInactive_1',
-            Channel_Type__c = 'Email',
             Status__c = 'Published'
         );
         insert row;
@@ -222,7 +215,6 @@ private class CopyCockpitSettingsTest {
     static void deleteMessageVariants_removesMetadataAndBlocks() {
         CC_Message_Metadata__c variant = new CC_Message_Metadata__c(
             Name = 'EMA_PL_Del_1',
-            Channel_Type__c = 'Email',
             MessageName__c = 'EMA_PL_Del',
             MessageVariantId__c = '00000000-0000-0000-0000-000000000099',
             MessageVariant__c = 1,
@@ -250,14 +242,12 @@ private class CopyCockpitSettingsTest {
     static void deleteMasterMessageGroup_removesAllVariantsInStem() {
         CC_Message_Metadata__c first = new CC_Message_Metadata__c(
             Name = 'EMA_PL_MasterDel_1',
-            Channel_Type__c = 'Email',
             MessageName__c = 'EMA_PL_MasterDel',
             MessageVariant__c = 1,
             Version__c = 1
         );
         CC_Message_Metadata__c second = new CC_Message_Metadata__c(
             Name = 'EMA_PL_MasterDel_2',
-            Channel_Type__c = 'Email',
             MessageName__c = 'EMA_PL_MasterDel',
             MessageVariant__c = 2,
             Version__c = 2
@@ -278,7 +268,6 @@ private class CopyCockpitSettingsTest {
     static void assertCanAssignSourceTemplate_blocksPublishedVariant() {
         CC_Message_Metadata__c variant = new CC_Message_Metadata__c(
             Name = 'EMA_PL_TplBlock_1',
-            Channel_Type__c = 'Email',
             Status__c = 'Published'
         );
         insert variant;

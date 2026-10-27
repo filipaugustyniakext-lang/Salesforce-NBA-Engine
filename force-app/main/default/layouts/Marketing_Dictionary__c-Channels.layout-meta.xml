@@ -21,7 +21,7 @@
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
-                <field>Channel_Type__c</field>
+                <field>Main_Channel__c</field>
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>

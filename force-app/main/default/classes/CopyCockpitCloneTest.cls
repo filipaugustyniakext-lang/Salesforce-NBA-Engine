@@ -6,7 +6,6 @@ private class CopyCockpitCloneTest {
         CC_Message_Metadata__c source = new CC_Message_Metadata__c(
             Name = '03c4bf63-47c1-4533-8e16-0123456789ab',
             MessageName__c = 'BAN_PL_TEST',
-            Channel_Type__c = 'Banner',
             Channel__c = 'Banner',
             Version__c = 1,
             Message_Variant__c = 'Variant 1',

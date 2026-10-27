@@ -188,7 +188,7 @@ export default class MarketingDictionaryBlackoutTab extends LightningElement {
         const selected = new Set(selectedNames || []);
         const groupMap = {};
         (this._channelCatalogue || []).forEach(rec => {
-            const type = rec.Channel_Type__c || 'Other';
+            const type = (rec.Name || 'Other').trim() || 'Other';
             if (!groupMap[type]) {
                 groupMap[type] = { type, items: [] };
             }

@@ -1002,7 +1002,7 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
-        <field>Marketing_Dictionary__c.Channel_Type__c</field>
+        <field>Marketing_Dictionary__c.Main_Channel__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>

@@ -39,7 +39,9 @@
                                 </template>
                             </span>
                         </div>
-                        <span class="ch-sidebar__type slds-text-body_small">{ch.Channel_Type__c}</span>
+                        <template lwc:if={ch.mainChannelBadge}>
+                            <span class="slds-badge slds-badge_lightest ch-sidebar__main-badge">{ch.mainChannelBadge}</span>
+                        </template>
                         <span class={ch.statusClass}>{ch.statusLabel}</span>
                     </button>
                 </template>
@@ -449,53 +451,62 @@
                     <h2 id="channel-modal-heading" class="slds-modal__title">{channelModalTitle}</h2>
                 </header>
                 <div class="slds-modal__content slds-p-around_medium">
-                    <lightning-input label="Channel Name" value={editChannel.Name} required
-                        data-field="Name" onchange={handleChannelFieldChange}>
-                    </lightning-input>
-                    <div class="slds-m-top_small">
-                        <lightning-combobox label="Channel Type" value={editChannel.Channel_Type__c}
-                            options={channelTypeOptions} placeholder="Select type..."
-                            data-field="Channel_Type__c" onchange={handleChannelFieldChange}>
-                        </lightning-combobox>
-                    </div>
-                    <div class="slds-m-top_small">
-                        <lightning-input label="Channel Icon" value={editChannel.Channel_Icon__c}
-                            placeholder="e.g. utility:email"
-                            field-level-help="Enter a valid SLDS icon name — format: category:name (e.g. utility:email)"
-                            data-field="Channel_Icon__c" onchange={handleChannelFieldChange}>
-                        </lightning-input>
-                        <template lwc:if={iconPreviewName}>
-                            <div class="slds-m-top_x-small slds-grid slds-grid_vertical-align-center">
-                                <lightning-icon icon-name={iconPreviewName} size="small"
-                                    alternative-text="Preview" class="slds-m-right_x-small">
-                                </lightning-icon>
-                                <span class="slds-text-body_small slds-text-color_weak">Preview</span>
-                            </div>
-                        </template>
-                    </div>
-                    <fieldset class="slds-form-element slds-m-top_medium">
-                        <legend class="slds-form-element__legend slds-form-element__label">Communication Type</legend>
-                        <div class="slds-form-element__control slds-grid slds-gutters_small">
-                            <div class="slds-col">
-                                <lightning-input
-                                    type="checkbox"
-                                    label="Inbound"
-                                    checked={editChannel.Communication_Inbound__c}
-                                    data-field="Communication_Inbound__c"
-                                    onchange={handleChannelFieldChange}>
-                                </lightning-input>
-                            </div>
-                            <div class="slds-col">
-                                <lightning-input
-                                    type="checkbox"
-                                    label="Outbound"
-                                    checked={editChannel.Communication_Outbound__c}
-                                    data-field="Communication_Outbound__c"
-                                    onchange={handleChannelFieldChange}>
-                                </lightning-input>
-                            </div>
+                    <div class="slds-grid slds-gutters_medium slds-wrap">
+                        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                            <lightning-input label="Channel Name" value={editChannel.Name} required
+                                data-field="Name" onchange={handleChannelFieldChange}>
+                            </lightning-input>
                         </div>
-                    </fieldset>
+                        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                            <lightning-input label="Channel Icon" value={editChannel.Channel_Icon__c}
+                                placeholder="e.g. utility:email"
+                                field-level-help="Enter a valid SLDS icon name — format: category:name (e.g. utility:email)"
+                                data-field="Channel_Icon__c" onchange={handleChannelFieldChange}>
+                            </lightning-input>
+                            <template lwc:if={iconPreviewName}>
+                                <div class="slds-m-top_x-small slds-grid slds-grid_vertical-align-center">
+                                    <lightning-icon icon-name={iconPreviewName} size="small"
+                                        alternative-text="Preview" class="slds-m-right_x-small">
+                                    </lightning-icon>
+                                    <span class="slds-text-body_small slds-text-color_weak">Preview</span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                    <div class="slds-m-top_medium">
+                        <lightning-input
+                            type="checkbox"
+                            label="Main Channel"
+                            checked={editChannel.Main_Channel__c}
+                            data-field="Main_Channel__c"
+                            onchange={handleChannelFieldChange}>
+                        </lightning-input>
+                    </div>
+                    <section class="channel-modal-comm-card slds-box slds-m-top_medium">
+                        <fieldset class="slds-form-element">
+                            <legend class="slds-form-element__legend slds-form-element__label">Communication Type</legend>
+                            <div class="slds-form-element__control slds-grid slds-gutters_small">
+                                <div class="slds-col">
+                                    <lightning-input
+                                        type="checkbox"
+                                        label="Inbound"
+                                        checked={editChannel.Communication_Inbound__c}
+                                        data-field="Communication_Inbound__c"
+                                        onchange={handleChannelFieldChange}>
+                                    </lightning-input>
+                                </div>
+                                <div class="slds-col">
+                                    <lightning-input
+                                        type="checkbox"
+                                        label="Outbound"
+                                        checked={editChannel.Communication_Outbound__c}
+                                        data-field="Communication_Outbound__c"
+                                        onchange={handleChannelFieldChange}>
+                                    </lightning-input>
+                                </div>
+                            </div>
+                        </fieldset>
+                    </section>
                 </div>
                 <footer class="slds-modal__footer">
                     <lightning-button label="Cancel" onclick={handleCloseChannelModal}></lightning-button>

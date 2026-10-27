@@ -63,7 +63,7 @@ public with sharing class CopyCockpitController {
                 SELECT COUNT()
                 FROM Marketing_Dictionary__c
                 WHERE RecordType.DeveloperName = 'Channel'
-                AND Channel_Type__c = :channelType
+                AND Name = :channelType
             ];
         if (typeChannelCount <= 1 && String.isNotBlank(channelType)) {
             return [

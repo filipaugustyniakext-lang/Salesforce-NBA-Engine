@@ -12,7 +12,6 @@ private class CampaignCopyVariantHandlerTest {
 
         CC_Message_Metadata__c variant = new CC_Message_Metadata__c(
             Name = 'EMA_PL_Handler_1',
-            Channel_Type__c = 'Email',
             Status__c = 'Published'
         );
         insert variant;

@@ -134,7 +134,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
         }
         Marketing_Dictionary__c rec = [
             SELECT Id, Name, Dictionary_Sub_Type__c, RecordType.DeveloperName,
-                   Channel_Type__c, Parameter_API_Name__c
+                   Parameter_API_Name__c
             FROM Marketing_Dictionary__c
             WHERE Id = :recordId
             WITH SECURITY_ENFORCED
@@ -265,7 +265,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
             return new RenameImpact(false, null);
         }
         Marketing_Dictionary__c rec = [
-            SELECT Id, Name, Dictionary_Sub_Type__c, Channel_Type__c, RecordType.DeveloperName
+            SELECT Id, Name, Dictionary_Sub_Type__c, RecordType.DeveloperName
             FROM Marketing_Dictionary__c
             WHERE Id = :recordId
             LIMIT 1
@@ -630,7 +630,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
     ) {
         Id recordId = channel.Id;
         String channelName = channel.Name;
-        String channelType = channel.Channel_Type__c;
+        String channelType = MarketingDictionaryChannelUtil.messageTypeKey(channel);
 
         // Campaign wizard + Copy Center are the primary user-facing references — collect first.
         collectCampaignAssignedChannelReferences(channelName, dependencies);
@@ -727,16 +727,16 @@ public with sharing class MarketingDictionaryDeleteGuard {
                 reasons.add(copyNameHits + ' Copy Center message(s) use Channel "' + oldName + '".');
             }
         }
-        if (String.isNotBlank(channel.Channel_Type__c)) {
+        if (String.isNotBlank(channel.Name)) {
             Integer copyTypeHits = [
                 SELECT COUNT()
                 FROM CC_Message_Metadata__c
-                WHERE Channel_Type__c = :channel.Channel_Type__c
+                WHERE Channel_Type__c = :channel.Name
             ];
             if (copyTypeHits > 0) {
                 reasons.add(
-                    copyTypeHits + ' Copy Center message(s) use Channel Type "'
-                    + channel.Channel_Type__c + '".'
+                    copyTypeHits + ' Copy Center message(s) use channel key "'
+                    + channel.Name + '".'
                 );
             }
         }
@@ -956,7 +956,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
                 SELECT COUNT()
                 FROM Marketing_Dictionary__c
                 WHERE RecordType.DeveloperName = 'Channel'
-                AND Channel_Type__c = :channelType
+                AND Name = :channelName
             ];
         if (typeChannelCount <= 1 && String.isNotBlank(channelType)) {
             return [

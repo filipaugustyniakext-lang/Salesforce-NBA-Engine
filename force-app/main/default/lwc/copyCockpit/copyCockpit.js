@@ -7,7 +7,8 @@ import getMessagesForDictionaryChannel from '@salesforce/apex/CopyCockpitControl
 import {
     getVisibleChannelRecords,
     getChannelDisplayName,
-    getCommunicationBadges
+    getCommunicationBadges,
+    getChannelTypeKey
 } from 'c/marketingDictionaryState';
 import getVersionCountsByMessageIds from '@salesforce/apex/CopyCockpitController.getVersionCountsByMessageIds';
 import createMessage from '@salesforce/apex/CopyCockpitController.createMessage';
@@ -186,7 +187,7 @@ function resolveIcon(channel) {
     if (channel.Channel_Icon__c && channel.Channel_Icon__c.includes(':')) {
         return channel.Channel_Icon__c;
     }
-    const key = (channel.Channel_Type__c || '').toLowerCase().replace(/[\s-]/g, '_');
+    const key = (getChannelTypeKey(channel) || '').toLowerCase().replace(/[\s-]/g, '_');
     for (const [pattern, icon] of Object.entries(ICON_MAP)) {
         if (key.includes(pattern)) return icon;
     }
@@ -619,6 +620,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         return list.map(ch => ({
             ...ch,
             displayName: getChannelDisplayName(ch),
+            messageTypeKey: getChannelTypeKey(ch),
             commBadges: getCommunicationBadges(ch),
             safeIcon: resolveIcon(ch),
             sidebarClass: `ch-sidebar__item${ch.Id === activeId ? ' ch-sidebar__item_active' : ''}`,
@@ -644,7 +646,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     }
 
     get activeChannelType() {
-        return this.activeChannel?.Channel_Type__c || '';
+        return getChannelTypeKey(this.activeChannel) || '';
     }
 
     get selectableTemplateOptions() {
@@ -1105,12 +1107,12 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             const activeStillVisible = visible.some(ch => ch.Id === this._activeChannelId);
             if (!this._activeChannelId || !activeStillVisible) {
                 this._activeChannelId = visible[0].Id;
-                this._loadMessages(visible[0].Name, visible[0].Channel_Type__c);
+                this._loadMessages(visible[0].Name, getChannelTypeKey(visible[0]));
                 this._firstChannelSeeded = true;
             } else if (!this._firstChannelSeeded) {
                 this._firstChannelSeeded = true;
                 const active = visible.find(ch => ch.Id === this._activeChannelId) || visible[0];
-                this._loadMessages(active.Name, active.Channel_Type__c);
+                this._loadMessages(active.Name, getChannelTypeKey(active));
             }
         }
         if (this._focusWeightInput && this._editingWeightId) {
@@ -1162,7 +1164,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         this._cancelWeightEdit();
         const ch = this._visibleDictionaryChannels.find(c => c.Id === id);
         if (ch) {
-            this._loadMessages(ch.Name, ch.Channel_Type__c);
+            this._loadMessages(ch.Name, getChannelTypeKey(ch));
         }
     }
 
@@ -1752,18 +1754,18 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     @track isSyncModalOpen = false;
 
     get syncMCEButtonLabel() {
-        const channel = this.activeChannel?.Channel_Type__c || 'channel';
+        const channel = getChannelTypeKey(this.activeChannel) || 'channel';
         return this.isSyncingMCE ? `Syncing ${channel}...` : `Sync with MCE`;
     }
 
     get syncD360ButtonLabel() {
-        const channel = this.activeChannel?.Channel_Type__c || 'channel';
+        const channel = getChannelTypeKey(this.activeChannel) || 'channel';
         return this.isSyncingD360 ? `Syncing ${channel}...` : `Push to D360`;
     }
 
 
     handleSyncWithMCE() {
-        const channel = this.activeChannel?.Channel_Type__c;
+        const channel = getChannelTypeKey(this.activeChannel);
         if (!channel) {
             this._showToast('Sync with MCE', 'Select a channel before syncing.', 'error');
             return;
@@ -1822,7 +1824,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         if (this.isSyncingMCE) {
             return;
         }
-        const channel = this.activeChannel?.Channel_Type__c;
+        const channel = getChannelTypeKey(this.activeChannel);
         if (!channel) {
             this._showToast('Sync with MCE', 'Select a channel before syncing.', 'error');
             return;
@@ -1873,7 +1875,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     _executeMceSync(minutesBack) {
         if (this.isSyncingMCE) return;
         
-        const channel = this.activeChannel?.Channel_Type__c;
+        const channel = getChannelTypeKey(this.activeChannel);
         if (!channel) return;
 
         this.isSyncingMCE = true;
@@ -1901,7 +1903,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             return;
         }
 
-        const channel = this.activeChannel?.Channel_Type__c;
+        const channel = getChannelTypeKey(this.activeChannel);
         if (!channel) {
             this._showToast('D360 Sync', 'Select a channel before syncing.', 'error');
             return;
@@ -1938,7 +1940,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             return;
         }
         this._addChannelName = channel.Name || '';
-        this._addChannelType = channel.Channel_Type__c || '';
+        this._addChannelType = getChannelTypeKey(channel) || '';
         this._addBannerTypes = [...(channel.Channel_Banner_Types__r || [])];
         this.isAddModalOpen = true;
     }
@@ -2126,7 +2128,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
 
     handleMasterDeleteConfirm() {
         const stem = this.masterDeleteStem;
-        const channelType = this.activeChannel?.Channel_Type__c;
+        const channelType = getChannelTypeKey(this.activeChannel);
         if (!stem || !channelType || this.isMasterDeleteSaving) {
             return;
         }
@@ -2164,7 +2166,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         const groupRecords = this._messages.filter(m => recordBelongsToMasterGroup(m, stem));
         const first = groupRecords[0] || {};
         const parsed = parseFullName(first.MessageName__c || first.Name || stem);
-        const channelTypePrefix = channelPrefixForType(this.activeChannel?.Channel_Type__c);
+        const channelTypePrefix = channelPrefixForType(getChannelTypeKey(this.activeChannel));
         let channelPrefix = parsed.prefix || channelTypePrefix;
         if (channelPrefix && channelPrefix.includes('-')) {
             channelPrefix = channelTypePrefix;
@@ -2398,7 +2400,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
                     countryCode: namingCheck.countryCode,
                     messageNamePart: namingCheck.messageNamePart,
                     language: namingCheck.language,
-                    channelType: this.activeChannel?.Channel_Type__c,
+                    channelType: getChannelTypeKey(this.activeChannel),
                 })
                 : Promise.resolve();
 
@@ -2500,7 +2502,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             countryCode: cc,
             messageNamePart: mn,
             language,
-            channelType: this.activeChannel?.Channel_Type__c,
+            channelType: getChannelTypeKey(this.activeChannel),
         })
             .then(() => {
                 this._cancelRename();
@@ -2638,7 +2640,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             this._messages = [];
             return;
         }
-        this._loadMessages(ch.Name, ch.Channel_Type__c);
+        this._loadMessages(ch.Name, getChannelTypeKey(ch));
     }
 
     _loadMessages(channelName, channelType) {
