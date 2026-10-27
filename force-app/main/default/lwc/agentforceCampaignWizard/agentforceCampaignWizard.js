@@ -3937,7 +3937,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     get copyChannelTabs() {
         return (this.activeCopyChannelTypes || []).map(type => {
             const enabled = this._isCopyChannelTypeEnabled(type);
-            const isActive = this.activeCopyChannelValue === type;
+            const isActive = enabled && this.activeCopyChannelValue === type;
             const selectedCount = this.copyVariantData.filter(
                 v => v.channel === type && this.selectedCopyVariantIds.includes(v.id)
             ).length;
@@ -3949,6 +3949,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 selectedCount: selectedCount > 0 ? selectedCount : null,
                 rowClass: `copy-channel-sidebar-row${isActive ? ' slds-is-active' : ''}${enabled ? '' : ' copy-channel-sidebar-row_disabled'}`,
                 linkClass: `slds-vertical-tabs__link copy-channel-tab-link${enabled ? '' : ' copy-channel-tab-link_disabled'}`,
+                tabAriaDisabled: enabled ? 'false' : 'true',
+                tabTabIndex: enabled ? '0' : '-1',
                 icon: this._iconForChannelType(type)
             };
         });
@@ -4031,8 +4033,11 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     handleCopyChannelSelect(event) {
+        event.preventDefault();
         const value = event.currentTarget.dataset.value;
-        if (!value) return;
+        if (!value || !this._isCopyChannelTypeEnabled(value)) {
+            return;
+        }
         this.activeCopyChannelValue = value;
     }
 
@@ -4048,6 +4053,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 const variant = this.copyVariantData.find(v => v.id === id);
                 return !variant || variant.channel !== type;
             });
+            this._ensureActiveCopyChannel();
         }
         if (enabled) {
             this.activeCopyChannelValue = type;
@@ -4071,9 +4077,10 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             this.activeCopyChannelValue = '';
             return;
         }
-        if (!catalog.includes(this.activeCopyChannelValue)) {
-            const firstEnabled = catalog.find(type => this._isCopyChannelTypeEnabled(type));
-            this.activeCopyChannelValue = firstEnabled || catalog[0];
+        if (!catalog.includes(this.activeCopyChannelValue)
+            || !this._isCopyChannelTypeEnabled(this.activeCopyChannelValue)) {
+            const firstEnabled = catalog.find(t => this._isCopyChannelTypeEnabled(t));
+            this.activeCopyChannelValue = firstEnabled || '';
         }
     }
 
