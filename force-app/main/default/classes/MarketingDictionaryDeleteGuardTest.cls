@@ -99,7 +99,6 @@ private class MarketingDictionaryDeleteGuardTest {
         Marketing_Dictionary__c channel = new Marketing_Dictionary__c(
             Name = 'Email',
             RecordTypeId = channelDictRt(),
-            Channel_Type__c = 'Email',
             Is_Active__c = true
         );
         insert channel;
@@ -113,12 +112,11 @@ private class MarketingDictionaryDeleteGuardTest {
 
         insert new CC_Message_Metadata__c(
             Name = 'EMA_PL_Test',
-            Channel_Type__c = 'Email',
             Channel__c = 'Email'
         );
 
         Marketing_Dictionary__c wrapper = [
-            SELECT Id, Name, Dictionary_Sub_Type__c, Channel_Type__c, RecordType.DeveloperName
+            SELECT Id, Name, Dictionary_Sub_Type__c, RecordType.DeveloperName
             FROM Marketing_Dictionary__c
             WHERE Id = :channel.Id
         ];

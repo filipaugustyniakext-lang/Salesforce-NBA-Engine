@@ -4,42 +4,7 @@
     <active>true</active>
     <description>Catalogue of offer parameter definitions. Each record is one configurable attribute with its API name, type, display order, and global requiredness. Per-product-family rules live in child Offer Attribute Rule records.</description>
     <label>Offer</label>
-    <picklistValues>
-        <picklist>Channel_Type__c</picklist>
-        <values>
-            <fullName>AI Agent</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Banner</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Branch Agent</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Email</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>In-App</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Push</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>SMS</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>WhatsApp</fullName>
-            <default>false</default>
-        </values>
-    </picklistValues>
-    <picklistValues>
+<picklistValues>
         <picklist>Channels__c</picklist>
         <values>
             <fullName>AI Agent - Inbound</fullName>

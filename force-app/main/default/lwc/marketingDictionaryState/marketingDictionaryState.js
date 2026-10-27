@@ -25,12 +25,21 @@ export const CHANNEL_SUB_TAB_VALUES = [
 const DEFAULT_MAIN_TAB = 'person';
 const DEFAULT_CHANNEL_SUB_TAB = 'cooldown';
 
+/** Message / copy API channel key — dictionary channels use Name. */
+export function getChannelTypeKey(ch) {
+    return (ch?.Name || '').trim();
+}
+
+export function isBannerChannel(ch) {
+    return getChannelTypeKey(ch).toLowerCase() === 'banner';
+}
+
 /** Legacy split AI Agent outbound row — hidden when a single AI Agent uses comm-type flags. */
 export function isLegacyAiAgentOutboundChannel(ch) {
-    if (!ch || ch.Channel_Type__c !== 'AI Agent') {
+    const name = (ch?.Name || '').trim().toLowerCase();
+    if (!name.includes('ai agent')) {
         return false;
     }
-    const name = (ch.Name || '').trim().toLowerCase();
     return name === 'ai agent outbound' || name.endsWith(' outbound');
 }
 
@@ -42,13 +51,11 @@ export function getChannelDisplayName(ch) {
     if (!ch) {
         return '';
     }
-    if (ch.Channel_Type__c === 'AI Agent') {
-        const name = (ch.Name || '').trim();
-        if (/^AI Agent(\s+(Inbound|Outbound))?$/i.test(name)) {
-            return 'AI Agent';
-        }
+    const name = (ch.Name || '').trim();
+    if (/^AI Agent(\s+(Inbound|Outbound))?$/i.test(name)) {
+        return 'AI Agent';
     }
-    return ch.Name || '';
+    return name;
 }
 
 export function getCommunicationBadges(ch) {

@@ -1,6 +1,6 @@
 :host {
     --md-color-surface: var(--slds-g-color-surface-container-1, #ffffff);
-    --md-color-surface-sidebar: var(--slds-g-color-surface-container-3, #f8f9fb);
+    --md-color-surface-sidebar: transparent;
     --md-color-surface-hover: var(--slds-g-color-surface-container-2, #eaf0f8);
     --md-color-border: var(--slds-g-color-border-base-1, #e0e5ee);
     --md-color-border-subtle: var(--slds-g-color-border-base-2, #e8ecf0);
@@ -22,7 +22,7 @@
     align-items: stretch;
     border: 1px solid var(--md-color-border, var(--slds-g-color-border-base-1, #e0e5ee));
     border-radius: 0.25rem;
-    background: var(--md-color-surface, var(--slds-g-color-surface-container-1, #fff));
+    background: transparent;
     min-height: 400px;
 }
 .vtab-sidebar {
@@ -30,7 +30,7 @@
     border-right: 1px solid var(--md-color-border, var(--slds-g-color-border-base-1, #e0e5ee));
     display: flex;
     flex-direction: column;
-    background: var(--md-color-surface-sidebar, var(--slds-g-color-surface-container-3, #f8f9fb));
+    background: transparent;
     border-radius: 0.25rem 0 0 0.25rem;
     overflow-y: auto;
 }
@@ -53,7 +53,7 @@
 }
 .vtab-item:hover { background: var(--md-color-surface-hover, var(--slds-g-color-surface-container-2, #eaf0f8)); }
 .vtab-item_active {
-    background: var(--md-color-surface, var(--slds-g-color-surface-container-1, #fff));
+    background: transparent;
     border-left-color: var(--md-color-accent, var(--slds-g-color-accent-2, #0176d3));
     padding-left: calc(0.75rem - 3px);
     font-weight: 600;
@@ -180,7 +180,7 @@
     border: 1px solid var(--md-color-border, var(--slds-g-color-border-base-1, #e0e5ee));
     border-radius: 0.5rem;
     padding: 0.75rem;
-    background: var(--md-color-surface, var(--slds-g-color-surface-container-1, #fff));
+    background: transparent;
 }
 .tier-card__header {
     display: flex;
@@ -273,7 +273,7 @@
     border: 1px solid var(--md-color-border, var(--slds-g-color-border-base-1, #e0e5ee));
     border-radius: 0.5rem;
     padding: 0.625rem 0.75rem;
-    background: var(--md-color-surface, var(--slds-g-color-surface-container-1, #fff));
+    background: transparent;
     gap: 0.75rem;
 }
 .path-card_inactive {

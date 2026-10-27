@@ -31,10 +31,9 @@ import {
     resolveChannelSubTab,
     getVisibleChannelRecords,
     getChannelDisplayName,
-    getCommunicationBadges
+    getCommunicationBadges,
+    isBannerChannel
 } from 'c/marketingDictionaryState';
-
-const CHANNEL_TYPES = ['Email', 'SMS', 'Push', 'Banner', 'In-App', 'AI Agent', 'Branch Agent', 'WhatsApp'];
 const VALID_ICON = /^[a-zA-Z0-9_]+:[a-zA-Z0-9_]+$/;
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -46,8 +45,8 @@ const newIntentRow = () => ({ key: newKey(), intentValue: '', intentTargetId: ''
 
 const EMPTY_CHANNEL = () => ({
     Name: '',
-    Channel_Type__c: '',
     Channel_Icon__c: '',
+    Main_Channel__c: false,
     Is_Active__c: true,
     Communication_Inbound__c: false,
     Communication_Outbound__c: false
@@ -112,7 +111,6 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
     _pendingDeleteName = '';
     _pendingDeleteType = '';
 
-    channelTypeOptions = CHANNEL_TYPES.map(t => ({ label: t, value: t }));
     @track _audienceTypeRecords = [];
 
     @wire(getPersonRecords)
@@ -209,12 +207,13 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
                 ...ch,
                 displayName,
                 commBadges,
+                mainChannelBadge: ch.Main_Channel__c ? 'Main' : null,
                 tabMenuItems,
                 settingsTabs,
                 Is_Active__c: ch.Is_Active__c !== false,
                 Channel_Cooldowns__r: cooldowns.length ? cooldowns : null,
                 weekDays,
-                isBanner: ch.Channel_Type__c === 'Banner',
+                isBanner: isBannerChannel(ch),
                 templatesTabLabel: `${displayName} Templates`,
                 statusLabel: ch.Is_Active__c === false ? 'Inactive' : 'Active',
                 statusClass: ch.Is_Active__c === false
@@ -260,7 +259,7 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
             { value: 'weekly', label: 'Weekly Restrictions', iconName: 'utility:restriction_policy' },
             { value: 'templates', label: `${label} Templates`, iconName: 'utility:insert_template' }
         ];
-        if (ch.Channel_Type__c === 'Banner') {
+        if (isBannerChannel(ch)) {
             tabs.push(
                 { value: 'placements', label: 'Placeholders', iconName: 'utility:drag' },
                 { value: 'intents', label: 'Intents', iconName: 'utility:target' }

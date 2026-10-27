@@ -7,7 +7,6 @@
     <trackTrending>false</trackTrending>
     <type>Picklist</type>
     <valueSet>
-        <controllingField>Channel_Type__c</controllingField>
         <restricted>true</restricted>
         <valueSetDefinition>
             <sorted>false</sorted>
@@ -77,53 +76,5 @@
                 <label>AI Agent - Outbound</label>
             </value>
         </valueSetDefinition>
-        <valueSettings>
-            <controllingFieldValue>Email</controllingFieldValue>
-            <valueName>Email</valueName>
-        </valueSettings>
-        <valueSettings>
-            <controllingFieldValue>SMS</controllingFieldValue>
-            <valueName>SMS</valueName>
-        </valueSettings>
-        <valueSettings>
-            <controllingFieldValue>Push</controllingFieldValue>
-            <valueName>Push</valueName>
-        </valueSettings>
-        <valueSettings>
-            <controllingFieldValue>Banner</controllingFieldValue>
-            <valueName>Mobile - Main</valueName>
-        </valueSettings>
-        <valueSettings>
-            <controllingFieldValue>Banner</controllingFieldValue>
-            <valueName>Mobile - Savings &amp; Deposits</valueName>
-        </valueSettings>
-        <valueSettings>
-            <controllingFieldValue>Banner</controllingFieldValue>
-            <valueName>Web - Main</valueName>
-        </valueSettings>
-        <valueSettings>
-            <controllingFieldValue>Banner</controllingFieldValue>
-            <valueName>Web - Savings &amp; Deposits</valueName>
-        </valueSettings>
-        <valueSettings>
-            <controllingFieldValue>In-App</controllingFieldValue>
-            <valueName>In-App</valueName>
-        </valueSettings>
-        <valueSettings>
-            <controllingFieldValue>AI Agent</controllingFieldValue>
-            <valueName>AI Agent - Inbound</valueName>
-        </valueSettings>
-        <valueSettings>
-            <controllingFieldValue>Branch Agent</controllingFieldValue>
-            <valueName>Branch Call</valueName>
-        </valueSettings>
-        <valueSettings>
-            <controllingFieldValue>Branch Agent</controllingFieldValue>
-            <valueName>CHC Call</valueName>
-        </valueSettings>
-        <valueSettings>
-            <controllingFieldValue>WhatsApp</controllingFieldValue>
-            <valueName>WhatsApp</valueName>
-        </valueSettings>
     </valueSet>
 </CustomField>

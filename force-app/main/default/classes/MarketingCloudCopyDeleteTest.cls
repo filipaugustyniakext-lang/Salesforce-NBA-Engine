@@ -82,7 +82,6 @@ private class MarketingCloudCopyDeleteTest {
     static void deleteMessageVariants_enqueuesMceDelete() {
         CC_Message_Metadata__c variant = new CC_Message_Metadata__c(
             Name = 'EMA_PL_MceDel_1',
-            Channel_Type__c = 'Email',
             MessageName__c = 'EMA_PL_MceDel',
             MessageVariantId__c = 'variant-del-1',
             MessageVariant__c = 1,

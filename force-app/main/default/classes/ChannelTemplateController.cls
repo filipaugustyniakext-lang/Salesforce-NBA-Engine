@@ -209,7 +209,7 @@ public with sharing class ChannelTemplateController {
         }
 
         Marketing_Dictionary__c channel = [
-            SELECT Id, Channel_Type__c
+            SELECT Id, Name
             FROM Marketing_Dictionary__c
             WHERE Id = :channelId
             LIMIT 1
@@ -255,7 +255,10 @@ public with sharing class ChannelTemplateController {
                 );
             }
             ChannelTemplateManifestService.ValidationResult validation =
-                ChannelTemplateManifestService.validate(record.Id, channel.Channel_Type__c);
+                ChannelTemplateManifestService.validate(
+                    record.Id,
+                    MarketingDictionaryChannelUtil.messageTypeKey(channel)
+                );
             if (!validation.valid) {
                 throw new AuraHandledException(
                     'Template package validation failed:\n' + validation.message
@@ -441,7 +444,7 @@ public with sharing class ChannelTemplateController {
             throw new AuraHandledException('Template is required.');
         }
         List<Channel_Template__c> templates = [
-            SELECT Id, Status__c, Channel__c, Validation_Status__c, Channel__r.Channel_Type__c
+            SELECT Id, Status__c, Channel__c, Validation_Status__c, Channel__r.Name
             FROM Channel_Template__c
             WHERE Id = :templateId
             LIMIT 1
@@ -462,7 +465,7 @@ public with sharing class ChannelTemplateController {
         ChannelTemplateManifestService.ValidationResult validation =
             ChannelTemplateManifestService.validate(
                 template.Id,
-                template.Channel__r.Channel_Type__c
+                MarketingDictionaryChannelUtil.messageTypeKey(template.Channel__r)
             );
         applyValidation(template, validation);
         if (!validation.valid) {
@@ -708,7 +711,7 @@ public with sharing class ChannelTemplateController {
     @AuraEnabled
     public static ValidationResponse validateTemplate(Id templateId) {
         Channel_Template__c template = [
-            SELECT Id, Status__c, Channel__r.Channel_Type__c,
+            SELECT Id, Status__c, Channel__r.Name,
                    Package_Id__c, SemVer__c, Package_Hash__c,
                    Compiler_Version__c, Validation_Status__c,
                    Validation_Message__c
@@ -729,7 +732,7 @@ public with sharing class ChannelTemplateController {
         ChannelTemplateManifestService.ValidationResult validation =
             ChannelTemplateManifestService.validate(
                 template.Id,
-                template.Channel__r.Channel_Type__c
+                MarketingDictionaryChannelUtil.messageTypeKey(template.Channel__r)
             );
         applyValidation(template, validation);
         update template;
@@ -1011,11 +1014,11 @@ public with sharing class ChannelTemplateController {
         List<TemplateOption> options = new List<TemplateOption>();
         if (String.isBlank(channelName) && String.isBlank(channelType)) return options;
         for (Channel_Template__c template : [
-            SELECT Id, Name, Description__c, Package_Id__c, SemVer__c, Channel__r.Name, Channel__r.Channel_Type__c
+            SELECT Id, Name, Description__c, Package_Id__c, SemVer__c, Channel__r.Name
             FROM Channel_Template__c
             WHERE Status__c = 'Active'
               AND Validation_Status__c = 'Valid'
-              AND (Channel__r.Name = :channelName OR Channel__r.Channel_Type__c = :channelType)
+              AND (Channel__r.Name = :channelName OR Channel__r.Name = :channelType)
             ORDER BY Channel__r.Name ASC, Name ASC
         ]) {
             Boolean exactChannel = template.Channel__r.Name == channelName;

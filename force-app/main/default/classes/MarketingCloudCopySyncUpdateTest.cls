@@ -6,7 +6,6 @@ private class MarketingCloudCopySyncUpdateTest {
             Name = 'Old name',
             MessageVariantId__c = 'variant-1',
             Subject__c = 'Old subject',
-            Channel_Type__c = 'Email',
             Status__c = 'Published'
         );
     }

@@ -163,7 +163,7 @@ public with sharing class MarketingDictionaryManagerController {
         try {
             Marketing_Dictionary__c rec = [
                 SELECT Id, Name, Dictionary_Sub_Type__c, RecordType.DeveloperName,
-                       Channel_Type__c, Parameter_API_Name__c
+                       Parameter_API_Name__c
                 FROM Marketing_Dictionary__c
                 WHERE Id = :recordId
                 WITH SECURITY_ENFORCED
@@ -232,7 +232,7 @@ public with sharing class MarketingDictionaryManagerController {
     @AuraEnabled(cacheable=true)
     public static List<Marketing_Dictionary__c> getChannelRecords() {
         return [
-            SELECT Id, Name, Channel_Type__c, Channel_Icon__c, Is_Active__c,
+            SELECT Id, Name, Channel_Icon__c, Is_Active__c, Main_Channel__c,
                    Communication_Inbound__c, Communication_Outbound__c,
                 (SELECT Id, Audience_Type_Dict__c, Audience_Type_Dict__r.Name, Cooldown_Days__c FROM Channel_Cooldowns__r ORDER BY Audience_Type_Dict__r.Name ASC),
                 (SELECT Id, Day_Of_Week__c, Is_Fully_Blocked__c, Blocked_From_Hour__c, Blocked_To_Hour__c
@@ -245,7 +245,7 @@ public with sharing class MarketingDictionaryManagerController {
                  FROM Channel_Banner_Intents__r ORDER BY Intent_Target__r.Name ASC, Name ASC)
             FROM Marketing_Dictionary__c
             WHERE RecordType.DeveloperName = 'Channel'
-            ORDER BY Channel_Type__c ASC, Name ASC
+            ORDER BY Name ASC
             LIMIT 1000
         ];
     }

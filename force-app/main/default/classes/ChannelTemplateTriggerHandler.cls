@@ -134,11 +134,11 @@ public with sharing class ChannelTemplateTriggerHandler {
         }
         Map<Id, String> result = new Map<Id, String>();
         for (Marketing_Dictionary__c channel : [
-            SELECT Id, Channel_Type__c
+            SELECT Id, Name
             FROM Marketing_Dictionary__c
             WHERE Id IN :channelIds
         ]) {
-            result.put(channel.Id, channel.Channel_Type__c);
+            result.put(channel.Id, MarketingDictionaryChannelUtil.messageTypeKey(channel));
         }
         return result;
     }
