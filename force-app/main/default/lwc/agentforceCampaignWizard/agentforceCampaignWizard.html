@@ -131,7 +131,7 @@
                                         </div>
                                     </div>
 
-                                    <template lwc:if={isAlwaysOnActivation}>
+                                    <template lwc:if={showCampaignDurationField}>
                                         <div class="slds-m-top_medium">
                                             <lightning-input
                                                 type="number"
@@ -142,6 +142,21 @@
                                                 step="1"
                                                 required
                                                 field-level-help="How long a customer should keep receiving communication from this campaign before being eligible for another."
+                                                class="custom-form-input">
+                                            </lightning-input>
+                                        </div>
+                                    </template>
+                                    <template lwc:if={showEventValidityWindowField}>
+                                        <div class="slds-m-top_medium">
+                                            <lightning-input
+                                                type="number"
+                                                label="Event Validity Window (Days)"
+                                                value={eventValidityWindowDays}
+                                                onchange={handleEventValidityWindowChange}
+                                                min="1"
+                                                step="1"
+                                                required
+                                                field-level-help="How long an individual batch or triggered event remains valid for the customer."
                                                 class="custom-form-input">
                                             </lightning-input>
                                         </div>
@@ -1268,10 +1283,16 @@
                                             <span class="summary-label">Active To</span>
                                             <span class="summary-value">{summaryActiveTo}</span>
                                         </div>
-                                        <template lwc:if={isAlwaysOnActivation}>
+                                        <template lwc:if={showCampaignDurationField}>
                                             <div class="summary-row">
                                                 <span class="summary-label">Campaign Duration (Days)</span>
                                                 <span class="summary-value">{summaryCampaignDuration}</span>
+                                            </div>
+                                        </template>
+                                        <template lwc:if={showEventValidityWindowField}>
+                                            <div class="summary-row">
+                                                <span class="summary-label">Event Validity Window (Days)</span>
+                                                <span class="summary-value">{summaryEventValidityWindow}</span>
                                             </div>
                                         </template>
                                         <div class="summary-row">
