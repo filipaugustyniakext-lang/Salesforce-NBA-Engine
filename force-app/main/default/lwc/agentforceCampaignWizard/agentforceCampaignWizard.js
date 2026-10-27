@@ -3018,6 +3018,11 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         return key === 'triggered';
     }
 
+    get isOneOffActivation() {
+        const key = (this.parentActivationType || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        return key === 'oneoff';
+    }
+
     get isBatchEventsCampaignGroup() {
         const opt = (this.campaignGroupOptions || []).find(
             o => o.value === this.selectedCampaignGroupId
