@@ -4,7 +4,7 @@
         <!-- Toolbar -->
         <div class="bo-toolbar slds-m-bottom_small">
             <h2 class="slds-text-heading_small">
-                Blackout Dates
+                Blockout Dates
                 <span class="slds-badge slds-badge_lightest slds-m-left_x-small">{blackoutCount}</span>
             </h2>
             <div class="bo-toolbar__actions">
@@ -12,7 +12,7 @@
                     placeholder="Search dates..." value={blackoutSearch}
                     onchange={handleBlackoutSearch} class="bo-search-input">
                 </lightning-input>
-                <lightning-button label="Add Blackout Date" icon-name="utility:add" variant="brand"
+                <lightning-button label="Add Blockout Date" icon-name="utility:add" variant="brand"
                     onclick={handleNewBlackout}>
                 </lightning-button>
             </div>
@@ -20,7 +20,8 @@
 
         <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
             Calendar days when marketing communications are put on hold. Assign only the channels that must pause —
-            softer channels (for example banners) can stay live.
+            softer channels (for example banners) can stay live. Weekly SMS quiet hours on each channel sync to
+            Setup &gt; Unified Messaging &gt; Blockout Windows when your org’s integration user has access.
         </p>
 
         <template lwc:if={isLoading}>
@@ -109,7 +110,7 @@
             <div class="slds-illustration slds-illustration_small slds-m-top_medium">
                 <div class="slds-illustration__svg"></div>
                 <div class="slds-illustration__content">
-                    <p class="slds-text-color_weak">No blackout dates defined. Add the first one.</p>
+                    <p class="slds-text-color_weak">No blockout dates defined. Add the first one.</p>
                 </div>
             </div>
         </template>
@@ -155,11 +156,11 @@
                         <div class="slds-form-element slds-m-top_small">
                             <label class="slds-form-element__label">
                                 <abbr class="slds-required" title="required">*</abbr>
-                                Channels on blackout
+                                Channels on blockout
                             </label>
                             <div class="slds-form-element__control">
                                 <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_x-small">
-                                    All channels are selected by default for new blackout dates. Uncheck any channel that
+                                    All channels are selected by default for new blockout dates. Uncheck any channel that
                                     may still send on this date ({selectedChannelCount} selected).
                                 </p>
                                 <template lwc:if={hasChannelCatalogue}>

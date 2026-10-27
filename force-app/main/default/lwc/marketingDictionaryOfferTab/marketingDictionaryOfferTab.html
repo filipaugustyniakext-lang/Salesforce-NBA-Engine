@@ -61,7 +61,7 @@
                             <div class="rv-group__header">
                                 <span class="slds-text-title_caps rv-group__name">{group.name}</span>
                                 <span class="slds-badge slds-badge_lightest slds-m-left_x-small">{group.count} famil{group.pluralSuffix}</span>
-                                <lightning-button-icon icon-name="utility:edit" variant="bare" size="small"
+                                <lightning-button-icon icon-name="utility:edit" variant="border-filled" size="small"
                                     alternative-text="Edit attribute name and type"
                                     title="Edit attribute name &amp; type"
                                     data-attrname={group.name}
@@ -213,12 +213,12 @@
                                             title={grp.weightSumWarning} class="ofa-card__warn-icon">
                                         </lightning-icon>
                                     </template>
-                                    <lightning-button-icon icon-name="utility:edit" variant="bare"
+                                    <lightning-button-icon icon-name="utility:edit" variant="border-filled"
                                         size="x-small" alternative-text="Edit" title="Edit attributes"
                                         data-familyid={grp.familyId} onclick={handleOpenEditFamilyModal}
                                         class="ofa-card__edit-btn">
                                     </lightning-button-icon>
-                                    <lightning-button-icon icon-name="utility:delete" variant="bare"
+                                    <lightning-button-icon icon-name="utility:delete" variant="border-filled"
                                         size="x-small" alternative-text="Delete family config"
                                         title="Delete all attributes for this product family"
                                         data-familyid={grp.familyId} data-familyname={grp.familyName}
@@ -805,7 +805,7 @@
 
                                         <!-- Delete -->
                                         <lightning-button-icon icon-name="utility:delete"
-                                            variant="bare" size="small"
+                                            variant="border-filled" size="small"
                                             alternative-text="Remove" title="Remove attribute"
                                             data-key={row._key}
                                             data-attrid={row._attrId}

@@ -1389,6 +1389,7 @@ public with sharing class MarketingDictionaryManagerController {
                 throw new AuraHandledException('Select at least one channel for this blackout date.');
             }
             upsert record;
+            UnifiedMessagingBlockoutSync.afterCalendarWindowSave(record.Id);
             return record.Id;
         } catch (AuraHandledException e) {
             throw e;
@@ -1439,6 +1440,7 @@ public with sharing class MarketingDictionaryManagerController {
                 );
             }
             upsert record;
+            UnifiedMessagingBlockoutSync.afterDayRuleSave(record.Id);
             return record.Id;
         } catch (AuraHandledException e) {
             throw e;
