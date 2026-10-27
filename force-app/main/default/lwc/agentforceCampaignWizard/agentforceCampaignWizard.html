@@ -1,6 +1,6 @@
 <template>
     <section role="dialog" tabindex="-1" aria-modal="true" class="slds-modal slds-fade-in-open slds-modal_large custom-modal-frame" onclick={handleBackdropClick}>
-        <div class="slds-modal__container custom-modal-container" onclick={handleContainerClick}>
+        <div class="slds-modal__container custom-modal-container md-app-root" onclick={handleContainerClick}>
 
             <template lwc:if={isLoading}>
                 <lightning-spinner alternative-text="Loading campaign..." size="medium" variant="brand"></lightning-spinner>
