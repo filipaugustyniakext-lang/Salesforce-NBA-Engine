@@ -37,6 +37,73 @@ export function renderTemplatePreview(source, blocks, device) {
 
 const PREVIEW_SCOPE = '.cc-preview';
 
+const PREFERS_DARK_MEDIA_PATTERN =
+    /@media[^{]*\(\s*prefers-color-scheme\s*:\s*dark\s*\)[^{]*\{/gi;
+
+function extractBalancedCssBlock(source, openBraceIndex) {
+    let depth = 1;
+    let index = openBraceIndex + 1;
+    while (index < source.length && depth > 0) {
+        const char = source[index];
+        if (char === '{') depth += 1;
+        else if (char === '}') depth -= 1;
+        index += 1;
+    }
+    return {
+        start: openBraceIndex,
+        end: index,
+        inner: source.slice(openBraceIndex + 1, index - 1)
+    };
+}
+
+/** Removes dark-scheme @media blocks so OS dark mode cannot override the preview toggle. */
+function stripPrefersColorSchemeDarkRules(css) {
+    let result = String(css ?? '');
+    let match = PREFERS_DARK_MEDIA_PATTERN.exec(result);
+    while (match) {
+        const braceIndex = match.index + match[0].length - 1;
+        const block = extractBalancedCssBlock(result, braceIndex);
+        result = result.slice(0, match.index) + result.slice(block.end);
+        PREFERS_DARK_MEDIA_PATTERN.lastIndex = match.index;
+        match = PREFERS_DARK_MEDIA_PATTERN.exec(result);
+    }
+    PREFERS_DARK_MEDIA_PATTERN.lastIndex = 0;
+    return result;
+}
+
+/** Promotes dark-scheme @media rules to unconditional CSS for forced dark preview. */
+function flattenPrefersColorSchemeDarkRules(css) {
+    let result = String(css ?? '');
+    let match = PREFERS_DARK_MEDIA_PATTERN.exec(result);
+    while (match) {
+        const braceIndex = match.index + match[0].length - 1;
+        const block = extractBalancedCssBlock(result, braceIndex);
+        const flattened = `\n/* cc-preview: forced dark */\n${block.inner.trim()}\n`;
+        result = result.slice(0, match.index) + flattened + result.slice(block.end);
+        PREFERS_DARK_MEDIA_PATTERN.lastIndex = match.index + flattened.length;
+        match = PREFERS_DARK_MEDIA_PATTERN.exec(result);
+    }
+    PREFERS_DARK_MEDIA_PATTERN.lastIndex = 0;
+    return result;
+}
+
+function applyPreviewColorModeToCss(css, theme) {
+    return theme === 'dark'
+        ? flattenPrefersColorSchemeDarkRules(css)
+        : stripPrefersColorSchemeDarkRules(css);
+}
+
+function previewColorModeCss(theme) {
+    const s = PREVIEW_SCOPE;
+    if (theme === 'dark') {
+        return `${s}{color-scheme:dark only!important;background-color:#262626!important;}`;
+    }
+    return `${s}{color-scheme:light only!important;background-color:#ffffff!important;}`
+        + `${s} .dark-mode-background{background-color:#ffffff!important;}`
+        + `${s} .footer-product-text,${s} .footer-product-text p,${s} .footer-product-text li,${s} .footer-product-text a,${s} .footer-product-text span,`
+        + `${s} .footer-legal-text,${s} .footer-legal-text p,${s} .footer-legal-text li,${s} .footer-legal-text a,${s} .footer-legal-text span{color:#333333!important;}`;
+}
+
 /**
  * Outlook conditional comments use nested <!-- … <![endif]--> closers.
  * A naive strip can match from `<!--[if !mso]><!-->` through the inner `<!--<![endif]-->`
@@ -92,7 +159,7 @@ export function scopePreviewDocument(html, options = {}) {
     const withoutStyles = source.replace(/<style\b([^>]*)>([\s\S]*?)<\/style>/gi, (match, attrs, css) => {
         const media = /media\s*=\s*(['"])(.*?)\1/i.exec(attrs || '');
         const sheet = media ? `@media ${media[2]} {${css}}` : css;
-        styles.push(rewriteCss(sheet, device, theme));
+        styles.push(rewriteCss(applyPreviewColorModeToCss(sheet, theme), device, theme));
         return '';
     });
     const bodyMatch = withoutStyles.match(/<body\b[^>]*>([\s\S]*)<\/body>/i);
@@ -106,8 +173,9 @@ export function scopePreviewDocument(html, options = {}) {
         + (device === 'mobile'
             ? mobileShellPreviewCss()
                 + `${PREVIEW_SCOPE} td[style*="direction: rtl"],${PREVIEW_SCOPE} td[style*="direction:rtl"]{direction:ltr!important;text-align:center!important;}`
-            : '');
-    return `<div class="cc-preview"><style>${styles.join('\n')}\n${guard}</style>${body}</div>`;
+            : '')
+        + previewColorModeCss(theme);
+    return `<div class="cc-preview cc-preview--theme-${theme}"><style>${styles.join('\n')}\n${guard}</style>${body}</div>`;
 }
 
 function previewTokens(html) {
@@ -152,10 +220,12 @@ function rewriteCss(css, device, theme) {
 
 function rewriteMedia(condition, body, device, theme) {
     const text = condition.toLowerCase();
-    if (text.includes('prefers-color-scheme')) {
-        if (text.includes('dark') && theme !== 'dark') return '';
-        if (text.includes('light') && theme !== 'light') return '';
-        if (text.includes('dark') || text.includes('light')) return rewriteCss(body, device, theme);
+    const prefersDark = /\(\s*prefers-color-scheme\s*:\s*dark\s*\)/.test(text);
+    const prefersLight = /\(\s*prefers-color-scheme\s*:\s*light\s*\)/.test(text);
+    if (prefersDark || prefersLight) {
+        if (prefersDark && theme !== 'dark') return '';
+        if (prefersLight && theme !== 'light') return '';
+        return rewriteCss(body, device, theme);
     }
     const maxWidth = /max-width\s*:\s*(\d+)/.exec(text);
     const minWidth = /min-width\s*:\s*(\d+)/.exec(text);
