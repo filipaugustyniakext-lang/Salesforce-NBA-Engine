@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+    <types>
+        <members>*</members>
+        <name>ApexClass</name>
+    </types>
+    <types>
+        <members>*</members>
+        <name>LightningComponentBundle</name>
+    </types>
+    <types>
+        <members>Marketing_Dictionary__c</members>
+        <name>CustomObject</name>
+    </types>
+    <types>
+        <members>Marketing_Dictionary__c-Channels</members>
+        <members>Marketing_Dictionary__c-Sales Process</members>
+        <members>Marketing_Dictionary__c-Topics %28Goals%29</members>
+        <name>Layout</name>
+    </types>
+    <version>62.0</version>
+</Package>
