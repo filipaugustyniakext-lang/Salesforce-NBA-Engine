@@ -1111,7 +1111,7 @@ public with sharing class MarketingDictionaryManagerController {
                    Override_Random_Activation_Path__c, Honor_Marketing_Consents__c,
                    Includes_Control_Group__c, Honors_Channel_Cooldowns__c,
                    Honors_Product_Eligibility__c, Allows_Random_Copy_Assignment__c,
-                   Excl_Other_Marketing_Activations__c,
+                   Excl_Other_Marketing_Activations__c, Excl_Campaign_Groups__c,
                    Excl_Manual_Suppressions__c, Excl_Deceased__c, Excl_AML_Fraud__c,
                    Excl_Debt_Collection__c, Excl_Overdue__c, Excl_KYC_Risk__c,
                    Excl_Bailiff_Seizure__c, Excl_Restricted_Client__c, Excl_Personal_Bankruptcy__c

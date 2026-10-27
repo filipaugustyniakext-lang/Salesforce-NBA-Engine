@@ -1658,12 +1658,29 @@
     background: #fff;
 }
 
+.exclusion-method-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
 .exclusion-method-title {
     display: block;
     font-weight: 700;
     font-size: 0.8125rem;
     color: #181818;
-    margin-bottom: 0.25rem;
+    margin-bottom: 0;
+    flex: 1;
+    min-width: 0;
+}
+
+.exclusion-method-toggle {
+    flex-shrink: 0;
+}
+
+.exclusion-campaign-groups-picker lightning-dual-listbox {
+    width: 100%;
 }
 
 .exclusion-source-picker-block {

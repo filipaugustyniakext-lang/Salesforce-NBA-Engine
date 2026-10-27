@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Exclude_Campaign_Group_Dict_Ids__c</fullName>
+    <description>Comma-separated Marketing Dictionary record Ids (Campaign Group sub-type) to exclude. Labels are resolved from the dictionary at runtime.</description>
+    <label>Exclude Campaign Group Dictionary Ids</label>
+    <length>32768</length>
+    <trackFeedHistory>false</trackFeedHistory>
+    <type>LongTextArea</type>
+    <visibleLines>3</visibleLines>
+</CustomField>
