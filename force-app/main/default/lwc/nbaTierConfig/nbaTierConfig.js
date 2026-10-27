@@ -51,7 +51,8 @@ export const TIER_ATTR_FIELDS = [
 
 /** Tier-level allowed exclusion types (Campaign Dictionary → Tiers). */
 export const TIER_EXCL_FIELDS = [
-    { field: 'Excl_Other_Marketing_Activations__c', label: 'Other Marketing Activations' },
+    { field: 'Excl_Other_Marketing_Activations__c', label: 'Other Marketing' },
+    { field: 'Excl_Campaign_Groups__c', label: 'Campaign Groups' },
     { field: 'Excl_Manual_Suppressions__c', label: 'Manual Exclusions' }
 ];
 

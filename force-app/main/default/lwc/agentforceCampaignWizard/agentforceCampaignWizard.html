@@ -257,14 +257,52 @@
                                         <div class="exclusions-tile-body animate-fade-in">
                                             <template lwc:if={showOtherMarketingActivationsOption}>
                                                 <div class="exclusion-method-box slds-m-bottom_small">
-                                                    <span class="exclusion-method-title">Exclude other marketing activations</span>
-                                                    <lightning-input
-                                                        type="checkbox"
-                                                        label="Other Marketing Activations"
-                                                        checked={excludeOtherMarketingActivations}
-                                                        onchange={handleOtherMarketingActivationsChange}
-                                                        class="slds-m-top_x-small exclusion-other-marketing-checkbox">
-                                                    </lightning-input>
+                                                    <div class="exclusion-method-header">
+                                                        <span class="exclusion-method-title">Other Marketing</span>
+                                                        <lightning-input
+                                                            type="toggle"
+                                                            variant="label-hidden"
+                                                            label="Other Marketing"
+                                                            checked={excludeOtherMarketingActivations}
+                                                            onchange={handleOtherMarketingActivationsChange}
+                                                            message-toggle-active=""
+                                                            message-toggle-inactive=""
+                                                            class="exclusion-method-toggle">
+                                                        </lightning-input>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                            <template lwc:if={showCampaignGroupsExclusionOption}>
+                                                <div class="exclusion-method-box slds-m-bottom_small">
+                                                    <div class="exclusion-method-header">
+                                                        <span class="exclusion-method-title">Campaign Groups</span>
+                                                        <lightning-input
+                                                            type="toggle"
+                                                            variant="label-hidden"
+                                                            label="Campaign Groups"
+                                                            checked={excludeCampaignGroups}
+                                                            onchange={handleExcludeCampaignGroupsToggle}
+                                                            message-toggle-active=""
+                                                            message-toggle-inactive=""
+                                                            class="exclusion-method-toggle">
+                                                        </lightning-input>
+                                                    </div>
+                                                    <template lwc:if={excludeCampaignGroups}>
+                                                        <div class="exclusion-campaign-groups-picker slds-m-top_small">
+                                                            <lightning-dual-listbox
+                                                                name="excludeCampaignGroups"
+                                                                label="Campaign groups"
+                                                                variant="label-hidden"
+                                                                source-label="Available"
+                                                                selected-label="Excluded"
+                                                                options={campaignGroupExclusionOptions}
+                                                                value={excludedCampaignGroupIds}
+                                                                onchange={handleExcludedCampaignGroupsChange}
+                                                                min="0"
+                                                                size="5">
+                                                            </lightning-dual-listbox>
+                                                        </div>
+                                                    </template>
                                                 </div>
                                             </template>
                                             <template lwc:if={showManualExclusionDefinitions}>

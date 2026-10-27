@@ -3,7 +3,7 @@
     <fullName>Excl_Other_Marketing_Activations__c</fullName>
     <defaultValue>false</defaultValue>
     <description>When enabled, campaigns on this tier may exclude clients who received other marketing activations.</description>
-    <label>Other Marketing Activations</label>
+    <label>Other Marketing</label>
     <trackTrending>false</trackTrending>
     <type>Checkbox</type>
 </CustomField>

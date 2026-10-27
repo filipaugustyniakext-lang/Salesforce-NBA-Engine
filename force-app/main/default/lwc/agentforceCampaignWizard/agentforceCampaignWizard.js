@@ -402,6 +402,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     _exclusionWorkspaceInitialized = false;
     _exclusionFieldOptionsLoadRequested = new Set();
     @track excludeOtherMarketingActivations = false;
+    @track excludeCampaignGroups = false;
+    @track excludedCampaignGroupIds = [];
     _data360ExclusionCatalogLoaded = false;
     _data360ExclusionCatalogPromise = null;
     _exclusionSearchTimers = {};
@@ -586,6 +588,17 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         );
     }
 
+    _tierAllowsCampaignGroups(tierLabel) {
+        return isTierExclusionEnabled(this._tierRecordForLabel(tierLabel), 'Excl_Campaign_Groups__c');
+    }
+
+    _parseExcludedCampaignGroupIds(raw) {
+        return String(raw || '')
+            .split(/[,;\s]+/)
+            .map(part => part.trim())
+            .filter(Boolean);
+    }
+
     _hydrateExclusionsFromCampaign(campaign) {
         this.exclusionDefinitions = [];
         this.exclusionSelectedBySource = emptyExclusionSelectedBySource();
@@ -664,6 +677,10 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             setTimeout(() => this._ensureData360ExclusionCatalog(), 0);
         }
         this.excludeOtherMarketingActivations = !!campaign.Exclude_Other_Marketing_Activations__c;
+        this.excludeCampaignGroups = !!campaign.Exclude_Campaign_Groups__c;
+        this.excludedCampaignGroupIds = this._parseExcludedCampaignGroupIds(
+            campaign.Exclude_Campaign_Group_Dict_Ids__c
+        );
         // eslint-disable-next-line @lwc/lwc/no-async-operation
         setTimeout(() => {
             this._ensureExclusionWorkspaceRow();
@@ -937,6 +954,19 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             fields['Exclude_Other_Marketing_Activations__c'] = this.showOtherMarketingActivationsOption
                 ? this.excludeOtherMarketingActivations === true
                 : false;
+        }
+        if (this._hasCampaignField('Exclude_Campaign_Groups__c')) {
+            fields['Exclude_Campaign_Groups__c'] = this.showCampaignGroupsExclusionOption
+                ? this.excludeCampaignGroups === true
+                : false;
+        }
+        if (this._hasCampaignField('Exclude_Campaign_Group_Dict_Ids__c')) {
+            const ids = this.showCampaignGroupsExclusionOption
+                && this.excludeCampaignGroups
+                && (this.excludedCampaignGroupIds || []).length
+                ? [...this.excludedCampaignGroupIds]
+                : [];
+            fields['Exclude_Campaign_Group_Dict_Ids__c'] = ids.length ? ids.join(',') : null;
         }
     }
 
@@ -1754,12 +1784,27 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             if (!this._tierAllowsOtherMarketingActivations(newTier)) {
                 this.excludeOtherMarketingActivations = false;
             }
+            if (!this._tierAllowsCampaignGroups(newTier)) {
+                this.excludeCampaignGroups = false;
+                this.excludedCampaignGroupIds = [];
+            }
             this._syncWizardStepAfterTierChange(stepKey);
         }
     }
 
     handleOtherMarketingActivationsChange(event) {
         this.excludeOtherMarketingActivations = event.target.checked;
+    }
+
+    handleExcludeCampaignGroupsToggle(event) {
+        this.excludeCampaignGroups = event.target.checked;
+        if (!this.excludeCampaignGroups) {
+            this.excludedCampaignGroupIds = [];
+        }
+    }
+
+    handleExcludedCampaignGroupsChange(event) {
+        this.excludedCampaignGroupIds = event.detail.value || [];
     }
 
     handleTierDetailsToggle(event) {
@@ -2853,7 +2898,15 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     get summaryExclusionsLabel() {
         const parts = [];
         if (this.showOtherMarketingActivationsOption && this.excludeOtherMarketingActivations) {
-            parts.push('Other Marketing Activations');
+            parts.push('Other Marketing');
+        }
+        if (this.showCampaignGroupsExclusionOption && this.excludeCampaignGroups) {
+            const labels = (this.excludedCampaignGroupIds || [])
+                .map(id => this._campaignGroupDictionaryLabel(id))
+                .filter(Boolean);
+            parts.push(labels.length
+                ? `Campaign Groups: ${labels.join(', ')}`
+                : 'Campaign Groups');
         }
         const defs = this._serializeExclusionDefinitions();
         if (defs.length) {
@@ -3426,7 +3479,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get showExclusionsSection() {
-        return this.showManualExclusionDefinitions || this.showOtherMarketingActivationsOption;
+        return this.showManualExclusionDefinitions
+            || this.showOtherMarketingActivationsOption
+            || this.showCampaignGroupsExclusionOption;
     }
 
     get showManualExclusionDefinitions() {
@@ -3436,6 +3491,35 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     get showOtherMarketingActivationsOption() {
         return isTierExclusionEnabled(this.selectedTierRecord, 'Excl_Other_Marketing_Activations__c')
             && this._hasCampaignField('Exclude_Other_Marketing_Activations__c');
+    }
+
+    get showCampaignGroupsExclusionOption() {
+        return isTierExclusionEnabled(this.selectedTierRecord, 'Excl_Campaign_Groups__c')
+            && this._hasCampaignField('Exclude_Campaign_Groups__c')
+            && this._hasCampaignField('Exclude_Campaign_Group_Dict_Ids__c');
+    }
+
+    get campaignGroupExclusionOptions() {
+        const options = [];
+        (this._allCampaignTypes || []).forEach(typeRecord => {
+            const typeName = typeRecord.Name || '';
+            const groups = typeRecord.Campaign_Groups_by_Type__r;
+            const groupRows = Array.isArray(groups) ? groups : (groups?.records || []);
+            groupRows.forEach(group => {
+                if (!group?.Id) return;
+                const groupName = group.Name || group.Id;
+                options.push({
+                    label: typeName ? `${groupName} (${typeName})` : groupName,
+                    value: group.Id
+                });
+            });
+        });
+        return options.sort((left, right) => left.label.localeCompare(right.label));
+    }
+
+    _campaignGroupDictionaryLabel(dictId) {
+        const match = (this.campaignGroupExclusionOptions || []).find(opt => opt.value === dictId);
+        return match ? match.label : dictId;
     }
 
     get activationOptions() {
