@@ -1,41 +1,41 @@
 <template>
-    <div class="slds-card">
+    <div class="slds-card md-app-root">
 
-        <div class="slds-card__body">
+        <div class="slds-card__body md-app-root">
             <lightning-tabset active-tab-value={activeTab}>
 
                 <lightning-tab value="person" label="Person" icon-name="standard:person_account" onactive={handleMainTabActive}>
-                    <div class="slds-p-around_medium">
+                    <div class="slds-p-around_medium md-app-root">
                         <c-marketing-dictionary-person-tab></c-marketing-dictionary-person-tab>
                     </div>
                 </lightning-tab>
 
                 <lightning-tab value="product" label="Products" icon-name="standard:product" onactive={handleMainTabActive}>
-                    <div class="slds-p-around_medium">
+                    <div class="slds-p-around_medium md-app-root">
                         <c-marketing-dictionary-product-tab></c-marketing-dictionary-product-tab>
                     </div>
                 </lightning-tab>
 
                 <lightning-tab value="offer" label="Offers" icon-name="standard:activations" onactive={handleMainTabActive}>
-                    <div class="slds-p-around_medium">
+                    <div class="slds-p-around_medium md-app-root">
                         <c-marketing-dictionary-offer-tab></c-marketing-dictionary-offer-tab>
                     </div>
                 </lightning-tab>
 
                 <lightning-tab value="campaign" label="Campaigns" icon-name="standard:campaign" onactive={handleMainTabActive}>
-                    <div class="slds-p-around_medium">
+                    <div class="slds-p-around_medium md-app-root">
                         <c-marketing-dictionary-campaign-tab></c-marketing-dictionary-campaign-tab>
                     </div>
                 </lightning-tab>
 
                 <lightning-tab value="scoring" label="Scoring" icon-name="standard:people_score" onactive={handleMainTabActive}>
-                    <div class="slds-p-around_medium">
+                    <div class="slds-p-around_medium md-app-root">
                         <c-marketing-dictionary-scoring-tab></c-marketing-dictionary-scoring-tab>
                     </div>
                 </lightning-tab>
 
                 <lightning-tab value="channel" label="Channels" icon-name="standard:channel_programs" onactive={handleMainTabActive}>
-                    <div class="slds-p-around_medium">
+                    <div class="slds-p-around_medium md-app-root">
                         <c-marketing-dictionary-channel-tab
                             onchannelactivechange={handleChannelActiveChange}>
                         </c-marketing-dictionary-channel-tab>
@@ -43,7 +43,7 @@
                 </lightning-tab>
 
                 <lightning-tab value="blackout" label="Blackout Windows" icon-name="utility:ban" onactive={handleMainTabActive}>
-                    <div class="slds-p-around_medium">
+                    <div class="slds-p-around_medium md-app-root">
                         <c-marketing-dictionary-blackout-tab></c-marketing-dictionary-blackout-tab>
                     </div>
                 </lightning-tab>

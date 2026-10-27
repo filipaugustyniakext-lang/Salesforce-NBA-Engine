@@ -1,3 +1,21 @@
+:host {
+    --md-color-surface: var(--slds-g-color-surface-container-1, #ffffff);
+    --md-color-surface-sidebar: var(--slds-g-color-surface-container-3, #f8f9fb);
+    --md-color-surface-hover: var(--slds-g-color-surface-container-2, #eaf0f8);
+    --md-color-border: var(--slds-g-color-border-base-1, #e0e5ee);
+    --md-color-border-subtle: var(--slds-g-color-border-base-2, #e8ecf0);
+    --md-color-text: var(--slds-g-color-on-surface-1, #181818);
+    --md-color-text-muted: var(--slds-g-color-on-surface-2, #706e6b);
+    --md-color-text-default: var(--slds-g-color-on-surface-1, #3e3e3c);
+    --md-color-accent: var(--slds-g-color-accent-2, #0176d3);
+    --md-color-accent-strong: var(--slds-g-color-accent-1, #032d60);
+    --md-color-accent-container: var(--slds-g-color-accent-container-1, #0176d3);
+    --md-color-on-accent: var(--slds-g-color-on-accent-1, #ffffff);
+    --md-color-neutral-bg: var(--slds-g-color-neutral-base-95, #f3f3f3);
+    --md-color-error: var(--slds-g-color-error-1, #c23934);
+    --md-color-success: var(--slds-g-color-success-1, #2e844a);
+}
+
 /* Toolbar */
 .bo-toolbar {
     display: flex;
@@ -28,11 +46,11 @@
 
 .bo-type-badge {
     background: #e8f4fd;
-    color: #0176d3;
+    color: var(--md-color-accent, var(--slds-g-color-accent-2, #0176d3));
     border: 1px solid #a8d5f5;
 }
-.bo-icon-recurring { color: #0176d3; vertical-align: middle; }
-.bo-check-icon { color: #2e844a; }
+.bo-icon-recurring { color: var(--md-color-accent, var(--slds-g-color-accent-2, #0176d3)); vertical-align: middle; }
+.bo-check-icon { color: var(--md-color-success, var(--slds-g-color-success-1, #2e844a)); }
 .action-col { width: 5rem; white-space: nowrap; }
 
 /* Channel tile group (parity with Campaign Wizard) */
@@ -93,42 +111,42 @@
 }
 
 .channel-btn-active {
-    background-color: #0176d3 !important;
-    border-color: #0176d3 !important;
-    color: #ffffff !important;
-    border-right: 1.5px solid #ffffff !important;
+    background-color: var(--md-color-accent, var(--slds-g-color-accent-2, #0176d3)) !important;
+    border-color: var(--md-color-accent, var(--slds-g-color-accent-2, #0176d3)) !important;
+    color: var(--md-color-surface, var(--slds-g-color-surface-container-1, #ffffff)) !important;
+    border-right: 1.5px solid var(--md-color-surface, var(--slds-g-color-surface-container-1, #ffffff)) !important;
 }
 
 .channel-btn-active:last-child {
-    border-right-color: #0176d3 !important;
+    border-right-color: var(--md-color-accent, var(--slds-g-color-accent-2, #0176d3)) !important;
 }
 
 .channel-btn-active:hover {
-    background-color: #014486 !important;
-    border-color: #014486 !important;
-    color: #ffffff !important;
-    border-right-color: #ffffff !important;
+    background-color: var(--md-color-accent-strong, var(--slds-g-color-accent-1, #014486)) !important;
+    border-color: var(--md-color-accent-strong, var(--slds-g-color-accent-1, #014486)) !important;
+    color: var(--md-color-surface, var(--slds-g-color-surface-container-1, #ffffff)) !important;
+    border-right-color: var(--md-color-surface, var(--slds-g-color-surface-container-1, #ffffff)) !important;
 }
 
 .channel-btn-active:last-child:hover {
-    border-right-color: #014486 !important;
+    border-right-color: var(--md-color-accent-strong, var(--slds-g-color-accent-1, #014486)) !important;
 }
 
 .channel-btn-inactive {
-    background-color: #ffffff !important;
+    background-color: var(--md-color-surface, var(--slds-g-color-surface-container-1, #ffffff)) !important;
     border-color: #c9c9c9 !important;
-    color: #706e6b !important;
+    color: var(--md-color-text-muted, var(--slds-g-color-on-surface-2, #706e6b)) !important;
 }
 
 .channel-btn-inactive:hover {
-    background-color: #f3f3f3 !important;
+    background-color: var(--md-color-neutral-bg, var(--slds-g-color-neutral-base-95, #f3f3f3)) !important;
 }
 
 .channel-btn-disabled,
 .channel-btn-disabled:hover {
     background-color: #e5f4ff !important;
-    border-color: #0176d3 !important;
-    color: #014486 !important;
+    border-color: var(--md-color-accent, var(--slds-g-color-accent-2, #0176d3)) !important;
+    color: var(--md-color-accent-strong, var(--slds-g-color-accent-1, #014486)) !important;
     cursor: not-allowed !important;
     opacity: 0.75;
 }
@@ -138,9 +156,9 @@
 }
 
 .channel-icon-active {
-    --slds-c-icon-color-foreground-default: #ffffff;
+    --slds-c-icon-color-foreground-default: var(--md-color-surface, var(--slds-g-color-surface-container-1, #ffffff));
 }
 
 .channel-icon-inactive {
-    --slds-c-icon-color-foreground-default: #706e6b;
+    --slds-c-icon-color-foreground-default: var(--md-color-text-muted, var(--slds-g-color-on-surface-2, #706e6b));
 }
