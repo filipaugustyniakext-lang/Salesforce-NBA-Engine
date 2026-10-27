@@ -455,17 +455,129 @@
                                                                 </template>
                                                             </div>
                                                         </div>
+                                                        <template lwc:if={blockHasHtml}>
+                                                            <div class="studio-detected-regions slds-m-top_medium" aria-live="polite">
+                                                                <p class="slds-text-title_caps slds-m-bottom_x-small">Detected in uploaded HTML</p>
+                                                                <div class="studio-detected-regions__badges" role="list" aria-label="Detected block bindings">
+                                                                    <template for:each={blockDetectedBindingBadges} for:item="badge">
+                                                                        <span key={badge.key} class="slds-badge slds-badge_lightest" role="listitem">{badge.label}</span>
+                                                                    </template>
+                                                                </div>
+                                                            </div>
+                                                        </template>
                                                         <lightning-tabset variant="scoped" class="studio-block-definition-tabs" active-tab-value={blockBindingTab}>
                                                             <lightning-tab label="Blocks Content Binding" value="content">
-                                                                <p class="studio-block-binding-placeholder slds-text-body_small slds-text-color_weak">
-                                                                    Bind placeholders to editor fields when authors should edit content in Copy Center.
-                                                                    Blocks without bindings stay fixed exactly as in the source HTML and are not editable in the message editor.
+                                                                <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
+                                                                    Map each content placeholder to a Copy Center editor field. Unbound placeholders stay fixed in the message editor.
                                                                 </p>
+                                                                <template lwc:if={blockHasHtml}>
+                                                                    <template lwc:if={blockContentBindingsEmpty}>
+                                                                        <p class="slds-text-body_small slds-text-color_weak">
+                                                                            No content placeholders (for example &#123;&#123;copy&#125;&#125; or &#123;&#123;imageUrl&#125;&#125;) were found. Add mustache tokens in your block HTML, or leave the block unbound for fixed HTML.
+                                                                        </p>
+                                                                    </template>
+                                                                    <template for:each={blockContentBindingRows} for:item="row">
+                                                                        <div key={row.key} class="slds-grid slds-wrap slds-gutters slds-m-bottom_x-small studio-block-binding-row">
+                                                                            <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3 slds-grid slds-grid_vertical-align-center">
+                                                                                <code class="slds-text-body_small">{row.placeholderLabel}</code>
+                                                                                <template lwc:if={row.unbound}>
+                                                                                    <span class="slds-badge slds-m-left_x-small">Unbound</span>
+                                                                                </template>
+                                                                            </div>
+                                                                            <div class="slds-col slds-size_1-of-1 slds-medium-size_2-of-3">
+                                                                                <lightning-combobox
+                                                                                    label="Editor field"
+                                                                                    variant="label-hidden"
+                                                                                    value={row.source}
+                                                                                    placeholder="Choose editor field"
+                                                                                    options={contentBindingSourceOptions}
+                                                                                    data-placeholder={row.placeholder}
+                                                                                    onchange={handleContentBindingChange}>
+                                                                                </lightning-combobox>
+                                                                            </div>
+                                                                        </div>
+                                                                    </template>
+                                                                </template>
+                                                                <template lwc:else>
+                                                                    <p class="studio-block-binding-placeholder slds-text-body_small slds-text-color_weak">
+                                                                        Upload content block HTML to scan placeholders and configure bindings.
+                                                                    </p>
+                                                                </template>
                                                             </lightning-tab>
                                                             <lightning-tab label="Block Settings Binding" value="settings">
-                                                                <p class="studio-block-binding-placeholder slds-text-body_small slds-text-color_weak">
-                                                                    Optional: map block settings to placeholders. Unbound settings remain fixed in the rendered block.
+                                                                <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
+                                                                    Optional: enable layout controls when your HTML uses binding-container markers and blo-* / col-* tokens. Enabled settings are bound automatically on save.
                                                                 </p>
+                                                                <template lwc:if={blockHasHtml}>
+                                                                    <template lwc:if={blockUsesModernLayout}>
+                                                                        <template for:each={blockLayoutFlagRows} for:item="row">
+                                                                            <lightning-input
+                                                                                key={row.key}
+                                                                                type="checkbox"
+                                                                                label={row.label}
+                                                                                checked={row.checked}
+                                                                                data-flag={row.flag}
+                                                                                data-column-index={row.columnIndex}
+                                                                                onchange={handleLayoutFlagChange}>
+                                                                            </lightning-input>
+                                                                        </template>
+                                                                        <template lwc:if={blockShowLayoutColors}>
+                                                                            <lightning-textarea
+                                                                                class="slds-m-top_small"
+                                                                                label="Allowed block background colors (hex)"
+                                                                                value={blockLayoutBackgroundColors}
+                                                                                placeholder="#FFFFFF&#10;#F4F4F4"
+                                                                                onchange={handleLayoutColorsChange}>
+                                                                            </lightning-textarea>
+                                                                        </template>
+                                                                        <template lwc:if={blockShowLayoutGradient}>
+                                                                            <lightning-input
+                                                                                class="slds-m-top_small"
+                                                                                label="Gradient preset label"
+                                                                                value={blockLayoutGradientLabel}
+                                                                                data-field="label"
+                                                                                onchange={handleLayoutGradientChange}>
+                                                                            </lightning-input>
+                                                                            <lightning-textarea
+                                                                                label="Gradient CSS"
+                                                                                value={blockLayoutGradientCss}
+                                                                                data-field="css"
+                                                                                placeholder="linear-gradient(180deg, #fff 0%, #eee 100%)"
+                                                                                onchange={handleLayoutGradientChange}>
+                                                                            </lightning-textarea>
+                                                                        </template>
+                                                                        <template lwc:if={blockLayoutFlagRows.length}>
+                                                                            <p class="slds-text-body_small slds-text-color_weak slds-m-top_small">
+                                                                                Structural placeholders (blo-*, col-*, column-dir) are linked to these settings when you save.
+                                                                            </p>
+                                                                        </template>
+                                                                        <template lwc:else>
+                                                                            <p class="slds-text-body_small slds-text-color_weak">
+                                                                                No layout tokens detected. Add binding-container, binding-column, and &#123;&#123;blo-pad-dsk&#125;&#125;-style placeholders to enable block settings.
+                                                                            </p>
+                                                                        </template>
+                                                                    </template>
+                                                                    <template lwc:else>
+                                                                        <p class="slds-text-body_small slds-m-bottom_small">
+                                                                            This HTML does not use the modern layout markers. Enable classic block settings for Copy Center, or add binding-container to your markup.
+                                                                        </p>
+                                                                        <template for:each={legacyBlockSettingRows} for:item="row">
+                                                                            <lightning-input
+                                                                                key={row.key}
+                                                                                type="checkbox"
+                                                                                label={row.label}
+                                                                                checked={row.checked}
+                                                                                data-value={row.value}
+                                                                                onchange={handleLegacyBlockSettingChange}>
+                                                                            </lightning-input>
+                                                                        </template>
+                                                                    </template>
+                                                                </template>
+                                                                <template lwc:else>
+                                                                    <p class="studio-block-binding-placeholder slds-text-body_small slds-text-color_weak">
+                                                                        Upload content block HTML to scan layout tokens and settings.
+                                                                    </p>
+                                                                </template>
                                                             </lightning-tab>
                                                         </lightning-tabset>
                                                         <div class="slds-m-top_medium studio-block-definition-actions">
@@ -498,6 +610,37 @@
                                     </div>
                                     <template lwc:if={hasRecordId}>
                                         <div class="studio-blocks-layout__preview">
+                                            <div
+                                                class="slds-notify slds-notify_alert slds-theme_info studio-shell-requirements slds-m-bottom_small"
+                                                role="alert"
+                                                aria-label="Content block HTML guidance">
+                                                <span class="slds-assistive-text">Information</span>
+                                                <lightning-icon
+                                                    icon-name="utility:info"
+                                                    alternative-text="Information"
+                                                    size="x-small"
+                                                    class="slds-m-right_x-small">
+                                                </lightning-icon>
+                                                <div class="studio-panel__aside-body">
+                                                    <h2 class="studio-panel__aside-title">Content block HTML requirements</h2>
+                                                    <ul class="studio-panel__aside-list">
+                                                        <li>Block HTML is a fragment inserted into the shell <code>blocks</code> region — no outer cc-preview wrapper.</li>
+                                                        <li>Keep block CSS in the Template Shell file; block uploads should be HTML only.</li>
+                                                        <li>Use <code>&#123;&#123;name&#125;&#125;</code> placeholders for text, images, and layout tokens the app should replace.</li>
+                                                    </ul>
+                                                    <p class="studio-panel__aside-label">Modern layout (recommended for multi-column blocks):</p>
+                                                    <ul class="studio-panel__aside-code">
+                                                        <li>Wrap columns in an element with attribute <code>binding-container</code>.</li>
+                                                        <li>Each column uses attribute <code>binding-column</code> (order = column index).</li>
+                                                        <li>Block tokens: &#123;&#123;blo-pad-dsk&#125;&#125;, &#123;&#123;blo-bg-color&#125;&#125;, &#123;&#123;column-dir&#125;&#125;, …</li>
+                                                        <li>Column tokens: &#123;&#123;col-pad-dsk&#125;&#125;, &#123;&#123;col-bg-color&#125;&#125;, …</li>
+                                                    </ul>
+                                                    <p class="studio-panel__aside-label">Content placeholders (bind on the Content tab):</p>
+                                                    <ul class="studio-panel__aside-code">
+                                                        <li>&#123;&#123;copy&#125;&#125;, &#123;&#123;imageUrl&#125;&#125;, &#123;&#123;altText&#125;&#125;, &#123;&#123;legal&#125;&#125;, or custom names you map manually.</li>
+                                                    </ul>
+                                                </div>
+                                            </div>
                                             <c-copy-template-preview-panel
                                                 template-id={draft.Id}
                                                 preview-mode="blocks"

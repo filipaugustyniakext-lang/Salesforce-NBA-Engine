@@ -307,6 +307,10 @@
 }
 
 .studio-shell-layout__preview,
+.studio-block-binding-row code {
+    font-family: var(--lwc-fontFamilyMonospace, monospace);
+}
+
 .studio-blocks-layout__preview {
     min-width: 0;
     max-width: 100%;
