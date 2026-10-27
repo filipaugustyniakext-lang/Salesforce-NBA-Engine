@@ -4,7 +4,7 @@
             <div>
                 <h3 class="slds-text-heading_small">Master Template Definition</h3>
                 <p class="slds-text-body_small slds-text-color_weak">
-                    Define template packages for {channelName}. Draft templates cannot be assigned in Copy Center until activated after validation.
+                    Define template packages for {channelName}. Shell-only templates (no content blocks) can be activated when the shell is valid. Draft templates cannot be assigned in Copy Center until activated after validation.
                 </p>
             </div>
             <lightning-button
@@ -440,12 +440,13 @@
                                                         <lightning-tabset variant="scoped" class="studio-block-definition-tabs" active-tab-value={blockBindingTab}>
                                                             <lightning-tab label="Blocks Content Binding" value="content">
                                                                 <p class="studio-block-binding-placeholder slds-text-body_small slds-text-color_weak">
-                                                                    Binding mapping for editable HTML regions will be configured here.
+                                                                    Bind placeholders to editor fields when authors should edit content in Copy Center.
+                                                                    Blocks without bindings stay fixed exactly as in the source HTML and are not editable in the message editor.
                                                                 </p>
                                                             </lightning-tab>
                                                             <lightning-tab label="Block Settings Binding" value="settings">
                                                                 <p class="studio-block-binding-placeholder slds-text-body_small slds-text-color_weak">
-                                                                    Binding mapping for block settings will be configured here.
+                                                                    Optional: map block settings to placeholders. Unbound settings remain fixed in the rendered block.
                                                                 </p>
                                                             </lightning-tab>
                                                         </lightning-tabset>

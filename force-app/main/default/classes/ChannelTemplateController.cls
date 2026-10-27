@@ -77,6 +77,7 @@ public with sharing class ChannelTemplateController {
         @AuraEnabled public Boolean htmlValid = false;
         @AuraEnabled public Boolean contentBindingsConfigured = false;
         @AuraEnabled public Boolean settingsBindingsConfigured = false;
+        @AuraEnabled public Boolean hasBindingWarnings = false;
         @AuraEnabled public String message;
     }
 
@@ -537,20 +538,33 @@ public with sharing class ChannelTemplateController {
         List<String> placeholders = extractPlaceholders(blockHtml);
         result.contentBindingsConfigured = bindingsConfiguredForContent(placeholders, bindings);
         result.settingsBindingsConfigured = bindingsConfiguredForSettings(blockSettings, bindings);
-        result.valid = result.htmlValid
-            && result.contentBindingsConfigured
-            && result.settingsBindingsConfigured;
-        if (!result.valid) {
-            List<String> missing = new List<String>();
-            if (!result.contentBindingsConfigured) {
-                missing.add('Blocks Content Binding');
-            }
-            if (!result.settingsBindingsConfigured) {
-                missing.add('Block Settings Binding');
-            }
-            result.message = 'Configure ' + String.join(missing, ' and ') + ' before validation passes.';
-        } else {
+        result.valid = result.htmlValid;
+        List<String> notes = new List<String>();
+        if (!result.contentBindingsConfigured) {
+            result.hasBindingWarnings = true;
+            notes.add(
+                'Some content placeholders have no binding. You can still activate this block; '
+                + 'unbound regions stay fixed exactly as in the source HTML and will not be editable in the message editor.'
+            );
+        }
+        if (!result.settingsBindingsConfigured && blockSettings != null && !blockSettings.isEmpty()) {
+            result.hasBindingWarnings = true;
+            notes.add(
+                'Some block settings are not bound to placeholders. You can still activate this block; '
+                + 'those settings remain fixed in the rendered content.'
+            );
+        }
+        if (placeholders.isEmpty() && (bindings == null || bindings.isEmpty())) {
+            result.hasBindingWarnings = true;
+            notes.add(
+                'No bindings were found. You can still activate this block; it will render as fixed HTML from the source file '
+                + 'and will not be editable in the message editor.'
+            );
+        }
+        if (notes.isEmpty()) {
             result.message = 'Content block definition is valid and ready to activate.';
+        } else {
+            result.message = String.join(' ', notes);
         }
         return result;
     }
@@ -622,21 +636,8 @@ public with sharing class ChannelTemplateController {
             List<String> placeholders = blockHtml == null
                 ? readStringList(row.get('placeholders'))
                 : extractPlaceholders(blockHtml);
-            if (publishable) assertPlaceholderBindings(type, placeholders, bindings);
-            if (publishable && !placeholders.isEmpty()) {
-                for (String setting : blockSettings) {
-                    if (!BLOCK_SETTING_SOURCES.contains(setting)) continue;
-                    Boolean mapped = false;
-                    for (PlaceholderBinding binding : bindings) {
-                        if (binding.source == setting) {
-                            mapped = true;
-                            break;
-                        }
-                    }
-                    if (!mapped) {
-                        throw new AuraHandledException('Bind a placeholder to ' + setting + ' for ' + fileName + '.');
-                    }
-                }
+            if (publishable) {
+                assertConfiguredBindingsValid(type, placeholders, bindings);
             }
             Set<String> enabledSettings = new Set<String>(blockSettings);
             for (PlaceholderBinding binding : bindings) {
@@ -1211,27 +1212,29 @@ public with sharing class ChannelTemplateController {
         return bindings;
     }
 
-    private static void assertPlaceholderBindings(
+    private static void assertConfiguredBindingsValid(
         String type,
         List<String> placeholders,
         List<PlaceholderBinding> bindings
     ) {
+        if (bindings == null || bindings.isEmpty()) {
+            return;
+        }
         Set<String> found = new Set<String>(placeholders);
         Set<String> bound = new Set<String>();
         for (PlaceholderBinding binding : bindings) {
+            if (String.isBlank(binding.placeholder)) {
+                continue;
+            }
             if (String.isBlank(binding.source) || !BINDING_SOURCES.contains(binding.source)) {
                 throw new AuraHandledException('Choose a Content Settings or Block Settings value for {{' + binding.placeholder + '}}.');
             }
             if (!bound.add(binding.placeholder)) {
                 throw new AuraHandledException('{{' + binding.placeholder + '}} is bound more than once.');
             }
-            if (!found.contains(binding.placeholder)) {
+            if (!found.contains(binding.placeholder) && !isStructuralPlaceholder(binding.placeholder)) {
                 throw new AuraHandledException('{{' + binding.placeholder + '}} is not in the HTML for ' + type + '.');
             }
-        }
-        for (String name : placeholders) {
-            if (bound.contains(name) || isStructuralPlaceholder(name)) continue;
-            throw new AuraHandledException('Bind {{' + name + '}} on ' + type + ' to a Content Settings or Block Settings value.');
         }
     }
 
@@ -1781,8 +1784,8 @@ public with sharing class ChannelTemplateController {
         List<String> placeholders,
         List<PlaceholderBinding> bindings
     ) {
-        if (bindings == null || bindings.isEmpty()) return false;
         if (placeholders == null || placeholders.isEmpty()) return true;
+        if (bindings == null || bindings.isEmpty()) return false;
         Set<String> bound = new Set<String>();
         for (PlaceholderBinding binding : bindings) {
             if (String.isNotBlank(binding.placeholder)) bound.add(binding.placeholder);
@@ -1797,7 +1800,7 @@ public with sharing class ChannelTemplateController {
         List<String> blockSettings,
         List<PlaceholderBinding> bindings
     ) {
-        if (blockSettings == null || blockSettings.isEmpty()) return false;
+        if (blockSettings == null || blockSettings.isEmpty()) return true;
         if (bindings == null || bindings.isEmpty()) return false;
         for (String setting : blockSettings) {
             Boolean mapped = false;
