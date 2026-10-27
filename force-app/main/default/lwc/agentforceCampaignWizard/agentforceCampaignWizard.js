@@ -3032,7 +3032,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get showCampaignDurationField() {
-        return this.isAlwaysOnActivation && !this.isBatchEventsCampaignGroup;
+        return (this.isAlwaysOnActivation || this.isOneOffActivation)
+            && !this.showEventValidityWindowField;
     }
 
     get showEventValidityWindowField() {
