@@ -321,8 +321,21 @@
                                                 </div>
                                             </template>
                                             <template lwc:if={showManualExclusionDefinitions}>
-                                                <div class="exclusion-method-box exclusion-method-box--manual">
-                                                    <span class="exclusion-method-title">Manual exclusions</span>
+                                                <div class="exclusion-method-box exclusion-method-box--manual slds-m-bottom_small">
+                                                    <div class="exclusion-method-header">
+                                                        <span class="exclusion-method-title">Manual exclusions</span>
+                                                        <lightning-input
+                                                            type="toggle"
+                                                            variant="label-hidden"
+                                                            label="Manual exclusions"
+                                                            checked={manualExclusionsEnabled}
+                                                            onchange={handleManualExclusionsToggle}
+                                                            message-toggle-active=""
+                                                            message-toggle-inactive=""
+                                                            class="exclusion-method-toggle">
+                                                        </lightning-input>
+                                                    </div>
+                                                    <template lwc:if={manualExclusionsEnabled}>
                                                     <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small slds-m-bottom_small">
                                                         Switch between sources and select records. Everything you choose appears in the summary below.
                                                     </p>
@@ -674,6 +687,7 @@
                                                                 </li>
                                                             </template>
                                                         </ul>
+                                                    </template>
                                                     </template>
                                                 </div>
                                             </template>
