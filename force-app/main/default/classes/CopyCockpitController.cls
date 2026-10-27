@@ -262,9 +262,9 @@ public with sharing class CopyCockpitController {
             String offerId = (String) data.get('offerId');
             String familyId = (String) data.get('productFamilyId');
             String sourceTemplateId = (String) data.get('sourceTemplateId');
-            Id validatedTemplateId = resolveActiveValidatedTemplateId(sourceTemplateId);
+            Id validatedTemplateId = resolveActiveTemplateId(sourceTemplateId);
             if (String.isNotBlank(sourceTemplateId) && validatedTemplateId == null) {
-                throw new AuraHandledException('Select an active, validated source template.');
+                throw new AuraHandledException('Select an active source template for this channel.');
             }
             List<Object> variantIds = (List<Object>) data.get('variantIds');
             if (variantIds == null) {
@@ -309,16 +309,16 @@ public with sharing class CopyCockpitController {
     }
 
     /**
-     * Assigns one active, validated Channel Template to many message variants.
+     * Assigns one active Channel Template to many message variants.
      */
     @AuraEnabled(cacheable=false)
     public static Integer updateMessageSourceTemplates(List<Id> messageIds, Id sourceTemplateId) {
         if (messageIds == null || messageIds.isEmpty()) {
             throw new AuraHandledException('Select at least one message variant.');
         }
-        Id templateId = resolveActiveValidatedTemplateId(sourceTemplateId);
+        Id templateId = resolveActiveTemplateId(sourceTemplateId);
         if (templateId == null) {
-            throw new AuraHandledException('Select an active, validated source template.');
+            throw new AuraHandledException('Select an active source template for this channel.');
         }
 
         Set<Id> uniqueIds = new Set<Id>(messageIds);
@@ -359,7 +359,7 @@ public with sharing class CopyCockpitController {
         }
     }
 
-    private static Id resolveActiveValidatedTemplateId(String sourceTemplateId) {
+    private static Id resolveActiveTemplateId(String sourceTemplateId) {
         if (String.isBlank(sourceTemplateId)) {
             return null;
         }
@@ -368,7 +368,6 @@ public with sharing class CopyCockpitController {
             FROM Channel_Template__c
             WHERE Id = :sourceTemplateId
             AND Status__c = 'Active'
-            AND Validation_Status__c = 'Valid'
             LIMIT 1
         ];
         return templates.isEmpty() ? null : templates[0].Id;

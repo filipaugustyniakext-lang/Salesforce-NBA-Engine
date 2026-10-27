@@ -18,7 +18,7 @@ export const WIZARD_STEPS = [
     { value: 'basic', label: 'Basic Properties', number: 'I' },
     { value: 'shell', label: 'Template Shell', number: 'II' },
     { value: 'blocks', label: 'Content Blocks', number: 'III' },
-    { value: 'summary', label: 'Validate & Preview', number: 'IV' }
+    { value: 'summary', label: 'Validate and Activate', number: 'IV' }
 ];
 
 const CC_PREVIEW_REGION_PATTERN = /<cc-preview\b[^>]*\bregion\s*=\s*(['"])([^'"]+)\1/gi;

@@ -427,7 +427,7 @@
                                                                     onchange={handlePendingBlockFieldChange}>
                                                                 </lightning-input>
                                                             </div>
-                                                            <div class="slds-col slds-size_1-of-1">
+                                                            <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
                                                                 <lightning-textarea
                                                                     label="Description"
                                                                     value={pendingBlockDraft.description}
@@ -435,6 +435,24 @@
                                                                     max-length="255"
                                                                     onchange={handlePendingBlockFieldChange}>
                                                                 </lightning-textarea>
+                                                            </div>
+                                                            <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                                                                <lightning-input
+                                                                    label="Block icon"
+                                                                    value={pendingBlockDraft.icon}
+                                                                    data-field="icon"
+                                                                    placeholder="e.g. utility:text"
+                                                                    field-level-help="SLDS icon name: category:name (utility, doctype, standard, custom, or action)."
+                                                                    onchange={handlePendingBlockFieldChange}>
+                                                                </lightning-input>
+                                                                <template lwc:if={blockIconPreviewName}>
+                                                                    <div class="slds-m-top_x-small slds-grid slds-grid_vertical-align-center">
+                                                                        <lightning-icon icon-name={blockIconPreviewName} size="small"
+                                                                            alternative-text="Preview" class="slds-m-right_x-small">
+                                                                        </lightning-icon>
+                                                                        <span class="slds-text-body_small slds-text-color_weak">Preview</span>
+                                                                    </div>
+                                                                </template>
                                                             </div>
                                                         </div>
                                                         <lightning-tabset variant="scoped" class="studio-block-definition-tabs" active-tab-value={blockBindingTab}>

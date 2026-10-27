@@ -1010,7 +1010,7 @@ public with sharing class ChannelTemplateController {
         return title;
     }
 
-    @AuraEnabled(cacheable=true)
+    @AuraEnabled(cacheable=false)
     public static List<TemplateOption> getSelectableTemplates(String channelName, String channelType) {
         List<TemplateOption> options = new List<TemplateOption>();
         if (String.isBlank(channelName) && String.isBlank(channelType)) return options;
@@ -1018,7 +1018,6 @@ public with sharing class ChannelTemplateController {
             SELECT Id, Name, Description__c, Package_Id__c, SemVer__c, Channel__r.Name
             FROM Channel_Template__c
             WHERE Status__c = 'Active'
-              AND Validation_Status__c = 'Valid'
               AND (Channel__r.Name = :channelName OR Channel__r.Name = :channelType)
             ORDER BY Channel__r.Name ASC, Name ASC
         ]) {

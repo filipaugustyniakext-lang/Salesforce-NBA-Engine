@@ -1555,7 +1555,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         }
         this._openSourceTemplateModal({
             title: 'Change Source Template',
-            subtitle: `Assign a validated channel template to ${eligible.length} selected variant(s).`,
+            subtitle: `Assign an active channel template to ${eligible.length} selected variant(s).`,
             variantIds: eligible,
             selectedTemplateId: ''
         });
@@ -1574,7 +1574,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         }
         this._openSourceTemplateModal({
             title: 'Change Source Template',
-            subtitle: 'Assign a validated channel template to this variant.',
+            subtitle: 'Assign an active channel template to this variant.',
             variantIds: [recordId],
             selectedTemplateId: row?.Source_Template__c || ''
         });

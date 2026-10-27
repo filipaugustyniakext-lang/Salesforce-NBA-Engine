@@ -20,6 +20,8 @@ import {
     normalizeSlug
 } from './templateStudioUtils';
 
+const VALID_BLOCK_ICON = /^[a-zA-Z0-9_]+:[a-zA-Z0-9_]+$/;
+
 const EMPTY_DRAFT = () => ({
     Id: null,
     Name: '',
@@ -47,6 +49,7 @@ export default class MasterTemplateStudio extends LightningElement {
     @track pendingBlockDraft = {
         label: '',
         description: '',
+        icon: '',
         fileName: '',
         draftKey: '',
         validated: false
@@ -198,6 +201,11 @@ export default class MasterTemplateStudio extends LightningElement {
             this.pendingBlockDraft.draftKey,
             this.pendingBlockDraft.fileName
         );
+    }
+
+    get blockIconPreviewName() {
+        const icon = (this.pendingBlockDraft.icon || '').trim();
+        return icon && VALID_BLOCK_ICON.test(icon) ? icon : '';
     }
 
     get contentBlockCards() {
@@ -542,6 +550,7 @@ export default class MasterTemplateStudio extends LightningElement {
         this.pendingBlockDraft = {
             label: component.label || '',
             description: component.description || '',
+            icon: component.icon || '',
             fileName: component.fileName || '',
             draftKey: component.type || '',
             validated: status === 'Ready' || status === 'Active'
@@ -932,6 +941,7 @@ export default class MasterTemplateStudio extends LightningElement {
         this.pendingBlockDraft = {
             label: '',
             description: '',
+            icon: '',
             fileName: '',
             draftKey: '',
             validated: false
@@ -960,6 +970,7 @@ export default class MasterTemplateStudio extends LightningElement {
 
         const label = (this.pendingBlockDraft.label || '').trim();
         let description = (this.pendingBlockDraft.description || '').trim();
+        const icon = (this.pendingBlockDraft.icon || '').trim();
         const fileName = (this.pendingBlockDraft.fileName || '').trim();
         const draftKey = this.pendingBlockDraft.draftKey
             || this._componentTypeToken(label, fileName);
@@ -981,6 +992,7 @@ export default class MasterTemplateStudio extends LightningElement {
                 row.label = label;
                 row.description = description;
                 row.fileName = fileName;
+                row.icon = icon || row.icon || '';
                 row.status = status;
                 if (!row.type) row.type = draftKey;
                 if (publishable && !row.icon) row.icon = 'utility:component';
@@ -989,7 +1001,7 @@ export default class MasterTemplateStudio extends LightningElement {
                     type: draftKey,
                     label,
                     description,
-                    icon: publishable ? 'utility:component' : '',
+                    icon: icon || (publishable ? 'utility:component' : ''),
                     fileName,
                     status,
                     placeholders: [],
