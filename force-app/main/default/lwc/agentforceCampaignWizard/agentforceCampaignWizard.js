@@ -52,6 +52,17 @@ function copyStatusBadgeClass(status) {
     return COPY_STATUS_BADGE_CLASS[(status || '').toLowerCase()] || 'slds-badge slds-theme_lightest';
 }
 
+function normalizeDictionaryLookupKey(value) {
+    return String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function campaignGroupsForType(typeRecord) {
+    const groups = typeRecord?.Campaign_Groups_by_Type__r;
+    return Array.isArray(groups) ? groups : (groups?.records || []);
+}
+
+const BATCH_EVENTS_GROUP_KEY = 'batchevents';
+
 const EXCLUSION_SOURCE_OPTIONS = [
     { label: 'Salesforce Campaign', shortLabel: 'Campaigns', value: 'campaign', icon: 'standard:campaign' },
     { label: 'Salesforce Report', shortLabel: 'Reports', value: 'report', icon: 'standard:report' },
@@ -1289,8 +1300,17 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     get campaignGroupOptions() {
         const ct = this.matchedCampaignType;
-        if (!ct || !ct.Campaign_Groups_by_Type__r) return [];
-        return ct.Campaign_Groups_by_Type__r.map(g => ({ label: g.Name, value: g.Id }));
+        if (!ct) return [];
+        return campaignGroupsForType(ct)
+            .filter(g => g?.Id)
+            .map(g => ({ label: g.Name, value: g.Id }));
+    }
+
+    _selectedCampaignGroupLabel() {
+        const opt = (this.campaignGroupOptions || []).find(
+            o => o.value === this.selectedCampaignGroupId
+        );
+        return (opt?.label || this.selectedCampaignGroupName || '').trim();
     }
 
     handleSelectActivation(event) {
@@ -3111,11 +3131,10 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get isBatchEventsCampaignGroup() {
-        const opt = (this.campaignGroupOptions || []).find(
-            o => o.value === this.selectedCampaignGroupId
-        );
-        const name = (opt?.label || this.selectedCampaignGroupName || '').trim().toLowerCase();
-        return name === 'batch events';
+        if (!this.selectedCampaignGroupId && !this.selectedCampaignGroupName) {
+            return false;
+        }
+        return normalizeDictionaryLookupKey(this._selectedCampaignGroupLabel()) === BATCH_EVENTS_GROUP_KEY;
     }
 
     get showCampaignDurationField() {
@@ -3124,8 +3143,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get showEventValidityWindowField() {
-        return this.isBatchEventsCampaignGroup
-            && (this.isAlwaysOnActivation || this.isTriggeredActivation);
+        return this.isTriggeredActivation || this.isBatchEventsCampaignGroup;
     }
 
     get hasValidActiveWindow() {
@@ -3172,7 +3190,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             if (!this.eventValidityWindowDays || !Number.isInteger(days) || days < 1) {
                 issues.push(this._issue(
                     'event-validity',
-                    'Enter Event Validity Window (Days) for Batch Events campaigns.'
+                    'Enter Event Validity (Days).'
                 ));
             }
         }
