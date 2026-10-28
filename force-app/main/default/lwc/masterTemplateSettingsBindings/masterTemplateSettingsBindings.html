@@ -1,0 +1,204 @@
+<template>
+    <template lwc:if={hasSections}>
+        <template for:each={sections} for:item="section">
+            <article key={section.key} class={section.cardClass}>
+                <div class="slds-card__header">
+                    <h2 class="slds-card__header-title settings-binding-card__title">{section.title}</h2>
+                </div>
+                <div class="slds-card__body slds-card__body_inner">
+                    <template lwc:if={section.placeholders.length}>
+                        <p class="slds-text-title_caps slds-m-bottom_x-small">Placeholders</p>
+                        <div class="settings-binding-card__badges">
+                            <template for:each={section.placeholders} for:item="ph">
+                                <span key={ph} class="slds-badge slds-badge_lightest">{ph}</span>
+                            </template>
+                        </div>
+                    </template>
+                    <template for:each={section.settings} for:item="setting">
+                        <section key={setting.key} class="settings-binding-setting slds-m-top_medium">
+                            <div class="settings-binding-setting__header">
+                                <h3 class="slds-text-heading_small">{setting.label}</h3>
+                                <template lwc:if={setting.placeholderLabel}>
+                                    <code class="slds-text-body_small slds-m-left_x-small">{setting.placeholderLabel}</code>
+                                </template>
+                            </div>
+                            <template lwc:if={setting.showEnable}>
+                                <lightning-input
+                                    type="checkbox"
+                                    label="Enable in Copy Center"
+                                    checked={setting.enabled}
+                                    data-path={setting.enablePath}
+                                    onchange={handleEnableChange}>
+                                </lightning-input>
+                            </template>
+                            <template lwc:if={setting.isColumnDirection}>
+                                <lightning-input
+                                    type="checkbox"
+                                    label="Enable column direction in Copy Center"
+                                    checked={setting.enabled}
+                                    data-path="columnDirection"
+                                    onchange={handleEnableChange}>
+                                </lightning-input>
+                                <p class="slds-form-element__label slds-m-top_small">{setting.deviceLabel}</p>
+                                <div class="column-layout-picker">
+                                    <button type="button" class={setting.ltrClass} data-path={setting.dirPath} data-value="ltr" data-device={setting.device} onclick={handleColumnDirClick}>
+                                        <span>Text | Image</span>
+                                    </button>
+                                    <button type="button" class={setting.rtlClass} data-path={setting.dirPath} data-value="rtl" data-device={setting.device} onclick={handleColumnDirClick}>
+                                        <span>Image | Text</span>
+                                    </button>
+                                    <lightning-button-icon
+                                        icon-name="utility:preview"
+                                        alternative-text="Preview column direction"
+                                        title="Preview in block panel"
+                                        data-preview-kind="columnDirection"
+                                        data-preview-value={setting.value}
+                                        data-preview-device={setting.device}
+                                        onclick={handlePreviewClick}>
+                                    </lightning-button-icon>
+                                </div>
+                            </template>
+                            <template lwc:if={setting.enabled}>
+                                <template lwc:if={setting.isHideDefault}>
+                                    <p class="slds-form-element__label slds-m-top_small">View on {setting.device}</p>
+                                    <div class="block-vis-grid">
+                                        <div class="slds-button-group" role="group" aria-label="Default visibility">
+                                            <button type="button" class={setting.hideShowClass} data-setting-key={setting.key} data-hidden="false" onclick={handleHideDefaultClick}>Show</button>
+                                            <button type="button" class={setting.hideHideClass} data-setting-key={setting.key} data-hidden="true" onclick={handleHideDefaultClick}>Hide</button>
+                                        </div>
+                                        <lightning-button-icon
+                                            icon-name="utility:preview"
+                                            alternative-text="Preview visibility default"
+                                            title="Preview in block panel"
+                                            data-preview-kind={setting.key}
+                                            data-preview-value={setting.previewVisibility}
+                                            onclick={handlePreviewClick}>
+                                        </lightning-button-icon>
+                                    </div>
+                                </template>
+                                <template lwc:if={setting.isPadding}>
+                                    <div class="slds-grid slds-grid_align-spread slds-m-top_small">
+                                        <p class="slds-form-element__label">Desktop default padding</p>
+                                        <lightning-button-icon icon-name="utility:preview" alternative-text="Preview desktop padding" title="Preview in block panel" data-path={setting.padDesktopPath} data-column-index={setting.columnIndex} onclick={handlePadPreview}></lightning-button-icon>
+                                    </div>
+                                    <div class="block-spacing-box">
+                                        <div class="block-spacing-box__diagram">
+                                            <div class="block-spacing-box__side block-spacing-box__side_top">
+                                                <input class="slds-input slds-input_xx-small" type="number" min="0" value={setting.padDesktop.top} data-path={setting.padDesktopPath} data-side="top" data-column-index={setting.columnIndex} onchange={handlePadChange} />
+                                                <span class="block-spacing-box__unit">px</span>
+                                            </div>
+                                            <div class="block-spacing-box__middle">
+                                                <div class="block-spacing-box__side block-spacing-box__side_left">
+                                                    <input class="slds-input slds-input_xx-small" type="number" min="0" value={setting.padDesktop.left} data-path={setting.padDesktopPath} data-side="left" data-column-index={setting.columnIndex} onchange={handlePadChange} />
+                                                    <span class="block-spacing-box__unit">px</span>
+                                                </div>
+                                                <div class="block-spacing-box__core"><span class="block-spacing-box__core-label">Padding</span></div>
+                                                <div class="block-spacing-box__side block-spacing-box__side_right">
+                                                    <input class="slds-input slds-input_xx-small" type="number" min="0" value={setting.padDesktop.right} data-path={setting.padDesktopPath} data-side="right" data-column-index={setting.columnIndex} onchange={handlePadChange} />
+                                                    <span class="block-spacing-box__unit">px</span>
+                                                </div>
+                                            </div>
+                                            <div class="block-spacing-box__side block-spacing-box__side_bottom">
+                                                <input class="slds-input slds-input_xx-small" type="number" min="0" value={setting.padDesktop.bottom} data-path={setting.padDesktopPath} data-side="bottom" data-column-index={setting.columnIndex} onchange={handlePadChange} />
+                                                <span class="block-spacing-box__unit">px</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="slds-grid slds-grid_align-spread slds-m-top_small">
+                                        <p class="slds-form-element__label">Mobile default padding</p>
+                                        <lightning-button-icon icon-name="utility:preview" alternative-text="Preview mobile padding" title="Preview in block panel" data-path={setting.padMobilePath} data-column-index={setting.columnIndex} onclick={handlePadPreview}></lightning-button-icon>
+                                    </div>
+                                    <lightning-button
+                                        label="Inherit from desktop"
+                                        class="slds-m-bottom_x-small"
+                                        data-column-index={setting.columnIndex}
+                                        onclick={handlePadInherit}>
+                                    </lightning-button>
+                                    <div class="block-spacing-box">
+                                        <div class="block-spacing-box__diagram">
+                                            <div class="block-spacing-box__side block-spacing-box__side_top">
+                                                <input class="slds-input slds-input_xx-small" type="number" min="0" value={setting.padMobile.top} data-path={setting.padMobilePath} data-side="top" data-column-index={setting.columnIndex} onchange={handlePadChange} disabled={setting.padMobileInherit} />
+                                                <span class="block-spacing-box__unit">px</span>
+                                            </div>
+                                            <div class="block-spacing-box__middle">
+                                                <div class="block-spacing-box__side block-spacing-box__side_left">
+                                                    <input class="slds-input slds-input_xx-small" type="number" min="0" value={setting.padMobile.left} data-path={setting.padMobilePath} data-side="left" data-column-index={setting.columnIndex} onchange={handlePadChange} disabled={setting.padMobileInherit} />
+                                                    <span class="block-spacing-box__unit">px</span>
+                                                </div>
+                                                <div class="block-spacing-box__core"><span class="block-spacing-box__core-label">Padding</span></div>
+                                                <div class="block-spacing-box__side block-spacing-box__side_right">
+                                                    <input class="slds-input slds-input_xx-small" type="number" min="0" value={setting.padMobile.right} data-path={setting.padMobilePath} data-side="right" data-column-index={setting.columnIndex} onchange={handlePadChange} disabled={setting.padMobileInherit} />
+                                                    <span class="block-spacing-box__unit">px</span>
+                                                </div>
+                                            </div>
+                                            <div class="block-spacing-box__side block-spacing-box__side_bottom">
+                                                <input class="slds-input slds-input_xx-small" type="number" min="0" value={setting.padMobile.bottom} data-path={setting.padMobilePath} data-side="bottom" data-column-index={setting.columnIndex} onchange={handlePadChange} disabled={setting.padMobileInherit} />
+                                                <span class="block-spacing-box__unit">px</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                                <template lwc:if={setting.isBackgroundColor}>
+                                    <p class="slds-form-element__label slds-m-top_small">Color presets</p>
+                                    <template for:each={setting.colorRows} for:item="color">
+                                        <div key={color.key} class="settings-preset-row slds-grid slds-grid_vertical-align-center">
+                                            <span class="settings-color-swatch" style={color.swatchStyle}></span>
+                                            <lightning-input variant="label-hidden" value={color.hex} data-setting-key={setting.key} data-index={color.index} onchange={handleColorHexChange}></lightning-input>
+                                            <lightning-button-icon icon-name="utility:preview" alternative-text="Preview color" data-preview-kind="bgColor" data-preview-value={color.hex} data-column-index={setting.columnIndex} onclick={handlePreviewClick}></lightning-button-icon>
+                                            <lightning-button label="Default" variant={color.defaultVariant} data-setting-key={setting.key} data-hex={color.hex} onclick={handleSetDefaultColor}></lightning-button>
+                                        </div>
+                                    </template>
+                                    <lightning-button label="Add color" icon-name="utility:add" data-setting-key={setting.key} onclick={handleAddColor}></lightning-button>
+                                </template>
+                                <template lwc:if={setting.isBackgroundGradient}>
+                                    <template for:each={setting.gradientRows} for:item="gradient">
+                                        <div key={gradient.key} class="settings-gradient-row slds-m-top_small">
+                                            <lightning-input label="Label" value={gradient.label} data-setting-key={setting.key} data-index={gradient.index} data-field="label" onchange={handleGradientFieldChange}></lightning-input>
+                                            <lightning-textarea label="Gradient CSS" value={gradient.css} data-setting-key={setting.key} data-index={gradient.index} data-field="css" onchange={handleGradientFieldChange}></lightning-textarea>
+                                            <lightning-combobox label="Fallback color" value={gradient.fallbackColor} options={setting.colorOptions} data-setting-key={setting.key} data-index={gradient.index} data-field="fallbackColor" onchange={handleGradientFieldChange}></lightning-combobox>
+                                            <lightning-button-icon icon-name="utility:preview" alternative-text="Preview gradient" data-preview-kind="bgGradient" data-preview-value={gradient.id} data-column-index={setting.columnIndex} onclick={handlePreviewClick}></lightning-button-icon>
+                                            <lightning-button label="Set default" data-setting-key={setting.key} data-id={gradient.id} onclick={handleSetDefaultGradient}></lightning-button>
+                                        </div>
+                                    </template>
+                                    <lightning-button label="Add gradient" icon-name="utility:add" data-setting-key={setting.key} onclick={handleAddGradient}></lightning-button>
+                                </template>
+                                <template lwc:if={setting.isBackgroundImage}>
+                                    <template for:each={setting.imageRows} for:item="image">
+                                        <div key={image.key} class="settings-image-row slds-box slds-box_xx-small slds-m-top_small">
+                                            <lightning-input label="Image URL" value={image.url} data-setting-key={setting.key} data-index={image.index} data-field="url" onchange={handleImageFieldChange}></lightning-input>
+                                            <div class="slds-grid slds-wrap slds-gutters">
+                                                <div class="slds-col slds-size_1-of-2">
+                                                    <lightning-input label="Position X" value={image.positionX} data-setting-key={setting.key} data-index={image.index} data-field="positionX" onchange={handleImageFieldChange}></lightning-input>
+                                                </div>
+                                                <div class="slds-col slds-size_1-of-2">
+                                                    <lightning-input label="Position Y" value={image.positionY} data-setting-key={setting.key} data-index={image.index} data-field="positionY" onchange={handleImageFieldChange}></lightning-input>
+                                                </div>
+                                                <div class="slds-col slds-size_1-of-2">
+                                                    <lightning-input label="Background repeat" value={image.backgroundRepeat} data-setting-key={setting.key} data-index={image.index} data-field="backgroundRepeat" onchange={handleImageFieldChange}></lightning-input>
+                                                </div>
+                                                <div class="slds-col slds-size_1-of-2">
+                                                    <lightning-input label="Background size" value={image.backgroundSize} data-setting-key={setting.key} data-index={image.index} data-field="backgroundSize" onchange={handleImageFieldChange}></lightning-input>
+                                                </div>
+                                            </div>
+                                            <lightning-combobox label="Fallback color" value={image.fallbackColor} options={setting.colorOptions} data-setting-key={setting.key} data-index={image.index} data-field="fallbackColor" onchange={handleImageFieldChange}></lightning-combobox>
+                                            <lightning-input type="checkbox" label="Desktop" checked={image.desktop} data-setting-key={setting.key} data-index={image.index} data-field="desktop" onchange={handleImageFieldChange}></lightning-input>
+                                            <lightning-input type="checkbox" label="Mobile" checked={image.mobile} data-setting-key={setting.key} data-index={image.index} data-field="mobile" onchange={handleImageFieldChange}></lightning-input>
+                                            <lightning-button-icon icon-name="utility:preview" alternative-text="Preview image preset" data-preview-kind="bgImage" data-preview-value={image.id} data-column-index={setting.columnIndex} onclick={handlePreviewClick}></lightning-button-icon>
+                                            <lightning-button label="Set default" data-setting-key={setting.key} data-id={image.id} onclick={handleSetDefaultImage}></lightning-button>
+                                        </div>
+                                    </template>
+                                    <lightning-button label="Add image preset" icon-name="utility:add" data-setting-key={setting.key} onclick={handleAddImagePreset}></lightning-button>
+                                </template>
+                            </template>
+                        </section>
+                    </template>
+                </div>
+            </article>
+        </template>
+    </template>
+    <template lwc:else>
+        <p class="slds-text-body_small slds-text-color_weak">
+            No layout tokens detected. Add binding-container, binding-column, and blo-* / col-* placeholders in your HTML.
+        </p>
+    </template>
+</template>

@@ -695,7 +695,7 @@ function studioPreviewCatalog(renderSource) {
 }
 
 /** Template Studio: one focused block in the shell (upload, summary tile, or edit form). */
-export function buildStudioPreviewBlocks(renderSource, blockKey) {
+export function buildStudioPreviewBlocks(renderSource, blockKey, layoutState) {
     const lookup = normalizeStudioBlockLookupKey(blockKey);
     if (!lookup) return [];
     const catalog = studioPreviewCatalog(renderSource).filter(block => block.html);
@@ -730,7 +730,9 @@ export function buildStudioPreviewBlocks(renderSource, blockKey) {
         heightMobile: '',
         spacerHeight: '0',
         bgValue: '',
-        layoutState: emptyPreviewLayoutState()
+        layoutState: layoutState && typeof layoutState === 'object'
+            ? { ...emptyPreviewLayoutState(), ...layoutState }
+            : emptyPreviewLayoutState()
     }];
 }
 

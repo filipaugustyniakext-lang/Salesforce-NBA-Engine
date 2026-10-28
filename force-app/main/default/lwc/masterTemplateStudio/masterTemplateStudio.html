@@ -486,7 +486,7 @@
                                                             </div>
                                                         </template>
                                                         <lightning-tabset variant="scoped" class="studio-block-definition-tabs" active-tab-value={blockBindingTab}>
-                                                            <lightning-tab label="Blocks Content Binding" value="content">
+                                                            <lightning-tab label="Content Bindings" value="content">
                                                                 <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
                                                                     Map each content placeholder to a Copy Center editor field. Unbound placeholders stay fixed in the message editor.
                                                                 </p>
@@ -524,58 +524,18 @@
                                                                     </p>
                                                                 </template>
                                                             </lightning-tab>
-                                                            <lightning-tab label="Block Settings Binding" value="settings">
+                                                            <lightning-tab label="Settings Bindings" value="settings">
                                                                 <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
-                                                                    Optional: enable layout controls when your HTML uses binding-container markers and blo-* / col-* tokens. Enabled settings are bound automatically on save.
+                                                                    Configure block and column settings, allowed values, and defaults for each detected placeholder. Use the preview icon to try a value in the block preview panel.
                                                                 </p>
                                                                 <template lwc:if={blockHasHtml}>
                                                                     <template lwc:if={blockUsesModernLayout}>
-                                                                        <template for:each={blockLayoutFlagRows} for:item="row">
-                                                                            <lightning-input
-                                                                                key={row.key}
-                                                                                type="checkbox"
-                                                                                label={row.label}
-                                                                                checked={row.checked}
-                                                                                data-flag={row.flag}
-                                                                                data-column-index={row.columnIndex}
-                                                                                onchange={handleLayoutFlagChange}>
-                                                                            </lightning-input>
-                                                                        </template>
-                                                                        <template lwc:if={blockShowLayoutColors}>
-                                                                            <lightning-textarea
-                                                                                class="slds-m-top_small"
-                                                                                label="Allowed block background colors (hex)"
-                                                                                value={blockLayoutBackgroundColors}
-                                                                                placeholder="#FFFFFF&#10;#F4F4F4"
-                                                                                onchange={handleLayoutColorsChange}>
-                                                                            </lightning-textarea>
-                                                                        </template>
-                                                                        <template lwc:if={blockShowLayoutGradient}>
-                                                                            <lightning-input
-                                                                                class="slds-m-top_small"
-                                                                                label="Gradient preset label"
-                                                                                value={blockLayoutGradientLabel}
-                                                                                data-field="label"
-                                                                                onchange={handleLayoutGradientChange}>
-                                                                            </lightning-input>
-                                                                            <lightning-textarea
-                                                                                label="Gradient CSS"
-                                                                                value={blockLayoutGradientCss}
-                                                                                data-field="css"
-                                                                                placeholder="linear-gradient(180deg, #fff 0%, #eee 100%)"
-                                                                                onchange={handleLayoutGradientChange}>
-                                                                            </lightning-textarea>
-                                                                        </template>
-                                                                        <template lwc:if={blockLayoutFlagRows.length}>
-                                                                            <p class="slds-text-body_small slds-text-color_weak slds-m-top_small">
-                                                                                Structural placeholders (blo-*, col-*, column-dir) are linked to these settings when you save.
-                                                                            </p>
-                                                                        </template>
-                                                                        <template lwc:else>
-                                                                            <p class="slds-text-body_small slds-text-color_weak">
-                                                                                No layout tokens detected. Add binding-container, binding-column, and &#123;&#123;blo-pad-dsk&#125;&#125;-style placeholders to enable block settings.
-                                                                            </p>
-                                                                        </template>
+                                                                        <c-master-template-settings-bindings
+                                                                            block-html={pendingBlockDraft.blockHtml}
+                                                                            layout-config={pendingBlockDraft.layout}
+                                                                            onlayoutchange={handleSettingsLayoutChange}
+                                                                            onsettingpreview={handleSettingsPreview}>
+                                                                        </c-master-template-settings-bindings>
                                                                     </template>
                                                                     <template lwc:else>
                                                                         <p class="slds-text-body_small slds-m-bottom_small">
@@ -669,6 +629,9 @@
                                                 template-id={draft.Id}
                                                 preview-mode="blocks"
                                                 preview-block-key={previewBlockKey}
+                                                studio-block-html={pendingBlockDraft.blockHtml}
+                                                studio-layout-config-json={blockPreviewLayoutConfigJson}
+                                                studio-preview-focus-json={blockPreviewFocusJson}
                                                 heading="Block preview"
                                                 help-text="Select or upload one content block to preview it inside the template shell. Only the focused block is rendered.">
                                             </c-copy-template-preview-panel>

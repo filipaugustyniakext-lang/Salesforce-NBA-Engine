@@ -19,6 +19,7 @@ import {
     layoutBindings,
     STRUCTURAL_PLACEHOLDERS
 } from 'c/contentBindingModel';
+import { mergeStudioLayoutDefaults } from 'c/blockLayoutStudio';
 import {
     COUNTRY_OPTIONS,
     CLASSIFICATION_OPTIONS,
@@ -75,6 +76,7 @@ export default class MasterTemplateStudio extends LightningElement {
     @track blockBindingTab = 'content';
     /** Catalog type or uploaded file name — drives single-block preview on Content Blocks step. */
     @track previewBlockKey = '';
+    @track settingsPreviewFocus = null;
     acceptedHtml = ['.html'];
     acceptedCss = ['.css'];
 
@@ -237,6 +239,17 @@ export default class MasterTemplateStudio extends LightningElement {
 
     get blockUsesModernLayout() {
         return !!this.blockBindingScan?.usesLayout;
+    }
+
+    get blockPreviewLayoutConfigJson() {
+        if (!this.blockHasHtml) return '';
+        return JSON.stringify(
+            mergeStudioLayoutDefaults(this.pendingBlockDraft.layout, this.blockBindingScan)
+        );
+    }
+
+    get blockPreviewFocusJson() {
+        return this.settingsPreviewFocus ? JSON.stringify(this.settingsPreviewFocus) : '';
     }
 
     get blockDetectedBindingBadges() {
@@ -758,6 +771,16 @@ export default class MasterTemplateStudio extends LightningElement {
         if (!previewKey) return;
         this.previewBlockKey = previewKey;
         this.expandedBlockEditorKey = null;
+        this.settingsPreviewFocus = null;
+        const component = this._findBlockDefinitionByPreviewKey(previewKey);
+        if (component) {
+            this._loadPendingBlockDraftFromComponent(component);
+            // eslint-disable-next-line @lwc/lwc/no-async-operation
+            Promise.resolve(this._refreshPendingBlockHtml()).then(() => {
+                this._refreshStudioPreviews();
+            });
+            return;
+        }
         this._refreshStudioPreviews();
     }
 
@@ -950,6 +973,17 @@ export default class MasterTemplateStudio extends LightningElement {
         else preset.css = value;
         layout.gradients = [preset];
         this.pendingBlockDraft = { ...this.pendingBlockDraft, layout, validated: false };
+    }
+
+    handleSettingsLayoutChange(event) {
+        const layout = event.detail?.layout;
+        if (!layout) return;
+        this.pendingBlockDraft = { ...this.pendingBlockDraft, layout, validated: false };
+    }
+
+    handleSettingsPreview(event) {
+        this.settingsPreviewFocus = event.detail || null;
+        this._refreshStudioPreviews();
     }
 
     handleLegacyBlockSettingChange(event) {
@@ -1161,6 +1195,18 @@ export default class MasterTemplateStudio extends LightningElement {
             layout: this._parseLayoutJson(component.layoutJson),
             legacyBlockSettings: [...(component.blockSettings || [])]
         };
+    }
+
+    _findBlockDefinitionByPreviewKey(previewKey) {
+        const key = String(previewKey || '').trim();
+        if (!key) return null;
+        return this._savedBlockDefinitions().find(component => {
+            const type = (component.type || '').trim();
+            const file = (component.fileName || '').trim();
+            return type === key
+                || file === key
+                || this._normalizeBlockFileKey(file) === this._normalizeBlockFileKey(key);
+        }) || null;
     }
 
     _findBlockDefinition(type, fileName) {
@@ -1412,7 +1458,10 @@ export default class MasterTemplateStudio extends LightningElement {
                 row = rows.find(entry => entry.fileName === fileName);
             }
             const bindings = this._catalogBindingsForSave();
-            const layout = alignLayout(this.pendingBlockDraft.layout, parseBlockTemplate(this.pendingBlockDraft.blockHtml || ''));
+            const layout = mergeStudioLayoutDefaults(
+                this.pendingBlockDraft.layout,
+                parseBlockTemplate(this.pendingBlockDraft.blockHtml || '')
+            );
             const blockSettings = this.blockUsesModernLayout
                 ? []
                 : [...(this.pendingBlockDraft.legacyBlockSettings || [])];

@@ -1,5 +1,7 @@
 import { LightningElement, api, track } from 'lwc';
 import getTemplateRenderSource from '@salesforce/apex/ChannelTemplateController.getTemplateRenderSource';
+import { parseBlockTemplate } from 'c/contentBindingModel';
+import { layoutToPreviewRuntimeState, mergeStudioLayoutDefaults } from 'c/blockLayoutStudio';
 import {
     renderTemplatePreview,
     scopePreviewDocument,
@@ -29,6 +31,9 @@ export default class CopyTemplatePreviewPanel extends LightningElement {
     _templateId;
     _canvasBlocks = [];
     _previewBlockKey = '';
+    _studioBlockHtml = '';
+    _studioLayoutConfigJson = '';
+    _studioPreviewFocusJson = '';
 
     @api
     get previewBlockKey() {
@@ -43,6 +48,36 @@ export default class CopyTemplatePreviewPanel extends LightningElement {
             this._canvasBlocks = this._resolveCanvasBlocks(this._previewRenderSource());
             this._previewTick += 1;
         }
+    }
+
+    @api
+    get studioBlockHtml() {
+        return this._studioBlockHtml;
+    }
+
+    set studioBlockHtml(value) {
+        this._studioBlockHtml = String(value || '');
+        this._refreshCanvasFromStudioLayout();
+    }
+
+    @api
+    get studioLayoutConfigJson() {
+        return this._studioLayoutConfigJson;
+    }
+
+    set studioLayoutConfigJson(value) {
+        this._studioLayoutConfigJson = String(value || '');
+        this._refreshCanvasFromStudioLayout();
+    }
+
+    @api
+    get studioPreviewFocusJson() {
+        return this._studioPreviewFocusJson;
+    }
+
+    set studioPreviewFocusJson(value) {
+        this._studioPreviewFocusJson = String(value || '');
+        this._refreshCanvasFromStudioLayout();
     }
 
     @api
@@ -176,13 +211,13 @@ export default class CopyTemplatePreviewPanel extends LightningElement {
 
     handleDeviceDesktop() {
         this._previewDevice = 'desktop';
-        this._previewTick += 1;
+        this._refreshCanvasFromStudioLayout();
         this._emitLayoutChange();
     }
 
     handleDeviceMobile() {
         this._previewDevice = 'mobile';
-        this._previewTick += 1;
+        this._refreshCanvasFromStudioLayout();
         this._emitLayoutChange();
     }
 
@@ -228,9 +263,35 @@ export default class CopyTemplatePreviewPanel extends LightningElement {
             return [];
         }
         if (this.previewMode === 'blocks') {
-            return buildStudioPreviewBlocks(source, this._previewBlockKey);
+            return buildStudioPreviewBlocks(
+                source,
+                this._previewBlockKey,
+                this._resolveStudioLayoutState()
+            );
         }
         return buildSamplePreviewBlocks(source);
+    }
+
+    _resolveStudioLayoutState() {
+        if (!this._studioBlockHtml && !this._studioLayoutConfigJson) return null;
+        try {
+            const scan = parseBlockTemplate(this._studioBlockHtml || '');
+            const layout = this._studioLayoutConfigJson
+                ? mergeStudioLayoutDefaults(JSON.parse(this._studioLayoutConfigJson), scan)
+                : mergeStudioLayoutDefaults(null, scan);
+            const focus = this._studioPreviewFocusJson
+                ? JSON.parse(this._studioPreviewFocusJson)
+                : null;
+            return layoutToPreviewRuntimeState(layout, scan, focus, this._previewDevice);
+        } catch (error) {
+            return null;
+        }
+    }
+
+    _refreshCanvasFromStudioLayout() {
+        if (!this._renderSource || this.previewMode !== 'blocks') return;
+        this._canvasBlocks = this._resolveCanvasBlocks(this._previewRenderSource());
+        this._previewTick += 1;
     }
 
     _loadRenderSource() {
