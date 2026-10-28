@@ -1,4 +1,4 @@
-import { LightningElement, api } from 'lwc';
+import { LightningElement, api, track } from 'lwc';
 import { parseBlockTemplate } from 'c/contentBindingModel';
 import {
     buildSettingsBindingSections,
@@ -9,9 +9,25 @@ import {
     patchLayoutConfig
 } from 'c/blockLayoutStudio';
 
+const VISIBILITY_RADIO_OPTIONS = [
+    { label: 'Show', value: 'visible' },
+    { label: 'Hide', value: 'hidden' }
+];
+
+const PAD_DEVICE_RADIO_OPTIONS = [
+    { label: 'Desktop', value: 'desktop' },
+    { label: 'Mobile', value: 'mobile' }
+];
+
+function safeSwatchHex(hex) {
+    const value = String(hex || '').trim();
+    return /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(value) ? value : '#ffffff';
+}
+
 export default class MasterTemplateSettingsBindings extends LightningElement {
     @api blockHtml = '';
     _layoutConfig = null;
+    @track padDeviceBySettingKey = {};
 
     @api
     get layoutConfig() {
@@ -63,8 +79,10 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
             const hidden = !!setting.hiddenByDefault;
             return {
                 ...base,
-                hideShowClass: 'slds-button vis-btn' + (!hidden ? ' vis-btn_active' : ''),
-                hideHideClass: 'slds-button vis-btn' + (hidden ? ' vis-btn_active' : ''),
+                hideVisibilityLabel: `View on ${setting.device}`,
+                visibilityRadioName: `visibility-${setting.key}`,
+                visibilityOptions: VISIBILITY_RADIO_OPTIONS,
+                visibilityValue: hidden ? 'hidden' : 'visible',
                 previewVisibility: hidden ? 'hidden' : 'visible'
             };
         }
@@ -81,12 +99,23 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
         if (setting.type === 'padding') {
             const padDesktop = normalizePad(setting.padDesktop);
             const padMobile = normalizePad(setting.padMobile);
+            const padDevice = this.padDeviceBySettingKey[setting.key] || 'desktop';
+            const padMobileInherit = setting.padMobileInherit !== false;
+            const mobilePad = padMobileInherit ? padDesktop : padMobile;
+            const activePad = padDevice === 'mobile' ? mobilePad : padDesktop;
+            const activePadPath = padDevice === 'mobile' ? base.padMobilePath : base.padDesktopPath;
             return {
                 ...base,
                 padDesktop,
-                padMobile,
-                padSides: ['top', 'right', 'bottom', 'left'],
-                padMobileInherit: setting.padMobileInherit !== false
+                padMobile: mobilePad,
+                padDevice,
+                padDeviceRadioName: `pad-device-${setting.key}`,
+                padDeviceOptions: PAD_DEVICE_RADIO_OPTIONS,
+                activePad,
+                activePadPath,
+                padMobileInherit,
+                padInputsDisabled: padDevice === 'mobile' && padMobileInherit,
+                showPadInherit: padDevice === 'mobile'
             };
         }
         if (setting.type === 'backgroundColor') {
@@ -96,9 +125,9 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
                     key: `${setting.key}-color-${index}`,
                     index,
                     hex,
-                    swatchStyle: `background-color:${hex}`,
+                    swatchStyle: `background-color:${safeSwatchHex(hex)}`,
                     isDefault: setting.defaultColor === hex,
-                    defaultVariant: setting.defaultColor === hex ? 'brand' : 'neutral'
+                    showSetDefault: setting.defaultColor !== hex
                 }))
             };
         }
@@ -160,16 +189,21 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
         this._patch(path, event.target.checked);
     }
 
-    handleHideDefaultClick(event) {
+    handleHideDefaultChange(event) {
         const settingKey = event.currentTarget.dataset.settingKey;
         const setting = this._findSetting(settingKey);
         if (!setting) return;
-        const hidden = event.currentTarget.dataset.hidden === 'true';
+        const hidden = event.detail.value === 'hidden';
         this._patch(setting.hideDefaultPath, hidden);
-        this._preview({
-            kind: setting.key,
-            value: hidden ? 'hidden' : 'visible'
-        });
+    }
+
+    handlePadDeviceChange(event) {
+        const settingKey = event.currentTarget.dataset.settingKey;
+        if (!settingKey) return;
+        this.padDeviceBySettingKey = {
+            ...this.padDeviceBySettingKey,
+            [settingKey]: event.detail.value
+        };
     }
 
     handleColumnDirClick(event) {
@@ -219,25 +253,21 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
         let next = patchLayoutConfig(this._layoutConfig, this.scan, { path: inheritPath, value: true });
         next = patchLayoutConfig(next, this.scan, { path: mobilePath, value: desktop });
         this._emitLayout(next);
-        this._preview({
-            kind: 'padding',
-            value: desktop,
-            columnIndex: columnIndex === undefined || columnIndex === ''
-                ? null
-                : Number(columnIndex)
-        });
+    }
+
+    handlePadApplyDefault(event) {
+        const settingKey = event.currentTarget.dataset.settingKey;
+        const setting = this._findSetting(settingKey);
+        if (!setting) return;
+        this._clearPreview();
     }
 
     handlePadPreview(event) {
-        const path = event.currentTarget.dataset.path;
-        const columnIndexRaw = event.currentTarget.dataset.columnIndex;
-        const columnIndex = columnIndexRaw === undefined || columnIndexRaw === ''
-            ? null
-            : Number(columnIndexRaw);
-        const layout = mergeStudioLayoutDefaults(this._layoutConfig, this.scan);
-        const pad = path.includes('columns[')
-            ? this._readColumnPad(layout, path)
-            : (path.includes('Mobile') ? layout.defaultPadMobile : layout.defaultPadDesktop);
+        const settingKey = event.currentTarget.dataset.settingKey;
+        const setting = this._findSetting(settingKey);
+        if (!setting) return;
+        const columnIndex = setting.columnIndex === undefined ? null : setting.columnIndex;
+        const pad = normalizePad(setting.activePad);
         this._preview({ kind: 'padding', value: pad, columnIndex });
     }
 
@@ -275,6 +305,7 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
             ? 'defaultBgColor'
             : `columns[${setting.columnIndex}].defaultBgColor`;
         this._patch(path, hex);
+        this._clearPreview();
     }
 
     handleAddGradient(event) {
@@ -405,5 +436,9 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
 
     _preview(detail) {
         this.dispatchEvent(new CustomEvent('settingpreview', { detail }));
+    }
+
+    _clearPreview() {
+        this.dispatchEvent(new CustomEvent('settingpreview', { detail: null }));
     }
 }

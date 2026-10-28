@@ -60,79 +60,77 @@
                             </template>
                             <template lwc:if={setting.enabled}>
                                 <template lwc:if={setting.isHideDefault}>
-                                    <p class="slds-form-element__label slds-m-top_small">View on {setting.device}</p>
-                                    <div class="block-vis-grid">
-                                        <div class="slds-button-group" role="group" aria-label="Default visibility">
-                                            <button type="button" class={setting.hideShowClass} data-setting-key={setting.key} data-hidden="false" onclick={handleHideDefaultClick}>Show</button>
-                                            <button type="button" class={setting.hideHideClass} data-setting-key={setting.key} data-hidden="true" onclick={handleHideDefaultClick}>Hide</button>
+                                    <div class="block-vis-grid slds-m-top_small">
+                                        <lightning-radio-group
+                                            label={setting.hideVisibilityLabel}
+                                            name={setting.visibilityRadioName}
+                                            options={setting.visibilityOptions}
+                                            value={setting.visibilityValue}
+                                            type="button"
+                                            data-setting-key={setting.key}
+                                            onchange={handleHideDefaultChange}>
+                                        </lightning-radio-group>
+                                        <div class="settings-inline-actions">
+                                            <lightning-button-icon
+                                                icon-name="utility:preview"
+                                                alternative-text="Preview visibility default"
+                                                title="Preview in block panel"
+                                                data-preview-kind={setting.key}
+                                                data-preview-value={setting.previewVisibility}
+                                                onclick={handlePreviewClick}>
+                                            </lightning-button-icon>
                                         </div>
-                                        <lightning-button-icon
-                                            icon-name="utility:preview"
-                                            alternative-text="Preview visibility default"
-                                            title="Preview in block panel"
-                                            data-preview-kind={setting.key}
-                                            data-preview-value={setting.previewVisibility}
-                                            onclick={handlePreviewClick}>
-                                        </lightning-button-icon>
                                     </div>
                                 </template>
                                 <template lwc:if={setting.isPadding}>
-                                    <div class="slds-grid slds-grid_align-spread slds-m-top_small">
-                                        <p class="slds-form-element__label">Desktop default padding</p>
-                                        <lightning-button-icon icon-name="utility:preview" alternative-text="Preview desktop padding" title="Preview in block panel" data-path={setting.padDesktopPath} data-column-index={setting.columnIndex} onclick={handlePadPreview}></lightning-button-icon>
-                                    </div>
-                                    <div class="block-spacing-box">
-                                        <div class="block-spacing-box__diagram">
-                                            <div class="block-spacing-box__side block-spacing-box__side_top">
-                                                <input class="slds-input slds-input_xx-small" type="number" min="0" value={setting.padDesktop.top} data-path={setting.padDesktopPath} data-side="top" data-column-index={setting.columnIndex} onchange={handlePadChange} />
-                                                <span class="block-spacing-box__unit">px</span>
-                                            </div>
-                                            <div class="block-spacing-box__middle">
-                                                <div class="block-spacing-box__side block-spacing-box__side_left">
-                                                    <input class="slds-input slds-input_xx-small" type="number" min="0" value={setting.padDesktop.left} data-path={setting.padDesktopPath} data-side="left" data-column-index={setting.columnIndex} onchange={handlePadChange} />
-                                                    <span class="block-spacing-box__unit">px</span>
-                                                </div>
-                                                <div class="block-spacing-box__core"><span class="block-spacing-box__core-label">Padding</span></div>
-                                                <div class="block-spacing-box__side block-spacing-box__side_right">
-                                                    <input class="slds-input slds-input_xx-small" type="number" min="0" value={setting.padDesktop.right} data-path={setting.padDesktopPath} data-side="right" data-column-index={setting.columnIndex} onchange={handlePadChange} />
-                                                    <span class="block-spacing-box__unit">px</span>
-                                                </div>
-                                            </div>
-                                            <div class="block-spacing-box__side block-spacing-box__side_bottom">
-                                                <input class="slds-input slds-input_xx-small" type="number" min="0" value={setting.padDesktop.bottom} data-path={setting.padDesktopPath} data-side="bottom" data-column-index={setting.columnIndex} onchange={handlePadChange} />
-                                                <span class="block-spacing-box__unit">px</span>
-                                            </div>
+                                    <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-end slds-m-top_small">
+                                        <lightning-radio-group
+                                            label="Default padding"
+                                            name={setting.padDeviceRadioName}
+                                            options={setting.padDeviceOptions}
+                                            value={setting.padDevice}
+                                            type="button"
+                                            data-setting-key={setting.key}
+                                            onchange={handlePadDeviceChange}>
+                                        </lightning-radio-group>
+                                        <div class="settings-inline-actions">
+                                            <lightning-button-icon
+                                                icon-name="utility:preview"
+                                                alternative-text="Preview padding"
+                                                title="Temporarily preview in block panel"
+                                                data-setting-key={setting.key}
+                                                onclick={handlePadPreview}>
+                                            </lightning-button-icon>
+                                            <button type="button" class="settings-action-link" data-setting-key={setting.key} onclick={handlePadApplyDefault}>Set as default</button>
                                         </div>
                                     </div>
-                                    <div class="slds-grid slds-grid_align-spread slds-m-top_small">
-                                        <p class="slds-form-element__label">Mobile default padding</p>
-                                        <lightning-button-icon icon-name="utility:preview" alternative-text="Preview mobile padding" title="Preview in block panel" data-path={setting.padMobilePath} data-column-index={setting.columnIndex} onclick={handlePadPreview}></lightning-button-icon>
-                                    </div>
-                                    <lightning-button
-                                        label="Inherit from desktop"
-                                        class="slds-m-bottom_x-small"
-                                        data-column-index={setting.columnIndex}
-                                        onclick={handlePadInherit}>
-                                    </lightning-button>
+                                    <template lwc:if={setting.showPadInherit}>
+                                        <lightning-button
+                                            label="Inherit from desktop"
+                                            class="slds-m-vertical_x-small"
+                                            data-column-index={setting.columnIndex}
+                                            onclick={handlePadInherit}>
+                                        </lightning-button>
+                                    </template>
                                     <div class="block-spacing-box">
                                         <div class="block-spacing-box__diagram">
                                             <div class="block-spacing-box__side block-spacing-box__side_top">
-                                                <input class="slds-input slds-input_xx-small" type="number" min="0" value={setting.padMobile.top} data-path={setting.padMobilePath} data-side="top" data-column-index={setting.columnIndex} onchange={handlePadChange} disabled={setting.padMobileInherit} />
+                                                <input class="slds-input slds-input_xx-small" type="number" min="0" value={setting.activePad.top} data-path={setting.activePadPath} data-side="top" data-column-index={setting.columnIndex} onchange={handlePadChange} disabled={setting.padInputsDisabled} />
                                                 <span class="block-spacing-box__unit">px</span>
                                             </div>
                                             <div class="block-spacing-box__middle">
                                                 <div class="block-spacing-box__side block-spacing-box__side_left">
-                                                    <input class="slds-input slds-input_xx-small" type="number" min="0" value={setting.padMobile.left} data-path={setting.padMobilePath} data-side="left" data-column-index={setting.columnIndex} onchange={handlePadChange} disabled={setting.padMobileInherit} />
+                                                    <input class="slds-input slds-input_xx-small" type="number" min="0" value={setting.activePad.left} data-path={setting.activePadPath} data-side="left" data-column-index={setting.columnIndex} onchange={handlePadChange} disabled={setting.padInputsDisabled} />
                                                     <span class="block-spacing-box__unit">px</span>
                                                 </div>
                                                 <div class="block-spacing-box__core"><span class="block-spacing-box__core-label">Padding</span></div>
                                                 <div class="block-spacing-box__side block-spacing-box__side_right">
-                                                    <input class="slds-input slds-input_xx-small" type="number" min="0" value={setting.padMobile.right} data-path={setting.padMobilePath} data-side="right" data-column-index={setting.columnIndex} onchange={handlePadChange} disabled={setting.padMobileInherit} />
+                                                    <input class="slds-input slds-input_xx-small" type="number" min="0" value={setting.activePad.right} data-path={setting.activePadPath} data-side="right" data-column-index={setting.columnIndex} onchange={handlePadChange} disabled={setting.padInputsDisabled} />
                                                     <span class="block-spacing-box__unit">px</span>
                                                 </div>
                                             </div>
                                             <div class="block-spacing-box__side block-spacing-box__side_bottom">
-                                                <input class="slds-input slds-input_xx-small" type="number" min="0" value={setting.padMobile.bottom} data-path={setting.padMobilePath} data-side="bottom" data-column-index={setting.columnIndex} onchange={handlePadChange} disabled={setting.padMobileInherit} />
+                                                <input class="slds-input slds-input_xx-small" type="number" min="0" value={setting.activePad.bottom} data-path={setting.activePadPath} data-side="bottom" data-column-index={setting.columnIndex} onchange={handlePadChange} disabled={setting.padInputsDisabled} />
                                                 <span class="block-spacing-box__unit">px</span>
                                             </div>
                                         </div>
@@ -144,8 +142,12 @@
                                         <div key={color.key} class="settings-preset-row slds-grid slds-grid_vertical-align-center">
                                             <span class="settings-color-swatch" style={color.swatchStyle}></span>
                                             <lightning-input variant="label-hidden" value={color.hex} data-setting-key={setting.key} data-index={color.index} onchange={handleColorHexChange}></lightning-input>
-                                            <lightning-button-icon icon-name="utility:preview" alternative-text="Preview color" data-preview-kind="bgColor" data-preview-value={color.hex} data-column-index={setting.columnIndex} onclick={handlePreviewClick}></lightning-button-icon>
-                                            <lightning-button label="Default" variant={color.defaultVariant} data-setting-key={setting.key} data-hex={color.hex} onclick={handleSetDefaultColor}></lightning-button>
+                                            <div class="settings-inline-actions">
+                                                <lightning-button-icon icon-name="utility:preview" alternative-text="Preview color" data-preview-kind="bgColor" data-preview-value={color.hex} data-column-index={setting.columnIndex} onclick={handlePreviewClick}></lightning-button-icon>
+                                                <template lwc:if={color.showSetDefault}>
+                                                    <button type="button" class="settings-action-link" data-setting-key={setting.key} data-hex={color.hex} onclick={handleSetDefaultColor}>Set as default</button>
+                                                </template>
+                                            </div>
                                         </div>
                                     </template>
                                     <lightning-button label="Add color" icon-name="utility:add" data-setting-key={setting.key} onclick={handleAddColor}></lightning-button>

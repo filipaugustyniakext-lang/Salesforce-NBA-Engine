@@ -3,8 +3,10 @@ import { alignLayout, emptyColumnLayout } from 'c/contentBindingModel';
 const PAD_SIDES = ['top', 'right', 'bottom', 'left'];
 
 function cleanColorList(primary, fallback) {
-    const list = Array.isArray(primary) && primary.length ? primary : fallback;
-    return Array.isArray(list) ? [...list] : [];
+    if (Array.isArray(primary)) {
+        return primary.map(value => String(value ?? ''));
+    }
+    return Array.isArray(fallback) ? [...fallback] : [];
 }
 
 function cleanGradientList(primary, fallback) {
@@ -63,6 +65,8 @@ export function mergeStudioLayoutDefaults(layout, scan) {
             ? source.backgroundImagePresets
             : []
         ).map(normalizeImagePreset),
+        backgroundColors: cleanColorList(source.backgroundColors, aligned.backgroundColors),
+        gradients: cleanGradientList(source.gradients, aligned.gradients),
         defaultColumnDirDesktop: source.defaultColumnDirDesktop === 'rtl' ? 'rtl' : 'ltr',
         defaultColumnDirMobile: source.defaultColumnDirMobile === 'rtl' ? 'rtl' : 'ltr',
         columns: (scan?.columns || []).map((column, index) => {

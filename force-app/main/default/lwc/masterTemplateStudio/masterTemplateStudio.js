@@ -979,6 +979,8 @@ export default class MasterTemplateStudio extends LightningElement {
         const layout = event.detail?.layout;
         if (!layout) return;
         this.pendingBlockDraft = { ...this.pendingBlockDraft, layout, validated: false };
+        this.settingsPreviewFocus = null;
+        this._refreshStudioPreviews();
     }
 
     handleSettingsPreview(event) {
