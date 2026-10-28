@@ -3,10 +3,8 @@ import { alignLayout, buildBackgroundPayload, emptyColumnLayout } from 'c/conten
 const PAD_SIDES = ['top', 'right', 'bottom', 'left'];
 
 function cleanColorList(primary, fallback) {
-    if (Array.isArray(primary)) {
-        return primary.map(value => String(value ?? ''));
-    }
-    return Array.isArray(fallback) ? [...fallback] : [];
+    const list = Array.isArray(primary) ? primary : (Array.isArray(fallback) ? fallback : []);
+    return list.map((item, index) => normalizeColorPreset(item, index));
 }
 
 function cleanGradientList(primary, fallback) {
@@ -24,11 +22,27 @@ export function normalizePad(pad) {
     };
 }
 
+export function normalizeColorPreset(item, index) {
+    if (typeof item === 'string') {
+        return { id: `color-${index + 1}`, label: `Color ${index + 1}`, hex: item };
+    }
+    return {
+        id: String(item?.id || `color-${index + 1}`),
+        label: String(item?.label || `Color ${index + 1}`),
+        hex: String(item?.hex || '')
+    };
+}
+
 export function normalizeImagePreset(item, index) {
+    const urlDesktop = String(item?.urlDesktop || item?.url || '');
+    const inherit = item?.mobileInherit !== false;
     return {
         id: String(item?.id || `bg-image-${index + 1}`),
         label: String(item?.label || `Image ${index + 1}`),
-        url: String(item?.url || ''),
+        url: urlDesktop,
+        urlDesktop,
+        urlMobile: String(item?.urlMobile || ''),
+        mobileInherit: inherit,
         desktop: item?.desktop !== false,
         mobile: item?.mobile !== false,
         positionX: String(item?.positionX || 'center'),
@@ -37,8 +51,10 @@ export function normalizeImagePreset(item, index) {
         backgroundSize: String(item?.backgroundSize || 'cover'),
         positionDesktop: String(item?.positionDesktop || item?.positionX || 'center'),
         sizeDesktop: String(item?.sizeDesktop || item?.backgroundSize || 'cover'),
+        repeatDesktop: String(item?.repeatDesktop || item?.backgroundRepeat || 'no-repeat'),
         positionMobile: String(item?.positionMobile || item?.positionDesktop || item?.positionX || 'center'),
         sizeMobile: String(item?.sizeMobile || item?.sizeDesktop || item?.backgroundSize || 'cover'),
+        repeatMobile: String(item?.repeatMobile || item?.repeatDesktop || item?.backgroundRepeat || 'no-repeat'),
         fallbackColor: String(item?.fallbackColor || '')
     };
 }
@@ -416,7 +432,8 @@ function regionPreview(region, focus, columnIndex, contentIndex, isMobile) {
     }
     const shownPad = isMobile ? padMobile : padDesktop;
     let mode = source.defaultBgMode || 'color';
-    let color = source.defaultBgColor || (source.backgroundColors || [])[0] || '';
+    const firstColor = source.backgroundColors?.[0];
+    let color = source.defaultBgColor || (typeof firstColor === 'string' ? firstColor : firstColor?.hex) || '';
     let gradientId = source.defaultGradientId || (source.gradients || [])[0]?.id || '';
     let imageId = source.defaultBgImagePresetId || '';
     if (applies && focus.kind === 'bgMode') mode = focus.value || mode;
@@ -433,7 +450,7 @@ function regionPreview(region, focus, columnIndex, contentIndex, isMobile) {
         imageId = focus.value || imageId;
     }
     const imagePreset = (source.backgroundImagePresets || []).find(item => item.id === imageId)
-        || (source.backgroundImagePresets || []).find(item => item.url);
+        || (source.backgroundImagePresets || []).find(item => item.url || item.urlDesktop || item.urlMobile);
     const backgroundPayload = (source.background || source.backgroundColor || source.backgroundImage || source.backgroundGradient)
         ? buildBackgroundPayload(source, {
             mode: source.background ? mode : (source.backgroundGradient ? 'gradient' : source.backgroundImage ? 'image' : 'color'),

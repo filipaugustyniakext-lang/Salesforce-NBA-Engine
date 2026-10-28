@@ -6,6 +6,7 @@ import {
     normalizePad,
     normalizeImagePreset,
     normalizeGradientPreset,
+    normalizeColorPreset,
     patchLayoutConfig
 } from 'c/blockLayoutStudio';
 
@@ -28,6 +29,7 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
     @api blockHtml = '';
     _layoutConfig = null;
     @track padDeviceBySettingKey = {};
+    @track imageDeviceByPresetKey = {};
 
     @api
     get layoutConfig() {
@@ -65,9 +67,9 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
             isHidePair: setting.type === 'hidePair',
             isPadding: setting.type === 'padding',
             isBackgroundStyle: setting.type === 'backgroundStyle',
-            isBackgroundColor: setting.type === 'backgroundColor' || setting.type === 'backgroundStyle',
-            isBackgroundImage: setting.type === 'backgroundImage' || setting.type === 'backgroundStyle',
-            isBackgroundGradient: setting.type === 'backgroundGradient' || setting.type === 'backgroundStyle',
+            isBackgroundColor: setting.type === 'backgroundColor' || (setting.type === 'backgroundStyle' && (setting.bgMode || 'color') === 'color'),
+            isBackgroundImage: setting.type === 'backgroundImage' || (setting.type === 'backgroundStyle' && setting.bgMode === 'image'),
+            isBackgroundGradient: setting.type === 'backgroundGradient' || (setting.type === 'backgroundStyle' && setting.bgMode === 'gradient'),
             isColumnDirection: setting.type === 'columnDirection',
             hideDefaultPath: setting.hideDefaultPath || (setting.key === 'hideMobile' ? 'defaultHideMobile' : 'defaultHideDesktop'),
             padDesktopPath: setting.padDesktopPath || (setting.columnIndex === undefined
@@ -133,16 +135,22 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
             };
         }
         if (setting.type === 'backgroundColor' || setting.type === 'backgroundStyle') {
-            const rows = {
-                colorRows: (setting.colors || []).map((hex, index) => ({
+            const colorRows = (setting.colors || []).map((item, index) => {
+                const preset = normalizeColorPreset(item, index);
+                return {
+                    ...preset,
                     key: `${setting.key}-color-${index}`,
                     index,
-                    hex,
-                    swatchStyle: `background-color:${safeSwatchHex(hex)}`,
-                    isDefault: setting.defaultColor === hex,
-                    showSetDefault: setting.defaultColor !== hex
-                })),
-                colorOptions: (setting.colorOptions || setting.colors || []).map(hex => ({ label: hex, value: hex }))
+                    swatchStyle: `background-color:${safeSwatchHex(preset.hex)}`,
+                    isDefault: setting.defaultColor === preset.hex,
+                    showSetDefault: setting.defaultColor !== preset.hex
+                };
+            });
+            const rows = {
+                colorRows,
+                colorOptions: colorRows
+                    .filter(row => /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(row.hex))
+                    .map(row => ({ label: `${row.label} (${row.hex})`, value: row.hex }))
             };
             if (setting.type !== 'backgroundStyle') return { ...base, ...rows };
             return {
@@ -158,14 +166,35 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
                     ...normalizeGradientPreset(item, index),
                     key: `${setting.key}-gradient-${index}`,
                     index,
-                    isDefault: setting.defaultGradientId === item.id
+                    isDefault: setting.defaultGradientId === item.id,
+                    showSetDefault: setting.defaultGradientId !== item.id
                 })),
-                imageRows: (setting.presets || []).map((item, index) => ({
-                    ...normalizeImagePreset(item, index),
-                    key: `${setting.key}-image-${index}`,
-                    index,
-                    isDefault: setting.defaultPresetId === item.id
-                }))
+                imageRows: (setting.presets || []).map((item, index) => {
+                    const preset = normalizeImagePreset(item, index);
+                    const device = this.imageDeviceByPresetKey[preset.id] || 'desktop';
+                    const inherit = preset.mobileInherit !== false;
+                    const mobileView = device === 'mobile';
+                    return {
+                        ...preset,
+                        key: `${setting.key}-image-${preset.id}`,
+                        index,
+                        isDefault: setting.defaultPresetId === preset.id,
+                        showSetDefault: setting.defaultPresetId !== preset.id,
+                        device,
+                        deviceRadioName: `image-device-${setting.key}-${preset.id}`,
+                        deviceOptions: PAD_DEVICE_RADIO_OPTIONS,
+                        showDesktop: !mobileView,
+                        showMobile: mobileView,
+                        activeUrl: mobileView && inherit ? preset.urlDesktop : (mobileView ? preset.urlMobile : preset.urlDesktop),
+                        activePosition: mobileView && inherit ? preset.positionDesktop : (mobileView ? preset.positionMobile : preset.positionDesktop),
+                        activeSize: mobileView && inherit ? preset.sizeDesktop : (mobileView ? preset.sizeMobile : preset.sizeDesktop),
+                        activeRepeat: mobileView && inherit ? preset.repeatDesktop : (mobileView ? preset.repeatMobile : preset.repeatDesktop),
+                        activeUrlField: mobileView ? 'urlMobile' : 'urlDesktop',
+                        activePositionField: mobileView ? 'positionMobile' : 'positionDesktop',
+                        activeSizeField: mobileView ? 'sizeMobile' : 'sizeDesktop',
+                        activeRepeatField: mobileView ? 'repeatMobile' : 'repeatDesktop'
+                    };
+                })
             };
         }
         if (setting.type === 'backgroundGradient') {
@@ -175,7 +204,8 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
                     ...normalizeGradientPreset(item, index),
                     key: `${setting.key}-gradient-${index}`,
                     index,
-                    isDefault: setting.defaultGradientId === item.id
+                    isDefault: setting.defaultGradientId === item.id,
+                    showSetDefault: setting.defaultGradientId !== item.id
                 })),
                 colorOptions: (setting.colorOptions || []).map(hex => ({ label: hex, value: hex }))
             };
@@ -187,7 +217,21 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
                     ...normalizeImagePreset(item, index),
                     key: `${setting.key}-image-${index}`,
                     index,
-                    isDefault: setting.defaultPresetId === item.id
+                    isDefault: setting.defaultPresetId === item.id,
+                    showSetDefault: setting.defaultPresetId !== item.id,
+                    device: 'desktop',
+                    showDesktop: true,
+                    showMobile: false,
+                    activeUrl: normalizeImagePreset(item, index).urlDesktop,
+                    activePosition: normalizeImagePreset(item, index).positionDesktop,
+                    activeSize: normalizeImagePreset(item, index).sizeDesktop,
+                    activeRepeat: normalizeImagePreset(item, index).repeatDesktop,
+                    activeUrlField: 'urlDesktop',
+                    activePositionField: 'positionDesktop',
+                    activeSizeField: 'sizeDesktop',
+                    activeRepeatField: 'repeatDesktop',
+                    deviceRadioName: `image-device-legacy-${setting.key}-${index}`,
+                    deviceOptions: PAD_DEVICE_RADIO_OPTIONS
                 })),
                 colorOptions: (setting.colorOptions || []).map(hex => ({ label: hex, value: hex }))
             };
@@ -243,6 +287,15 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
         const path = event.currentTarget.dataset.path;
         if (!path) return;
         this._patch(path, event.detail.value);
+    }
+
+    handleImageDeviceChange(event) {
+        const presetKey = event.currentTarget.dataset.presetKey;
+        if (!presetKey) return;
+        this.imageDeviceByPresetKey = {
+            ...this.imageDeviceByPresetKey,
+            [presetKey]: event.detail.value
+        };
     }
 
     handlePadDeviceChange(event) {
@@ -316,20 +369,47 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
         const setting = this._findSetting(settingKey);
         if (!setting) return;
         const path = this._scoped(setting, 'backgroundColors');
-        const colors = [...(setting.colorRows || []).map(row => row.hex), '#FFFFFF'];
+        const colors = [...(setting.colorRows || []).map(row => ({ id: row.id, label: row.label, hex: row.hex })), {
+            id: `color-${Date.now()}`,
+            label: `Color ${(setting.colorRows || []).length + 1}`,
+            hex: '#FFFFFF'
+        }];
         this._patch(path, colors);
     }
 
-    handleColorHexChange(event) {
+    handleColorFieldChange(event) {
         const settingKey = event.currentTarget.dataset.settingKey;
         const index = Number(event.currentTarget.dataset.index);
+        const field = event.currentTarget.dataset.field;
         const setting = this._findSetting(settingKey);
-        if (!setting) return;
-        const hex = String(event.detail?.value ?? event.target?.value ?? '').trim();
-        const colors = (setting.colorRows || []).map(row => row.hex);
-        colors[index] = hex;
-        const path = this._scoped(setting, 'backgroundColors');
-        this._patch(path, colors);
+        if (!setting || !field) return;
+        const value = String(event.detail?.value ?? event.target?.value ?? '');
+        const colors = (setting.colorRows || []).map((row, idx) => (
+            idx === index ? { id: row.id, label: row.label, hex: row.hex, [field]: value } : { id: row.id, label: row.label, hex: row.hex }
+        ));
+        this._patch(this._scoped(setting, 'backgroundColors'), colors);
+    }
+
+    handleDeletePreset(event) {
+        const settingKey = event.currentTarget.dataset.settingKey;
+        const index = Number(event.currentTarget.dataset.index);
+        const kind = event.currentTarget.dataset.kind;
+        const setting = this._findSetting(settingKey);
+        if (!setting || !kind) return;
+        if (kind === 'color') {
+            const colors = (setting.colorRows || [])
+                .filter((row, idx) => idx !== index)
+                .map(row => ({ id: row.id, label: row.label, hex: row.hex }));
+            this._patch(this._scoped(setting, 'backgroundColors'), colors);
+            return;
+        }
+        if (kind === 'gradient') {
+            const gradients = (setting.gradientRows || []).filter((row, idx) => idx !== index);
+            this._patch(this._scoped(setting, 'gradients'), gradients);
+            return;
+        }
+        const presets = (setting.imageRows || []).filter((row, idx) => idx !== index);
+        this._patch(this._scoped(setting, 'backgroundImagePresets'), presets);
     }
 
     handleSetDefaultColor(event) {
@@ -386,19 +466,20 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
         const path = this._scoped(setting, 'backgroundImagePresets');
         const presets = [...(setting.imageRows || []), {
             id: `bg-image-${Date.now()}`,
-            label: 'Background image',
+            label: `Image ${(setting.imageRows || []).length + 1}`,
             url: '',
+            urlDesktop: '',
+            urlMobile: '',
+            mobileInherit: true,
             desktop: true,
             mobile: true,
-            positionX: 'center',
-            positionY: 'center',
-            backgroundRepeat: 'no-repeat',
-            backgroundSize: 'cover',
             positionDesktop: 'center',
             sizeDesktop: 'cover',
+            repeatDesktop: 'no-repeat',
             positionMobile: 'center',
             sizeMobile: 'cover',
-            fallbackColor: (setting.colorOptions || [])[0] || ''
+            repeatMobile: 'no-repeat',
+            fallbackColor: setting.colorRows?.[0]?.hex || ''
         }];
         this._patch(path, presets);
     }
@@ -412,9 +493,14 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
         const value = event.target?.type === 'checkbox' ? event.target.checked : (
             event.detail?.value ?? event.target?.value ?? ''
         );
-        const presets = (setting.imageRows || []).map((item, idx) => (
-            idx === index ? { ...item, [field]: value } : item
-        ));
+        const mobileField = ['urlMobile', 'positionMobile', 'sizeMobile', 'repeatMobile'].includes(field);
+        const presets = (setting.imageRows || []).map((item, idx) => {
+            if (idx !== index) return item;
+            const next = { ...item, [field]: value };
+            if (field === 'urlDesktop') next.url = value;
+            if (mobileField) next.mobileInherit = false;
+            return next;
+        });
         const path = this._scoped(setting, 'backgroundImagePresets');
         this._patch(path, presets);
     }
@@ -426,6 +512,25 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
         if (!setting) return;
         const path = this._scoped(setting, 'defaultBgImagePresetId');
         this._patch(path, id);
+    }
+
+    handleImageInherit(event) {
+        const settingKey = event.currentTarget.dataset.settingKey;
+        const index = Number(event.currentTarget.dataset.index);
+        const setting = this._findSetting(settingKey);
+        if (!setting) return;
+        const presets = (setting.imageRows || []).map((item, idx) => {
+            if (idx !== index) return item;
+            return {
+                ...item,
+                mobileInherit: true,
+                urlMobile: item.urlDesktop || item.url || '',
+                positionMobile: item.positionDesktop,
+                sizeMobile: item.sizeDesktop,
+                repeatMobile: item.repeatDesktop
+            };
+        });
+        this._patch(this._scoped(setting, 'backgroundImagePresets'), presets);
     }
 
     handlePreviewClick(event) {

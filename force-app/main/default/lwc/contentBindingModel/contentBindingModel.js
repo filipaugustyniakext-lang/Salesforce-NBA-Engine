@@ -267,21 +267,27 @@ export function buildBackgroundPayload(region, hints) {
     }
     if (mode === 'image') {
         const preset = (source.backgroundImagePresets || []).find(item => item.id === options.imageId)
-            || (source.backgroundImagePresets || []).find(item => item.url);
-        if (!preset?.url) return null;
-        const mobile = options.device === 'mobile';
+            || (source.backgroundImagePresets || []).find(item => item.url || item.urlDesktop || item.urlMobile);
+        if (!preset) return null;
+        const mobile = options.device === 'mobile' && preset.mobileInherit === false;
         const position = mobile
             ? (preset.positionMobile || preset.positionDesktop || 'center')
             : (preset.positionDesktop || 'center');
         const size = mobile
             ? (preset.sizeMobile || preset.sizeDesktop || preset.backgroundSize || 'cover')
             : (preset.sizeDesktop || preset.backgroundSize || 'cover');
+        const repeat = mobile
+            ? (preset.repeatMobile || preset.repeatDesktop || preset.backgroundRepeat || 'no-repeat')
+            : (preset.repeatDesktop || preset.backgroundRepeat || 'no-repeat');
         const fallback = preset.fallbackColor || '#ffffff';
-        const url = String(preset.url).replace(/'/g, '');
+        const url = String(
+            mobile ? (preset.urlMobile || preset.urlDesktop || preset.url) : (preset.urlDesktop || preset.url)
+        ).replace(/'/g, '');
+        if (!url) return null;
         return {
             bgcolor: fallback,
             background: url,
-            style: `background-color: ${fallback}; background-image: url('${url}'); background-repeat: no-repeat; background-size: ${size}; background-position: ${position};`
+            style: `background-color: ${fallback}; background-image: url('${url}'); background-repeat: ${repeat}; background-size: ${size}; background-position: ${position};`
         };
     }
     const color = String(options.color || '').trim();
@@ -601,9 +607,14 @@ function padString(pad) {
     return `${side(source.top)} ${side(source.right)} ${side(source.bottom)} ${side(source.left)}`;
 }
 
+function colorHex(value) {
+    if (typeof value === 'string') return value.trim();
+    return String(value?.hex || '').trim();
+}
+
 function allowedColor(value, colors) {
     const color = String(value || '').trim();
-    return (colors || []).some(item => item.toLowerCase() === color.toLowerCase()) ? color : '';
+    return (colors || []).some(item => colorHex(item).toLowerCase() === color.toLowerCase()) ? color : '';
 }
 
 function gradientCss(id, gradients) {
@@ -613,7 +624,7 @@ function gradientCss(id, gradients) {
 
 function cleanColors(values) {
     return (Array.isArray(values) ? values : [])
-        .map(value => String(value || '').trim())
+        .map(value => colorHex(value))
         .filter(value => /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(value));
 }
 

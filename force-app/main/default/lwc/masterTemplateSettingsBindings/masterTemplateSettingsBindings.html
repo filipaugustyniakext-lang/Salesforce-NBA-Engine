@@ -178,66 +178,72 @@
                                     </lightning-radio-group>
                                 </template>
                                 <template lwc:if={setting.isBackgroundColor}>
-                                    <p class="slds-text-title_caps slds-m-top_small">Color presets</p>
                                     <template for:each={setting.colorRows} for:item="color">
-                                        <div key={color.key} class="settings-preset-row slds-grid slds-grid_vertical-align-center">
-                                            <span class="settings-color-swatch" style={color.swatchStyle}></span>
-                                            <lightning-input variant="label-hidden" value={color.hex} data-setting-key={setting.key} data-index={color.index} onchange={handleColorHexChange}></lightning-input>
-                                            <div class="settings-inline-actions">
+                                        <div key={color.key} class="settings-preset-card">
+                                            <div class="settings-preset-card__fields">
+                                                <span class="settings-color-swatch" style={color.swatchStyle}></span>
+                                                <lightning-input class="settings-preset-card__grow" label="Preset name" value={color.label} data-setting-key={setting.key} data-index={color.index} data-field="label" onchange={handleColorFieldChange}></lightning-input>
+                                                <lightning-input class="settings-preset-card__hex" label="HEX" value={color.hex} data-setting-key={setting.key} data-index={color.index} data-field="hex" onchange={handleColorFieldChange}></lightning-input>
+                                            </div>
+                                            <div class="settings-preset-card__actions">
                                                 <lightning-button-icon size="xx-small" icon-name="utility:preview" alternative-text="Preview color" data-preview-kind="bgColor" data-preview-value={color.hex} data-column-index={setting.columnIndex} data-content-index={setting.contentIndex} onclick={handlePreviewClick}></lightning-button-icon>
                                                 <template lwc:if={color.showSetDefault}>
-                                                    <lightning-button
-                                                        variant="base"
-                                                        label="Set as default"
-                                                        title="Use this color as the block default"
-                                                        data-setting-key={setting.key}
-                                                        data-hex={color.hex}
-                                                        onclick={handleSetDefaultColor}>
-                                                    </lightning-button>
+                                                    <lightning-button variant="base" label="Set as default" data-setting-key={setting.key} data-hex={color.hex} onclick={handleSetDefaultColor}></lightning-button>
                                                 </template>
+                                                <lightning-button-icon size="xx-small" icon-name="utility:delete" alternative-text="Delete preset" data-setting-key={setting.key} data-index={color.index} data-kind="color" onclick={handleDeletePreset}></lightning-button-icon>
                                             </div>
                                         </div>
                                     </template>
-                                    <lightning-button label="Add color" icon-name="utility:add" data-setting-key={setting.key} onclick={handleAddColor}></lightning-button>
+                                    <lightning-button class="slds-m-top_x-small" label="Add Preset" icon-name="utility:add" data-setting-key={setting.key} onclick={handleAddColor}></lightning-button>
                                 </template>
                                 <template lwc:if={setting.isBackgroundGradient}>
                                     <template for:each={setting.gradientRows} for:item="gradient">
-                                        <div key={gradient.key} class="settings-gradient-row slds-m-top_small">
-                                            <lightning-input label="Label" value={gradient.label} data-setting-key={setting.key} data-index={gradient.index} data-field="label" onchange={handleGradientFieldChange}></lightning-input>
+                                        <div key={gradient.key} class="settings-preset-card">
+                                            <lightning-input label="Preset name" value={gradient.label} data-setting-key={setting.key} data-index={gradient.index} data-field="label" onchange={handleGradientFieldChange}></lightning-input>
                                             <lightning-textarea label="Gradient CSS" value={gradient.css} data-setting-key={setting.key} data-index={gradient.index} data-field="css" onchange={handleGradientFieldChange}></lightning-textarea>
                                             <lightning-combobox label="Fallback color" value={gradient.fallbackColor} options={setting.colorOptions} data-setting-key={setting.key} data-index={gradient.index} data-field="fallbackColor" onchange={handleGradientFieldChange}></lightning-combobox>
-                                            <lightning-button-icon size="xx-small" icon-name="utility:preview" alternative-text="Preview gradient" data-preview-kind="bgGradient" data-preview-value={gradient.id} data-column-index={setting.columnIndex} data-content-index={setting.contentIndex} onclick={handlePreviewClick}></lightning-button-icon>
-                                            <lightning-button label="Set default" data-setting-key={setting.key} data-id={gradient.id} onclick={handleSetDefaultGradient}></lightning-button>
+                                            <div class="settings-preset-card__actions">
+                                                <lightning-button-icon size="xx-small" icon-name="utility:preview" alternative-text="Preview gradient" data-preview-kind="bgGradient" data-preview-value={gradient.id} data-column-index={setting.columnIndex} data-content-index={setting.contentIndex} onclick={handlePreviewClick}></lightning-button-icon>
+                                                <template lwc:if={gradient.showSetDefault}>
+                                                    <lightning-button variant="base" label="Set as default" data-setting-key={setting.key} data-id={gradient.id} onclick={handleSetDefaultGradient}></lightning-button>
+                                                </template>
+                                                <lightning-button-icon size="xx-small" icon-name="utility:delete" alternative-text="Delete preset" data-setting-key={setting.key} data-index={gradient.index} data-kind="gradient" onclick={handleDeletePreset}></lightning-button-icon>
+                                            </div>
                                         </div>
                                     </template>
-                                    <lightning-button label="Add gradient" icon-name="utility:add" data-setting-key={setting.key} onclick={handleAddGradient}></lightning-button>
+                                    <lightning-button class="slds-m-top_x-small" label="Add Preset" icon-name="utility:add" data-setting-key={setting.key} onclick={handleAddGradient}></lightning-button>
                                 </template>
                                 <template lwc:if={setting.isBackgroundImage}>
                                     <template for:each={setting.imageRows} for:item="image">
-                                        <div key={image.key} class="settings-image-row slds-box slds-box_xx-small slds-m-top_small">
-                                            <lightning-input label="Image URL" value={image.url} data-setting-key={setting.key} data-index={image.index} data-field="url" onchange={handleImageFieldChange}></lightning-input>
-                                            <div class="slds-grid slds-wrap slds-gutters">
-                                                <div class="slds-col slds-size_1-of-2">
-                                                    <lightning-input label="Desktop position" value={image.positionDesktop} data-setting-key={setting.key} data-index={image.index} data-field="positionDesktop" onchange={handleImageFieldChange}></lightning-input>
+                                        <div key={image.key} class="settings-preset-card">
+                                            <lightning-input label="Preset name" value={image.label} data-setting-key={setting.key} data-index={image.index} data-field="label" onchange={handleImageFieldChange}></lightning-input>
+                                            <lightning-combobox label="Fallback color" value={image.fallbackColor} options={setting.colorOptions} data-setting-key={setting.key} data-index={image.index} data-field="fallbackColor" onchange={handleImageFieldChange}></lightning-combobox>
+                                            <lightning-radio-group class="slds-m-top_x-small" label="Background image" name={image.deviceRadioName} options={image.deviceOptions} value={image.device} type="button" data-preset-key={image.id} onchange={handleImageDeviceChange}></lightning-radio-group>
+                                            <template lwc:if={image.showMobile}>
+                                                <lightning-button variant="base" label="Inherit from desktop" class="slds-m-top_xx-small" data-setting-key={setting.key} data-index={image.index} onclick={handleImageInherit}></lightning-button>
+                                            </template>
+                                            <lightning-input label="Image URL" value={image.activeUrl} data-setting-key={setting.key} data-index={image.index} data-field={image.activeUrlField} onchange={handleImageFieldChange}></lightning-input>
+                                            <div class="slds-grid slds-wrap slds-gutters_x-small">
+                                                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
+                                                    <lightning-input label="Position" value={image.activePosition} data-setting-key={setting.key} data-index={image.index} data-field={image.activePositionField} onchange={handleImageFieldChange}></lightning-input>
                                                 </div>
-                                                <div class="slds-col slds-size_1-of-2">
-                                                    <lightning-input label="Desktop size" value={image.sizeDesktop} data-setting-key={setting.key} data-index={image.index} data-field="sizeDesktop" onchange={handleImageFieldChange}></lightning-input>
+                                                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
+                                                    <lightning-input label="Size" value={image.activeSize} data-setting-key={setting.key} data-index={image.index} data-field={image.activeSizeField} onchange={handleImageFieldChange}></lightning-input>
                                                 </div>
-                                                <div class="slds-col slds-size_1-of-2">
-                                                    <lightning-input label="Mobile position" value={image.positionMobile} data-setting-key={setting.key} data-index={image.index} data-field="positionMobile" onchange={handleImageFieldChange}></lightning-input>
-                                                </div>
-                                                <div class="slds-col slds-size_1-of-2">
-                                                    <lightning-input label="Mobile size" value={image.sizeMobile} data-setting-key={setting.key} data-index={image.index} data-field="sizeMobile" onchange={handleImageFieldChange}></lightning-input>
+                                                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
+                                                    <lightning-input label="Repeat" value={image.activeRepeat} data-setting-key={setting.key} data-index={image.index} data-field={image.activeRepeatField} onchange={handleImageFieldChange}></lightning-input>
                                                 </div>
                                             </div>
-                                            <lightning-combobox label="Fallback color" value={image.fallbackColor} options={setting.colorOptions} data-setting-key={setting.key} data-index={image.index} data-field="fallbackColor" onchange={handleImageFieldChange}></lightning-combobox>
-                                            <lightning-input type="checkbox" label="Desktop" checked={image.desktop} data-setting-key={setting.key} data-index={image.index} data-field="desktop" onchange={handleImageFieldChange}></lightning-input>
-                                            <lightning-input type="checkbox" label="Mobile" checked={image.mobile} data-setting-key={setting.key} data-index={image.index} data-field="mobile" onchange={handleImageFieldChange}></lightning-input>
-                                            <lightning-button-icon size="xx-small" icon-name="utility:preview" alternative-text="Preview image preset" data-preview-kind="bgImage" data-preview-value={image.id} data-column-index={setting.columnIndex} data-content-index={setting.contentIndex} onclick={handlePreviewClick}></lightning-button-icon>
-                                            <lightning-button label="Set default" data-setting-key={setting.key} data-id={image.id} onclick={handleSetDefaultImage}></lightning-button>
+                                            <div class="settings-preset-card__actions">
+                                                <lightning-button-icon size="xx-small" icon-name="utility:preview" alternative-text="Preview image preset" data-preview-kind="bgImage" data-preview-value={image.id} data-column-index={setting.columnIndex} data-content-index={setting.contentIndex} onclick={handlePreviewClick}></lightning-button-icon>
+                                                <template lwc:if={image.showSetDefault}>
+                                                    <lightning-button variant="base" label="Set as default" data-setting-key={setting.key} data-id={image.id} onclick={handleSetDefaultImage}></lightning-button>
+                                                </template>
+                                                <lightning-button-icon size="xx-small" icon-name="utility:delete" alternative-text="Delete preset" data-setting-key={setting.key} data-index={image.index} data-kind="image" onclick={handleDeletePreset}></lightning-button-icon>
+                                            </div>
                                         </div>
                                     </template>
-                                    <lightning-button label="Add image preset" icon-name="utility:add" data-setting-key={setting.key} onclick={handleAddImagePreset}></lightning-button>
+                                    <lightning-button class="slds-m-top_x-small" label="Add Preset" icon-name="utility:add" data-setting-key={setting.key} onclick={handleAddImagePreset}></lightning-button>
                                 </template>
                             </template>
                         </section>
