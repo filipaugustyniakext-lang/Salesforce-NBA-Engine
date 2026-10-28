@@ -1,0 +1,115 @@
+<!--
+  Binding test — HTML_GL_Banner_TextImage
+  Levels: binding-container, binding-column, binding-content
+  Each level: hide desktop/mobile, padding (desktop + mobile), one background token.
+  Background tokens: container-bg, column-bg, content-bg.
+-->
+<!-- Original artboard image, use as a container-bg image preset: https://image.sfnonprod.vodeno.net/lib/fe3011737364057d741c77/m/1/GreenImg.png -->
+<div
+    binding-container
+    class="mob-mar-40 mob-src-blue bind-container-pad {{container-hide-dsk}} {{container-hide-mob}}"
+    align="center"
+    style="margin: 0 auto; max-width: 520px; text-align: center; padding: {{container-pad-dsk}};"
+    {{container-bg}}
+>
+    <style>
+    @media only screen and (min-width: 481px) {
+      .blo-hide-dsk { display: none !important; }
+    }
+    @media only screen and (max-width: 480px) {
+      .blo-hide-mob { display: none !important; }
+      .bind-container-pad { padding: {{container-pad-mob}} !important; }
+    }
+    </style>
+    <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width: 100%;">
+        <tr>
+            <td style="direction: {{column-dir}}; font-size: 0; text-align: center;">
+                <div
+                    binding-column
+                    class="mj-column-per-60 mj-outlook-group-fix bind-col-1-pad {{column-hide-dsk}} {{column-hide-mob}}"
+                    style="font-size: 0; text-align: left; direction: ltr; display: inline-block; vertical-align: middle; width: 100%; padding: {{column-pad-dsk}};"
+                    {{column-bg}}
+                >
+                    <style>
+                    @media only screen and (max-width: 480px) {
+                      .bind-col-1-pad { padding: {{column-pad-mob}} !important; }
+                    }
+                    </style>
+                    <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%">
+                        <tr>
+                            <td
+                                binding-content
+                                class="bind-col-1-content-pad {{content-hide-dsk}} {{content-hide-mob}}"
+                                style="vertical-align: middle; padding: {{content-pad-dsk}};"
+                                {{content-bg}}
+                            >
+                                <style>
+                                @media only screen and (max-width: 480px) {
+                                  .bind-col-1-content-pad { padding: {{content-pad-mob}} !important; }
+                                }
+                                </style>
+                                <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%">
+                                    <tr>
+                                        <td align="left" style="font-size: 0; padding: 0; word-break: break-word;">
+                                            <div style="font-family: Arial, Helvetica, Sans-serif; font-size: 13px; line-height: 150%; text-align: left; color: #ffffff;">
+                                                <h2>Przekazujemy Ci: <br />&lt;voucher do Empik&gt;</h2>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td align="left" style="font-size: 0; padding: 0; word-break: break-word;">
+                                            <div style="font-family: Arial, Helvetica, Sans-serif; font-size: 16px; font-weight: 400; line-height: 1.4; text-align: left; color: #ffffff;">
+                                                Aby go zrealizować wystarczy zrobić zakupy w sklepie stacjonarnym lub online i w trakcie płatności wykorzystać kod rabatowy.
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+                <div
+                    binding-column
+                    class="mj-column-per-40 mj-outlook-group-fix bind-col-2-pad {{column-hide-dsk}} {{column-hide-mob}}"
+                    style="font-size: 0; text-align: left; direction: ltr; display: inline-block; vertical-align: middle; width: 100%; padding: {{column-pad-dsk}};"
+                    {{column-bg}}
+                >
+                    <style>
+                    @media only screen and (max-width: 480px) {
+                      .bind-col-2-pad { padding: {{column-pad-mob}} !important; }
+                    }
+                    </style>
+                    <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%">
+                        <tr>
+                            <td
+                                binding-content
+                                class="bind-col-2-content-pad {{content-hide-dsk}} {{content-hide-mob}}"
+                                align="center"
+                                style="vertical-align: middle; padding: {{content-pad-dsk}};"
+                                {{content-bg}}
+                            >
+                                <style>
+                                @media only screen and (max-width: 480px) {
+                                  .bind-col-2-content-pad { padding: {{content-pad-mob}} !important; }
+                                }
+                                </style>
+                                <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="border-collapse: collapse;">
+                                    <tr>
+                                        <td style="width: 224px;">
+                                            <img
+                                                alt="Cupon"
+                                                src="https://image.sfnonprod.vodeno.net/lib/fe3011737364057d741c77/m/1/V2_Cupon.png"
+                                                style="border: 0; display: block; outline: none; text-decoration: none; height: auto; width: 100%;"
+                                                width="224"
+                                            />
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </td>
+        </tr>
+    </table>
+</div>

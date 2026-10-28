@@ -48,7 +48,7 @@
                                         <span>Image | Text</span>
                                     </button>
                                     <lightning-button-icon
-                                        icon-name="utility:preview"
+                                        size="xx-small" icon-name="utility:preview"
                                         alternative-text="Preview column direction"
                                         title="Preview in block panel"
                                         data-preview-kind="columnDirection"
@@ -56,6 +56,26 @@
                                         data-preview-device={setting.device}
                                         onclick={handlePreviewClick}>
                                     </lightning-button-icon>
+                                </div>
+                            </template>
+                            <template lwc:if={setting.isHidePair}>
+                                <div class="settings-inline-row slds-m-top_x-small">
+                                    <lightning-input type="checkbox" label="Enable hide on desktop" checked={setting.hideDesktopEnabled} data-path={setting.hideDesktopEnablePath} onchange={handleEnableChange}></lightning-input>
+                                    <lightning-input type="checkbox" label="Enable hide on mobile" checked={setting.hideMobileEnabled} data-path={setting.hideMobileEnablePath} onchange={handleEnableChange}></lightning-input>
+                                </div>
+                                <div class="hide-pair-row">
+                                    <template lwc:if={setting.hideDesktopEnabled}>
+                                        <div class="hide-pair-row__item">
+                                            <lightning-radio-group label="View on desktop" name={setting.hideDesktopRadioName} options={setting.visibilityOptions} value={setting.visibilityDesktop} type="button" data-path={setting.hideDesktopPath} onchange={handleHideDefaultChange}></lightning-radio-group>
+                                            <lightning-button-icon size="xx-small" icon-name="utility:preview" alternative-text="Preview desktop visibility" data-preview-kind="hideDesktop" data-preview-value={setting.visibilityDesktop} data-column-index={setting.columnIndex} data-content-index={setting.contentIndex} onclick={handlePreviewClick}></lightning-button-icon>
+                                        </div>
+                                    </template>
+                                    <template lwc:if={setting.hideMobileEnabled}>
+                                        <div class="hide-pair-row__item">
+                                            <lightning-radio-group label="View on mobile" name={setting.hideMobileRadioName} options={setting.visibilityOptions} value={setting.visibilityMobile} type="button" data-path={setting.hideMobilePath} onchange={handleHideDefaultChange}></lightning-radio-group>
+                                            <lightning-button-icon size="xx-small" icon-name="utility:preview" alternative-text="Preview mobile visibility" data-preview-kind="hideMobile" data-preview-value={setting.visibilityMobile} data-column-index={setting.columnIndex} data-content-index={setting.contentIndex} onclick={handlePreviewClick}></lightning-button-icon>
+                                        </div>
+                                    </template>
                                 </div>
                             </template>
                             <template lwc:if={setting.enabled}>
@@ -72,7 +92,7 @@
                                         </lightning-radio-group>
                                         <div class="settings-inline-actions">
                                             <lightning-button-icon
-                                                icon-name="utility:preview"
+                                                size="xx-small" icon-name="utility:preview"
                                                 alternative-text="Preview visibility default"
                                                 title="Preview in block panel"
                                                 data-preview-kind={setting.key}
@@ -95,7 +115,7 @@
                                         </lightning-radio-group>
                                         <div class="settings-inline-actions">
                                             <lightning-button-icon
-                                                icon-name="utility:preview"
+                                                size="xx-small" icon-name="utility:preview"
                                                 alternative-text="Preview padding"
                                                 title="Temporarily preview in block panel"
                                                 data-setting-key={setting.key}
@@ -116,6 +136,7 @@
                                             label="Inherit from desktop"
                                             title="Copy desktop padding to mobile"
                                             class="slds-m-vertical_x-small"
+                                            data-setting-key={setting.key}
                                             data-column-index={setting.columnIndex}
                                             onclick={handlePadInherit}>
                                         </lightning-button>
@@ -144,14 +165,26 @@
                                         </div>
                                     </div>
                                 </template>
+                                <template lwc:if={setting.isBackgroundStyle}>
+                                    <lightning-radio-group
+                                        class="slds-m-top_small"
+                                        label="Background style"
+                                        name={setting.bgModeRadioName}
+                                        options={setting.bgModeOptions}
+                                        value={setting.bgMode}
+                                        type="button"
+                                        data-path={setting.bgModePath}
+                                        onchange={handleBgModeChange}>
+                                    </lightning-radio-group>
+                                </template>
                                 <template lwc:if={setting.isBackgroundColor}>
-                                    <p class="slds-form-element__label slds-m-top_small">Color presets</p>
+                                    <p class="slds-text-title_caps slds-m-top_small">Color presets</p>
                                     <template for:each={setting.colorRows} for:item="color">
                                         <div key={color.key} class="settings-preset-row slds-grid slds-grid_vertical-align-center">
                                             <span class="settings-color-swatch" style={color.swatchStyle}></span>
                                             <lightning-input variant="label-hidden" value={color.hex} data-setting-key={setting.key} data-index={color.index} onchange={handleColorHexChange}></lightning-input>
                                             <div class="settings-inline-actions">
-                                                <lightning-button-icon icon-name="utility:preview" alternative-text="Preview color" data-preview-kind="bgColor" data-preview-value={color.hex} data-column-index={setting.columnIndex} onclick={handlePreviewClick}></lightning-button-icon>
+                                                <lightning-button-icon size="xx-small" icon-name="utility:preview" alternative-text="Preview color" data-preview-kind="bgColor" data-preview-value={color.hex} data-column-index={setting.columnIndex} data-content-index={setting.contentIndex} onclick={handlePreviewClick}></lightning-button-icon>
                                                 <template lwc:if={color.showSetDefault}>
                                                     <lightning-button
                                                         variant="base"
@@ -173,7 +206,7 @@
                                             <lightning-input label="Label" value={gradient.label} data-setting-key={setting.key} data-index={gradient.index} data-field="label" onchange={handleGradientFieldChange}></lightning-input>
                                             <lightning-textarea label="Gradient CSS" value={gradient.css} data-setting-key={setting.key} data-index={gradient.index} data-field="css" onchange={handleGradientFieldChange}></lightning-textarea>
                                             <lightning-combobox label="Fallback color" value={gradient.fallbackColor} options={setting.colorOptions} data-setting-key={setting.key} data-index={gradient.index} data-field="fallbackColor" onchange={handleGradientFieldChange}></lightning-combobox>
-                                            <lightning-button-icon icon-name="utility:preview" alternative-text="Preview gradient" data-preview-kind="bgGradient" data-preview-value={gradient.id} data-column-index={setting.columnIndex} onclick={handlePreviewClick}></lightning-button-icon>
+                                            <lightning-button-icon size="xx-small" icon-name="utility:preview" alternative-text="Preview gradient" data-preview-kind="bgGradient" data-preview-value={gradient.id} data-column-index={setting.columnIndex} data-content-index={setting.contentIndex} onclick={handlePreviewClick}></lightning-button-icon>
                                             <lightning-button label="Set default" data-setting-key={setting.key} data-id={gradient.id} onclick={handleSetDefaultGradient}></lightning-button>
                                         </div>
                                     </template>
@@ -185,22 +218,22 @@
                                             <lightning-input label="Image URL" value={image.url} data-setting-key={setting.key} data-index={image.index} data-field="url" onchange={handleImageFieldChange}></lightning-input>
                                             <div class="slds-grid slds-wrap slds-gutters">
                                                 <div class="slds-col slds-size_1-of-2">
-                                                    <lightning-input label="Position X" value={image.positionX} data-setting-key={setting.key} data-index={image.index} data-field="positionX" onchange={handleImageFieldChange}></lightning-input>
+                                                    <lightning-input label="Desktop position" value={image.positionDesktop} data-setting-key={setting.key} data-index={image.index} data-field="positionDesktop" onchange={handleImageFieldChange}></lightning-input>
                                                 </div>
                                                 <div class="slds-col slds-size_1-of-2">
-                                                    <lightning-input label="Position Y" value={image.positionY} data-setting-key={setting.key} data-index={image.index} data-field="positionY" onchange={handleImageFieldChange}></lightning-input>
+                                                    <lightning-input label="Desktop size" value={image.sizeDesktop} data-setting-key={setting.key} data-index={image.index} data-field="sizeDesktop" onchange={handleImageFieldChange}></lightning-input>
                                                 </div>
                                                 <div class="slds-col slds-size_1-of-2">
-                                                    <lightning-input label="Background repeat" value={image.backgroundRepeat} data-setting-key={setting.key} data-index={image.index} data-field="backgroundRepeat" onchange={handleImageFieldChange}></lightning-input>
+                                                    <lightning-input label="Mobile position" value={image.positionMobile} data-setting-key={setting.key} data-index={image.index} data-field="positionMobile" onchange={handleImageFieldChange}></lightning-input>
                                                 </div>
                                                 <div class="slds-col slds-size_1-of-2">
-                                                    <lightning-input label="Background size" value={image.backgroundSize} data-setting-key={setting.key} data-index={image.index} data-field="backgroundSize" onchange={handleImageFieldChange}></lightning-input>
+                                                    <lightning-input label="Mobile size" value={image.sizeMobile} data-setting-key={setting.key} data-index={image.index} data-field="sizeMobile" onchange={handleImageFieldChange}></lightning-input>
                                                 </div>
                                             </div>
                                             <lightning-combobox label="Fallback color" value={image.fallbackColor} options={setting.colorOptions} data-setting-key={setting.key} data-index={image.index} data-field="fallbackColor" onchange={handleImageFieldChange}></lightning-combobox>
                                             <lightning-input type="checkbox" label="Desktop" checked={image.desktop} data-setting-key={setting.key} data-index={image.index} data-field="desktop" onchange={handleImageFieldChange}></lightning-input>
                                             <lightning-input type="checkbox" label="Mobile" checked={image.mobile} data-setting-key={setting.key} data-index={image.index} data-field="mobile" onchange={handleImageFieldChange}></lightning-input>
-                                            <lightning-button-icon icon-name="utility:preview" alternative-text="Preview image preset" data-preview-kind="bgImage" data-preview-value={image.id} data-column-index={setting.columnIndex} onclick={handlePreviewClick}></lightning-button-icon>
+                                            <lightning-button-icon size="xx-small" icon-name="utility:preview" alternative-text="Preview image preset" data-preview-kind="bgImage" data-preview-value={image.id} data-column-index={setting.columnIndex} data-content-index={setting.contentIndex} onclick={handlePreviewClick}></lightning-button-icon>
                                             <lightning-button label="Set default" data-setting-key={setting.key} data-id={image.id} onclick={handleSetDefaultImage}></lightning-button>
                                         </div>
                                     </template>

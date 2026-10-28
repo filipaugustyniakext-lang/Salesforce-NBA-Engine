@@ -60,21 +60,35 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
             ...setting,
             sectionKey,
             enablePath: this._enablePath(setting),
-            showEnable: setting.type !== 'columnDirection',
+            showEnable: setting.type !== 'columnDirection' && setting.type !== 'hidePair',
             isHideDefault: setting.type === 'hideDefault',
+            isHidePair: setting.type === 'hidePair',
             isPadding: setting.type === 'padding',
-            isBackgroundColor: setting.type === 'backgroundColor',
-            isBackgroundImage: setting.type === 'backgroundImage',
-            isBackgroundGradient: setting.type === 'backgroundGradient',
+            isBackgroundStyle: setting.type === 'backgroundStyle',
+            isBackgroundColor: setting.type === 'backgroundColor' || setting.type === 'backgroundStyle',
+            isBackgroundImage: setting.type === 'backgroundImage' || setting.type === 'backgroundStyle',
+            isBackgroundGradient: setting.type === 'backgroundGradient' || setting.type === 'backgroundStyle',
             isColumnDirection: setting.type === 'columnDirection',
-            hideDefaultPath: setting.key === 'hideMobile' ? 'defaultHideMobile' : 'defaultHideDesktop',
-            padDesktopPath: setting.columnIndex === undefined
+            hideDefaultPath: setting.hideDefaultPath || (setting.key === 'hideMobile' ? 'defaultHideMobile' : 'defaultHideDesktop'),
+            padDesktopPath: setting.padDesktopPath || (setting.columnIndex === undefined
                 ? 'defaultPadDesktop'
-                : `columns[${setting.columnIndex}].defaultPadDesktop`,
-            padMobilePath: setting.columnIndex === undefined
+                : `columns[${setting.columnIndex}].defaultPadDesktop`),
+            padMobilePath: setting.padMobilePath || (setting.columnIndex === undefined
                 ? 'defaultPadMobile'
-                : `columns[${setting.columnIndex}].defaultPadMobile`
+                : `columns[${setting.columnIndex}].defaultPadMobile`),
+            enablePath: setting.enablePath || this._enablePath(setting)
         };
+        if (setting.type === 'hidePair') {
+            return {
+                ...base,
+                visibilityOptions: VISIBILITY_RADIO_OPTIONS,
+                visibilityDesktop: setting.hiddenDesktop ? 'hidden' : 'visible',
+                visibilityMobile: setting.hiddenMobile ? 'hidden' : 'visible',
+                hideDesktopRadioName: `visibility-dsk-${setting.key}`,
+                hideMobileRadioName: `visibility-mob-${setting.key}`,
+                placeholders: [setting.hideDesktopToken, setting.hideMobileToken].filter(Boolean)
+            };
+        }
         if (setting.type === 'hideDefault') {
             const hidden = !!setting.hiddenByDefault;
             return {
@@ -118,9 +132,8 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
                 showPadInherit: padDevice === 'mobile'
             };
         }
-        if (setting.type === 'backgroundColor') {
-            return {
-                ...base,
+        if (setting.type === 'backgroundColor' || setting.type === 'backgroundStyle') {
+            const rows = {
                 colorRows: (setting.colors || []).map((hex, index) => ({
                     key: `${setting.key}-color-${index}`,
                     index,
@@ -128,6 +141,30 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
                     swatchStyle: `background-color:${safeSwatchHex(hex)}`,
                     isDefault: setting.defaultColor === hex,
                     showSetDefault: setting.defaultColor !== hex
+                })),
+                colorOptions: (setting.colorOptions || setting.colors || []).map(hex => ({ label: hex, value: hex }))
+            };
+            if (setting.type !== 'backgroundStyle') return { ...base, ...rows };
+            return {
+                ...base,
+                ...rows,
+                bgModeOptions: [
+                    { label: 'Color', value: 'color' },
+                    { label: 'Gradient', value: 'gradient' },
+                    { label: 'Image', value: 'image' }
+                ],
+                bgModeRadioName: `bg-mode-${setting.key}`,
+                gradientRows: (setting.gradients || []).map((item, index) => ({
+                    ...normalizeGradientPreset(item, index),
+                    key: `${setting.key}-gradient-${index}`,
+                    index,
+                    isDefault: setting.defaultGradientId === item.id
+                })),
+                imageRows: (setting.presets || []).map((item, index) => ({
+                    ...normalizeImagePreset(item, index),
+                    key: `${setting.key}-image-${index}`,
+                    index,
+                    isDefault: setting.defaultPresetId === item.id
                 }))
             };
         }
@@ -190,11 +227,22 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
     }
 
     handleHideDefaultChange(event) {
+        const path = event.currentTarget.dataset.path;
+        if (path) {
+            this._patch(path, event.detail.value === 'hidden');
+            return;
+        }
         const settingKey = event.currentTarget.dataset.settingKey;
         const setting = this._findSetting(settingKey);
         if (!setting) return;
         const hidden = event.detail.value === 'hidden';
         this._patch(setting.hideDefaultPath, hidden);
+    }
+
+    handleBgModeChange(event) {
+        const path = event.currentTarget.dataset.path;
+        if (!path) return;
+        this._patch(path, event.detail.value);
     }
 
     handlePadDeviceChange(event) {
@@ -221,35 +269,26 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
     handlePadChange(event) {
         const path = event.currentTarget.dataset.path;
         const side = event.currentTarget.dataset.side;
-        const columnIndex = event.currentTarget.dataset.columnIndex;
         const value = event.detail?.value ?? event.target?.value ?? '0';
         const layout = mergeStudioLayoutDefaults(this._layoutConfig, this.scan);
-        const current = path.includes('columns[')
-            ? this._readColumnPad(layout, path)
-            : (path.includes('Mobile') ? layout.defaultPadMobile : layout.defaultPadDesktop);
+        const current = this._readPath(layout, path);
         const nextPad = { ...normalizePad(current), [side]: String(value) };
         let next = patchLayoutConfig(this._layoutConfig, this.scan, { path, value: nextPad });
-        if (path.includes('Mobile')) {
-            const inheritPath = columnIndex === undefined || columnIndex === ''
-                ? 'padMobileInherit'
-                : `columns[${columnIndex}].padMobileInherit`;
+        if (String(path).endsWith('defaultPadMobile')) {
+            const inheritPath = path.replace(/defaultPadMobile$/, 'padMobileInherit');
             next = patchLayoutConfig(next, this.scan, { path: inheritPath, value: false });
         }
         this._emitLayout(next);
     }
 
     handlePadInherit(event) {
-        const columnIndex = event.currentTarget.dataset.columnIndex;
-        const inheritPath = columnIndex === undefined || columnIndex === ''
-            ? 'padMobileInherit'
-            : `columns[${columnIndex}].padMobileInherit`;
+        const setting = this._findSetting(event.currentTarget.dataset.settingKey);
+        if (!setting) return;
+        const prefix = setting.pathPrefix || '';
+        const inheritPath = `${prefix}padMobileInherit`;
         const layout = mergeStudioLayoutDefaults(this._layoutConfig, this.scan);
-        const desktop = columnIndex === undefined || columnIndex === ''
-            ? layout.defaultPadDesktop
-            : layout.columns[Number(columnIndex)]?.defaultPadDesktop;
-        const mobilePath = columnIndex === undefined || columnIndex === ''
-            ? 'defaultPadMobile'
-            : `columns[${columnIndex}].defaultPadMobile`;
+        const desktop = this._readPath(layout, `${prefix}defaultPadDesktop`);
+        const mobilePath = `${prefix}defaultPadMobile`;
         let next = patchLayoutConfig(this._layoutConfig, this.scan, { path: inheritPath, value: true });
         next = patchLayoutConfig(next, this.scan, { path: mobilePath, value: desktop });
         this._emitLayout(next);
@@ -267,17 +306,16 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
         const setting = this._findSetting(settingKey);
         if (!setting) return;
         const columnIndex = setting.columnIndex === undefined ? null : setting.columnIndex;
+        const contentIndex = setting.contentIndex === undefined ? null : setting.contentIndex;
         const pad = normalizePad(setting.activePad);
-        this._preview({ kind: 'padding', value: pad, columnIndex });
+        this._preview({ kind: 'padding', value: pad, columnIndex, contentIndex });
     }
 
     handleAddColor(event) {
         const settingKey = event.currentTarget.dataset.settingKey;
         const setting = this._findSetting(settingKey);
         if (!setting) return;
-        const path = setting.columnIndex === undefined
-            ? 'backgroundColors'
-            : `columns[${setting.columnIndex}].backgroundColors`;
+        const path = this._scoped(setting, 'backgroundColors');
         const colors = [...(setting.colorRows || []).map(row => row.hex), '#FFFFFF'];
         this._patch(path, colors);
     }
@@ -290,9 +328,7 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
         const hex = String(event.detail?.value ?? event.target?.value ?? '').trim();
         const colors = (setting.colorRows || []).map(row => row.hex);
         colors[index] = hex;
-        const path = setting.columnIndex === undefined
-            ? 'backgroundColors'
-            : `columns[${setting.columnIndex}].backgroundColors`;
+        const path = this._scoped(setting, 'backgroundColors');
         this._patch(path, colors);
     }
 
@@ -301,9 +337,7 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
         const hex = event.currentTarget.dataset.hex;
         const setting = this._findSetting(settingKey);
         if (!setting) return;
-        const path = setting.columnIndex === undefined
-            ? 'defaultBgColor'
-            : `columns[${setting.columnIndex}].defaultBgColor`;
+        const path = this._scoped(setting, 'defaultBgColor');
         this._patch(path, hex);
         this._clearPreview();
     }
@@ -312,7 +346,7 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
         const settingKey = event.currentTarget.dataset.settingKey;
         const setting = this._findSetting(settingKey);
         if (!setting) return;
-        const path = setting.columnIndex === undefined ? 'gradients' : `columns[${setting.columnIndex}].gradients`;
+        const path = this._scoped(setting, 'gradients');
         const gradients = [...(setting.gradientRows || []), {
             id: `gradient-${Date.now()}`,
             label: 'New gradient',
@@ -332,7 +366,7 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
         const gradients = (setting.gradientRows || []).map((item, idx) => (
             idx === index ? { ...item, [field]: value } : item
         ));
-        const path = setting.columnIndex === undefined ? 'gradients' : `columns[${setting.columnIndex}].gradients`;
+        const path = this._scoped(setting, 'gradients');
         this._patch(path, gradients);
     }
 
@@ -341,9 +375,7 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
         const id = event.currentTarget.dataset.id;
         const setting = this._findSetting(settingKey);
         if (!setting) return;
-        const path = setting.columnIndex === undefined
-            ? 'defaultGradientId'
-            : `columns[${setting.columnIndex}].defaultGradientId`;
+        const path = this._scoped(setting, 'defaultGradientId');
         this._patch(path, id);
     }
 
@@ -351,9 +383,7 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
         const settingKey = event.currentTarget.dataset.settingKey;
         const setting = this._findSetting(settingKey);
         if (!setting) return;
-        const path = setting.columnIndex === undefined
-            ? 'backgroundImagePresets'
-            : `columns[${setting.columnIndex}].backgroundImagePresets`;
+        const path = this._scoped(setting, 'backgroundImagePresets');
         const presets = [...(setting.imageRows || []), {
             id: `bg-image-${Date.now()}`,
             label: 'Background image',
@@ -364,6 +394,10 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
             positionY: 'center',
             backgroundRepeat: 'no-repeat',
             backgroundSize: 'cover',
+            positionDesktop: 'center',
+            sizeDesktop: 'cover',
+            positionMobile: 'center',
+            sizeMobile: 'cover',
             fallbackColor: (setting.colorOptions || [])[0] || ''
         }];
         this._patch(path, presets);
@@ -381,9 +415,7 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
         const presets = (setting.imageRows || []).map((item, idx) => (
             idx === index ? { ...item, [field]: value } : item
         ));
-        const path = setting.columnIndex === undefined
-            ? 'backgroundImagePresets'
-            : `columns[${setting.columnIndex}].backgroundImagePresets`;
+        const path = this._scoped(setting, 'backgroundImagePresets');
         this._patch(path, presets);
     }
 
@@ -392,9 +424,7 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
         const id = event.currentTarget.dataset.id;
         const setting = this._findSetting(settingKey);
         if (!setting) return;
-        const path = setting.columnIndex === undefined
-            ? 'defaultBgImagePresetId'
-            : `columns[${setting.columnIndex}].defaultBgImagePresetId`;
+        const path = this._scoped(setting, 'defaultBgImagePresetId');
         this._patch(path, id);
     }
 
@@ -405,8 +435,12 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
         const columnIndex = columnIndexRaw === undefined || columnIndexRaw === ''
             ? null
             : Number(columnIndexRaw);
+        const contentIndexRaw = event.currentTarget.dataset.contentIndex;
+        const contentIndex = contentIndexRaw === undefined || contentIndexRaw === ''
+            ? null
+            : Number(contentIndexRaw);
         const device = event.currentTarget.dataset.previewDevice || undefined;
-        this._preview({ kind, value, columnIndex, device });
+        this._preview({ kind, value, columnIndex, contentIndex, device });
     }
 
     _findSetting(settingKey) {
@@ -417,11 +451,13 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
         return null;
     }
 
-    _readColumnPad(layout, path) {
-        const match = path.match(/columns\[(\d+)\]\.(defaultPadDesktop|defaultPadMobile)/);
-        if (!match) return normalizePad({});
-        const col = layout.columns[Number(match[1])] || {};
-        return normalizePad(col[match[2]]);
+    _readPath(root, path) {
+        const parts = String(path || '').replace(/\[(\d+)\]/g, '.$1').split('.').filter(Boolean);
+        return parts.reduce((cursor, part) => (cursor == null ? undefined : cursor[part]), root);
+    }
+
+    _scoped(setting, field) {
+        return `${setting?.pathPrefix || ''}${field}`;
     }
 
     _patch(path, value) {

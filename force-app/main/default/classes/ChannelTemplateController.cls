@@ -1241,7 +1241,10 @@ public with sharing class ChannelTemplateController {
         return new Set<String>{
             'blo-hide-dsk', 'blo-hide-mob', 'blo-pad-dsk', 'blo-pad-mob',
             'blo-bg-color', 'blo-bg-img', 'blo-bg-grd', 'column-dir',
-            'col-pad-dsk', 'col-pad-mob', 'col-bg-color', 'col-bg-image', 'col-bg-gradient'
+            'col-pad-dsk', 'col-pad-mob', 'col-bg-color', 'col-bg-image', 'col-bg-gradient',
+            'container-hide-dsk', 'container-hide-mob', 'container-pad-dsk', 'container-pad-mob', 'container-bg',
+            'column-hide-dsk', 'column-hide-mob', 'column-pad-dsk', 'column-pad-mob', 'column-bg',
+            'content-hide-dsk', 'content-hide-mob', 'content-pad-dsk', 'content-pad-mob', 'content-bg'
         }.contains(name);
     }
 

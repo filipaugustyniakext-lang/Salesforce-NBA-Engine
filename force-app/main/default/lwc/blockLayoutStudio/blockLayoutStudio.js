@@ -1,4 +1,4 @@
-import { alignLayout, emptyColumnLayout } from 'c/contentBindingModel';
+import { alignLayout, buildBackgroundPayload, emptyColumnLayout } from 'c/contentBindingModel';
 
 const PAD_SIDES = ['top', 'right', 'bottom', 'left'];
 
@@ -35,6 +35,10 @@ export function normalizeImagePreset(item, index) {
         positionY: String(item?.positionY || 'center'),
         backgroundRepeat: String(item?.backgroundRepeat || 'no-repeat'),
         backgroundSize: String(item?.backgroundSize || 'cover'),
+        positionDesktop: String(item?.positionDesktop || item?.positionX || 'center'),
+        sizeDesktop: String(item?.sizeDesktop || item?.backgroundSize || 'cover'),
+        positionMobile: String(item?.positionMobile || item?.positionDesktop || item?.positionX || 'center'),
+        sizeMobile: String(item?.sizeMobile || item?.sizeDesktop || item?.backgroundSize || 'cover'),
         fallbackColor: String(item?.fallbackColor || '')
     };
 }
@@ -67,6 +71,10 @@ export function mergeStudioLayoutDefaults(layout, scan) {
         ).map(normalizeImagePreset),
         backgroundColors: cleanColorList(source.backgroundColors, aligned.backgroundColors),
         gradients: cleanGradientList(source.gradients, aligned.gradients),
+        background: source.background != null ? !!source.background : !!aligned.background,
+        defaultBgMode: source.defaultBgMode === 'gradient' || source.defaultBgMode === 'image'
+            ? source.defaultBgMode
+            : 'color',
         defaultColumnDirDesktop: source.defaultColumnDirDesktop === 'rtl' ? 'rtl' : 'ltr',
         defaultColumnDirMobile: source.defaultColumnDirMobile === 'rtl' ? 'rtl' : 'ltr',
         columns: (scan?.columns || []).map((column, index) => {
@@ -84,11 +92,50 @@ export function mergeStudioLayoutDefaults(layout, scan) {
                 ),
                 backgroundColors: cleanColorList(colSource.backgroundColors, colAligned.backgroundColors),
                 gradients: cleanGradientList(colSource.gradients, colAligned.gradients),
+                background: colSource.background != null ? !!colSource.background : !!colAligned.background,
+                hideDesktop: colSource.hideDesktop != null ? !!colSource.hideDesktop : !!colAligned.hideDesktop,
+                hideMobile: colSource.hideMobile != null ? !!colSource.hideMobile : !!colAligned.hideMobile,
+                defaultBgMode: colSource.defaultBgMode === 'gradient' || colSource.defaultBgMode === 'image'
+                    ? colSource.defaultBgMode
+                    : 'color',
+                defaultHideDesktop: !!colSource.defaultHideDesktop,
+                defaultHideMobile: !!colSource.defaultHideMobile,
                 backgroundImagePresets: (Array.isArray(colSource.backgroundImagePresets)
                     && colSource.backgroundImagePresets.length
                     ? colSource.backgroundImagePresets
                     : colAligned.backgroundImagePresets || []
-                ).map(normalizeImagePreset)
+                ).map(normalizeImagePreset),
+                contents: (column.contents || []).map((content, contentIndex) => {
+                    const saved = (colSource.contents || [])[contentIndex] || {};
+                    const alignedContent = (colAligned.contents || [])[contentIndex] || {};
+                    return {
+                        ...alignedContent,
+                        padding: saved.padding != null ? !!saved.padding : !!alignedContent.padding,
+                        background: saved.background != null ? !!saved.background : !!alignedContent.background,
+                        hideDesktop: saved.hideDesktop != null ? !!saved.hideDesktop : !!alignedContent.hideDesktop,
+                        hideMobile: saved.hideMobile != null ? !!saved.hideMobile : !!alignedContent.hideMobile,
+                        backgroundColor: !!saved.backgroundColor,
+                        backgroundImage: !!saved.backgroundImage,
+                        backgroundGradient: !!saved.backgroundGradient,
+                        defaultHideDesktop: !!saved.defaultHideDesktop,
+                        defaultHideMobile: !!saved.defaultHideMobile,
+                        defaultPadDesktop: normalizePad(saved.defaultPadDesktop),
+                        defaultPadMobile: normalizePad(saved.defaultPadMobile),
+                        padMobileInherit: saved.padMobileInherit !== false,
+                        defaultBgColor: String(saved.defaultBgColor || ''),
+                        defaultBgMode: saved.defaultBgMode === 'gradient' || saved.defaultBgMode === 'image'
+                            ? saved.defaultBgMode
+                            : 'color',
+                        defaultGradientId: String(saved.defaultGradientId || ''),
+                        defaultBgImagePresetId: String(saved.defaultBgImagePresetId || ''),
+                        backgroundColors: cleanColorList(saved.backgroundColors, alignedContent.backgroundColors),
+                        gradients: cleanGradientList(saved.gradients, alignedContent.gradients),
+                        backgroundImagePresets: (Array.isArray(saved.backgroundImagePresets)
+                            ? saved.backgroundImagePresets
+                            : []
+                        ).map(normalizeImagePreset)
+                    };
+                })
             };
         })
     };
@@ -100,6 +147,155 @@ function placeholderBadge(name) {
 
 function settingRow(config) {
     return { ...config, placeholderLabel: config.placeholder ? placeholderBadge(config.placeholder) : '' };
+}
+
+const HIDE_DESKTOP_TOKENS = ['container-hide-dsk', 'blo-hide-dsk', 'column-hide-dsk', 'content-hide-dsk'];
+const HIDE_MOBILE_TOKENS = ['container-hide-mob', 'blo-hide-mob', 'column-hide-mob', 'content-hide-mob'];
+const PAD_DESKTOP_TOKENS = ['container-pad-dsk', 'blo-pad-dsk', 'column-pad-dsk', 'col-pad-dsk', 'content-pad-dsk'];
+const PAD_MOBILE_TOKENS = ['container-pad-mob', 'blo-pad-mob', 'column-pad-mob', 'col-pad-mob', 'content-pad-mob'];
+const BG_TOKENS = ['container-bg', 'column-bg', 'content-bg'];
+
+function firstToken(names, candidates) {
+    return (candidates || []).find(name => (names || []).includes(name)) || '';
+}
+
+function sectionPlaceholders(settings) {
+    return settings.flatMap(row => (
+        row.placeholders?.length
+            ? row.placeholders.map(placeholderBadge)
+            : (row.placeholder ? [placeholderBadge(row.placeholder)] : [])
+    ));
+}
+
+function appendRegionSettings(settings, region, config, scope) {
+    const names = region?.placeholders || [];
+    const prefix = scope.prefix || '';
+    const hideDesktopToken = firstToken(names, HIDE_DESKTOP_TOKENS);
+    const hideMobileToken = firstToken(names, HIDE_MOBILE_TOKENS);
+    if (hideDesktopToken && hideMobileToken) {
+        settings.push(settingRow({
+            key: `${scope.id}-hide`,
+            type: 'hidePair',
+            label: 'Visibility',
+            pathPrefix: prefix,
+            columnIndex: scope.columnIndex,
+            contentIndex: scope.contentIndex,
+            hideDesktopToken,
+            hideMobileToken,
+            hideDesktopEnabled: !!config.hideDesktop,
+            hideMobileEnabled: !!config.hideMobile,
+            hiddenDesktop: !!config.defaultHideDesktop,
+            hiddenMobile: !!config.defaultHideMobile,
+            hideDesktopEnablePath: `${prefix}hideDesktop`,
+            hideMobileEnablePath: `${prefix}hideMobile`,
+            hideDesktopPath: `${prefix}defaultHideDesktop`,
+            hideMobilePath: `${prefix}defaultHideMobile`,
+            placeholders: [hideDesktopToken, hideMobileToken]
+        }));
+    } else if (hideDesktopToken || hideMobileToken) {
+        const token = hideDesktopToken || hideMobileToken;
+        settings.push(settingRow({
+            key: `${scope.id}-hide`,
+            type: 'hideDefault',
+            label: hideMobileToken ? 'Hide on mobile' : 'Hide on desktop',
+            device: hideMobileToken ? 'mobile' : 'desktop',
+            placeholder: token,
+            pathPrefix: prefix,
+            columnIndex: scope.columnIndex,
+            contentIndex: scope.contentIndex,
+            enabled: hideMobileToken ? !!config.hideMobile : !!config.hideDesktop,
+            hiddenByDefault: hideMobileToken ? !!config.defaultHideMobile : !!config.defaultHideDesktop,
+            hideDefaultPath: hideMobileToken ? `${prefix}defaultHideMobile` : `${prefix}defaultHideDesktop`,
+            enablePath: hideMobileToken ? `${prefix}hideMobile` : `${prefix}hideDesktop`
+        }));
+    }
+    const padDesktopToken = firstToken(names, PAD_DESKTOP_TOKENS);
+    const padMobileToken = firstToken(names, PAD_MOBILE_TOKENS);
+    if (padDesktopToken || padMobileToken || region?.padDesktop || region?.padMobile) {
+        const placeholders = [padDesktopToken, padMobileToken].filter(Boolean);
+        if (placeholders.length || region?.padDesktop || region?.padMobile) {
+            settings.push(settingRow({
+                key: `${scope.id}-padding`,
+                type: 'padding',
+                label: 'Padding',
+                pathPrefix: prefix,
+                columnIndex: scope.columnIndex,
+                contentIndex: scope.contentIndex,
+                placeholders: placeholders.length ? placeholders : undefined,
+                enabled: !!config.padding,
+                enablePath: `${prefix}padding`,
+                padDesktopPath: `${prefix}defaultPadDesktop`,
+                padMobilePath: `${prefix}defaultPadMobile`,
+                padDesktop: config.defaultPadDesktop,
+                padMobile: config.defaultPadMobile,
+                padMobileInherit: config.padMobileInherit
+            }));
+        }
+    }
+    const backgroundToken = firstToken(names, BG_TOKENS);
+    if (backgroundToken) {
+        settings.push(settingRow({
+            key: `${scope.id}-background`,
+            type: 'backgroundStyle',
+            label: 'Background style',
+            placeholder: backgroundToken,
+            pathPrefix: prefix,
+            columnIndex: scope.columnIndex,
+            contentIndex: scope.contentIndex,
+            enabled: !!config.background,
+            enablePath: `${prefix}background`,
+            bgMode: config.defaultBgMode || 'color',
+            bgModePath: `${prefix}defaultBgMode`,
+            colors: config.backgroundColors || [],
+            defaultColor: config.defaultBgColor,
+            gradients: config.gradients || [],
+            defaultGradientId: config.defaultGradientId,
+            presets: config.backgroundImagePresets || [],
+            defaultPresetId: config.defaultBgImagePresetId,
+            colorOptions: config.backgroundColors || []
+        }));
+    }
+    if (!backgroundToken && (region?.bgColor || names.includes('blo-bg-color') || names.includes('col-bg-color'))) {
+        settings.push(settingRow({
+            key: `${scope.id}-bgColor`,
+            type: 'backgroundColor',
+            label: 'Background color',
+            placeholder: firstToken(names, ['blo-bg-color', 'col-bg-color']) || 'blo-bg-color',
+            pathPrefix: prefix,
+            columnIndex: scope.columnIndex,
+            enabled: !!config.backgroundColor,
+            colors: config.backgroundColors || [],
+            defaultColor: config.defaultBgColor
+        }));
+    }
+    if (!backgroundToken && (region?.bgImage || names.includes('blo-bg-img') || names.includes('col-bg-image'))) {
+        settings.push(settingRow({
+            key: `${scope.id}-bgImage`,
+            type: 'backgroundImage',
+            label: 'Background image',
+            placeholder: firstToken(names, ['blo-bg-img', 'col-bg-image']) || 'blo-bg-img',
+            pathPrefix: prefix,
+            columnIndex: scope.columnIndex,
+            enabled: !!config.backgroundImage,
+            presets: config.backgroundImagePresets || [],
+            defaultPresetId: config.defaultBgImagePresetId,
+            colorOptions: config.backgroundColors || []
+        }));
+    }
+    if (!backgroundToken && (region?.bgGradient || names.includes('blo-bg-grd') || names.includes('col-bg-gradient'))) {
+        settings.push(settingRow({
+            key: `${scope.id}-bgGradient`,
+            type: 'backgroundGradient',
+            label: 'Background gradient',
+            placeholder: firstToken(names, ['blo-bg-grd', 'col-bg-gradient']) || 'blo-bg-grd',
+            pathPrefix: prefix,
+            columnIndex: scope.columnIndex,
+            enabled: !!config.backgroundGradient,
+            gradients: config.gradients || [],
+            defaultGradientId: config.defaultGradientId,
+            colorOptions: config.backgroundColors || []
+        }));
+    }
 }
 
 export function buildSettingsBindingSections(scan, layout) {
@@ -135,88 +331,17 @@ export function buildSettingsBindingSections(scan, layout) {
     }
 
     const blockSettings = [];
-    if (scan?.block?.hideDesktop) {
-        blockSettings.push(settingRow({
-            key: 'hideDesktop',
-            type: 'hideDefault',
-            label: 'Hide on desktop',
-            device: 'desktop',
-            placeholder: 'blo-hide-dsk',
-            enabled: !!config.hideDesktop,
-            hiddenByDefault: !!config.defaultHideDesktop
-        }));
-    }
-    if (scan?.block?.hideMobile) {
-        blockSettings.push(settingRow({
-            key: 'hideMobile',
-            type: 'hideDefault',
-            label: 'Hide on mobile',
-            device: 'mobile',
-            placeholder: 'blo-hide-mob',
-            enabled: !!config.hideMobile,
-            hiddenByDefault: !!config.defaultHideMobile
-        }));
-    }
-    if (scan?.block?.padDesktop || scan?.block?.padMobile) {
-        blockSettings.push(settingRow({
-            key: 'blockPadding',
-            type: 'padding',
-            label: 'Block padding',
-            placeholders: [
-                scan?.block?.padDesktop ? 'blo-pad-dsk' : null,
-                scan?.block?.padMobile ? 'blo-pad-mob' : null
-            ].filter(Boolean),
-            enabled: !!config.padding,
-            padDesktop: config.defaultPadDesktop,
-            padMobile: config.defaultPadMobile,
-            padMobileInherit: config.padMobileInherit
-        }));
-    }
-    if (scan?.block?.bgColor) {
-        blockSettings.push(settingRow({
-            key: 'blockBgColor',
-            type: 'backgroundColor',
-            label: 'Background color',
-            placeholder: 'blo-bg-color',
-            enabled: !!config.backgroundColor,
-            colors: config.backgroundColors || [],
-            defaultColor: config.defaultBgColor
-        }));
-    }
-    if (scan?.block?.bgImage) {
-        blockSettings.push(settingRow({
-            key: 'blockBgImage',
-            type: 'backgroundImage',
-            label: 'Background image',
-            placeholder: 'blo-bg-img',
-            enabled: !!config.backgroundImage,
-            presets: config.backgroundImagePresets || [],
-            defaultPresetId: config.defaultBgImagePresetId,
-            colorOptions: config.backgroundColors || []
-        }));
-    }
-    if (scan?.block?.bgGradient) {
-        blockSettings.push(settingRow({
-            key: 'blockBgGradient',
-            type: 'backgroundGradient',
-            label: 'Background gradient',
-            placeholder: 'blo-bg-grd',
-            enabled: !!config.backgroundGradient,
-            gradients: config.gradients || [],
-            defaultGradientId: config.defaultGradientId,
-            colorOptions: config.backgroundColors || []
-        }));
-    }
-
+    appendRegionSettings(blockSettings, scan?.block, config, {
+        id: 'block',
+        prefix: '',
+        columnIndex: undefined,
+        contentIndex: undefined
+    });
     if (blockSettings.length) {
         sections.unshift({
             key: 'block',
-            title: 'Block settings',
-            placeholders: blockSettings.flatMap(row => (
-                row.placeholders?.length
-                    ? row.placeholders.map(placeholderBadge)
-                    : (row.placeholder ? [placeholderBadge(row.placeholder)] : [])
-            )),
+            title: 'Block container',
+            placeholders: sectionPlaceholders(blockSettings),
             settings: blockSettings
         });
     }
@@ -224,207 +349,155 @@ export function buildSettingsBindingSections(scan, layout) {
     (scan?.columns || []).forEach((column, index) => {
         const colConfig = config.columns[index] || emptyColumnLayout();
         const colSettings = [];
-        if (column.padDesktop || column.padMobile) {
-            colSettings.push(settingRow({
-                key: `col-${index}-padding`,
-                type: 'padding',
-                label: 'Column padding',
-                columnIndex: index,
-                placeholders: [
-                    column.padDesktop ? 'col-pad-dsk' : null,
-                    column.padMobile ? 'col-pad-mob' : null
-                ].filter(Boolean),
-                enabled: !!colConfig.padding,
-                padDesktop: colConfig.defaultPadDesktop,
-                padMobile: colConfig.defaultPadMobile,
-                padMobileInherit: colConfig.padMobileInherit
-            }));
+        appendRegionSettings(colSettings, column, colConfig, {
+            id: `col-${index}`,
+            prefix: `columns[${index}].`,
+            columnIndex: index,
+            contentIndex: undefined
+        });
+        if (colSettings.length) {
+            sections.push({
+                key: `column-${index}`,
+                nested: true,
+                title: column.label || `Column ${index + 1}`,
+                placeholders: sectionPlaceholders(colSettings),
+                settings: colSettings
+            });
         }
-        if (column.bgColor) {
-            colSettings.push(settingRow({
-                key: `col-${index}-bgColor`,
-                type: 'backgroundColor',
-                label: 'Background color',
+        (column.contents || []).forEach((content, contentIndex) => {
+            const contentConfig = colConfig.contents?.[contentIndex] || {};
+            const contentSettings = [];
+            appendRegionSettings(contentSettings, content, contentConfig, {
+                id: `col-${index}-content-${contentIndex}`,
+                prefix: `columns[${index}].contents[${contentIndex}].`,
                 columnIndex: index,
-                placeholder: 'col-bg-color',
-                enabled: !!colConfig.backgroundColor,
-                colors: colConfig.backgroundColors || [],
-                defaultColor: colConfig.defaultBgColor
-            }));
-        }
-        if (column.bgImage) {
-            colSettings.push(settingRow({
-                key: `col-${index}-bgImage`,
-                type: 'backgroundImage',
-                label: 'Background image',
-                columnIndex: index,
-                placeholder: 'col-bg-image',
-                enabled: !!colConfig.backgroundImage,
-                presets: colConfig.backgroundImagePresets || [],
-                defaultPresetId: colConfig.defaultBgImagePresetId,
-                colorOptions: colConfig.backgroundColors || []
-            }));
-        }
-        if (column.bgGradient) {
-            colSettings.push(settingRow({
-                key: `col-${index}-bgGradient`,
-                type: 'backgroundGradient',
-                label: 'Background gradient',
-                columnIndex: index,
-                placeholder: 'col-bg-gradient',
-                enabled: !!colConfig.backgroundGradient,
-                gradients: colConfig.gradients || [],
-                defaultGradientId: colConfig.defaultGradientId,
-                colorOptions: colConfig.backgroundColors || []
-            }));
-        }
-        if (!colSettings.length) return;
-        sections.push({
-            key: `column-${index}`,
-            nested: true,
-            title: column.label || `Column ${index + 1}`,
-            placeholders: colSettings.flatMap(row => (
-                row.placeholders?.length
-                    ? row.placeholders.map(placeholderBadge)
-                    : (row.placeholder ? [placeholderBadge(row.placeholder)] : [])
-            )),
-            settings: colSettings
+                contentIndex
+            });
+            if (!contentSettings.length) return;
+            sections.push({
+                key: `column-${index}-content-${contentIndex}`,
+                nested: true,
+                title: `${column.label || `Column ${index + 1}`} content`,
+                placeholders: sectionPlaceholders(contentSettings),
+                settings: contentSettings
+            });
         });
     });
 
     return sections;
 }
 
-export function layoutToPreviewRuntimeState(layout, scan, focus, device) {
-    const config = mergeStudioLayoutDefaults(layout, scan);
-    const isMobile = device === 'mobile';
-    const padDesktop = isMobile && config.padMobileInherit
-        ? config.defaultPadDesktop
-        : (isMobile ? config.defaultPadMobile : config.defaultPadDesktop);
-    const padMobile = config.padMobileInherit ? config.defaultPadDesktop : config.defaultPadMobile;
+function sameScopeIndex(left, right) {
+    const normalize = (value) => (value == null || value === '' ? null : Number(value));
+    return normalize(left) === normalize(right);
+}
 
-    let hideDesktop = !!config.defaultHideDesktop;
-    let hideMobile = !!config.defaultHideMobile;
-    let bgColor = config.defaultBgColor || (config.backgroundColors || [])[0] || '';
-    let bgImage = '';
-    let bgGradientId = config.defaultGradientId || (config.gradients || [])[0]?.id || '';
-    let columnDirection = isMobile ? config.defaultColumnDirMobile : config.defaultColumnDirDesktop;
+function focusMatches(focus, columnIndex, contentIndex) {
+    if (!focus) return false;
+    return sameScopeIndex(focus.columnIndex, columnIndex)
+        && sameScopeIndex(focus.contentIndex, contentIndex);
+}
 
-    if (focus) {
-        if (focus.kind === 'hideDesktop' || focus.kind === 'hideMobile') {
-            const hidden = focus.value === 'hidden';
-            if (focus.kind === 'hideDesktop') hideDesktop = hidden;
-            if (focus.kind === 'hideMobile') hideMobile = hidden;
-        }
-        if (focus.kind === 'bgColor') bgColor = focus.value || bgColor;
-        if (focus.kind === 'bgGradient') bgGradientId = focus.value || bgGradientId;
-        if (focus.kind === 'bgImage') {
-            const preset = (config.backgroundImagePresets || []).find(item => item.id === focus.value);
-            if (preset?.url) bgImage = preset.url;
-        }
-        if (focus.kind === 'columnDirection') {
-            const dir = focus.value === 'rtl' ? 'rtl' : 'ltr';
-            const deviceMatches = !focus.device
-                || (focus.device === 'mobile') === isMobile;
-            if (deviceMatches) columnDirection = dir;
-        }
-        if (focus.kind === 'padding') {
-            const pad = normalizePad(
-                focus.value && typeof focus.value === 'object' ? focus.value : padDesktop
-            );
-            const blockPadDesktop = focus.columnIndex == null
-                ? (isMobile && !config.padMobileInherit ? config.defaultPadDesktop : pad)
-                : config.defaultPadDesktop;
-            const blockPadMobile = focus.columnIndex == null
-                ? (config.padMobileInherit ? pad : normalizePad(focus.mobileValue || pad))
-                : config.defaultPadMobile;
-            return {
-                hideDesktop,
-                hideMobile,
-                padDesktop: blockPadDesktop,
-                padMobile: blockPadMobile,
-                padMobileInherit: config.padMobileInherit,
-                bgColor,
-                bgImage,
-                bgGradientId,
-                columnDirection,
-                columns: config.columns.map((col, index) => {
-                    if (focus.columnIndex === index) {
-                        return columnPreviewRuntime(col, { ...focus, kind: 'paddingCol' }, index, isMobile, pad);
-                    }
-                    return columnPreviewRuntime(col, focus, index, isMobile);
-                })
-            };
-        }
+function regionPreview(region, focus, columnIndex, contentIndex, isMobile) {
+    const source = region || {};
+    const applies = focusMatches(focus, columnIndex, contentIndex);
+    let hideDesktop = !!source.defaultHideDesktop;
+    let hideMobile = !!source.defaultHideMobile;
+    if (applies && focus.kind === 'hideDesktop') hideDesktop = focus.value === 'hidden';
+    if (applies && focus.kind === 'hideMobile') hideMobile = focus.value === 'hidden';
+    let padDesktop = normalizePad(source.defaultPadDesktop);
+    let padMobile = source.padMobileInherit === false
+        ? normalizePad(source.defaultPadMobile)
+        : padDesktop;
+    if (applies && focus.kind === 'padding') {
+        const pad = normalizePad(focus.value);
+        if (isMobile) padMobile = pad;
+        else padDesktop = pad;
     }
-
-    const imagePreset = (config.backgroundImagePresets || []).find(
-        item => item.id === config.defaultBgImagePresetId
-    );
-    if (imagePreset?.url) bgImage = imagePreset.url;
-
+    const shownPad = isMobile ? padMobile : padDesktop;
+    let mode = source.defaultBgMode || 'color';
+    let color = source.defaultBgColor || (source.backgroundColors || [])[0] || '';
+    let gradientId = source.defaultGradientId || (source.gradients || [])[0]?.id || '';
+    let imageId = source.defaultBgImagePresetId || '';
+    if (applies && focus.kind === 'bgMode') mode = focus.value || mode;
+    if (applies && focus.kind === 'bgColor') {
+        mode = 'color';
+        color = focus.value || color;
+    }
+    if (applies && focus.kind === 'bgGradient') {
+        mode = 'gradient';
+        gradientId = focus.value || gradientId;
+    }
+    if (applies && focus.kind === 'bgImage') {
+        mode = 'image';
+        imageId = focus.value || imageId;
+    }
+    const imagePreset = (source.backgroundImagePresets || []).find(item => item.id === imageId)
+        || (source.backgroundImagePresets || []).find(item => item.url);
+    const backgroundPayload = (source.background || source.backgroundColor || source.backgroundImage || source.backgroundGradient)
+        ? buildBackgroundPayload(source, {
+            mode: source.background ? mode : (source.backgroundGradient ? 'gradient' : source.backgroundImage ? 'image' : 'color'),
+            color,
+            gradientId,
+            imageId,
+            device: isMobile ? 'mobile' : 'desktop'
+        })
+        : null;
     return {
         hideDesktop,
         hideMobile,
-        padDesktop: isMobile ? padMobile : config.defaultPadDesktop,
+        padDesktop: shownPad,
         padMobile,
-        padMobileInherit: config.padMobileInherit,
-        bgColor,
-        bgImage,
-        bgGradientId,
-        columnDirection,
-        columns: config.columns.map(col => columnPreviewRuntime(col, null, null, isMobile))
+        padMobileInherit: source.padMobileInherit !== false,
+        bgColor: color,
+        bgImage: imagePreset?.url || '',
+        bgGradientId: gradientId,
+        backgroundPayload
     };
 }
 
-function columnPreviewRuntime(col, focus, columnIndex, isMobile, padOverride) {
-    let pad = padOverride
-        ? normalizePad(padOverride)
-        : (isMobile && col.padMobileInherit ? col.defaultPadDesktop : (
-            isMobile ? col.defaultPadMobile : col.defaultPadDesktop
-        ));
-    if (focus?.kind === 'paddingCol' && padOverride) {
-        pad = normalizePad(padOverride);
-    }
-    let bgColor = col.defaultBgColor || (col.backgroundColors || [])[0] || '';
-    let bgImage = '';
-    let bgGradientId = col.defaultGradientId || (col.gradients || [])[0]?.id || '';
-    if (focus && focus.columnIndex === columnIndex) {
-        if (focus.kind === 'bgColor') bgColor = focus.value || bgColor;
-        if (focus.kind === 'bgGradient') bgGradientId = focus.value || bgGradientId;
-        if (focus.kind === 'bgImage') {
-            const preset = (col.backgroundImagePresets || []).find(item => item.id === focus.value);
-            if (preset?.url) bgImage = preset.url;
-        }
-    } else {
-        const preset = (col.backgroundImagePresets || []).find(item => item.id === col.defaultBgImagePresetId);
-        if (preset?.url) bgImage = preset.url;
+export function layoutToPreviewRuntimeState(layout, scan, focus, device) {
+    const config = mergeStudioLayoutDefaults(layout, scan);
+    const isMobile = device === 'mobile';
+    const block = regionPreview(config, focus, null, null, isMobile);
+    let columnDirection = isMobile ? config.defaultColumnDirMobile : config.defaultColumnDirDesktop;
+    if (focus?.kind === 'columnDirection') {
+        const dir = focus.value === 'rtl' ? 'rtl' : 'ltr';
+        const deviceMatches = !focus.device || (focus.device === 'mobile') === isMobile;
+        if (deviceMatches) columnDirection = dir;
     }
     return {
-        padDesktop: pad,
-        padMobile: col.padMobileInherit ? col.defaultPadDesktop : col.defaultPadMobile,
-        padMobileInherit: col.padMobileInherit,
-        bgColor,
-        bgImage,
-        bgGradientId
+        ...block,
+        columnDirection,
+        columns: (config.columns || []).map((column, index) => ({
+            ...regionPreview(column, focus, index, null, isMobile),
+            contents: (column.contents || []).map((content, contentIndex) =>
+                regionPreview(content, focus, index, contentIndex, isMobile)
+            )
+        }))
     };
 }
 
 export function patchLayoutConfig(layout, scan, patch) {
     const config = mergeStudioLayoutDefaults(layout, scan);
     const next = JSON.parse(JSON.stringify(config));
-    const { path, value } = patch;
-    if (!path) return next;
-    const columnMatch = path.match(/^columns\[(\d+)\]\.(.+)$/);
-    if (columnMatch) {
-        const idx = Number(columnMatch[1]);
-        const field = columnMatch[2];
-        while (next.columns.length <= idx) {
-            next.columns.push(emptyColumnLayout());
-        }
-        next.columns[idx][field] = value;
-        return next;
-    }
-    next[path] = value;
+    if (!patch?.path) return next;
+    assignPath(next, patch.path, patch.value);
     return next;
+}
+
+function assignPath(root, path, value) {
+    const parts = String(path).replace(/\[(\d+)\]/g, '.$1').split('.').filter(Boolean);
+    let cursor = root;
+    parts.forEach((part, index) => {
+        if (index === parts.length - 1) {
+            cursor[part] = value;
+            return;
+        }
+        const nextPart = parts[index + 1];
+        if (cursor[part] == null || typeof cursor[part] !== 'object') {
+            cursor[part] = /^\d+$/.test(nextPart) ? [] : {};
+        }
+        cursor = cursor[part];
+    });
 }

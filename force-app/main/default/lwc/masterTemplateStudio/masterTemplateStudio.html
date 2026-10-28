@@ -606,10 +606,10 @@
                                                         </ul>
                                                         <p class="studio-panel__aside-label">Modern layout (recommended for multi-column blocks):</p>
                                                         <ul class="studio-panel__aside-code">
-                                                            <li>Wrap columns in an element with attribute <code>binding-container</code>.</li>
-                                                            <li>Each column uses attribute <code>binding-column</code> (order = column index).</li>
-                                                            <li>Block tokens: &#123;&#123;blo-pad-dsk&#125;&#125;, &#123;&#123;blo-bg-color&#125;&#125;, &#123;&#123;column-dir&#125;&#125;, …</li>
-                                                            <li>Column tokens: &#123;&#123;col-pad-dsk&#125;&#125;, &#123;&#123;col-bg-color&#125;&#125;, …</li>
+                                                            <li>Wrap the block in an element with attribute <code>binding-container</code>.</li>
+                                                            <li>Each column uses <code>binding-column</code>. Copy inside a column uses <code>binding-content</code>.</li>
+                                                            <li>One background token per level: &#123;&#123;container-bg&#125;&#125;, &#123;&#123;column-bg&#125;&#125;, &#123;&#123;content-bg&#125;&#125;.</li>
+                                                            <li>Hide and padding: &#123;&#123;container-hide-dsk&#125;&#125;, &#123;&#123;container-hide-mob&#125;&#125;, &#123;&#123;container-pad-dsk&#125;&#125;, and the column/content equivalents.</li>
                                                         </ul>
                                                         <p class="studio-panel__aside-label">Content placeholders (bind on the Content tab):</p>
                                                         <ul class="studio-panel__aside-code">
