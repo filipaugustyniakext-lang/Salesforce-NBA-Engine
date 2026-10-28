@@ -101,12 +101,20 @@
                                                 data-setting-key={setting.key}
                                                 onclick={handlePadPreview}>
                                             </lightning-button-icon>
-                                            <button type="button" class="settings-action-link" data-setting-key={setting.key} onclick={handlePadApplyDefault}>Set as default</button>
+                                            <lightning-button
+                                                variant="base"
+                                                label="Set as default"
+                                                title="Apply saved padding in block preview"
+                                                data-setting-key={setting.key}
+                                                onclick={handlePadApplyDefault}>
+                                            </lightning-button>
                                         </div>
                                     </div>
                                     <template lwc:if={setting.showPadInherit}>
                                         <lightning-button
+                                            variant="base"
                                             label="Inherit from desktop"
+                                            title="Copy desktop padding to mobile"
                                             class="slds-m-vertical_x-small"
                                             data-column-index={setting.columnIndex}
                                             onclick={handlePadInherit}>
@@ -145,7 +153,14 @@
                                             <div class="settings-inline-actions">
                                                 <lightning-button-icon icon-name="utility:preview" alternative-text="Preview color" data-preview-kind="bgColor" data-preview-value={color.hex} data-column-index={setting.columnIndex} onclick={handlePreviewClick}></lightning-button-icon>
                                                 <template lwc:if={color.showSetDefault}>
-                                                    <button type="button" class="settings-action-link" data-setting-key={setting.key} data-hex={color.hex} onclick={handleSetDefaultColor}>Set as default</button>
+                                                    <lightning-button
+                                                        variant="base"
+                                                        label="Set as default"
+                                                        title="Use this color as the block default"
+                                                        data-setting-key={setting.key}
+                                                        data-hex={color.hex}
+                                                        onclick={handleSetDefaultColor}>
+                                                    </lightning-button>
                                                 </template>
                                             </div>
                                         </div>
