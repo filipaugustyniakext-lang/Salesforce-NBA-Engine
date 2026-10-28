@@ -156,6 +156,14 @@
     box-sizing: border-box;
 }
 
+.block-spacing-box__inset {
+    grid-column: 2;
+    grid-row: 2;
+    width: 100%;
+    min-width: 0;
+    background: #ffffff;
+}
+
 .block-spacing-box__middle {
     display: contents;
 }

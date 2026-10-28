@@ -78,6 +78,12 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
             padMobilePath: setting.padMobilePath || (setting.columnIndex === undefined
                 ? 'defaultPadMobile'
                 : `columns[${setting.columnIndex}].defaultPadMobile`),
+            marginDesktopPath: setting.marginDesktopPath || (setting.columnIndex === undefined
+                ? 'defaultMarginDesktop'
+                : `columns[${setting.columnIndex}].defaultMarginDesktop`),
+            marginMobilePath: setting.marginMobilePath || (setting.columnIndex === undefined
+                ? 'defaultMarginMobile'
+                : `columns[${setting.columnIndex}].defaultMarginMobile`),
             enablePath: setting.enablePath || this._enablePath(setting)
         };
         if (setting.type === 'hidePair') {
@@ -115,23 +121,30 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
         if (setting.type === 'padding') {
             const padDesktop = normalizePad(setting.padDesktop);
             const padMobile = normalizePad(setting.padMobile);
+            const marginDesktop = normalizePad(setting.marginDesktop);
+            const marginMobile = normalizePad(setting.marginMobile);
             const padDevice = this.padDeviceBySettingKey[setting.key] || 'desktop';
             const padMobileInherit = setting.padMobileInherit !== false;
+            const marginMobileInherit = setting.marginMobileInherit !== false;
             const mobilePad = padMobileInherit ? padDesktop : padMobile;
-            const activePad = padDevice === 'mobile' ? mobilePad : padDesktop;
-            const activePadPath = padDevice === 'mobile' ? base.padMobilePath : base.padDesktopPath;
+            const mobileMargin = marginMobileInherit ? marginDesktop : marginMobile;
+            const viewingMobile = padDevice === 'mobile';
             return {
                 ...base,
                 padDesktop,
                 padMobile: mobilePad,
+                marginDesktop,
+                marginMobile: mobileMargin,
                 padDevice,
                 padDeviceRadioName: `pad-device-${setting.key}`,
                 padDeviceOptions: PAD_DEVICE_RADIO_OPTIONS,
-                activePad,
-                activePadPath,
+                activePad: viewingMobile ? mobilePad : padDesktop,
+                activeMargin: viewingMobile ? mobileMargin : marginDesktop,
+                activePadPath: viewingMobile ? base.padMobilePath : base.padDesktopPath,
+                activeMarginPath: viewingMobile ? base.marginMobilePath : base.marginDesktopPath,
                 padMobileInherit,
-                padInputsDisabled: padDevice === 'mobile' && padMobileInherit,
-                showPadInherit: padDevice === 'mobile'
+                marginMobileInherit,
+                showPadInherit: viewingMobile
             };
         }
         if (setting.type === 'backgroundColor' || setting.type === 'backgroundStyle') {
@@ -331,6 +344,10 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
             const inheritPath = path.replace(/defaultPadMobile$/, 'padMobileInherit');
             next = patchLayoutConfig(next, this.scan, { path: inheritPath, value: false });
         }
+        if (String(path).endsWith('defaultMarginMobile')) {
+            const inheritPath = path.replace(/defaultMarginMobile$/, 'marginMobileInherit');
+            next = patchLayoutConfig(next, this.scan, { path: inheritPath, value: false });
+        }
         this._emitLayout(next);
     }
 
@@ -338,12 +355,13 @@ export default class MasterTemplateSettingsBindings extends LightningElement {
         const setting = this._findSetting(event.currentTarget.dataset.settingKey);
         if (!setting) return;
         const prefix = setting.pathPrefix || '';
-        const inheritPath = `${prefix}padMobileInherit`;
         const layout = mergeStudioLayoutDefaults(this._layoutConfig, this.scan);
-        const desktop = this._readPath(layout, `${prefix}defaultPadDesktop`);
-        const mobilePath = `${prefix}defaultPadMobile`;
-        let next = patchLayoutConfig(this._layoutConfig, this.scan, { path: inheritPath, value: true });
-        next = patchLayoutConfig(next, this.scan, { path: mobilePath, value: desktop });
+        const desktopPad = this._readPath(layout, `${prefix}defaultPadDesktop`);
+        const desktopMargin = this._readPath(layout, `${prefix}defaultMarginDesktop`);
+        let next = patchLayoutConfig(this._layoutConfig, this.scan, { path: `${prefix}padMobileInherit`, value: true });
+        next = patchLayoutConfig(next, this.scan, { path: `${prefix}defaultPadMobile`, value: desktopPad });
+        next = patchLayoutConfig(next, this.scan, { path: `${prefix}marginMobileInherit`, value: true });
+        next = patchLayoutConfig(next, this.scan, { path: `${prefix}defaultMarginMobile`, value: desktopMargin });
         this._emitLayout(next);
     }
 

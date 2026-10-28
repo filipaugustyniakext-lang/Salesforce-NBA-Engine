@@ -134,7 +134,7 @@
                                         <lightning-button
                                             variant="base"
                                             label="Inherit from desktop"
-                                            title="Copy desktop padding to mobile"
+                                            title="Copy desktop margin and padding to mobile"
                                             class="slds-m-vertical_x-small"
                                             data-setting-key={setting.key}
                                             data-column-index={setting.columnIndex}
@@ -144,22 +144,42 @@
                                     <div class="block-spacing-box">
                                         <div class="block-spacing-box__diagram">
                                             <div class="block-spacing-box__side block-spacing-box__side_top">
-                                                <input class="slds-input slds-input_xx-small" type="number" min="0" value={setting.activePad.top} data-path={setting.activePadPath} data-side="top" data-column-index={setting.columnIndex} onchange={handlePadChange} disabled={setting.padInputsDisabled} />
+                                                <input class="slds-input slds-input_xx-small" type="number" min="0" value={setting.activeMargin.top} data-path={setting.activeMarginPath} data-side="top" onchange={handlePadChange} />
                                                 <span class="block-spacing-box__unit">px</span>
                                             </div>
                                             <div class="block-spacing-box__middle">
                                                 <div class="block-spacing-box__side block-spacing-box__side_left">
-                                                    <input class="slds-input slds-input_xx-small" type="number" min="0" value={setting.activePad.left} data-path={setting.activePadPath} data-side="left" data-column-index={setting.columnIndex} onchange={handlePadChange} disabled={setting.padInputsDisabled} />
+                                                    <input class="slds-input slds-input_xx-small" type="number" min="0" value={setting.activeMargin.left} data-path={setting.activeMarginPath} data-side="left" onchange={handlePadChange} />
                                                     <span class="block-spacing-box__unit">px</span>
                                                 </div>
-                                                <div class="block-spacing-box__core"><span class="block-spacing-box__core-label">Padding</span></div>
+                                                <div class="block-spacing-box__diagram block-spacing-box__inset">
+                                                    <div class="block-spacing-box__side block-spacing-box__side_top">
+                                                        <input class="slds-input slds-input_xx-small" type="number" min="0" value={setting.activePad.top} data-path={setting.activePadPath} data-side="top" onchange={handlePadChange} />
+                                                        <span class="block-spacing-box__unit">px</span>
+                                                    </div>
+                                                    <div class="block-spacing-box__middle">
+                                                        <div class="block-spacing-box__side block-spacing-box__side_left">
+                                                            <input class="slds-input slds-input_xx-small" type="number" min="0" value={setting.activePad.left} data-path={setting.activePadPath} data-side="left" onchange={handlePadChange} />
+                                                            <span class="block-spacing-box__unit">px</span>
+                                                        </div>
+                                                        <div class="block-spacing-box__core"><span class="block-spacing-box__core-label">Padding</span></div>
+                                                        <div class="block-spacing-box__side block-spacing-box__side_right">
+                                                            <input class="slds-input slds-input_xx-small" type="number" min="0" value={setting.activePad.right} data-path={setting.activePadPath} data-side="right" onchange={handlePadChange} />
+                                                            <span class="block-spacing-box__unit">px</span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="block-spacing-box__side block-spacing-box__side_bottom">
+                                                        <input class="slds-input slds-input_xx-small" type="number" min="0" value={setting.activePad.bottom} data-path={setting.activePadPath} data-side="bottom" onchange={handlePadChange} />
+                                                        <span class="block-spacing-box__unit">px</span>
+                                                    </div>
+                                                </div>
                                                 <div class="block-spacing-box__side block-spacing-box__side_right">
-                                                    <input class="slds-input slds-input_xx-small" type="number" min="0" value={setting.activePad.right} data-path={setting.activePadPath} data-side="right" data-column-index={setting.columnIndex} onchange={handlePadChange} disabled={setting.padInputsDisabled} />
+                                                    <input class="slds-input slds-input_xx-small" type="number" min="0" value={setting.activeMargin.right} data-path={setting.activeMarginPath} data-side="right" onchange={handlePadChange} />
                                                     <span class="block-spacing-box__unit">px</span>
                                                 </div>
                                             </div>
                                             <div class="block-spacing-box__side block-spacing-box__side_bottom">
-                                                <input class="slds-input slds-input_xx-small" type="number" min="0" value={setting.activePad.bottom} data-path={setting.activePadPath} data-side="bottom" data-column-index={setting.columnIndex} onchange={handlePadChange} disabled={setting.padInputsDisabled} />
+                                                <input class="slds-input slds-input_xx-small" type="number" min="0" value={setting.activeMargin.bottom} data-path={setting.activeMarginPath} data-side="bottom" onchange={handlePadChange} />
                                                 <span class="block-spacing-box__unit">px</span>
                                             </div>
                                         </div>

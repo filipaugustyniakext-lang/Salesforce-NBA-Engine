@@ -78,6 +78,9 @@ export function mergeStudioLayoutDefaults(layout, scan) {
         defaultPadDesktop: normalizePad(source.defaultPadDesktop ?? aligned.defaultPadDesktop),
         defaultPadMobile: normalizePad(source.defaultPadMobile ?? aligned.defaultPadMobile),
         padMobileInherit: source.padMobileInherit !== false,
+        defaultMarginDesktop: normalizePad(source.defaultMarginDesktop ?? aligned.defaultMarginDesktop),
+        defaultMarginMobile: normalizePad(source.defaultMarginMobile ?? aligned.defaultMarginMobile),
+        marginMobileInherit: source.marginMobileInherit !== false,
         defaultBgColor: String(source.defaultBgColor || ''),
         defaultGradientId: String(source.defaultGradientId || ''),
         defaultBgImagePresetId: String(source.defaultBgImagePresetId || ''),
@@ -101,6 +104,9 @@ export function mergeStudioLayoutDefaults(layout, scan) {
                 defaultPadDesktop: normalizePad(colSource.defaultPadDesktop ?? colAligned.defaultPadDesktop),
                 defaultPadMobile: normalizePad(colSource.defaultPadMobile ?? colAligned.defaultPadMobile),
                 padMobileInherit: colSource.padMobileInherit !== false,
+                defaultMarginDesktop: normalizePad(colSource.defaultMarginDesktop),
+                defaultMarginMobile: normalizePad(colSource.defaultMarginMobile),
+                marginMobileInherit: colSource.marginMobileInherit !== false,
                 defaultBgColor: String(colSource.defaultBgColor || colAligned.defaultBgColor || ''),
                 defaultGradientId: String(colSource.defaultGradientId || colAligned.defaultGradientId || ''),
                 defaultBgImagePresetId: String(
@@ -138,6 +144,9 @@ export function mergeStudioLayoutDefaults(layout, scan) {
                         defaultPadDesktop: normalizePad(saved.defaultPadDesktop),
                         defaultPadMobile: normalizePad(saved.defaultPadMobile),
                         padMobileInherit: saved.padMobileInherit !== false,
+                        defaultMarginDesktop: normalizePad(saved.defaultMarginDesktop),
+                        defaultMarginMobile: normalizePad(saved.defaultMarginMobile),
+                        marginMobileInherit: saved.marginMobileInherit !== false,
                         defaultBgColor: String(saved.defaultBgColor || ''),
                         defaultBgMode: saved.defaultBgMode === 'gradient' || saved.defaultBgMode === 'image'
                             ? saved.defaultBgMode
@@ -242,9 +251,14 @@ function appendRegionSettings(settings, region, config, scope) {
                 enablePath: `${prefix}padding`,
                 padDesktopPath: `${prefix}defaultPadDesktop`,
                 padMobilePath: `${prefix}defaultPadMobile`,
+                marginDesktopPath: `${prefix}defaultMarginDesktop`,
+                marginMobilePath: `${prefix}defaultMarginMobile`,
                 padDesktop: config.defaultPadDesktop,
                 padMobile: config.defaultPadMobile,
-                padMobileInherit: config.padMobileInherit
+                padMobileInherit: config.padMobileInherit,
+                marginDesktop: config.defaultMarginDesktop,
+                marginMobile: config.defaultMarginMobile,
+                marginMobileInherit: config.marginMobileInherit
             }));
         }
     }
