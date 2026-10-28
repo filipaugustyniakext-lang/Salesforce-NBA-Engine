@@ -300,9 +300,31 @@
     margin: 0;
 }
 
+.studio-block-accordion-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.studio-block-accordion {
+    margin: 0;
+}
+
+.studio-block-summary {
+    cursor: pointer;
+}
+
+.studio-block-editor {
+    margin: 0.75rem;
+    margin-top: 0;
+}
+
+.studio-block-accordion_expanded .studio-block-summary {
+    border-bottom: 1px solid var(--slds-g-color-border-1, #dddbda);
+}
+
 .studio-block-summary-card {
     margin: 0;
-    cursor: pointer;
 }
 
 .studio-block-summary-card_selected {

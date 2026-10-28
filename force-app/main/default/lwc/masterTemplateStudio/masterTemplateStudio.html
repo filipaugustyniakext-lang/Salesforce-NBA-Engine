@@ -339,58 +339,62 @@
                                                     </lightning-button>
                                                 </lightning-empty-state>
                                             </template>
-                                            <template for:each={contentBlockCards} for:item="block">
-                                                <article
-                                                    key={block.key}
-                                                    class={block.summaryCardClass}
-                                                    data-preview-key={block.previewKey}
-                                                    role="button"
-                                                    tabindex="0"
-                                                    title="Show this block in preview"
-                                                    onclick={handleBlockSummaryPreview}>
-                                                    <div class="slds-card__header slds-grid">
-                                                        <header class="slds-media slds-media_center slds-has-flexi-truncate">
-                                                            <div class="slds-media__body">
-                                                                <h3 class="slds-card__header-title">
-                                                                    <span class="slds-truncate" title={block.displayTitle}>{block.displayTitle}</span>
-                                                                </h3>
-                                                                <p class="slds-text-body_small slds-text-color_weak slds-truncate" title={block.fileMeta}>{block.fileMeta}</p>
+                                            <div class="studio-block-accordion-list" role="list">
+                                            <template for:each={contentBlockListItems} for:item="block">
+                                                <article key={block.key} class={block.cardClass} role="listitem">
+                                                    <template lwc:if={block.showSummary}>
+                                                        <div
+                                                            class="studio-block-summary"
+                                                            data-preview-key={block.previewKey}
+                                                            role="button"
+                                                            tabindex="0"
+                                                            title="Show this block in preview"
+                                                            onclick={handleBlockSummaryPreview}>
+                                                            <div class="slds-card__header slds-grid">
+                                                                <header class="slds-media slds-media_center slds-has-flexi-truncate">
+                                                                    <div class="slds-media__body">
+                                                                        <h3 class="slds-card__header-title">
+                                                                            <span class="slds-truncate" title={block.displayTitle}>{block.displayTitle}</span>
+                                                                        </h3>
+                                                                        <p class="slds-text-body_small slds-text-color_weak slds-truncate" title={block.fileMeta}>{block.fileMeta}</p>
+                                                                    </div>
+                                                                </header>
+                                                                <div class="slds-no-flex studio-block-summary__actions">
+                                                                    <lightning-button
+                                                                        label="Edit"
+                                                                        data-type={block.type}
+                                                                        data-file-name={block.fileName}
+                                                                        onclick={handleEditBlockDefinition}>
+                                                                    </lightning-button>
+                                                                    <lightning-button-icon
+                                                                        class="slds-m-left_x-small"
+                                                                        icon-name="utility:delete"
+                                                                        variant="border-filled"
+                                                                        alternative-text="Delete content block definition"
+                                                                        title="Delete content block definition"
+                                                                        data-type={block.type}
+                                                                        data-file-name={block.fileName}
+                                                                        onclick={handleDeleteBlockDefinition}>
+                                                                    </lightning-button-icon>
+                                                                </div>
                                                             </div>
-                                                        </header>
-                                                        <div class="slds-no-flex studio-block-summary__actions">
-                                                            <lightning-button
-                                                                label="Edit"
-                                                                data-type={block.type}
-                                                                data-file-name={block.fileName}
-                                                                onclick={handleEditBlockDefinition}>
-                                                            </lightning-button>
-                                                            <lightning-button-icon
-                                                                class="slds-m-left_x-small"
-                                                                icon-name="utility:delete"
-                                                                variant="border-filled"
-                                                                alternative-text="Delete content block definition"
-                                                                title="Delete content block definition"
-                                                                data-type={block.type}
-                                                                data-file-name={block.fileName}
-                                                                onclick={handleDeleteBlockDefinition}>
-                                                            </lightning-button-icon>
+                                                            <div class="slds-card__body slds-card__body_inner">
+                                                                <div class="studio-block-summary__badges" role="list" aria-label="Block status">
+                                                                    <span class={block.statusBadgeClass} role="listitem">{block.statusLabel}</span>
+                                                                    <span class={block.validationBadgeClass} role="listitem">{block.validationLabel}</span>
+                                                                </div>
+                                                                <p class="slds-text-body_small slds-m-top_small">{block.descriptionDisplay}</p>
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                    <div class="slds-card__body slds-card__body_inner">
-                                                        <div class="studio-block-summary__badges" role="list" aria-label="Block status">
-                                                            <span class={block.statusBadgeClass} role="listitem">{block.statusLabel}</span>
-                                                            <span class={block.validationBadgeClass} role="listitem">{block.validationLabel}</span>
+                                                    </template>
+                                                    <template lwc:else>
+                                                        <div class="studio-block-definition-header slds-p-horizontal_small slds-p-top_small">
+                                                            <h3 class="slds-text-heading_small">{block.displayTitle}</h3>
+                                                            <lightning-button label="Cancel" onclick={handleCancelBlockDefinition}></lightning-button>
                                                         </div>
-                                                        <p class="slds-text-body_small slds-m-top_small">{block.descriptionDisplay}</p>
-                                                    </div>
-                                                </article>
-                                            </template>
-                                            <template lwc:if={showNewBlockDefinitionForm}>
-                                                <div class="studio-block-definition-header">
-                                                    <h3 class="slds-text-heading_small">{blockDefinitionFormTitle}</h3>
-                                                    <lightning-button label="Cancel" onclick={handleCancelBlockDefinition}></lightning-button>
-                                                </div>
-                                                <section class="studio-shell-workspace slds-box" aria-label="Content block HTML upload and bindings">
+                                                    </template>
+                                                    <template lwc:if={block.isEditorExpanded}>
+                                                <section class="studio-shell-workspace slds-box studio-block-editor" aria-label="Content block HTML upload and bindings">
                                                     <div class="slds-notify slds-notify_alert slds-alert_warning" role="alert">
                                                         <span class="slds-assistive-text">Warning</span>
                                                         <lightning-icon icon-name="utility:warning" size="x-small" class="slds-m-right_x-small" alternative-text="Warning"></lightning-icon>
@@ -617,6 +621,11 @@
                                                             </lightning-button>
                                                         </div>
                                                 </section>
+                                                    </template>
+                                                </article>
+                                            </template>
+                                            </div>
+                                            <template lwc:if={isBlockEditorOpen}>
                                                 <div
                                                     class="slds-notify slds-notify_alert slds-theme_info studio-shell-requirements"
                                                     role="alert"

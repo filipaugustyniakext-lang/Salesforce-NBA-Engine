@@ -58,7 +58,8 @@ export default class MasterTemplateStudio extends LightningElement {
     @track pendingBlockDelete = null;
     @track shellRegions = [];
     @track shellRegionError = '';
-    @track showNewBlockDefinitionForm = false;
+    /** null | '__new__' | catalog type / normalized file key — at most one block editor expanded. */
+    @track expandedBlockEditorKey = null;
     @track pendingBlockDraft = {
         label: '',
         description: '',
@@ -383,21 +384,23 @@ export default class MasterTemplateStudio extends LightningElement {
         }));
     }
 
-    get contentBlockCards() {
-        return this._savedBlockDefinitions()
-            .filter(component => !(
-                this.showNewBlockDefinitionForm
-                && (
-                    (this.pendingBlockDraft.draftKey && component.type === this.pendingBlockDraft.draftKey)
-                    || (this.pendingBlockDraft.fileName
-                        && component.fileName === this.pendingBlockDraft.fileName)
-                )
-            ))
-            .map((component, index) => {
+    get isCreatingNewBlock() {
+        return this.expandedBlockEditorKey === '__new__';
+    }
+
+    get isBlockEditorOpen() {
+        return !!this.expandedBlockEditorKey;
+    }
+
+    get contentBlockListItems() {
+        const expandedKey = this.expandedBlockEditorKey;
+        const items = this._savedBlockDefinitions().map((component, index) => {
             const status = (component.status || 'Draft').trim();
             const validated = status === 'Ready' || status === 'Active';
             const previewKey = this._blockPreviewKey(component);
+            const editorKey = this._blockEditorKey(component);
             const selected = this._previewKeysMatch(previewKey, this.previewBlockKey);
+            const isEditorExpanded = expandedKey === editorKey;
             return {
                 key: `${component.type || 'block'}-${index}`,
                 type: component.type,
@@ -414,11 +417,32 @@ export default class MasterTemplateStudio extends LightningElement {
                     : 'slds-badge slds-badge_lightest',
                 descriptionDisplay: component.description || 'No description provided.',
                 documentId: this._contentBlockDocumentId(component.fileName),
-                summaryCardClass: 'studio-block-summary-card slds-card slds-card_boundary'
-                    + (selected ? ' studio-block-summary-card_selected' : ''),
-                previewKey
+                cardClass: 'studio-block-accordion slds-card slds-card_boundary'
+                    + (selected ? ' studio-block-summary-card_selected' : '')
+                    + (isEditorExpanded ? ' studio-block-accordion_expanded' : ''),
+                previewKey,
+                editorKey,
+                isEditorExpanded,
+                isNew: false,
+                showSummary: true
             };
         });
+        if (this.isCreatingNewBlock) {
+            items.push({
+                key: '__new__',
+                type: '',
+                fileName: '',
+                displayTitle: 'New content block definition',
+                fileMeta: '',
+                cardClass: 'studio-block-accordion studio-block-accordion_expanded slds-card slds-card_boundary',
+                previewKey: '',
+                editorKey: '__new__',
+                isEditorExpanded: true,
+                isNew: true,
+                showSummary: false
+            });
+        }
+        return items;
     }
 
     get hasContentBlockCards() {
@@ -426,11 +450,11 @@ export default class MasterTemplateStudio extends LightningElement {
     }
 
     get showBlocksEmptyState() {
-        return this.hasRecordId && !this.hasContentBlockCards && !this.showNewBlockDefinitionForm;
+        return this.hasRecordId && !this.hasContentBlockCards && !this.isCreatingNewBlock;
     }
 
     get showAddBlockDefinitionButton() {
-        return this.hasRecordId && this.hasContentBlockCards && !this.showNewBlockDefinitionForm;
+        return this.hasRecordId && this.hasContentBlockCards && !this.isCreatingNewBlock;
     }
 
     get saveBlockDefinitionDisabled() {
@@ -599,7 +623,7 @@ export default class MasterTemplateStudio extends LightningElement {
         this.wizardStep = 'basic';
         this.shellRegions = [];
         this.shellRegionError = '';
-        this.showNewBlockDefinitionForm = false;
+        this.expandedBlockEditorKey = null;
         this._resetPendingBlockDraft();
         this.previewBlockKey = '';
         this.isModalOpen = true;
@@ -622,7 +646,7 @@ export default class MasterTemplateStudio extends LightningElement {
         this.wizardStep = 'basic';
         this.shellRegions = source.shellPreviewRegions || [];
         this.shellRegionError = '';
-        this.showNewBlockDefinitionForm = false;
+        this.expandedBlockEditorKey = null;
         this._resetPendingBlockDraft();
         this.previewBlockKey = '';
         this.isModalOpen = true;
@@ -724,8 +748,8 @@ export default class MasterTemplateStudio extends LightningElement {
     }
 
     handleAddBlockDefinition() {
-        this.showNewBlockDefinitionForm = true;
         this._resetPendingBlockDraft();
+        this.expandedBlockEditorKey = '__new__';
         this.previewBlockKey = '';
     }
 
@@ -733,8 +757,7 @@ export default class MasterTemplateStudio extends LightningElement {
         const previewKey = event.currentTarget.dataset.previewKey;
         if (!previewKey) return;
         this.previewBlockKey = previewKey;
-        this.showNewBlockDefinitionForm = false;
-        this._resetPendingBlockDraft();
+        this.expandedBlockEditorKey = null;
         this._refreshStudioPreviews();
     }
 
@@ -744,33 +767,23 @@ export default class MasterTemplateStudio extends LightningElement {
         const fileName = event.currentTarget.dataset.fileName;
         const component = this._findBlockDefinition(blockType, fileName);
         if (!component) return;
-        const status = (component.status || 'Draft').trim();
+        const editorKey = this._blockEditorKey(component);
+        if (this.expandedBlockEditorKey === editorKey) {
+            this.expandedBlockEditorKey = null;
+            this._resetPendingBlockDraft();
+            return;
+        }
+        this._loadPendingBlockDraftFromComponent(component);
+        this.expandedBlockEditorKey = editorKey;
         this.previewBlockKey = this._blockPreviewKey(component);
-        this.pendingBlockDraft = {
-            label: component.label || '',
-            description: component.description || '',
-            icon: component.icon || '',
-            fileName: component.fileName || '',
-            draftKey: component.type || '',
-            validated: status === 'Ready' || status === 'Active',
-            blockHtml: '',
-            bindings: (component.bindings || []).map(binding => ({
-                placeholder: binding.placeholder,
-                source: binding.source
-            })),
-            layout: this._parseLayoutJson(component.layoutJson),
-            legacyBlockSettings: [...(component.blockSettings || [])]
-        };
-        this.showNewBlockDefinitionForm = true;
         // eslint-disable-next-line @lwc/lwc/no-async-operation
         Promise.resolve(this._refreshPendingBlockHtml()).then(() => {
-            // eslint-disable-next-line @lwc/lwc/no-async-operation
-            requestAnimationFrame(() => this._refreshStudioPreviews());
+            this._refreshStudioPreviews();
         });
     }
 
     handleCancelBlockDefinition() {
-        this.showNewBlockDefinitionForm = false;
+        this.expandedBlockEditorKey = null;
         this._resetPendingBlockDraft();
     }
 
@@ -813,10 +826,12 @@ export default class MasterTemplateStudio extends LightningElement {
                 });
             }
             if (
-                this.showNewBlockDefinitionForm
-                && this.pendingBlockDraft.draftKey === pending.type
+                this.expandedBlockEditorKey
+                && (this.pendingBlockDraft.draftKey === pending.type
+                    || this._blockEditorKey({ type: pending.type, fileName: pending.fileName })
+                        === this.expandedBlockEditorKey)
             ) {
-                this.showNewBlockDefinitionForm = false;
+                this.expandedBlockEditorKey = null;
                 this._resetPendingBlockDraft();
             }
             if (this.previewBlockKey === pending.type) {
@@ -987,7 +1002,7 @@ export default class MasterTemplateStudio extends LightningElement {
         this.isSaving = true;
         try {
             await this._persistBlockDefinition('Active');
-            this.showNewBlockDefinitionForm = false;
+            this.expandedBlockEditorKey = null;
             this._resetPendingBlockDraft();
             this._toast('Activated', 'Content block definition is active.', 'success');
         } catch (error) {
@@ -1055,7 +1070,7 @@ export default class MasterTemplateStudio extends LightningElement {
         this.draft = EMPTY_DRAFT();
         this.wizardStep = 'basic';
         this.shellRegions = [];
-        this.showNewBlockDefinitionForm = false;
+        this.expandedBlockEditorKey = null;
         this._resetPendingBlockDraft();
         this.previewBlockKey = '';
     }
@@ -1119,6 +1134,33 @@ export default class MasterTemplateStudio extends LightningElement {
         return (source?.components || []).filter(
             component => component.label || component.fileName || component.type
         );
+    }
+
+    _blockEditorKey(component) {
+        if (!component) return '';
+        const type = String(component.type || '').trim();
+        if (type) return type;
+        return this._normalizeBlockFileKey(component.fileName);
+    }
+
+    _loadPendingBlockDraftFromComponent(component) {
+        if (!component) return;
+        const status = (component.status || 'Draft').trim();
+        this.pendingBlockDraft = {
+            label: component.label || '',
+            description: component.description || '',
+            icon: component.icon || '',
+            fileName: component.fileName || '',
+            draftKey: component.type || '',
+            validated: status === 'Ready' || status === 'Active',
+            blockHtml: '',
+            bindings: (component.bindings || []).map(binding => ({
+                placeholder: binding.placeholder,
+                source: binding.source
+            })),
+            layout: this._parseLayoutJson(component.layoutJson),
+            legacyBlockSettings: [...(component.blockSettings || [])]
+        };
     }
 
     _findBlockDefinition(type, fileName) {
@@ -1419,7 +1461,7 @@ export default class MasterTemplateStudio extends LightningElement {
                     : 'Content block definition saved as Draft.';
                 this._toast(title, message, 'success');
                 if (status === 'Draft') {
-                    this.showNewBlockDefinitionForm = false;
+                    this.expandedBlockEditorKey = null;
                     this._resetPendingBlockDraft();
                 }
             }
