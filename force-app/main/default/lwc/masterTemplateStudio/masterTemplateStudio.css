@@ -237,6 +237,36 @@
     border-color: var(--slds-g-color-border-1, #dddbda);
 }
 
+.studio-upload-row {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+
+.studio-upload-row__upload {
+    flex: 1 1 14rem;
+    min-width: 0;
+}
+
+.studio-upload-row__files {
+    flex: 0 1 auto;
+    align-self: center;
+}
+
+.studio-block-definition-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.studio-block-definition-header h3 {
+    margin: 0;
+}
+
 .studio-shell-requirements {
     display: flex;
     align-items: flex-start;
@@ -308,28 +338,6 @@
 
 .studio-block-binding-row code {
     font-family: monospace;
-}
-
-.studio-block-html-help {
-    position: relative;
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: 0.5rem;
-}
-
-.studio-block-html-help-popover {
-    position: absolute;
-    top: 100%;
-    right: 0;
-    z-index: 2;
-    width: min(22rem, 92vw);
-    max-height: 70vh;
-    overflow: auto;
-    margin-top: 0.375rem;
-}
-
-.studio-block-html-help-popover .studio-panel__aside-body {
-    text-align: left;
 }
 
 .studio-blocks-layout__preview {

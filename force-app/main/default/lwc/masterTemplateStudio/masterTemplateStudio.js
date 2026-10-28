@@ -72,7 +72,6 @@ export default class MasterTemplateStudio extends LightningElement {
         legacyBlockSettings: []
     };
     @track blockBindingTab = 'content';
-    @track showBlockHtmlHelp = false;
     /** Catalog type or uploaded file name — drives single-block preview on Content Blocks step. */
     @track previewBlockKey = '';
     acceptedHtml = ['.html'];
@@ -502,6 +501,31 @@ export default class MasterTemplateStudio extends LightningElement {
         return this._fileTiles('CONTENT_BLOCK', 'doctype:html');
     }
 
+    get pendingBlockFileTiles() {
+        const fileName = (this.pendingBlockDraft.fileName || '').trim();
+        if (!fileName) return [];
+        const targetKey = this._normalizeBlockFileKey(fileName);
+        const tile = this.blockHtmlFileTiles.find(
+            asset => this._normalizeBlockFileKey(asset.name) === targetKey
+        );
+        if (tile) return [tile];
+        return [{
+            documentId: '',
+            name: fileName,
+            tileIcon: 'doctype:html',
+            downloadUrl: '',
+            deleteDisabled: true
+        }];
+    }
+
+    get hasPendingBlockFile() {
+        return this.pendingBlockFileTiles.length > 0;
+    }
+
+    get blockDefinitionUploadLabel() {
+        return this.hasPendingBlockFile ? 'Replace content block HTML' : 'Upload content block HTML';
+    }
+
     get blockCssAssets() {
         return this._assets('SHELL_CSS');
     }
@@ -913,14 +937,6 @@ export default class MasterTemplateStudio extends LightningElement {
         this.pendingBlockDraft = { ...this.pendingBlockDraft, layout, validated: false };
     }
 
-    handleToggleBlockHtmlHelp() {
-        this.showBlockHtmlHelp = !this.showBlockHtmlHelp;
-    }
-
-    handleCloseBlockHtmlHelp() {
-        this.showBlockHtmlHelp = false;
-    }
-
     handleLegacyBlockSettingChange(event) {
         const value = event.currentTarget.dataset.value;
         const checked = !!event.target.checked;
@@ -1040,7 +1056,6 @@ export default class MasterTemplateStudio extends LightningElement {
         this.wizardStep = 'basic';
         this.shellRegions = [];
         this.showNewBlockDefinitionForm = false;
-        this.showBlockHtmlHelp = false;
         this._resetPendingBlockDraft();
         this.previewBlockKey = '';
     }
