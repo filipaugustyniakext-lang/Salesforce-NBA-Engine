@@ -215,33 +215,37 @@
                                                 </div>
                                             </template>
                                             <section class="studio-shell-workspace slds-box" aria-label="Shell HTML upload and regions">
-                                                <lightning-file-upload
-                                                    label={shellUploadLabel}
-                                                    name="shellHtml"
-                                                    record-id={draft.Id}
-                                                    accept={acceptedHtml}
-                                                    onuploadfinished={handleShellUpload}>
-                                                </lightning-file-upload>
-                                                <template lwc:if={hasShellFile}>
-                                                    <div class="studio-file-list">
-                                                        <template for:each={shellFileTiles} for:item="asset">
-                                                            <article key={asset.documentId} class="studio-file" title={asset.name}>
-                                                                <lightning-icon icon-name={asset.tileIcon} size="small" alternative-text="HTML"></lightning-icon>
-                                                                <a class="studio-file__name slds-truncate" href={asset.downloadUrl} target="_blank">{asset.name}</a>
-                                                                <lightning-button-icon
-                                                                    icon-name="utility:delete"
-                                                                    variant="bare"
-                                                                    alternative-text="Delete"
-                                                                    title="Delete"
-                                                                    data-id={asset.documentId}
-                                                                    data-template-id={draft.Id}
-                                                                    disabled={asset.deleteDisabled}
-                                                                    onclick={handleDeleteAsset}>
-                                                                </lightning-button-icon>
-                                                            </article>
-                                                        </template>
+                                                <div class="studio-upload-row">
+                                                    <div class="studio-upload-row__upload">
+                                                        <lightning-file-upload
+                                                            label={shellUploadLabel}
+                                                            name="shellHtml"
+                                                            record-id={draft.Id}
+                                                            accept={acceptedHtml}
+                                                            onuploadfinished={handleShellUpload}>
+                                                        </lightning-file-upload>
                                                     </div>
-                                                </template>
+                                                    <template lwc:if={hasShellFile}>
+                                                        <div class="studio-upload-row__files studio-file-list">
+                                                            <template for:each={shellFileTiles} for:item="asset">
+                                                                <article key={asset.documentId} class="studio-file" title={asset.name}>
+                                                                    <lightning-icon icon-name={asset.tileIcon} size="small" alternative-text="HTML"></lightning-icon>
+                                                                    <a class="studio-file__name slds-truncate" href={asset.downloadUrl} target="_blank">{asset.name}</a>
+                                                                    <lightning-button-icon
+                                                                        icon-name="utility:delete"
+                                                                        variant="bare"
+                                                                        alternative-text="Delete"
+                                                                        title="Delete"
+                                                                        data-id={asset.documentId}
+                                                                        data-template-id={draft.Id}
+                                                                        disabled={asset.deleteDisabled}
+                                                                        onclick={handleDeleteAsset}>
+                                                                    </lightning-button-icon>
+                                                                </article>
+                                                            </template>
+                                                        </div>
+                                                    </template>
+                                                </div>
                                                 <div class="studio-detected-regions">
                                                     <h3 class="slds-text-title_caps">Detected regions summary</h3>
                                                     <template lwc:if={shellRegionsOk}>
@@ -311,9 +315,6 @@
                                 <div class="studio-blocks-layout">
                                     <div class="studio-blocks-layout__main">
                                         <div class="studio-blocks-main__header">
-                                            <p class="slds-text-body_small slds-text-color_weak studio-blocks-main__intro">
-                                                Optional: define reusable content blocks for Copy Center. Shell-only templates can skip this step. Block styling must live in the Template Shell HTML file.
-                                            </p>
                                             <template lwc:if={showAddBlockDefinitionButton}>
                                                 <lightning-button
                                                     label="Add Content Block Definition"
@@ -338,84 +339,103 @@
                                                     </lightning-button>
                                                 </lightning-empty-state>
                                             </template>
-                                            <template for:each={contentBlockCards} for:item="block">
-                                                <article
-                                                    key={block.key}
-                                                    class={block.summaryCardClass}
-                                                    data-preview-key={block.previewKey}
-                                                    role="button"
-                                                    tabindex="0"
-                                                    title="Show this block in preview"
-                                                    onclick={handleBlockSummaryPreview}>
-                                                    <div class="slds-card__header slds-grid">
-                                                        <header class="slds-media slds-media_center slds-has-flexi-truncate">
-                                                            <div class="slds-media__body">
-                                                                <h3 class="slds-card__header-title">
-                                                                    <span class="slds-truncate" title={block.displayTitle}>{block.displayTitle}</span>
-                                                                </h3>
-                                                                <p class="slds-text-body_small slds-text-color_weak slds-truncate" title={block.fileMeta}>{block.fileMeta}</p>
+                                            <div class="studio-block-accordion-list" role="list">
+                                            <template for:each={contentBlockListItems} for:item="block">
+                                                <article key={block.key} class={block.cardClass} role="listitem">
+                                                    <template lwc:if={block.showSummary}>
+                                                        <div
+                                                            class="studio-block-summary"
+                                                            data-preview-key={block.previewKey}
+                                                            role="button"
+                                                            tabindex="0"
+                                                            title="Show this block in preview"
+                                                            onclick={handleBlockSummaryPreview}>
+                                                            <div class="slds-card__header slds-grid">
+                                                                <header class="slds-media slds-media_center slds-has-flexi-truncate">
+                                                                    <div class="slds-media__body">
+                                                                        <h3 class="slds-card__header-title">
+                                                                            <span class="slds-truncate" title={block.displayTitle}>{block.displayTitle}</span>
+                                                                        </h3>
+                                                                        <p class="slds-text-body_small slds-text-color_weak slds-truncate" title={block.fileMeta}>{block.fileMeta}</p>
+                                                                    </div>
+                                                                </header>
+                                                                <div class="slds-no-flex studio-block-summary__actions">
+                                                                    <lightning-button
+                                                                        label="Edit"
+                                                                        data-type={block.type}
+                                                                        data-file-name={block.fileName}
+                                                                        onclick={handleEditBlockDefinition}>
+                                                                    </lightning-button>
+                                                                    <lightning-button-icon
+                                                                        class="slds-m-left_x-small"
+                                                                        icon-name="utility:delete"
+                                                                        variant="border-filled"
+                                                                        alternative-text="Delete content block definition"
+                                                                        title="Delete content block definition"
+                                                                        data-type={block.type}
+                                                                        data-file-name={block.fileName}
+                                                                        onclick={handleDeleteBlockDefinition}>
+                                                                    </lightning-button-icon>
+                                                                </div>
                                                             </div>
-                                                        </header>
-                                                        <div class="slds-no-flex studio-block-summary__actions">
-                                                            <lightning-button
-                                                                label="Edit"
-                                                                data-type={block.type}
-                                                                data-file-name={block.fileName}
-                                                                onclick={handleEditBlockDefinition}>
-                                                            </lightning-button>
-                                                            <lightning-button-icon
-                                                                class="slds-m-left_x-small"
-                                                                icon-name="utility:delete"
-                                                                variant="border-filled"
-                                                                alternative-text="Delete content block definition"
-                                                                title="Delete content block definition"
-                                                                data-type={block.type}
-                                                                data-file-name={block.fileName}
-                                                                onclick={handleDeleteBlockDefinition}>
-                                                            </lightning-button-icon>
-                                                        </div>
-                                                    </div>
-                                                    <div class="slds-card__body slds-card__body_inner">
-                                                        <div class="studio-block-summary__badges" role="list" aria-label="Block status">
-                                                            <span class={block.statusBadgeClass} role="listitem">{block.statusLabel}</span>
-                                                            <span class={block.validationBadgeClass} role="listitem">{block.validationLabel}</span>
-                                                        </div>
-                                                        <p class="slds-text-body_small slds-m-top_small">{block.descriptionDisplay}</p>
-                                                    </div>
-                                                </article>
-                                            </template>
-                                            <template lwc:if={showNewBlockDefinitionForm}>
-                                                <article class="studio-block-definition-card slds-card slds-card_boundary">
-                                                    <div class="slds-card__header slds-grid">
-                                                        <header class="slds-media slds-media_center slds-has-flexi-truncate">
-                                                            <div class="slds-media__body">
-                                                                <h3 class="slds-card__header-title">
-                                                                    <span>{blockDefinitionFormTitle}</span>
-                                                                </h3>
+                                                            <div class="slds-card__body slds-card__body_inner">
+                                                                <div class="studio-block-summary__badges" role="list" aria-label="Block status">
+                                                                    <span class={block.statusBadgeClass} role="listitem">{block.statusLabel}</span>
+                                                                    <span class={block.validationBadgeClass} role="listitem">{block.validationLabel}</span>
+                                                                </div>
+                                                                <p class="slds-text-body_small slds-m-top_small">{block.descriptionDisplay}</p>
                                                             </div>
-                                                        </header>
-                                                        <div class="slds-no-flex">
+                                                        </div>
+                                                    </template>
+                                                    <template lwc:else>
+                                                        <div class="studio-block-definition-header slds-p-horizontal_small slds-p-top_small">
+                                                            <h3 class="slds-text-heading_small">{block.displayTitle}</h3>
                                                             <lightning-button label="Cancel" onclick={handleCancelBlockDefinition}></lightning-button>
                                                         </div>
+                                                    </template>
+                                                    <template lwc:if={block.isEditorExpanded}>
+                                                <section class="studio-shell-workspace slds-box studio-block-editor" aria-label="Content block HTML upload and bindings">
+                                                    <div class="slds-notify slds-notify_alert slds-alert_warning" role="alert">
+                                                        <span class="slds-assistive-text">Warning</span>
+                                                        <lightning-icon icon-name="utility:warning" size="x-small" class="slds-m-right_x-small" alternative-text="Warning"></lightning-icon>
+                                                        <h2 class="slds-text-body_small">Include all block CSS in the Template Shell HTML file. Block HTML files should not rely on separate CSS uploads.</h2>
                                                     </div>
-                                                    <div class="slds-card__body slds-card__body_inner">
-                                                        <div class="slds-notify slds-notify_alert slds-alert_warning slds-m-bottom_medium" role="alert">
-                                                            <span class="slds-assistive-text">Warning</span>
-                                                            <lightning-icon icon-name="utility:warning" size="x-small" class="slds-m-right_x-small" alternative-text="Warning"></lightning-icon>
-                                                            <h2 class="slds-text-body_small">Include all block CSS in the Template Shell HTML file. Block HTML files should not rely on separate CSS uploads.</h2>
+                                                    <div class="studio-upload-row">
+                                                        <div class="studio-upload-row__upload">
+                                                            <lightning-file-upload
+                                                                label={blockDefinitionUploadLabel}
+                                                                name="blockDefinitionHtml"
+                                                                record-id={draft.Id}
+                                                                accept={acceptedHtml}
+                                                                onuploadfinished={handleBlockDefinitionUpload}>
+                                                            </lightning-file-upload>
                                                         </div>
-                                                        <lightning-file-upload
-                                                            label="Content block HTML"
-                                                            name="blockDefinitionHtml"
-                                                            record-id={draft.Id}
-                                                            accept={acceptedHtml}
-                                                            onuploadfinished={handleBlockDefinitionUpload}>
-                                                        </lightning-file-upload>
-                                                        <template lwc:if={pendingBlockDraft.fileName}>
-                                                            <p class="slds-text-body_small slds-m-top_x-small">
-                                                                Uploaded file: <strong>{pendingBlockDraft.fileName}</strong>
-                                                            </p>
+                                                        <template lwc:if={hasPendingBlockFile}>
+                                                            <div class="studio-upload-row__files studio-file-list">
+                                                                <template for:each={pendingBlockFileTiles} for:item="asset">
+                                                                    <article key={asset.name} class="studio-file" title={asset.name}>
+                                                                        <lightning-icon icon-name={asset.tileIcon} size="small" alternative-text="HTML"></lightning-icon>
+                                                                        <template lwc:if={asset.downloadUrl}>
+                                                                            <a class="studio-file__name slds-truncate" href={asset.downloadUrl} target="_blank">{asset.name}</a>
+                                                                        </template>
+                                                                        <template lwc:else>
+                                                                            <span class="studio-file__name slds-truncate">{asset.name}</span>
+                                                                        </template>
+                                                                        <lightning-button-icon
+                                                                            icon-name="utility:delete"
+                                                                            variant="bare"
+                                                                            alternative-text="Delete"
+                                                                            title="Delete"
+                                                                            data-id={asset.documentId}
+                                                                            data-template-id={draft.Id}
+                                                                            disabled={asset.deleteDisabled}
+                                                                            onclick={handleDeleteAsset}>
+                                                                        </lightning-button-icon>
+                                                                    </article>
+                                                                </template>
+                                                            </div>
                                                         </template>
+                                                    </div>
                                                         <div class="slds-grid slds-wrap slds-gutters slds-m-top_small">
                                                             <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
                                                                 <lightning-input
@@ -455,17 +475,89 @@
                                                                 </template>
                                                             </div>
                                                         </div>
+                                                        <template lwc:if={blockHasHtml}>
+                                                            <div class="studio-detected-regions" aria-live="polite">
+                                                                <h3 class="slds-text-title_caps">Detected bindings summary</h3>
+                                                                <div class="studio-detected-regions__badges studio-detected-regions__badges_row" role="list" aria-label="Detected block bindings">
+                                                                    <template for:each={blockDetectedBindingBadges} for:item="badge">
+                                                                        <span key={badge.key} class={badge.badgeClass} role="listitem">{badge.label}</span>
+                                                                    </template>
+                                                                </div>
+                                                            </div>
+                                                        </template>
                                                         <lightning-tabset variant="scoped" class="studio-block-definition-tabs" active-tab-value={blockBindingTab}>
-                                                            <lightning-tab label="Blocks Content Binding" value="content">
-                                                                <p class="studio-block-binding-placeholder slds-text-body_small slds-text-color_weak">
-                                                                    Bind placeholders to editor fields when authors should edit content in Copy Center.
-                                                                    Blocks without bindings stay fixed exactly as in the source HTML and are not editable in the message editor.
+                                                            <lightning-tab label="Content Bindings" value="content">
+                                                                <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
+                                                                    Map each content placeholder to a Copy Center editor field. Unbound placeholders stay fixed in the message editor.
                                                                 </p>
+                                                                <template lwc:if={blockHasHtml}>
+                                                                    <template lwc:if={blockContentBindingsEmpty}>
+                                                                        <p class="slds-text-body_small slds-text-color_weak">
+                                                                            No content placeholders (for example &#123;&#123;copy&#125;&#125; or &#123;&#123;imageUrl&#125;&#125;) were found. Add mustache tokens in your block HTML, or leave the block unbound for fixed HTML.
+                                                                        </p>
+                                                                    </template>
+                                                                    <template for:each={blockContentBindingRows} for:item="row">
+                                                                        <div key={row.key} class="slds-grid slds-wrap slds-gutters slds-m-bottom_x-small studio-block-binding-row">
+                                                                            <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3 slds-grid slds-grid_vertical-align-center">
+                                                                                <code class="slds-text-body_small">{row.placeholderLabel}</code>
+                                                                                <template lwc:if={row.unbound}>
+                                                                                    <span class="slds-badge slds-m-left_x-small">Unbound</span>
+                                                                                </template>
+                                                                            </div>
+                                                                            <div class="slds-col slds-size_1-of-1 slds-medium-size_2-of-3">
+                                                                                <lightning-combobox
+                                                                                    label="Editor field"
+                                                                                    variant="label-hidden"
+                                                                                    value={row.source}
+                                                                                    placeholder="Choose editor field"
+                                                                                    options={contentBindingSourceOptions}
+                                                                                    data-placeholder={row.placeholder}
+                                                                                    onchange={handleContentBindingChange}>
+                                                                                </lightning-combobox>
+                                                                            </div>
+                                                                        </div>
+                                                                    </template>
+                                                                </template>
+                                                                <template lwc:else>
+                                                                    <p class="studio-block-binding-placeholder slds-text-body_small slds-text-color_weak">
+                                                                        Upload content block HTML to scan placeholders and configure bindings.
+                                                                    </p>
+                                                                </template>
                                                             </lightning-tab>
-                                                            <lightning-tab label="Block Settings Binding" value="settings">
-                                                                <p class="studio-block-binding-placeholder slds-text-body_small slds-text-color_weak">
-                                                                    Optional: map block settings to placeholders. Unbound settings remain fixed in the rendered block.
+                                                            <lightning-tab label="Settings Bindings" value="settings">
+                                                                <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
+                                                                    Configure block and column settings, allowed values, and defaults for each detected placeholder. Use the preview icon to try a value in the block preview panel.
                                                                 </p>
+                                                                <template lwc:if={blockHasHtml}>
+                                                                    <template lwc:if={blockUsesModernLayout}>
+                                                                        <c-master-template-settings-bindings
+                                                                            block-html={pendingBlockDraft.blockHtml}
+                                                                            layout-config={pendingBlockDraft.layout}
+                                                                            onlayoutchange={handleSettingsLayoutChange}
+                                                                            onsettingpreview={handleSettingsPreview}>
+                                                                        </c-master-template-settings-bindings>
+                                                                    </template>
+                                                                    <template lwc:else>
+                                                                        <p class="slds-text-body_small slds-m-bottom_small">
+                                                                            This HTML does not use the modern layout markers. Enable classic block settings for Copy Center, or add binding-container to your markup.
+                                                                        </p>
+                                                                        <template for:each={legacyBlockSettingRows} for:item="row">
+                                                                            <lightning-input
+                                                                                key={row.key}
+                                                                                type="checkbox"
+                                                                                label={row.label}
+                                                                                checked={row.checked}
+                                                                                data-value={row.value}
+                                                                                onchange={handleLegacyBlockSettingChange}>
+                                                                            </lightning-input>
+                                                                        </template>
+                                                                    </template>
+                                                                </template>
+                                                                <template lwc:else>
+                                                                    <p class="studio-block-binding-placeholder slds-text-body_small slds-text-color_weak">
+                                                                        Upload content block HTML to scan layout tokens and settings.
+                                                                    </p>
+                                                                </template>
                                                             </lightning-tab>
                                                         </lightning-tabset>
                                                         <div class="slds-m-top_medium studio-block-definition-actions">
@@ -488,8 +580,43 @@
                                                                 onclick={handleActivateBlockDefinition}>
                                                             </lightning-button>
                                                         </div>
-                                                    </div>
+                                                </section>
+                                                    </template>
                                                 </article>
+                                            </template>
+                                            </div>
+                                            <template lwc:if={isBlockEditorOpen}>
+                                                <div
+                                                    class="slds-notify slds-notify_alert slds-theme_info studio-shell-requirements"
+                                                    role="alert"
+                                                    aria-label="Content block HTML guidance">
+                                                    <span class="slds-assistive-text">Information</span>
+                                                    <lightning-icon
+                                                        icon-name="utility:info"
+                                                        alternative-text="Information"
+                                                        size="x-small"
+                                                        class="slds-m-right_x-small">
+                                                    </lightning-icon>
+                                                    <div class="studio-panel__aside-body">
+                                                        <h2 class="studio-panel__aside-title">Content block HTML requirements</h2>
+                                                        <ul class="studio-panel__aside-list">
+                                                            <li>Block HTML is a fragment inserted into the shell <code>blocks</code> region — no outer cc-preview wrapper.</li>
+                                                            <li>Keep block CSS in the Template Shell file; block uploads should be HTML only.</li>
+                                                            <li>Use <code>&#123;&#123;name&#125;&#125;</code> placeholders for text, images, and layout tokens the app should replace.</li>
+                                                        </ul>
+                                                        <p class="studio-panel__aside-label">Modern layout (recommended for multi-column blocks):</p>
+                                                        <ul class="studio-panel__aside-code">
+                                                            <li>Wrap the block in an element with attribute <code>binding-container</code>.</li>
+                                                            <li>Each column uses <code>binding-column</code>. Copy inside a column uses <code>binding-content</code>.</li>
+                                                            <li>One background token per level: &#123;&#123;container-bg&#125;&#125;, &#123;&#123;column-bg&#125;&#125;, &#123;&#123;content-bg&#125;&#125;.</li>
+                                                            <li>Hide and padding: &#123;&#123;container-hide-dsk&#125;&#125;, &#123;&#123;container-hide-mob&#125;&#125;, &#123;&#123;container-pad-dsk&#125;&#125;, and the column/content equivalents.</li>
+                                                        </ul>
+                                                        <p class="studio-panel__aside-label">Content placeholders (bind on the Content tab):</p>
+                                                        <ul class="studio-panel__aside-code">
+                                                            <li>&#123;&#123;copy&#125;&#125;, &#123;&#123;imageUrl&#125;&#125;, &#123;&#123;altText&#125;&#125;, &#123;&#123;legal&#125;&#125;, or custom names you map manually.</li>
+                                                        </ul>
+                                                    </div>
+                                                </div>
                                             </template>
                                         </template>
                                         <template lwc:else>
@@ -502,6 +629,9 @@
                                                 template-id={draft.Id}
                                                 preview-mode="blocks"
                                                 preview-block-key={previewBlockKey}
+                                                studio-block-html={pendingBlockDraft.blockHtml}
+                                                studio-layout-config-json={blockPreviewLayoutConfigJson}
+                                                studio-preview-focus-json={blockPreviewFocusJson}
                                                 heading="Block preview"
                                                 help-text="Select or upload one content block to preview it inside the template shell. Only the focused block is rendered.">
                                             </c-copy-template-preview-panel>
