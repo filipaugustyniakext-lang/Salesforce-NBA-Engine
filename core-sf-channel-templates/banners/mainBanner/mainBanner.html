@@ -2,7 +2,9 @@
   mainBanner — upload this file as the Template Shell for the Banner channel.
   views="mobile" limits preview to the phone frame in Template Studio and Copy Center.
   Use views="desktop", views="mobile", or views="desktop,mobile".
-  Placeholders: {{title}} {{description}} {{imageUrl}} {{legalLabel}} {{secondaryLabel}} {{primaryLabel}}
+  Placeholders: {{title}} {{description}} {{imageUrl}} {{legalLabel}} {{legalNote}} {{buttonLabel}}
+  Optional parts use data-variant and data-variant-label. The shell stays complete; CSS reacts to
+  .cc-preview[data-cc-variant-<name>="off"]. legalNote and secondaryButton are optional. The primary button stays.
 -->
 <cc-preview data-action="template-start" template-kind="single" views="mobile" mobile-width="375" mobile-height="812" desktop-width="375">
 <style>
@@ -18,7 +20,7 @@
     gap: 12px;
     width: auto;
     height: auto;
-    padding: 12px 20px;
+    padding: 3rem 20px;
     background: transparent;
     overflow: hidden;
     font-family: 'UniCredit', Arial, Helvetica, sans-serif;
@@ -59,16 +61,16 @@
   .main-banner__close {
     position: absolute;
     z-index: 2;
-    top: 10px;
-    right: 10px;
+    top: 7px;
+    right: 12px;
     width: 10.6px;
     height: 10.6px;
     padding: 0;
     border: 0;
     background: transparent;
     color: #ffffff;
-    font-size: 10.6px;
-    line-height: 10.6px;
+    font-size: 20px;
+    line-height: 20px;
     cursor: pointer;
   }
   .main-banner__top {
@@ -292,6 +294,18 @@
       color: #CCCCCC;
     }
   }
+  /* Configurations are declared with data-variant. The preview sets data-cc-variant-<name>="off" on .cc-preview. */
+  .cc-preview[data-cc-variant-legalnote="off"] .main-banner__legal,
+  .cc-preview[data-cc-variant-legalnote="off"] .main-banner-drawer-overlay {
+    display: none;
+  }
+  .cc-preview[data-cc-variant-secondarybutton="off"] .main-banner__btn_secondary {
+    display: none;
+  }
+  .cc-preview[data-cc-variant-secondarybutton="off"] .main-banner__btn_primary {
+    flex: 1 1 100%;
+    width: 100%;
+  }
 </style>
 <cc-preview region="fixed-edit">
   <div class="main-banner-screen">
@@ -301,22 +315,22 @@
         <div class="main-banner__copy">
           <h2 class="main-banner__title" data-editor="text">{{title}}</h2>
           <p class="main-banner__description" data-editor="text">{{description}}</p>
-          <button type="button" class="main-banner__legal" data-editor="text" data-drawer-open="legal">{{legalLabel}}</button>
+          <button type="button" class="main-banner__legal" data-editor="text" data-variant="legalNote" data-variant-label="Legal note" data-drawer-open="legal">{{legalLabel}}</button>
         </div>
         <div class="main-banner__image">
           <img data-editor="image" alt="" src="{{imageUrl}}" width="100" height="100" />
         </div>
       </div>
       <div class="main-banner__actions">
-        <a class="main-banner__btn main-banner__btn_secondary" data-editor="action" href="{{secondaryUrl}}">{{secondaryLabel}}</a>
-        <a class="main-banner__btn main-banner__btn_primary" data-editor="action" href="{{primaryUrl}}">{{primaryLabel}}</a>
+        <a class="main-banner__btn main-banner__btn_secondary" data-editor="action" data-variant="secondaryButton" data-variant-label="Secondary button" href="{{secondaryUrl}}">{{buttonLabel}}</a>
+        <a class="main-banner__btn main-banner__btn_primary" data-editor="action" href="{{primaryUrl}}">{{buttonLabel}}</a>
       </div>
     </article>
-    <div class="main-banner-drawer-overlay" data-drawer-overlay="legal" aria-hidden="true">
+    <div class="main-banner-drawer-overlay" data-drawer-overlay="legal" data-variant="legalNote" aria-hidden="true">
       <button type="button" class="main-banner-drawer-backdrop" data-drawer-close aria-label="Close legal note"></button>
       <section class="main-banner-drawer" data-drawer="legal" aria-label="Legal note">
         <div class="main-banner-drawer__header">
-          <h3 class="main-banner-drawer__title">{{legalLabel}}</h3>
+          <h3 class="main-banner-drawer__title">{{legalNote}}</h3>
           <button type="button" class="main-banner-drawer__close" data-drawer-close aria-label="Close">×</button>
         </div>
         <div class="main-banner-drawer__body" data-editor="richtext">{{legalNote}}</div>

@@ -60,6 +60,32 @@ export default class CopyTemplatePreviewPanel extends LightningElement {
         this._syncPreviewFrame();
     }
 
+    _shellVariantState = {};
+
+    @api
+    get shellVariantStateJson() {
+        return JSON.stringify(this._shellVariantState || {});
+    }
+
+    set shellVariantStateJson(value) {
+        let next = {};
+        try {
+            next = value ? JSON.parse(value) : {};
+        } catch (error) {
+            next = {};
+        }
+        this.applyVariantState(next);
+    }
+
+    @api
+    applyVariantState(values) {
+        const next = values && typeof values === 'object' ? { ...values } : {};
+        if (JSON.stringify(next) === JSON.stringify(this._shellVariantState)) return;
+        this._shellVariantState = next;
+        this._previewTick += 1;
+        this._syncPreviewFrame();
+    }
+
     @api
     get previewBlockKey() {
         return this._previewBlockKey;
@@ -316,12 +342,13 @@ export default class CopyTemplatePreviewPanel extends LightningElement {
         const host = this.template.querySelector('[data-preview-host]');
         if (!host) return;
         const html = this.previewDocument || '';
-        const stamp = `${this._previewDevice}|${this._previewTheme}|${html}`;
+        const stamp = `${this._previewDevice}|${this._previewTheme}|${JSON.stringify(this._shellVariantState || {})}|${html}`;
         if (!html || host._previewStamp === stamp) return;
         const openDrawer = host.querySelector('[data-drawer-overlay].is-open')?.getAttribute('data-drawer-overlay');
         host.innerHTML = scopePreviewDocument(html, {
             device: this._previewDevice,
-            theme: this._previewTheme
+            theme: this._previewTheme,
+            variants: this._shellVariantState
         });
         pinPreviewWidths(host, { device: this._previewDevice });
         bindShellPreviewInteractions(host);

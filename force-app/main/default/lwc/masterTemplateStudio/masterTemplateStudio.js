@@ -7,7 +7,7 @@ import classifyUploadedFiles from '@salesforce/apex/ChannelTemplateController.cl
 import deleteTemplateAsset from '@salesforce/apex/ChannelTemplateController.deleteTemplateAsset';
 import deleteTemplate from '@salesforce/apex/ChannelTemplateController.deleteTemplate';
 import getTemplateRenderSource from '@salesforce/apex/ChannelTemplateController.getTemplateRenderSource';
-import { scanCcPreviewRegionLabelsInOrder, parseTemplateKind, parseShellEditorFields } from 'c/copyTemplatePreview';
+import { scanCcPreviewRegionLabelsInOrder, parseTemplateKind, parseShellEditorFields, parseShellVariants } from 'c/copyTemplatePreview';
 import getChannelRecords from '@salesforce/apex/MarketingDictionaryManagerController.getChannelRecords';
 import saveShellBindings from '@salesforce/apex/ChannelTemplateController.saveShellBindings';
 import listCmsImages from '@salesforce/apex/ChannelTemplateController.listCmsImages';
@@ -52,6 +52,8 @@ export default class MasterTemplateStudio extends LightningElement {
     @track templateKind = 'multi';
     @track shellBindings = [];
     @track shellPreviewValues = {};
+    @track shellVariants = [];
+    @track shellVariantState = {};
     @track selectedShellPlaceholder = '';
     @track intentOptions = [];
     @track cmsImages = [];
@@ -340,6 +342,21 @@ export default class MasterTemplateStudio extends LightningElement {
 
     get shellPreviewValuesJson() {
         return JSON.stringify(this.shellPreviewValues || {});
+    }
+
+    get shellVariantRows() {
+        return (this.shellVariants || []).map(row => ({
+            ...row,
+            enabled: this.shellVariantState?.[row.name] !== false
+        }));
+    }
+
+    get hasShellVariants() {
+        return this.shellVariantRows.length > 0;
+    }
+
+    get shellVariantStateJson() {
+        return JSON.stringify(this.shellVariantState || {});
     }
 
     get hasShellBindings() {
@@ -644,6 +661,16 @@ export default class MasterTemplateStudio extends LightningElement {
         if ((this.shellPreviewValues[placeholder] || '') === next) return;
         this.shellPreviewValues = { ...this.shellPreviewValues, [placeholder]: next };
         this.template.querySelector('c-copy-template-preview-panel')?.applyPreviewValues(this.shellPreviewValues);
+    }
+
+    handleShellVariantToggle(event) {
+        const name = event.currentTarget?.dataset?.variant;
+        if (!name) return;
+        const enabled = event.detail && Object.prototype.hasOwnProperty.call(event.detail, 'checked')
+            ? !!event.detail.checked
+            : !!event.target?.checked;
+        this.shellVariantState = { ...this.shellVariantState, [name]: enabled };
+        this.template.querySelector('c-copy-template-preview-panel')?.applyVariantState(this.shellVariantState);
     }
 
     handleShellActionModeChange(event) {
@@ -951,6 +978,8 @@ export default class MasterTemplateStudio extends LightningElement {
             this.shellRegions = [];
             this.templateKind = 'multi';
             this.shellBindings = [];
+            this.shellVariants = [];
+            this.shellVariantState = {};
             return;
         }
         try {
@@ -959,6 +988,7 @@ export default class MasterTemplateStudio extends LightningElement {
             this.shellRegions = scanCcPreviewRegionLabelsInOrder(shellHtml);
             this.templateKind = parseTemplateKind(shellHtml);
             this._mergeShellBindings(shellHtml, source?.shellBindingsJson);
+            this._mergeShellVariants(shellHtml);
             if (this.isSingleBlockTemplate) {
                 this._loadIntentOptions();
                 if (this.wizardStep === 'blocks') this.wizardStep = 'shell';
@@ -970,6 +1000,8 @@ export default class MasterTemplateStudio extends LightningElement {
             this.shellRegions = [];
             this.templateKind = 'multi';
             this.shellBindings = [];
+            this.shellVariants = [];
+            this.shellVariantState = {};
             this.shellRegionError = error.body?.message || error.message;
         }
     }
@@ -991,6 +1023,17 @@ export default class MasterTemplateStudio extends LightningElement {
                 intentId: previous.intentId || ''
             };
         });
+    }
+
+    _mergeShellVariants(shellHtml) {
+        const detected = parseShellVariants(shellHtml);
+        const previous = this.shellVariantState || {};
+        const next = {};
+        detected.forEach(variant => {
+            next[variant.name] = previous[variant.name] !== false;
+        });
+        this.shellVariants = detected;
+        this.shellVariantState = next;
     }
 
     async _loadIntentOptions() {

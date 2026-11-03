@@ -164,8 +164,10 @@ export function scopePreviewDocument(html, options = {}) {
     });
     const bodyMatch = withoutStyles.match(/<body\b[^>]*>([\s\S]*)<\/body>/i);
     const body = previewTokens(bodyMatch ? bodyMatch[1] : withoutStyles).replace(/<custom\b[^>]*\/?>/gi, '');
+    const variedBody = applyShellVariantState(body, options.variants);
     // Shrink-wrap only presentation tables (e.g. image wrappers), not MJML bullet/list tables.
-    const guard = `${PREVIEW_SCOPE} table[role="presentation"]:not([width]):not([style*="width"]){width:max-content !important;max-width:100% !important;margin:0 auto;}`
+    const guard = `${PREVIEW_SCOPE} .cc-variant-off{display:none !important;}`
+        + `${PREVIEW_SCOPE} table[role="presentation"]:not([width]):not([style*="width"]){width:max-content !important;max-width:100% !important;margin:0 auto;}`
         + mjColumnPreviewCss(device)
         + (device === 'desktop'
             ? `${PREVIEW_SCOPE} .desktopHide{display:none !important;}`
@@ -175,7 +177,8 @@ export function scopePreviewDocument(html, options = {}) {
                 + `${PREVIEW_SCOPE} td[style*="direction: rtl"],${PREVIEW_SCOPE} td[style*="direction:rtl"]{direction:ltr!important;text-align:center!important;}`
             : '')
         + previewColorModeCss(theme);
-    return `<div class="cc-preview cc-preview--theme-${theme}"><style>${styles.join('\n')}\n${guard}</style>${body}</div>`;
+    const variantAttrs = shellVariantAttributes(options.variants);
+    return `<div class="cc-preview cc-preview--theme-${theme}"${variantAttrs ? ` ${variantAttrs}` : ''}><style>${styles.join('\n')}\n${guard}</style>${variedBody}</div>`;
 }
 
 function previewTokens(html) {
@@ -472,6 +475,49 @@ export function parseShellEditorFields(shellHtml) {
         match = SHELL_EDITOR_PATTERN.exec(source);
     }
     return fields;
+}
+
+export function parseShellVariants(shellHtml) {
+    const variants = [];
+    const pattern = /<([a-zA-Z0-9:_-]+)\b([^>]*\bdata-variant\s*=\s*(['"])([A-Za-z0-9_-]+)\3[^>]*)>/gi;
+    const source = String(shellHtml || '');
+    let match = pattern.exec(source);
+    while (match) {
+        const name = match[4];
+        if (!variants.some(row => row.name === name)) {
+            const label = parseCcPreviewAttr(match[2], 'data-variant-label').trim() || name;
+            variants.push({ name, label });
+        }
+        match = pattern.exec(source);
+    }
+    return variants;
+}
+
+export function applyShellVariantState(html, states) {
+    const off = new Set();
+    Object.entries(states || {}).forEach(([name, enabled]) => {
+        if (enabled === false || enabled === 'off' || enabled === 0) off.add(name);
+    });
+    if (!off.size) return String(html || '');
+    return String(html || '').replace(
+        /<([a-zA-Z0-9:_-]+)(\s[^>]*?\bdata-variant\s*=\s*(['"])([A-Za-z0-9_-]+)\3[^>]*)>/gi,
+        (tag, element, rest, _quote, name) => {
+            if (!off.has(name) || /\bcc-variant-off\b/.test(tag)) return tag;
+            if (/\bclass\s*=\s*(['"])/i.test(rest)) {
+                return `<${element}${rest.replace(/\bclass\s*=\s*(['"])/i, 'class=$1cc-variant-off ')}>`;
+            }
+            return `<${element} class="cc-variant-off"${rest}>`;
+        }
+    );
+}
+
+function shellVariantAttributes(states) {
+    return Object.entries(states || {}).map(([name, enabled]) => {
+        const key = String(name).toLowerCase().replace(/[^a-z0-9_-]/g, '');
+        if (!key) return '';
+        const value = enabled === false || enabled === 'off' || enabled === 0 ? 'off' : 'on';
+        return `data-cc-variant-${key}="${value}"`;
+    }).filter(Boolean).join(' ');
 }
 
 function firstPlaceholder(value) {

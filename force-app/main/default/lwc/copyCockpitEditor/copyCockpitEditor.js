@@ -15,6 +15,7 @@ import {
     previewFrameHeightPx,
     applyShellPreviewValues,
     bindShellPreviewInteractions,
+    parseShellVariants,
     pinPreviewWidths,
 } from './templatePreview';
 import { parseBlockTemplate, alignLayout } from 'c/contentBindingModel';
@@ -257,6 +258,7 @@ export default class CopyCockpitEditor extends LightningElement {
     @track _renderSourceError = '';
     @track _isSaving = false;
     @track _previewTick = 0;
+    @track _shellVariantState = {};
     @track _activeBlockId  = null;
     @track _addPopoverOpen  = false;
     @track _addSearchQuery  = '';
@@ -766,6 +768,13 @@ export default class CopyCockpitEditor extends LightningElement {
 
     get renderSourceLoading() { return this._renderSourceLoading; }
     get hasShellPreview() { return !!this._renderSource?.shellHtml && !this._renderSourceLoading; }
+    get shellVariantRows() {
+        return parseShellVariants(this._renderSource?.shellHtml).map(row => ({
+            ...row,
+            enabled: this._shellVariantState?.[row.name] !== false
+        }));
+    }
+    get hasShellVariants() { return this.shellVariantRows.length > 0; }
     get previewDocument() {
         const revision = this._previewTick;
         if (!this._renderSource?.shellHtml || revision < 0) return '';
@@ -1437,11 +1446,12 @@ export default class CopyCockpitEditor extends LightningElement {
         const host = this.template.querySelector('[data-preview-host]');
         if (!host) return;
         const html = this.previewDocument || '';
-        const stamp = `${this._previewDevice}|${this._previewTheme}|${html}`;
+        const stamp = `${this._previewDevice}|${this._previewTheme}|${JSON.stringify(this._shellVariantState || {})}|${html}`;
         if (!html || host._previewStamp === stamp) return;
         host.innerHTML = scopePreviewDocument(html, {
             device: this._previewDevice,
             theme: this._previewTheme,
+            variants: this._shellVariantState,
         });
         pinPreviewWidths(host, { device: this._previewDevice });
         bindShellPreviewInteractions(host);
@@ -1473,6 +1483,7 @@ export default class CopyCockpitEditor extends LightningElement {
         getTemplateRenderSource({ templateId })
             .then(source => {
                 this._renderSource = source;
+                this._mergeShellVariants(source?.shellHtml);
                 this._applySupportedPreviewDevice();
                 this._seedSingleContentBlock();
             })
@@ -1480,6 +1491,26 @@ export default class CopyCockpitEditor extends LightningElement {
                 this._renderSourceError = err?.body?.message || 'Could not load the source template.';
             })
             .finally(() => { this._renderSourceLoading = false; });
+    }
+
+    _mergeShellVariants(shellHtml) {
+        const detected = parseShellVariants(shellHtml);
+        const previous = this._shellVariantState || {};
+        const next = {};
+        detected.forEach(variant => {
+            next[variant.name] = previous[variant.name] !== false;
+        });
+        this._shellVariantState = next;
+    }
+
+    handleShellVariantToggle(event) {
+        const name = event.currentTarget?.dataset?.variant;
+        if (!name) return;
+        const enabled = event.detail && Object.prototype.hasOwnProperty.call(event.detail, 'checked')
+            ? !!event.detail.checked
+            : !!event.target?.checked;
+        this._shellVariantState = { ...this._shellVariantState, [name]: enabled };
+        this._previewTick += 1;
     }
 }
 

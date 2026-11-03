@@ -1128,6 +1128,15 @@
                     </div>
 
                     <div class="slds-panel__body editor-preview-body">
+                        <template lwc:if={hasShellVariants}>
+                            <div class="slds-p-horizontal_small slds-p-bottom_x-small">
+                                <template for:each={shellVariantRows} for:item="row">
+                                    <div key={row.name} data-variant={row.name} onchange={handleShellVariantToggle}>
+                                        <lightning-input type="toggle" label={row.label} checked={row.enabled}></lightning-input>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
                         <div class="editor-preview__mock-wrap">
                             <div class={previewFrameClass} style={previewFrameStyle}>
                                 <template lwc:if={isDesktop}>

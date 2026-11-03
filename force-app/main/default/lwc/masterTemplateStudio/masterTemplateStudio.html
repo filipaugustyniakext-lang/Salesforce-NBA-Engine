@@ -256,6 +256,19 @@
                                                     </template>
                                                 </div>
                                             </section>
+                                            <template lwc:if={hasShellVariants}>
+                                                <section class="slds-box slds-m-top_small" aria-label="Configurations">
+                                                    <h2 class="slds-text-heading_small slds-m-bottom_x-small">Configurations</h2>
+                                                    <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
+                                                        The shell includes every optional part. Turn one off to preview that configuration. Layout changes come from the shell CSS.
+                                                    </p>
+                                                    <template for:each={shellVariantRows} for:item="row">
+                                                        <div key={row.name} class="slds-m-bottom_x-small" data-variant={row.name} onchange={handleShellVariantToggle}>
+                                                            <lightning-input type="toggle" label={row.label} checked={row.enabled}></lightning-input>
+                                                        </div>
+                                                    </template>
+                                                </section>
+                                            </template>
                                             <template lwc:if={hasShellBindings}>
                                                 <section class="slds-box slds-m-top_small" aria-label="Content Bindings">
                                                     <h2 class="slds-text-heading_small slds-m-bottom_x-small">Content Bindings</h2>
@@ -363,6 +376,7 @@
                                                     <ul class="studio-panel__aside-code">
                                                         <li>&lt;cc-preview data-action="template-start" template-kind="single" views="mobile" mobile-width="375" mobile-height="812"&gt;…&lt;/cc-preview&gt;</li>
                                                         <li>template-kind="single" skips Content Blocks and binds placeholders on this step. Omit it for multi-block templates.</li>
+                                                        <li>Mark an optional part with data-variant="name" data-variant-label="Label". Hide it in CSS with .cc-preview[data-cc-variant-name="off"].</li>
                                                     </ul>
                                                     <p class="studio-panel__aside-label">Inner regions:</p>
                                                     <ul class="studio-panel__aside-code">
@@ -384,6 +398,7 @@
                                                 preview-mode="shell"
                                                 heading="Shell preview"
                                                 shell-preview-values-json={shellPreviewValuesJson}
+                                                shell-variant-state-json={shellVariantStateJson}
                                                 help-text="fixed-read and fixed-edit render as-is; the blocks region shows the empty canvas until content blocks are added.">
                                             </c-copy-template-preview-panel>
                                         </div>

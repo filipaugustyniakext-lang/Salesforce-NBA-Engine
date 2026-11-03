@@ -10,4 +10,5 @@ export {
     previewFrameHeightPx,
     applyShellPreviewValues,
     bindShellPreviewInteractions,
+    parseShellVariants,
 } from 'c/copyTemplatePreview';
