@@ -12,12 +12,26 @@ import syncDraftBlockCatalog from '@salesforce/apex/ChannelTemplateController.sy
 import saveComponentCatalog from '@salesforce/apex/ChannelTemplateController.saveComponentCatalog';
 import validateContentBlockDefinition from '@salesforce/apex/ChannelTemplateController.validateContentBlockDefinition';
 import activateTemplatePackage from '@salesforce/apex/ChannelTemplateController.activateTemplatePackage';
+import getContentBlockPlaceholders from '@salesforce/apex/ChannelTemplateController.getContentBlockPlaceholders';
+import {
+    parseBlockTemplate,
+    alignLayout,
+    layoutBindings,
+    STRUCTURAL_PLACEHOLDERS
+} from 'c/contentBindingModel';
+import { mergeStudioLayoutDefaults } from 'c/blockLayoutStudio';
 import {
     COUNTRY_OPTIONS,
     CLASSIFICATION_OPTIONS,
     WIZARD_STEPS,
     composeRecordName,
-    normalizeSlug
+    normalizeSlug,
+    CONTENT_BINDING_SOURCE_OPTIONS,
+    LEGACY_BLOCK_SETTING_OPTIONS,
+    isContentPlaceholder,
+    suggestContentBindingSource,
+    mergeBindingRows,
+    isContentBindingSource
 } from './templateStudioUtils';
 
 const VALID_BLOCK_ICON = /^[a-zA-Z0-9_]+:[a-zA-Z0-9_]+$/;
@@ -45,24 +59,31 @@ export default class MasterTemplateStudio extends LightningElement {
     @track pendingBlockDelete = null;
     @track shellRegions = [];
     @track shellRegionError = '';
-    @track showNewBlockDefinitionForm = false;
+    /** null | '__new__' | catalog type / normalized file key — at most one block editor expanded. */
+    @track expandedBlockEditorKey = null;
     @track pendingBlockDraft = {
         label: '',
         description: '',
         icon: '',
         fileName: '',
         draftKey: '',
-        validated: false
+        validated: false,
+        blockHtml: '',
+        bindings: [],
+        layout: null,
+        legacyBlockSettings: []
     };
     @track blockBindingTab = 'content';
     /** Catalog type or uploaded file name — drives single-block preview on Content Blocks step. */
     @track previewBlockKey = '';
+    @track settingsPreviewFocus = null;
     acceptedHtml = ['.html'];
     acceptedCss = ['.css'];
 
     countryOptions = COUNTRY_OPTIONS;
     classificationOptions = CLASSIFICATION_OPTIONS;
     wizardSteps = WIZARD_STEPS;
+    contentBindingSourceOptions = CONTENT_BINDING_SOURCE_OPTIONS;
 
     _wiredTemplates;
 
@@ -208,21 +229,191 @@ export default class MasterTemplateStudio extends LightningElement {
         return icon && VALID_BLOCK_ICON.test(icon) ? icon : '';
     }
 
-    get contentBlockCards() {
-        return this._savedBlockDefinitions()
-            .filter(component => !(
-                this.showNewBlockDefinitionForm
-                && (
-                    (this.pendingBlockDraft.draftKey && component.type === this.pendingBlockDraft.draftKey)
-                    || (this.pendingBlockDraft.fileName
-                        && component.fileName === this.pendingBlockDraft.fileName)
-                )
-            ))
-            .map((component, index) => {
+    get blockHasHtml() {
+        return !!String(this.pendingBlockDraft.blockHtml || '').trim();
+    }
+
+    get blockBindingScan() {
+        return parseBlockTemplate(this.pendingBlockDraft.blockHtml || '');
+    }
+
+    get blockUsesModernLayout() {
+        return !!this.blockBindingScan?.usesLayout;
+    }
+
+    get blockPreviewLayoutConfigJson() {
+        if (!this.blockHasHtml) return '';
+        return JSON.stringify(
+            mergeStudioLayoutDefaults(this.pendingBlockDraft.layout, this.blockBindingScan)
+        );
+    }
+
+    get blockPreviewFocusJson() {
+        return this.settingsPreviewFocus ? JSON.stringify(this.settingsPreviewFocus) : '';
+    }
+
+    get blockDetectedBindingBadges() {
+        const scan = this.blockBindingScan;
+        const boundPlaceholders = this._boundPlaceholderNames();
+        const badgeLight = 'slds-badge slds-badge_lightest';
+        const badgeSuccess = 'slds-badge slds-theme_success';
+        const badges = [];
+        if (this.blockHasHtml) {
+            badges.push({
+                key: 'container',
+                label: scan.hasContainer ? 'binding-container found' : 'No binding-container',
+                badgeClass: scan.hasContainer ? badgeSuccess : badgeLight
+            });
+            badges.push({
+                key: 'columns',
+                label: scan.columns?.length
+                    ? `${scan.columns.length} binding-column region(s)`
+                    : 'No binding-column markers',
+                badgeClass: (scan.columns?.length || 0) > 0 ? badgeSuccess : badgeLight
+            });
+        }
+        const placeholders = this._placeholdersInBlockHtml();
+        placeholders.filter(name => STRUCTURAL_PLACEHOLDERS.includes(name)).forEach(name => {
+            badges.push({
+                key: `struct-${name}`,
+                label: `{{${name}}}`,
+                badgeClass: boundPlaceholders.has(name) ? badgeSuccess : badgeLight
+            });
+        });
+        placeholders.filter(name => isContentPlaceholder(name, STRUCTURAL_PLACEHOLDERS)).forEach(name => {
+            badges.push({
+                key: `content-${name}`,
+                label: `{{${name}}} (content)`,
+                badgeClass: boundPlaceholders.has(name) ? badgeSuccess : badgeLight
+            });
+        });
+        if (this.blockHasHtml && !placeholders.length) {
+            badges.push({ key: 'none', label: 'No {{placeholders}} detected', badgeClass: badgeLight });
+        }
+        return badges;
+    }
+
+    get blockContentBindingRows() {
+        const placeholders = this._placeholdersInBlockHtml().filter(name =>
+            isContentPlaceholder(name, STRUCTURAL_PLACEHOLDERS)
+        );
+        const bindingByPlaceholder = new Map(
+            (this.pendingBlockDraft.bindings || [])
+                .filter(row => isContentBindingSource(row.source))
+                .map(row => [row.placeholder, row.source])
+        );
+        return placeholders.map(placeholder => ({
+            key: placeholder,
+            placeholder,
+            placeholderLabel: `{{${placeholder}}}`,
+            source: bindingByPlaceholder.get(placeholder) || '',
+            unbound: !bindingByPlaceholder.get(placeholder)
+        }));
+    }
+
+    get blockContentBindingsEmpty() {
+        return this.blockHasHtml && this.blockContentBindingRows.length === 0;
+    }
+
+    get blockLayoutFlagRows() {
+        const scan = this.blockBindingScan;
+        const layout = alignLayout(this.pendingBlockDraft.layout, scan);
+        const rows = [];
+        const blockFlags = [
+            ['hideDesktop', 'Allow hide on desktop', scan.block?.hideDesktop],
+            ['hideMobile', 'Allow hide on mobile', scan.block?.hideMobile],
+            ['padding', 'Allow block padding', scan.block?.padDesktop || scan.block?.padMobile],
+            ['backgroundColor', 'Allow block background color', scan.block?.bgColor],
+            ['backgroundImage', 'Allow block background image', scan.block?.bgImage],
+            ['backgroundGradient', 'Allow block background gradient', scan.block?.bgGradient],
+            ['columnDirection', 'Allow column direction (LTR / RTL)', scan.columnDirection]
+        ];
+        blockFlags.forEach(([flag, label, present]) => {
+            if (!present) return;
+            rows.push({
+                key: `block-${flag}`,
+                flag,
+                columnIndex: null,
+                label,
+                checked: !!layout[flag]
+            });
+        });
+        (scan.columns || []).forEach((column, index) => {
+            const options = layout.columns[index] || {};
+            const columnFlags = [
+                ['padding', `Column ${index + 1}: padding`, column.padDesktop || column.padMobile],
+                ['backgroundColor', `Column ${index + 1}: background color`, column.bgColor],
+                ['backgroundImage', `Column ${index + 1}: background image`, column.bgImage],
+                ['backgroundGradient', `Column ${index + 1}: background gradient`, column.bgGradient]
+            ];
+            columnFlags.forEach(([flag, label, present]) => {
+                if (!present) return;
+                rows.push({
+                    key: `col-${index}-${flag}`,
+                    flag,
+                    columnIndex: index,
+                    label,
+                    checked: !!options[flag]
+                });
+            });
+        });
+        return rows;
+    }
+
+    get blockShowLayoutColors() {
+        const layout = alignLayout(this.pendingBlockDraft.layout, this.blockBindingScan);
+        return !!layout.backgroundColor && !!this.blockBindingScan.block?.bgColor;
+    }
+
+    get blockLayoutBackgroundColors() {
+        const layout = alignLayout(this.pendingBlockDraft.layout, this.blockBindingScan);
+        return (layout.backgroundColors || []).join('\n');
+    }
+
+    get blockShowLayoutGradient() {
+        const layout = alignLayout(this.pendingBlockDraft.layout, this.blockBindingScan);
+        return !!layout.backgroundGradient && !!this.blockBindingScan.block?.bgGradient;
+    }
+
+    get blockLayoutGradientCss() {
+        const layout = alignLayout(this.pendingBlockDraft.layout, this.blockBindingScan);
+        const preset = (layout.gradients || [])[0];
+        return preset?.css || '';
+    }
+
+    get blockLayoutGradientLabel() {
+        const layout = alignLayout(this.pendingBlockDraft.layout, this.blockBindingScan);
+        const preset = (layout.gradients || [])[0];
+        return preset?.label || 'Block gradient';
+    }
+
+    get legacyBlockSettingRows() {
+        const enabled = new Set(this.pendingBlockDraft.legacyBlockSettings || []);
+        return LEGACY_BLOCK_SETTING_OPTIONS.map(option => ({
+            key: option.value,
+            value: option.value,
+            label: option.label,
+            checked: enabled.has(option.value)
+        }));
+    }
+
+    get isCreatingNewBlock() {
+        return this.expandedBlockEditorKey === '__new__';
+    }
+
+    get isBlockEditorOpen() {
+        return !!this.expandedBlockEditorKey;
+    }
+
+    get contentBlockListItems() {
+        const expandedKey = this.expandedBlockEditorKey;
+        const items = this._savedBlockDefinitions().map((component, index) => {
             const status = (component.status || 'Draft').trim();
             const validated = status === 'Ready' || status === 'Active';
             const previewKey = this._blockPreviewKey(component);
+            const editorKey = this._blockEditorKey(component);
             const selected = this._previewKeysMatch(previewKey, this.previewBlockKey);
+            const isEditorExpanded = expandedKey === editorKey;
             return {
                 key: `${component.type || 'block'}-${index}`,
                 type: component.type,
@@ -239,11 +430,32 @@ export default class MasterTemplateStudio extends LightningElement {
                     : 'slds-badge slds-badge_lightest',
                 descriptionDisplay: component.description || 'No description provided.',
                 documentId: this._contentBlockDocumentId(component.fileName),
-                summaryCardClass: 'studio-block-summary-card slds-card slds-card_boundary'
-                    + (selected ? ' studio-block-summary-card_selected' : ''),
-                previewKey
+                cardClass: 'studio-block-accordion slds-card slds-card_boundary'
+                    + (selected ? ' studio-block-summary-card_selected' : '')
+                    + (isEditorExpanded ? ' studio-block-accordion_expanded' : ''),
+                previewKey,
+                editorKey,
+                isEditorExpanded,
+                isNew: false,
+                showSummary: true
             };
         });
+        if (this.isCreatingNewBlock) {
+            items.push({
+                key: '__new__',
+                type: '',
+                fileName: '',
+                displayTitle: 'New content block definition',
+                fileMeta: '',
+                cardClass: 'studio-block-accordion studio-block-accordion_expanded slds-card slds-card_boundary',
+                previewKey: '',
+                editorKey: '__new__',
+                isEditorExpanded: true,
+                isNew: true,
+                showSummary: false
+            });
+        }
+        return items;
     }
 
     get hasContentBlockCards() {
@@ -251,11 +463,11 @@ export default class MasterTemplateStudio extends LightningElement {
     }
 
     get showBlocksEmptyState() {
-        return this.hasRecordId && !this.hasContentBlockCards && !this.showNewBlockDefinitionForm;
+        return this.hasRecordId && !this.hasContentBlockCards && !this.isCreatingNewBlock;
     }
 
     get showAddBlockDefinitionButton() {
-        return this.hasRecordId && this.hasContentBlockCards && !this.showNewBlockDefinitionForm;
+        return this.hasRecordId && this.hasContentBlockCards && !this.isCreatingNewBlock;
     }
 
     get saveBlockDefinitionDisabled() {
@@ -324,6 +536,31 @@ export default class MasterTemplateStudio extends LightningElement {
 
     get blockHtmlFileTiles() {
         return this._fileTiles('CONTENT_BLOCK', 'doctype:html');
+    }
+
+    get pendingBlockFileTiles() {
+        const fileName = (this.pendingBlockDraft.fileName || '').trim();
+        if (!fileName) return [];
+        const targetKey = this._normalizeBlockFileKey(fileName);
+        const tile = this.blockHtmlFileTiles.find(
+            asset => this._normalizeBlockFileKey(asset.name) === targetKey
+        );
+        if (tile) return [tile];
+        return [{
+            documentId: '',
+            name: fileName,
+            tileIcon: 'doctype:html',
+            downloadUrl: '',
+            deleteDisabled: true
+        }];
+    }
+
+    get hasPendingBlockFile() {
+        return this.pendingBlockFileTiles.length > 0;
+    }
+
+    get blockDefinitionUploadLabel() {
+        return this.hasPendingBlockFile ? 'Replace content block HTML' : 'Upload content block HTML';
     }
 
     get blockCssAssets() {
@@ -399,7 +636,7 @@ export default class MasterTemplateStudio extends LightningElement {
         this.wizardStep = 'basic';
         this.shellRegions = [];
         this.shellRegionError = '';
-        this.showNewBlockDefinitionForm = false;
+        this.expandedBlockEditorKey = null;
         this._resetPendingBlockDraft();
         this.previewBlockKey = '';
         this.isModalOpen = true;
@@ -422,7 +659,7 @@ export default class MasterTemplateStudio extends LightningElement {
         this.wizardStep = 'basic';
         this.shellRegions = source.shellPreviewRegions || [];
         this.shellRegionError = '';
-        this.showNewBlockDefinitionForm = false;
+        this.expandedBlockEditorKey = null;
         this._resetPendingBlockDraft();
         this.previewBlockKey = '';
         this.isModalOpen = true;
@@ -524,8 +761,8 @@ export default class MasterTemplateStudio extends LightningElement {
     }
 
     handleAddBlockDefinition() {
-        this.showNewBlockDefinitionForm = true;
         this._resetPendingBlockDraft();
+        this.expandedBlockEditorKey = '__new__';
         this.previewBlockKey = '';
     }
 
@@ -533,10 +770,18 @@ export default class MasterTemplateStudio extends LightningElement {
         const previewKey = event.currentTarget.dataset.previewKey;
         if (!previewKey) return;
         this.previewBlockKey = previewKey;
-        this.showNewBlockDefinitionForm = false;
-        this._resetPendingBlockDraft();
-        // eslint-disable-next-line @lwc/lwc/no-async-operation
-        requestAnimationFrame(() => this._refreshStudioPreviews());
+        this.expandedBlockEditorKey = null;
+        this.settingsPreviewFocus = null;
+        const component = this._findBlockDefinitionByPreviewKey(previewKey);
+        if (component) {
+            this._loadPendingBlockDraftFromComponent(component);
+            // eslint-disable-next-line @lwc/lwc/no-async-operation
+            Promise.resolve(this._refreshPendingBlockHtml()).then(() => {
+                this._refreshStudioPreviews();
+            });
+            return;
+        }
+        this._refreshStudioPreviews();
     }
 
     handleEditBlockDefinition(event) {
@@ -545,23 +790,23 @@ export default class MasterTemplateStudio extends LightningElement {
         const fileName = event.currentTarget.dataset.fileName;
         const component = this._findBlockDefinition(blockType, fileName);
         if (!component) return;
-        const status = (component.status || 'Draft').trim();
+        const editorKey = this._blockEditorKey(component);
+        if (this.expandedBlockEditorKey === editorKey) {
+            this.expandedBlockEditorKey = null;
+            this._resetPendingBlockDraft();
+            return;
+        }
+        this._loadPendingBlockDraftFromComponent(component);
+        this.expandedBlockEditorKey = editorKey;
         this.previewBlockKey = this._blockPreviewKey(component);
-        this.pendingBlockDraft = {
-            label: component.label || '',
-            description: component.description || '',
-            icon: component.icon || '',
-            fileName: component.fileName || '',
-            draftKey: component.type || '',
-            validated: status === 'Ready' || status === 'Active'
-        };
-        this.showNewBlockDefinitionForm = true;
         // eslint-disable-next-line @lwc/lwc/no-async-operation
-        requestAnimationFrame(() => this._refreshStudioPreviews());
+        Promise.resolve(this._refreshPendingBlockHtml()).then(() => {
+            this._refreshStudioPreviews();
+        });
     }
 
     handleCancelBlockDefinition() {
-        this.showNewBlockDefinitionForm = false;
+        this.expandedBlockEditorKey = null;
         this._resetPendingBlockDraft();
     }
 
@@ -604,10 +849,12 @@ export default class MasterTemplateStudio extends LightningElement {
                 });
             }
             if (
-                this.showNewBlockDefinitionForm
-                && this.pendingBlockDraft.draftKey === pending.type
+                this.expandedBlockEditorKey
+                && (this.pendingBlockDraft.draftKey === pending.type
+                    || this._blockEditorKey({ type: pending.type, fileName: pending.fileName })
+                        === this.expandedBlockEditorKey)
             ) {
-                this.showNewBlockDefinitionForm = false;
+                this.expandedBlockEditorKey = null;
                 this._resetPendingBlockDraft();
             }
             if (this.previewBlockKey === pending.type) {
@@ -655,9 +902,104 @@ export default class MasterTemplateStudio extends LightningElement {
         }
         if (fileName) {
             this.previewBlockKey = fileName;
+            await this._refreshPendingBlockHtml({ suggestBindings: true });
             // eslint-disable-next-line @lwc/lwc/no-async-operation
             requestAnimationFrame(() => this._refreshStudioPreviews());
         }
+    }
+
+    handleContentBindingChange(event) {
+        const placeholder = event.currentTarget.dataset.placeholder;
+        const source = event.detail?.value || '';
+        if (!placeholder) return;
+        const others = (this.pendingBlockDraft.bindings || []).filter(
+            row => row.placeholder !== placeholder
+        );
+        const bindings = source
+            ? [...others, { placeholder, source }]
+            : others;
+        this.pendingBlockDraft = { ...this.pendingBlockDraft, bindings, validated: false };
+    }
+
+    handleLayoutFlagChange(event) {
+        const flag = event.currentTarget.dataset.flag;
+        const columnIndexRaw = event.currentTarget.dataset.columnIndex;
+        const checked = !!event.target.checked;
+        if (!flag) return;
+        const scan = this.blockBindingScan;
+        const layout = alignLayout(this.pendingBlockDraft.layout, scan);
+        if (
+            columnIndexRaw === undefined
+            || columnIndexRaw === ''
+            || columnIndexRaw === 'null'
+        ) {
+            layout[flag] = checked;
+        } else {
+            const columnIndex = Number(columnIndexRaw);
+            if (!Array.isArray(layout.columns)) layout.columns = [];
+            while (layout.columns.length <= columnIndex) {
+                layout.columns.push({});
+            }
+            layout.columns[columnIndex] = {
+                ...(layout.columns[columnIndex] || {}),
+                [flag]: checked
+            };
+        }
+        this.pendingBlockDraft = { ...this.pendingBlockDraft, layout, validated: false };
+    }
+
+    handleLayoutColorsChange(event) {
+        const scan = this.blockBindingScan;
+        const layout = alignLayout(this.pendingBlockDraft.layout, scan);
+        const colors = String(event.detail?.value ?? event.target?.value ?? '')
+            .split(/[\s,]+/)
+            .map(value => value.trim())
+            .filter(value => /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(value));
+        layout.backgroundColors = colors;
+        this.pendingBlockDraft = { ...this.pendingBlockDraft, layout, validated: false };
+    }
+
+    handleLayoutGradientChange(event) {
+        const field = event.currentTarget.dataset.field;
+        const value = event.detail?.value ?? event.target?.value ?? '';
+        const scan = this.blockBindingScan;
+        const layout = alignLayout(this.pendingBlockDraft.layout, scan);
+        const preset = (layout.gradients || [])[0] || {
+            id: 'gradient-1',
+            label: 'Block gradient',
+            css: ''
+        };
+        if (field === 'label') preset.label = value;
+        else preset.css = value;
+        layout.gradients = [preset];
+        this.pendingBlockDraft = { ...this.pendingBlockDraft, layout, validated: false };
+    }
+
+    handleSettingsLayoutChange(event) {
+        const layout = event.detail?.layout;
+        if (!layout) return;
+        this.pendingBlockDraft = { ...this.pendingBlockDraft, layout, validated: false };
+        this.settingsPreviewFocus = null;
+        this._refreshStudioPreviews();
+    }
+
+    handleSettingsPreview(event) {
+        this.settingsPreviewFocus = event.detail || null;
+        this._refreshStudioPreviews();
+    }
+
+    handleLegacyBlockSettingChange(event) {
+        const value = event.currentTarget.dataset.value;
+        const checked = !!event.target.checked;
+        if (!value) return;
+        const settings = new Set(this.pendingBlockDraft.legacyBlockSettings || []);
+        if (checked) settings.add(value);
+        else settings.delete(value);
+        this.pendingBlockDraft = {
+            ...this.pendingBlockDraft,
+            legacyBlockSettings: [...settings],
+            validated: false
+        };
     }
 
     async handleSaveBlockDefinition() {
@@ -696,7 +1038,7 @@ export default class MasterTemplateStudio extends LightningElement {
         this.isSaving = true;
         try {
             await this._persistBlockDefinition('Active');
-            this.showNewBlockDefinitionForm = false;
+            this.expandedBlockEditorKey = null;
             this._resetPendingBlockDraft();
             this._toast('Activated', 'Content block definition is active.', 'success');
         } catch (error) {
@@ -764,7 +1106,7 @@ export default class MasterTemplateStudio extends LightningElement {
         this.draft = EMPTY_DRAFT();
         this.wizardStep = 'basic';
         this.shellRegions = [];
-        this.showNewBlockDefinitionForm = false;
+        this.expandedBlockEditorKey = null;
         this._resetPendingBlockDraft();
         this.previewBlockKey = '';
     }
@@ -828,6 +1170,45 @@ export default class MasterTemplateStudio extends LightningElement {
         return (source?.components || []).filter(
             component => component.label || component.fileName || component.type
         );
+    }
+
+    _blockEditorKey(component) {
+        if (!component) return '';
+        const type = String(component.type || '').trim();
+        if (type) return type;
+        return this._normalizeBlockFileKey(component.fileName);
+    }
+
+    _loadPendingBlockDraftFromComponent(component) {
+        if (!component) return;
+        const status = (component.status || 'Draft').trim();
+        this.pendingBlockDraft = {
+            label: component.label || '',
+            description: component.description || '',
+            icon: component.icon || '',
+            fileName: component.fileName || '',
+            draftKey: component.type || '',
+            validated: status === 'Ready' || status === 'Active',
+            blockHtml: '',
+            bindings: (component.bindings || []).map(binding => ({
+                placeholder: binding.placeholder,
+                source: binding.source
+            })),
+            layout: this._parseLayoutJson(component.layoutJson),
+            legacyBlockSettings: [...(component.blockSettings || [])]
+        };
+    }
+
+    _findBlockDefinitionByPreviewKey(previewKey) {
+        const key = String(previewKey || '').trim();
+        if (!key) return null;
+        return this._savedBlockDefinitions().find(component => {
+            const type = (component.type || '').trim();
+            const file = (component.fileName || '').trim();
+            return type === key
+                || file === key
+                || this._normalizeBlockFileKey(file) === this._normalizeBlockFileKey(key);
+        }) || null;
     }
 
     _findBlockDefinition(type, fileName) {
@@ -944,9 +1325,99 @@ export default class MasterTemplateStudio extends LightningElement {
             icon: '',
             fileName: '',
             draftKey: '',
-            validated: false
+            validated: false,
+            blockHtml: '',
+            bindings: [],
+            layout: null,
+            legacyBlockSettings: []
         };
         this.blockBindingTab = 'content';
+    }
+
+    _boundPlaceholderNames() {
+        const scan = this.blockBindingScan;
+        if (!this.blockHasHtml) return new Set();
+        const layout = alignLayout(this.pendingBlockDraft.layout, scan);
+        const contentBindings = (this.pendingBlockDraft.bindings || []).filter(
+            row => row.placeholder && row.source && isContentBindingSource(row.source)
+        );
+        const merged = mergeBindingRows(contentBindings, layoutBindings(layout, scan));
+        return new Set(merged.map(row => row.placeholder));
+    }
+
+    _placeholdersInBlockHtml() {
+        const names = [];
+        const pattern = /\{\{\s*([A-Za-z0-9_.:-]+)\s*\}\}/g;
+        const html = String(this.pendingBlockDraft.blockHtml || '');
+        let match = pattern.exec(html);
+        while (match) {
+            if (!names.includes(match[1])) names.push(match[1]);
+            match = pattern.exec(html);
+        }
+        return names;
+    }
+
+    async _refreshPendingBlockHtml(options = {}) {
+        const { suggestBindings = false } = options;
+        const fileName = (this.pendingBlockDraft.fileName || '').trim();
+        if (!this.draft.Id || !fileName) {
+            this.pendingBlockDraft = { ...this.pendingBlockDraft, blockHtml: '' };
+            return;
+        }
+        try {
+            const scans = await getContentBlockPlaceholders({ templateId: this.draft.Id });
+            const targetKey = this._normalizeBlockFileKey(fileName);
+            const match = (scans || []).find(item =>
+                this._normalizeBlockFileKey(item.fileName) === targetKey
+            );
+            const blockHtml = match?.htmlBody || '';
+            let bindings = [...(this.pendingBlockDraft.bindings || [])];
+            if (suggestBindings && blockHtml) {
+                const placeholders = (match?.placeholders || []).filter(name =>
+                    isContentPlaceholder(name, STRUCTURAL_PLACEHOLDERS)
+                );
+                const structuralBindings = bindings.filter(row => !isContentBindingSource(row.source));
+                const contentByPlaceholder = new Map(
+                    bindings
+                        .filter(row => isContentBindingSource(row.source))
+                        .map(row => [row.placeholder, row])
+                );
+                placeholders.forEach(placeholder => {
+                    if (contentByPlaceholder.has(placeholder) && contentByPlaceholder.get(placeholder).source) {
+                        return;
+                    }
+                    const source = suggestContentBindingSource(placeholder);
+                    if (source) contentByPlaceholder.set(placeholder, { placeholder, source });
+                });
+                bindings = [
+                    ...structuralBindings,
+                    ...contentByPlaceholder.values()
+                ];
+            }
+            const scan = parseBlockTemplate(blockHtml);
+            const layout = this.pendingBlockDraft.layout
+                ? alignLayout(this.pendingBlockDraft.layout, scan)
+                : alignLayout(null, scan);
+            this.pendingBlockDraft = {
+                ...this.pendingBlockDraft,
+                blockHtml,
+                bindings,
+                layout
+            };
+        } catch (error) {
+            this._toast('Content block scan', this._apexErrorMessage(error), 'error');
+        }
+    }
+
+    _catalogBindingsForSave() {
+        const html = this.pendingBlockDraft.blockHtml || '';
+        const scan = parseBlockTemplate(html);
+        const layout = alignLayout(this.pendingBlockDraft.layout, scan);
+        const contentBindings = (this.pendingBlockDraft.bindings || []).filter(
+            row => row.placeholder && row.source && isContentBindingSource(row.source)
+        );
+        const layoutBindingRows = layoutBindings(layout, scan);
+        return mergeBindingRows(contentBindings, layoutBindingRows);
     }
 
     _pendingBlockKey() {
@@ -988,12 +1459,23 @@ export default class MasterTemplateStudio extends LightningElement {
             if (!row && fileName) {
                 row = rows.find(entry => entry.fileName === fileName);
             }
+            const bindings = this._catalogBindingsForSave();
+            const layout = mergeStudioLayoutDefaults(
+                this.pendingBlockDraft.layout,
+                parseBlockTemplate(this.pendingBlockDraft.blockHtml || '')
+            );
+            const blockSettings = this.blockUsesModernLayout
+                ? []
+                : [...(this.pendingBlockDraft.legacyBlockSettings || [])];
             if (row) {
                 row.label = label;
                 row.description = description;
                 row.fileName = fileName;
                 row.icon = icon || row.icon || '';
                 row.status = status;
+                row.bindings = bindings;
+                row.layout = layout;
+                row.blockSettings = blockSettings;
                 if (!row.type) row.type = draftKey;
                 if (publishable && !row.icon) row.icon = 'utility:component';
             } else {
@@ -1005,8 +1487,9 @@ export default class MasterTemplateStudio extends LightningElement {
                     fileName,
                     status,
                     placeholders: [],
-                    blockSettings: [],
-                    bindings: []
+                    blockSettings,
+                    bindings,
+                    layout
                 });
             }
             await saveComponentCatalog({
@@ -1029,7 +1512,7 @@ export default class MasterTemplateStudio extends LightningElement {
                     : 'Content block definition saved as Draft.';
                 this._toast(title, message, 'success');
                 if (status === 'Draft') {
-                    this.showNewBlockDefinitionForm = false;
+                    this.expandedBlockEditorKey = null;
                     this._resetPendingBlockDraft();
                 }
             }

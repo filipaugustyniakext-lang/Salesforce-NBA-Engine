@@ -2,27 +2,49 @@ const TOKEN = /<!--[\s\S]*?-->|<\/([A-Za-z0-9:_-]+)\s*>|<([A-Za-z0-9:_-]+)([^>]*
 const VOID_TAGS = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr']);
 
 const BLOCK_TOKENS = {
+    'container-hide-dsk': 'hideDesktop',
     'blo-hide-dsk': 'hideDesktop',
+    'container-hide-mob': 'hideMobile',
     'blo-hide-mob': 'hideMobile',
+    'container-pad-dsk': 'padDesktop',
     'blo-pad-dsk': 'padDesktop',
+    'container-pad-mob': 'padMobile',
     'blo-pad-mob': 'padMobile',
+    'container-bg': 'background',
     'blo-bg-color': 'bgColor',
     'blo-bg-img': 'bgImage',
     'blo-bg-grd': 'bgGradient'
 };
 
 const COLUMN_TOKENS = {
+    'column-hide-dsk': 'hideDesktop',
+    'column-hide-mob': 'hideMobile',
+    'column-pad-dsk': 'padDesktop',
     'col-pad-dsk': 'padDesktop',
+    'column-pad-mob': 'padMobile',
     'col-pad-mob': 'padMobile',
+    'column-bg': 'background',
     'col-bg-color': 'bgColor',
     'col-bg-image': 'bgImage',
     'col-bg-gradient': 'bgGradient'
 };
 
+const CONTENT_TOKENS = {
+    'content-hide-dsk': 'hideDesktop',
+    'content-hide-mob': 'hideMobile',
+    'content-pad-dsk': 'padDesktop',
+    'content-pad-mob': 'padMobile',
+    'content-bg': 'background'
+};
+
+const CONTAINER_PLACEHOLDERS = new Set(['column-dir', ...Object.keys(BLOCK_TOKENS)]);
+const COLUMN_PLACEHOLDERS = new Set(Object.keys(COLUMN_TOKENS));
+const CONTENT_PLACEHOLDERS = new Set(Object.keys(CONTENT_TOKENS));
+
 export const STRUCTURAL_PLACEHOLDERS = [
-    ...Object.keys(BLOCK_TOKENS),
-    'column-dir',
-    ...Object.keys(COLUMN_TOKENS)
+    ...CONTAINER_PLACEHOLDERS,
+    ...COLUMN_PLACEHOLDERS,
+    ...CONTENT_PLACEHOLDERS
 ];
 
 export function emptyColumnLayout() {
@@ -38,35 +60,35 @@ export function emptyColumnLayout() {
 
 export function parseBlockTemplate(html) {
     const source = String(html || '');
-    const columns = [];
-    let container = null;
-    const stack = [];
-    TOKEN.lastIndex = 0;
-    let match = TOKEN.exec(source);
-    while (match) {
-        const tokenEnd = match.index + match[0].length;
-        if (!match[0].startsWith('<!--')) {
-            if (match[1]) closeTag(match[1].toLowerCase(), tokenEnd, stack, columns, (frame) => {
-                if (frame.role === 'container' && !container) {
-                    container = { start: frame.start, end: tokenEnd };
-                }
-            });
-            else openTag(match, stack);
-        }
-        match = TOKEN.exec(source);
-    }
-    const containerHtml = container ? source.slice(container.start, container.end) : source;
-    const block = flagsFrom(containerHtml, BLOCK_TOKENS);
+    const regions = scanRegions(source);
+    const containerHtml = regions.container ? source.slice(regions.container.start, regions.container.end) : source;
+    const blockNames = placeholdersIn(containerHtml).filter(name => CONTAINER_PLACEHOLDERS.has(name));
+    const block = flagsFromNames(blockNames, BLOCK_TOKENS);
     return {
-        hasContainer: !!container,
-        usesLayout: !!container || columns.length > 0 || hasAny(block) || containerHtml.includes('{{column-dir}}') || containerHtml.includes('{{ column-dir }}'),
-        columnDirection: placeholdersIn(containerHtml).includes('column-dir'),
-        block,
-        columns: columns.map((column, index) => ({
-            index: index + 1,
-            label: `Column ${index + 1}`,
-            ...flagsFrom(source.slice(column.innerStart, column.innerEnd), COLUMN_TOKENS)
-        }))
+        hasContainer: !!regions.container,
+        usesLayout: !!regions.container || regions.columns.length > 0 || hasAny(block) || blockNames.includes('column-dir'),
+        columnDirection: blockNames.includes('column-dir'),
+        block: { ...block, placeholders: blockNames },
+        columns: regions.columns.map((column, index) => {
+            const columnHtml = source.slice(column.innerStart, column.innerEnd);
+            const columnNames = placeholdersIn(columnHtml).filter(name => COLUMN_PLACEHOLDERS.has(name));
+            return {
+                index: index + 1,
+                label: `Column ${index + 1}`,
+                ...flagsFromNames(columnNames, COLUMN_TOKENS),
+                placeholders: columnNames,
+                contents: (column.contents || []).map((content, contentIndex) => {
+                    const contentHtml = source.slice(content.innerStart, content.innerEnd);
+                    const contentNames = placeholdersIn(contentHtml).filter(name => CONTENT_PLACEHOLDERS.has(name));
+                    return {
+                        index: contentIndex + 1,
+                        label: `Content ${contentIndex + 1}`,
+                        ...flagsFromNames(contentNames, CONTENT_TOKENS),
+                        placeholders: contentNames
+                    };
+                })
+            };
+        })
     };
 }
 
@@ -91,47 +113,74 @@ export function alignLayout(layout, scan) {
         backgroundGradient: !!source.backgroundGradient,
         gradients: cleanGradients(source.gradients),
         columnDirection: !!source.columnDirection,
-        columns: (scan?.columns || []).map((column, index) => ({
-            ...emptyColumnLayout(),
-            ...(Array.isArray(source.columns) ? source.columns[index] : {})
-        })).map(column => ({
-            ...emptyColumnLayout(),
-            ...column,
-            backgroundColors: cleanColors(column.backgroundColors),
-            gradients: cleanGradients(column.gradients)
-        }))
+        background: !!source.background,
+        columns: (scan?.columns || []).map((column, index) => {
+            const saved = Array.isArray(source.columns) ? source.columns[index] || {} : {};
+            return {
+                ...emptyColumnLayout(),
+                ...saved,
+                background: !!saved.background,
+                hideDesktop: !!saved.hideDesktop,
+                hideMobile: !!saved.hideMobile,
+                backgroundColors: cleanColors(saved.backgroundColors),
+                gradients: cleanGradients(saved.gradients),
+                contents: (column.contents || []).map((content, contentIndex) => {
+                    const savedContent = (saved.contents || [])[contentIndex] || {};
+                    return {
+                        padding: !!savedContent.padding,
+                        background: !!savedContent.background,
+                        hideDesktop: !!savedContent.hideDesktop,
+                        hideMobile: !!savedContent.hideMobile,
+                        backgroundColor: !!savedContent.backgroundColor,
+                        backgroundColors: cleanColors(savedContent.backgroundColors),
+                        backgroundImage: !!savedContent.backgroundImage,
+                        backgroundGradient: !!savedContent.backgroundGradient,
+                        gradients: cleanGradients(savedContent.gradients)
+                    };
+                })
+            };
+        })
     };
+}
+
+function pushLayoutPair(pairs, names, candidates, source, enabled) {
+    const placeholder = (candidates || []).find(name => (names || []).includes(name));
+    if (!placeholder || !enabled || pairs.some(pair => pair.placeholder === placeholder)) return;
+    pairs.push({ placeholder, source });
 }
 
 export function layoutBindings(layout, scan) {
     const pairs = [];
     if (!layout || !scan) return pairs;
-    const blockPairs = [
-        ['hideDesktop', 'blo-hide-dsk', 'hideDesktop', scan.block.hideDesktop],
-        ['hideMobile', 'blo-hide-mob', 'hideMobile', scan.block.hideMobile],
-        ['padding', 'blo-pad-dsk', 'padDesktop', scan.block.padDesktop],
-        ['padding', 'blo-pad-mob', 'padMobile', scan.block.padMobile],
-        ['backgroundColor', 'blo-bg-color', 'bgColor', scan.block.bgColor],
-        ['backgroundImage', 'blo-bg-img', 'bgImage', scan.block.bgImage],
-        ['backgroundGradient', 'blo-bg-grd', 'bgGradient', scan.block.bgGradient],
-        ['columnDirection', 'column-dir', 'columnDir', scan.columnDirection]
-    ];
-    blockPairs.forEach(([flag, placeholder, source, present]) => {
-        if (present && layout[flag]) pairs.push({ placeholder, source });
-    });
+    const blockNames = scan.block?.placeholders || [];
+    pushLayoutPair(pairs, blockNames, ['container-hide-dsk', 'blo-hide-dsk'], 'hideDesktop', layout.hideDesktop);
+    pushLayoutPair(pairs, blockNames, ['container-hide-mob', 'blo-hide-mob'], 'hideMobile', layout.hideMobile);
+    pushLayoutPair(pairs, blockNames, ['container-pad-dsk', 'blo-pad-dsk'], 'padDesktop', layout.padding);
+    pushLayoutPair(pairs, blockNames, ['container-pad-mob', 'blo-pad-mob'], 'padMobile', layout.padding);
+    pushLayoutPair(pairs, blockNames, ['container-bg'], 'background', layout.background);
+    pushLayoutPair(pairs, blockNames, ['blo-bg-color'], 'bgColor', layout.backgroundColor);
+    pushLayoutPair(pairs, blockNames, ['blo-bg-img'], 'bgImage', layout.backgroundImage);
+    pushLayoutPair(pairs, blockNames, ['blo-bg-grd'], 'bgGradient', layout.backgroundGradient);
+    pushLayoutPair(pairs, blockNames, ['column-dir'], 'columnDir', layout.columnDirection);
     (scan.columns || []).forEach((column, index) => {
         const options = layout.columns?.[index] || {};
-        const columnPairs = [
-            ['padding', 'col-pad-dsk', 'colPadDesktop', column.padDesktop],
-            ['padding', 'col-pad-mob', 'colPadMobile', column.padMobile],
-            ['backgroundColor', 'col-bg-color', 'colBgColor', column.bgColor],
-            ['backgroundImage', 'col-bg-image', 'colBgImage', column.bgImage],
-            ['backgroundGradient', 'col-bg-gradient', 'colBgGradient', column.bgGradient]
-        ];
-        columnPairs.forEach(([flag, placeholder, source, present]) => {
-            if (present && options[flag] && !pairs.some(pair => pair.placeholder === placeholder)) {
-                pairs.push({ placeholder, source });
-            }
+        const names = column.placeholders || [];
+        pushLayoutPair(pairs, names, ['column-hide-dsk'], 'hideDesktop', options.hideDesktop);
+        pushLayoutPair(pairs, names, ['column-hide-mob'], 'hideMobile', options.hideMobile);
+        pushLayoutPair(pairs, names, ['column-pad-dsk', 'col-pad-dsk'], 'colPadDesktop', options.padding);
+        pushLayoutPair(pairs, names, ['column-pad-mob', 'col-pad-mob'], 'colPadMobile', options.padding);
+        pushLayoutPair(pairs, names, ['column-bg'], 'background', options.background);
+        pushLayoutPair(pairs, names, ['col-bg-color'], 'colBgColor', options.backgroundColor);
+        pushLayoutPair(pairs, names, ['col-bg-image'], 'colBgImage', options.backgroundImage);
+        pushLayoutPair(pairs, names, ['col-bg-gradient'], 'colBgGradient', options.backgroundGradient);
+        (column.contents || []).forEach((content, contentIndex) => {
+            const contentOptions = options.contents?.[contentIndex] || {};
+            const contentNames = content.placeholders || [];
+            pushLayoutPair(pairs, contentNames, ['content-hide-dsk'], 'hideDesktop', contentOptions.hideDesktop);
+            pushLayoutPair(pairs, contentNames, ['content-hide-mob'], 'hideMobile', contentOptions.hideMobile);
+            pushLayoutPair(pairs, contentNames, ['content-pad-dsk'], 'padDesktop', contentOptions.padding);
+            pushLayoutPair(pairs, contentNames, ['content-pad-mob'], 'padMobile', contentOptions.padding);
+            pushLayoutPair(pairs, contentNames, ['content-bg'], 'background', contentOptions.background);
         });
     });
     return pairs;
@@ -159,51 +208,326 @@ export function layoutErrors(layout, scan) {
 }
 
 export function applyBlockTemplate(html, state, layoutJson) {
-    const scan = parseBlockTemplate(html);
-    const layout = alignLayout(layoutJson, scan);
     const runtime = state || {};
     let output = String(html || '');
-    const ranges = scanColumns(output);
-    for (let index = ranges.length - 1; index >= 0; index -= 1) {
-        const range = ranges[index];
-        const options = layout.columns[index] || emptyColumnLayout();
-        const columnState = (runtime.columns || [])[index] || {};
-        const found = scan.columns[index] || {};
-        const desktopPad = padString(columnState.padDesktop);
-        const values = {};
-        if (found.padDesktop) values['col-pad-dsk'] = options.padding ? desktopPad : '';
-        if (found.padMobile) {
-            values['col-pad-mob'] = options.padding
-                ? (columnState.padMobileInherit === false ? padString(columnState.padMobile) : desktopPad)
-                : '';
+    const regions = scanRegions(output);
+    const scan = parseBlockTemplate(output);
+    const layout = alignLayout(layoutJson, scan);
+    const jobs = [];
+    regions.columns.forEach((column, index) => {
+        (column.contents || []).forEach((content, contentIndex) => {
+            jobs.push({
+                start: content.innerStart,
+                end: content.innerEnd,
+                kind: 'content',
+                index,
+                contentIndex
+            });
+        });
+        jobs.push({ start: column.innerStart, end: column.innerEnd, kind: 'column', index });
+    });
+    jobs.sort((left, right) => right.start - left.start);
+    jobs.forEach((job, jobIndex) => {
+        const slice = output.slice(job.start, job.end);
+        const next = job.kind === 'content'
+            ? applyContentSlice(slice, layout, runtime, scan, job.index, job.contentIndex)
+            : applyColumnSlice(slice, layout, runtime, scan, job.index);
+        const delta = next.length - (job.end - job.start);
+        output = output.slice(0, job.start) + next + output.slice(job.end);
+        if (!delta) return;
+        for (let later = jobIndex + 1; later < jobs.length; later += 1) {
+            if (jobs[later].end > job.start) jobs[later].end += delta;
+            if (jobs[later].start > job.start) jobs[later].start += delta;
         }
-        if (found.bgColor) values['col-bg-color'] = options.backgroundColor ? allowedColor(columnState.bgColor, options.backgroundColors) : '';
-        if (found.bgImage) values['col-bg-image'] = options.backgroundImage ? escapeHtml(columnState.bgImage || '') : '';
-        if (found.bgGradient) values['col-bg-gradient'] = options.backgroundGradient ? gradientCss(columnState.bgGradientId, options.gradients) : '';
-        output = output.slice(0, range.innerStart) + replaceTokens(output.slice(range.innerStart, range.innerEnd), values) + output.slice(range.innerEnd);
+    });
+    return applyContainerSlice(output, layout, runtime, scan);
+}
+
+export function buildBackgroundPayload(region, hints) {
+    const source = region || {};
+    const options = hints || {};
+    const mode = options.mode || source.defaultBgMode || 'color';
+    if (mode === 'gradient') {
+        const preset = (source.gradients || []).find(item => item.id === options.gradientId)
+            || (source.gradients || [])[0];
+        if (!preset?.css) return null;
+        const stops = gradientStops(preset.css);
+        const fallback = preset.fallbackColor || stops.color;
+        const image = String(preset.css).replace(/"/g, '\'');
+        return {
+            bgcolor: fallback,
+            style: `background-color: ${fallback}; background-image: ${image};`,
+            vml: {
+                color: stops.color,
+                color2: stops.color2,
+                angle: String(preset.vmlAngle || '270'),
+                width: options.vmlWidth || '600px'
+            }
+        };
     }
+    if (mode === 'image') {
+        const preset = (source.backgroundImagePresets || []).find(item => item.id === options.imageId)
+            || (source.backgroundImagePresets || []).find(item => item.url || item.urlDesktop || item.urlMobile);
+        if (!preset) return null;
+        const mobile = options.device === 'mobile' && preset.mobileInherit === false;
+        const position = mobile
+            ? (preset.positionMobile || preset.positionDesktop || 'center')
+            : (preset.positionDesktop || 'center');
+        const size = mobile
+            ? (preset.sizeMobile || preset.sizeDesktop || preset.backgroundSize || 'cover')
+            : (preset.sizeDesktop || preset.backgroundSize || 'cover');
+        const repeat = mobile
+            ? (preset.repeatMobile || preset.repeatDesktop || preset.backgroundRepeat || 'no-repeat')
+            : (preset.repeatDesktop || preset.backgroundRepeat || 'no-repeat');
+        const fallback = preset.fallbackColor || '#ffffff';
+        const url = String(
+            mobile ? (preset.urlMobile || preset.urlDesktop || preset.url) : (preset.urlDesktop || preset.url)
+        ).replace(/'/g, '');
+        if (!url) return null;
+        return {
+            bgcolor: fallback,
+            background: url,
+            style: `background-color: ${fallback}; background-image: url('${url}'); background-repeat: ${repeat}; background-size: ${size}; background-position: ${position};`
+        };
+    }
+    const color = String(options.color || '').trim();
+    if (!/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(color)) return null;
+    return {
+        bgcolor: color,
+        style: `background-color: ${color};`
+    };
+}
+
+function scanRegions(html) {
+    const columns = [];
+    const contents = [];
+    let container = null;
+    const stack = [];
+    const source = String(html || '');
+    TOKEN.lastIndex = 0;
+    let match = TOKEN.exec(source);
+    while (match) {
+        const tokenEnd = match.index + match[0].length;
+        if (!match[0].startsWith('<!--')) {
+            if (match[1]) {
+                closeTag(match[1].toLowerCase(), tokenEnd, stack, columns, (frame) => {
+                    if (frame.role === 'container' && !container) {
+                        container = { start: frame.start, end: tokenEnd };
+                    }
+                    if (frame.role === 'content') {
+                        contents.push({ innerStart: frame.start, innerEnd: tokenEnd });
+                    }
+                });
+            } else openTag(match, stack);
+        }
+        match = TOKEN.exec(source);
+    }
+    columns.forEach(column => {
+        column.contents = contents.filter(content =>
+            content.innerStart >= column.innerStart && content.innerEnd <= column.innerEnd
+        );
+    });
+    return { container, columns };
+}
+
+function applyColumnSlice(slice, layout, runtime, scan, index) {
+    const options = layout.columns[index] || emptyColumnLayout();
+    const columnState = (runtime.columns || [])[index] || {};
+    const found = scan.columns[index] || {};
+    const desktopPad = padString(columnState.padDesktop);
+    const mobilePad = columnState.padMobileInherit === false ? padString(columnState.padMobile) : desktopPad;
+    const values = {};
+    assignHide(values, found.placeholders, ['column-hide-dsk'], options.hideDesktop && columnState.hideDesktop);
+    assignHide(values, found.placeholders, ['column-hide-mob'], options.hideMobile && columnState.hideMobile);
+    assignPad(values, found.placeholders, ['column-pad-dsk', 'col-pad-dsk'], options.padding ? desktopPad : '');
+    assignPad(values, found.placeholders, ['column-pad-mob', 'col-pad-mob'], options.padding ? mobilePad : '');
+    if (found.placeholders?.includes('col-bg-color')) {
+        values['col-bg-color'] = options.backgroundColor ? allowedColor(columnState.bgColor, options.backgroundColors) : '';
+    }
+    if (found.placeholders?.includes('col-bg-image')) {
+        values['col-bg-image'] = options.backgroundImage ? escapeHtml(columnState.bgImage || '') : '';
+    }
+    if (found.placeholders?.includes('col-bg-gradient')) {
+        values['col-bg-gradient'] = options.backgroundGradient ? gradientCss(columnState.bgGradientId, options.gradients) : '';
+    }
+    let next = replaceTokens(slice, values);
+    if (found.placeholders?.includes('column-bg')) {
+        next = applyScopedBackground(next, 'column-bg', columnState.backgroundPayload || null);
+    }
+    return next;
+}
+
+function applyContentSlice(slice, layout, runtime, scan, index, contentIndex) {
+    const options = layout.columns?.[index]?.contents?.[contentIndex] || {};
+    const columnState = (runtime.columns || [])[index] || {};
+    const contentState = (columnState.contents || [])[contentIndex] || {};
+    const found = scan.columns?.[index]?.contents?.[contentIndex] || {};
+    const desktopPad = padString(contentState.padDesktop);
+    const mobilePad = contentState.padMobileInherit === false ? padString(contentState.padMobile) : desktopPad;
+    const values = {};
+    assignHide(values, found.placeholders, ['content-hide-dsk'], options.hideDesktop && contentState.hideDesktop);
+    assignHide(values, found.placeholders, ['content-hide-mob'], options.hideMobile && contentState.hideMobile);
+    assignPad(values, found.placeholders, ['content-pad-dsk'], options.padding ? desktopPad : '');
+    assignPad(values, found.placeholders, ['content-pad-mob'], options.padding ? mobilePad : '');
+    let next = replaceTokens(slice, values);
+    if (found.placeholders?.includes('content-bg')) {
+        next = applyScopedBackground(next, 'content-bg', contentState.backgroundPayload || null);
+    }
+    return next;
+}
+
+function applyContainerSlice(html, layout, runtime, scan) {
     const blockPad = padString(runtime.padDesktop);
-    const blockValues = {};
-    if (scan.block.hideDesktop) blockValues['blo-hide-dsk'] = layout.hideDesktop && runtime.hideDesktop ? 'blo-hide-dsk' : '';
-    if (scan.block.hideMobile) blockValues['blo-hide-mob'] = layout.hideMobile && runtime.hideMobile ? 'blo-hide-mob' : '';
-    if (scan.block.padDesktop) blockValues['blo-pad-dsk'] = layout.padding ? blockPad : '';
-    if (scan.block.padMobile) {
-        blockValues['blo-pad-mob'] = layout.padding
-            ? (runtime.padMobileInherit === false ? padString(runtime.padMobile) : blockPad)
-            : '';
+    const mobilePad = runtime.padMobileInherit === false ? padString(runtime.padMobile) : blockPad;
+    const names = scan.block?.placeholders || [];
+    const values = {};
+    assignHide(values, names, ['container-hide-dsk', 'blo-hide-dsk'], layout.hideDesktop && runtime.hideDesktop);
+    assignHide(values, names, ['container-hide-mob', 'blo-hide-mob'], layout.hideMobile && runtime.hideMobile);
+    assignPad(values, names, ['container-pad-dsk', 'blo-pad-dsk'], layout.padding ? blockPad : '');
+    assignPad(values, names, ['container-pad-mob', 'blo-pad-mob'], layout.padding ? mobilePad : '');
+    if (names.includes('blo-bg-color')) {
+        values['blo-bg-color'] = layout.backgroundColor ? allowedColor(runtime.bgColor, layout.backgroundColors) : '';
     }
-    if (scan.block.bgColor) blockValues['blo-bg-color'] = layout.backgroundColor ? allowedColor(runtime.bgColor, layout.backgroundColors) : '';
-    if (scan.block.bgImage) blockValues['blo-bg-img'] = layout.backgroundImage ? escapeHtml(runtime.bgImage || '') : '';
-    if (scan.block.bgGradient) blockValues['blo-bg-grd'] = layout.backgroundGradient ? gradientCss(runtime.bgGradientId, layout.gradients) : '';
-    if (scan.columnDirection) blockValues['column-dir'] = layout.columnDirection ? (runtime.columnDirection === 'rtl' ? 'rtl' : 'ltr') : '';
-    return replaceTokens(output, blockValues);
+    if (names.includes('blo-bg-img')) {
+        values['blo-bg-img'] = layout.backgroundImage ? escapeHtml(runtime.bgImage || '') : '';
+    }
+    if (names.includes('blo-bg-grd')) {
+        values['blo-bg-grd'] = layout.backgroundGradient ? gradientCss(runtime.bgGradientId, layout.gradients) : '';
+    }
+    if (scan.columnDirection) {
+        values['column-dir'] = layout.columnDirection ? (runtime.columnDirection === 'rtl' ? 'rtl' : 'ltr') : '';
+    }
+    let next = replaceTokens(html, values);
+    if (names.includes('container-bg')) {
+        next = applyScopedBackground(next, 'container-bg', runtime.backgroundPayload || null);
+    }
+    return next;
+}
+
+function assignHide(values, names, tokens, hidden) {
+    tokens.forEach(token => {
+        if (!(names || []).includes(token)) return;
+        if (!hidden) {
+            values[token] = '';
+            return;
+        }
+        values[token] = token.includes('mob') ? 'blo-hide-mob' : 'blo-hide-dsk';
+    });
+}
+
+function assignPad(values, names, tokens, pad) {
+    tokens.forEach(token => {
+        if ((names || []).includes(token)) values[token] = pad;
+    });
+}
+
+function applyScopedBackground(html, token, payload) {
+    const tokenRe = new RegExp(`\\{\\{\\s*${token}\\s*\\}\\}`, 'i');
+    if (!tokenRe.test(html)) return html;
+    if (!payload) return html.replace(tokenRe, '');
+    const openRe = /<([A-Za-z0-9:_-]+)(\s[^>]*?)?>/g;
+    let match;
+    let found = null;
+    while ((match = openRe.exec(html))) {
+        if (tokenRe.test(match[0])) {
+            found = match;
+            break;
+        }
+    }
+    if (!found) return html.replace(tokenRe, '');
+    const openStart = found.index;
+    const openEnd = openRe.lastIndex;
+    const closeEnd = matchingCloseEnd(html, openStart);
+    const open = upsertOpenTag(found[0].replace(tokenRe, ' '), payload);
+    let element = open + html.slice(openEnd, closeEnd);
+    if (payload.vml) element = wrapGradientVml(element, payload.vml);
+    return html.slice(0, openStart) + element + html.slice(closeEnd);
+}
+
+function matchingCloseEnd(html, openStart) {
+    const source = html.slice(openStart);
+    const local = new RegExp(TOKEN.source, 'g');
+    const stack = [];
+    let match = local.exec(source);
+    while (match) {
+        const tokenEnd = match.index + match[0].length;
+        if (!match[0].startsWith('<!--')) {
+            if (match[1]) {
+                const tag = match[1].toLowerCase();
+                for (let index = stack.length - 1; index >= 0; index -= 1) {
+                    if (stack[index] !== tag) continue;
+                    stack.splice(index);
+                    if (!stack.length) return openStart + tokenEnd;
+                    break;
+                }
+            } else if (match[2] && match[4] !== '/' && !VOID_TAGS.has(match[2].toLowerCase())) {
+                stack.push(match[2].toLowerCase());
+            }
+        }
+        match = local.exec(source);
+    }
+    return html.length;
+}
+
+function upsertOpenTag(openTag, payload) {
+    const selfClose = /\/\s*>$/.test(openTag.trim());
+    let tag = openTag.replace(/\s*\/?\s*>$/, '').replace(/\s+/g, ' ').trim();
+    if (payload.bgcolor) tag = setAttribute(tag, 'bgcolor', payload.bgcolor);
+    if (payload.background) tag = setAttribute(tag, 'background', payload.background);
+    if (payload.style) tag = appendStyle(tag, payload.style);
+    return `${tag}${selfClose ? ' />' : '>'}`;
+}
+
+function setAttribute(tag, name, value) {
+    const pattern = new RegExp(`\\s${name}\\s*=\\s*(["'])[\\s\\S]*?\\1`, 'i');
+    const safe = String(value).replace(/"/g, '');
+    if (pattern.test(tag)) return tag.replace(pattern, ` ${name}="${safe}"`);
+    return `${tag} ${name}="${safe}"`;
+}
+
+function appendStyle(tag, extra) {
+    const pattern = /\sstyle\s*=\s*(["'])([\s\S]*?)\1/i;
+    const addition = String(extra || '').trim().replace(/;?\s*$/, ';');
+    if (pattern.test(tag)) {
+        return tag.replace(pattern, (full, quote, css) => {
+            const base = String(css || '').trim().replace(/;?\s*$/, '');
+            return ` style=${quote}${base ? `${base}; ` : ''}${addition}${quote}`;
+        });
+    }
+    return `${tag} style="${addition}"`;
+}
+
+function wrapGradientVml(elementHtml, vml) {
+    const color = vml.color || '#ffffff';
+    const color2 = vml.color2 || color;
+    const angle = vml.angle || '270';
+    const width = vml.width || '600px';
+    return `<!--[if gte mso 9]>
+<v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width:${width};">
+<v:fill type="gradient" color="${color}" color2="${color2}" angle="${angle}" />
+<v:textbox style="mso-fit-shape-to-text:true" inset="0,0,0,0">
+<![endif]-->
+${elementHtml}
+<!--[if gte mso 9]>
+</v:textbox>
+</v:rect>
+<![endif]-->`;
+}
+
+function gradientStops(css) {
+    const hexes = String(css || '').match(/#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})/g) || [];
+    return {
+        color: hexes[0] || '#ffffff',
+        color2: hexes[1] || hexes[0] || '#ffffff'
+    };
 }
 
 function openTag(match, stack) {
     const tag = match[2].toLowerCase();
     const raw = match[3] || '';
         const frame = { tag, role: '', start: match.index };
-    if (hasAttribute(raw, 'binding-column')) frame.role = 'column';
+    if (hasAttribute(raw, 'binding-content')) frame.role = 'content';
+    else if (hasAttribute(raw, 'binding-column')) frame.role = 'column';
     else if (hasAttribute(raw, 'binding-container')) frame.role = 'container';
     if (match[4] === '/' || VOID_TAGS.has(tag)) return;
     stack.push(frame);
@@ -239,9 +563,17 @@ function scanColumns(html) {
     return columns;
 }
 
+function flagsFromNames(names, tokens) {
+    const found = new Set(names || []);
+    const flags = {};
+    Object.entries(tokens).forEach(([token, flag]) => {
+        flags[flag] = !!flags[flag] || found.has(token);
+    });
+    return flags;
+}
+
 function flagsFrom(html, tokens) {
-    const found = new Set(placeholdersIn(html));
-    return Object.fromEntries(Object.entries(tokens).map(([token, flag]) => [flag, found.has(token)]));
+    return flagsFromNames(placeholdersIn(html), tokens);
 }
 
 function hasAny(flags) {
@@ -275,9 +607,14 @@ function padString(pad) {
     return `${side(source.top)} ${side(source.right)} ${side(source.bottom)} ${side(source.left)}`;
 }
 
+function colorHex(value) {
+    if (typeof value === 'string') return value.trim();
+    return String(value?.hex || '').trim();
+}
+
 function allowedColor(value, colors) {
     const color = String(value || '').trim();
-    return (colors || []).some(item => item.toLowerCase() === color.toLowerCase()) ? color : '';
+    return (colors || []).some(item => colorHex(item).toLowerCase() === color.toLowerCase()) ? color : '';
 }
 
 function gradientCss(id, gradients) {
@@ -287,7 +624,7 @@ function gradientCss(id, gradients) {
 
 function cleanColors(values) {
     return (Array.isArray(values) ? values : [])
-        .map(value => String(value || '').trim())
+        .map(value => colorHex(value))
         .filter(value => /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(value));
 }
 

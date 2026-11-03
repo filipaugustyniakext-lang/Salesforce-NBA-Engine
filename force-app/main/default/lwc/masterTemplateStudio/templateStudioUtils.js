@@ -73,3 +73,63 @@ export function regionLabel(type) {
     if (type === 'blocks') return 'blocks (content canvas)';
     return type;
 }
+
+/** Editor field targets for {{placeholder}} content bindings (Copy Center message editor). */
+export const CONTENT_BINDING_SOURCE_OPTIONS = [
+    { label: 'Copy text', value: 'copy' },
+    { label: 'Image URL', value: 'imageUrl' },
+    { label: 'Alt text', value: 'altText' },
+    { label: 'Legal / disclaimer text', value: 'legal' }
+];
+
+/** Legacy block settings when HTML does not use binding-container layout markers. */
+export const LEGACY_BLOCK_SETTING_OPTIONS = [
+    { label: 'Desktop visibility', value: 'viewDesktop' },
+    { label: 'Mobile visibility', value: 'viewMobile' },
+    { label: 'Padding', value: 'padding' },
+    { label: 'Background', value: 'background' },
+    { label: 'Column layout', value: 'columnLayout' },
+    { label: 'Desktop height', value: 'heightDesktop' },
+    { label: 'Mobile height', value: 'heightMobile' }
+];
+
+const CONTENT_SOURCE_VALUES = new Set(CONTENT_BINDING_SOURCE_OPTIONS.map(item => item.value));
+
+export function isContentPlaceholder(name, structuralTokens) {
+    const token = String(name || '').trim();
+    if (!token) return false;
+    return !(structuralTokens || []).includes(token);
+}
+
+export function suggestContentBindingSource(placeholder) {
+    const key = String(placeholder || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (!key) return '';
+    if (key.includes('imageurl') || key === 'image' || key.includes('imgurl')) return 'imageUrl';
+    if (key.includes('alt')) return 'altText';
+    if (key.includes('legal') || key.includes('disclaimer')) return 'legal';
+    if (key.includes('copy') || key.includes('text') || key.includes('body') || key.includes('richtext')) {
+        return 'copy';
+    }
+    return '';
+}
+
+export function mergeBindingRows(primary, secondary) {
+    const byPlaceholder = new Map();
+    (secondary || []).forEach(row => {
+        if (row?.placeholder) byPlaceholder.set(row.placeholder, row);
+    });
+    (primary || []).forEach(row => {
+        if (row?.placeholder && row.source) byPlaceholder.set(row.placeholder, row);
+    });
+    return [...byPlaceholder.values()];
+}
+
+export function bindingSourceLabel(source) {
+    const match = CONTENT_BINDING_SOURCE_OPTIONS.find(item => item.value === source);
+    if (match) return match.label;
+    return source || '—';
+}
+
+export function isContentBindingSource(source) {
+    return CONTENT_SOURCE_VALUES.has(source);
+}
