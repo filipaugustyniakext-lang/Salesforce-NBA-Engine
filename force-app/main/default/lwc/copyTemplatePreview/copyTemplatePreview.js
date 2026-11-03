@@ -487,11 +487,26 @@ export function parseShellEditorFields(shellHtml) {
         const variantName = parseCcPreviewAttr(attrs, 'data-variant').trim();
         const variantLabel = parseCcPreviewAttr(attrs, 'data-variant-label').trim() || variantName;
         const bindingTitle = parseCcPreviewAttr(attrs, 'data-binding-title').trim() || variantLabel;
-        const bindingKey = parseCcPreviewAttr(attrs, 'data-binding-key').trim()
-            || variantName
-            || parseCcPreviewAttr(attrs, 'data-label-placeholder').trim()
-            || firstPlaceholder(inner)
-            || firstPlaceholder(attrs);
+        const labelOptions = parseDelimitedOptions(parseCcPreviewAttr(attrs, 'data-label-options'));
+        const imageModes = parseImageModes(attrs);
+        const placeholderLight = parseCcPreviewAttr(attrs, 'data-placeholder-light').trim()
+            || firstPlaceholder(attrs)
+            || firstPlaceholder(inner);
+        const placeholderDark = parseCcPreviewAttr(attrs, 'data-placeholder-dark').trim()
+            || firstPlaceholder(inner);
+        const innerPlaceholder = firstPlaceholder(inner) || firstPlaceholder(attrs);
+        let bindingKey = parseCcPreviewAttr(attrs, 'data-binding-key').trim();
+        if (!bindingKey) {
+            if (editor === 'action') {
+                bindingKey = parseCcPreviewAttr(attrs, 'data-label-placeholder').trim()
+                    || innerPlaceholder
+                    || variantName;
+            } else if (editor === 'image' && imageModes.length) {
+                bindingKey = placeholderLight || placeholderDark || 'banner-image';
+            } else {
+                bindingKey = innerPlaceholder || (variantName ? `${variantName}-${editor}` : '');
+            }
+        }
         if (!bindingKey) {
             match = SHELL_EDITOR_PATTERN.exec(source);
             continue;
@@ -500,14 +515,6 @@ export function parseShellEditorFields(shellHtml) {
             match = SHELL_EDITOR_PATTERN.exec(source);
             continue;
         }
-
-        const labelOptions = parseDelimitedOptions(parseCcPreviewAttr(attrs, 'data-label-options'));
-        const imageModes = parseImageModes(attrs);
-        const placeholderLight = parseCcPreviewAttr(attrs, 'data-placeholder-light').trim()
-            || firstPlaceholder(attrs)
-            || firstPlaceholder(inner);
-        const placeholderDark = parseCcPreviewAttr(attrs, 'data-placeholder-dark').trim()
-            || firstPlaceholder(inner);
 
         if (editor === 'image' && imageModes.length) {
             fields.push({
@@ -538,7 +545,7 @@ export function parseShellEditorFields(shellHtml) {
                 bindingTitle
             });
         } else {
-            const placeholder = firstPlaceholder(inner) || firstPlaceholder(attrs) || bindingKey;
+            const placeholder = innerPlaceholder || bindingKey;
             fields.push({
                 bindingKey,
                 placeholder,

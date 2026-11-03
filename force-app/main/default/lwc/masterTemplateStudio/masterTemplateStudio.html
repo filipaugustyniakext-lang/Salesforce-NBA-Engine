@@ -267,7 +267,9 @@
                                                             <div class="shell-binding__head">
                                                                 <button type="button" class="shell-binding__choice" data-binding-key={row.bindingKey} onclick={handleSelectShellBinding}>
                                                                     <span class="slds-text-body_small shell-binding__title">{row.rowTitle}</span>
-                                                                    <code class="slds-text-body_small slds-m-left_x-small">{row.placeholderLabel}</code>
+                                                                    <template lwc:if={row.showPlaceholderCode}>
+                                                                        <code class="slds-text-body_small slds-m-left_x-small">{row.placeholderLabel}</code>
+                                                                    </template>
                                                                     <span class="slds-badge slds-badge_lightest slds-m-left_x-small">{row.editorLabel}</span>
                                                                 </button>
                                                                 <template lwc:if={row.showVariant}>

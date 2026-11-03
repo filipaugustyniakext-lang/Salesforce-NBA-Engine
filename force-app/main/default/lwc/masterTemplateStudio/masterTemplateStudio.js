@@ -342,7 +342,8 @@ export default class MasterTemplateStudio extends LightningElement {
             return {
                 ...row,
                 bindingKey,
-                rowTitle: row.bindingTitle || `{{${row.placeholder}}}`,
+                rowTitle: row.bindingTitle || row.placeholder,
+                showPlaceholderCode: !row.bindingTitle,
                 placeholderLabel: `{{${row.placeholder}}}`,
                 editorLabel: labels[row.editor] || row.editor,
                 isAction: row.editor === 'action',
