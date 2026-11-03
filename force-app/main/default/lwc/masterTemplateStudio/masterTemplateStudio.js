@@ -26,6 +26,16 @@ import {
 
 const VALID_BLOCK_ICON = /^[a-zA-Z0-9_]+:[a-zA-Z0-9_]+$/;
 
+function formatUiComponentTitle(componentId) {
+    const raw = String(componentId || '').trim();
+    if (!raw) return '';
+    return raw
+        .split(/[-_\s]+/)
+        .filter(Boolean)
+        .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+        .join(' ');
+}
+
 const IMAGE_SOURCE_OPTIONS = [
     { label: 'Upload Image', value: 'upload' },
     { label: 'Paste URL', value: 'url' },
@@ -368,6 +378,38 @@ export default class MasterTemplateStudio extends LightningElement {
                 showVariant,
                 variantEnabled: row.variantName ? this.shellVariantState?.[row.variantName] !== false : false
             };
+        });
+    }
+
+    get shellBindingGroups() {
+        const groups = [];
+        const groupIndex = new Map();
+        (this.shellBindingRows || []).forEach(row => {
+            const groupKey = row.uiComponent || row.bindingKey;
+            if (!groupIndex.has(groupKey)) {
+                groupIndex.set(groupKey, groups.length);
+                groups.push({
+                    key: groupKey,
+                    title: row.uiComponent ? formatUiComponentTitle(row.uiComponent) : row.rowTitle,
+                    showGroupHeading: !!row.uiComponent,
+                    rows: []
+                });
+            }
+            groups[groupIndex.get(groupKey)].rows.push(row);
+        });
+        return groups.map(group => {
+            const variantToggles = group.rows
+                .filter(row => row.showVariant)
+                .map(row => ({
+                    key: row.variantName,
+                    variantName: row.variantName,
+                    variantLabel: row.variantLabel,
+                    variantEnabled: row.variantEnabled
+                }));
+            const rows = variantToggles.length
+                ? group.rows.map(row => ({ ...row, showVariant: false }))
+                : group.rows;
+            return { ...group, variantToggles, rows };
         });
     }
 

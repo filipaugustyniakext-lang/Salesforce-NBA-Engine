@@ -487,6 +487,7 @@ export function parseShellEditorFields(shellHtml) {
         const variantName = parseCcPreviewAttr(attrs, 'data-variant').trim();
         const variantLabel = parseCcPreviewAttr(attrs, 'data-variant-label').trim() || variantName;
         const bindingTitle = parseCcPreviewAttr(attrs, 'data-binding-title').trim() || variantLabel;
+        const uiComponent = parseCcPreviewAttr(attrs, 'data-ui-component').trim();
         const labelOptions = parseDelimitedOptions(parseCcPreviewAttr(attrs, 'data-label-options'));
         const imageModes = parseImageModes(attrs);
         const placeholderLight = parseCcPreviewAttr(attrs, 'data-placeholder-light').trim()
@@ -526,7 +527,8 @@ export function parseShellEditorFields(shellHtml) {
                 editor,
                 variantName,
                 variantLabel,
-                bindingTitle
+                bindingTitle,
+                uiComponent
             });
         } else if (editor === 'action') {
             const labelPlaceholder = parseCcPreviewAttr(attrs, 'data-label-placeholder').trim()
@@ -542,7 +544,8 @@ export function parseShellEditorFields(shellHtml) {
                 editor,
                 variantName,
                 variantLabel,
-                bindingTitle
+                bindingTitle,
+                uiComponent
             });
         } else {
             const placeholder = innerPlaceholder || bindingKey;
@@ -553,6 +556,7 @@ export function parseShellEditorFields(shellHtml) {
                 variantName,
                 variantLabel,
                 bindingTitle,
+                uiComponent,
                 labelOptions,
                 labelCustomOption: parseCcPreviewAttr(attrs, 'data-label-custom').trim() || 'Custom Label'
             });

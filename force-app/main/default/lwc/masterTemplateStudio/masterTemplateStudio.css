@@ -387,6 +387,23 @@
     padding: 0;
 }
 
+.shell-binding-group__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.35rem;
+}
+
+.shell-binding-group__title {
+    font-weight: 700;
+    margin: 0;
+}
+
+.shell-binding-group .shell-binding {
+    margin-left: 0.25rem;
+}
+
 .shell-binding__title {
     font-weight: 600;
 }
