@@ -327,16 +327,41 @@
                                                                         <template for:each={row.imagePanels} for:item="panel">
                                                                             <section key={panel.key} class="shell-image-settings__column">
                                                                                 <h3 class="slds-text-title_caps slds-m-bottom_x-small">{panel.title}</h3>
-                                                                                <lightning-radio-group
-                                                                                    label="Image source"
-                                                                                    type="button"
-                                                                                    name={panel.sourceRadioName}
-                                                                                    options={panel.sourceOptions}
-                                                                                    value={panel.source}
-                                                                                    data-binding-key={panel.bindingKey}
-                                                                                    data-image-mode={panel.mode}
-                                                                                    onchange={handleShellImageSourceChange}>
-                                                                                </lightning-radio-group>
+                                                                                <div class="shell-image-source shell-image-source__wide">
+                                                                                    <lightning-radio-group
+                                                                                        label="Image source"
+                                                                                        type="button"
+                                                                                        name={panel.sourceRadioName}
+                                                                                        options={panel.sourceOptions}
+                                                                                        value={panel.source}
+                                                                                        data-binding-key={panel.bindingKey}
+                                                                                        data-image-mode={panel.mode}
+                                                                                        onchange={handleShellImageSourceChange}>
+                                                                                    </lightning-radio-group>
+                                                                                </div>
+                                                                                <div class="shell-image-source shell-image-source__compact">
+                                                                                    <label class="slds-form-element__label">Image source</label>
+                                                                                    <lightning-button-menu
+                                                                                        alternative-text="Image source"
+                                                                                        label={panel.sourceMenuLabel}
+                                                                                        icon-name="utility:down"
+                                                                                        icon-size="x-small"
+                                                                                        menu-alignment="left"
+                                                                                        variant="border-filled"
+                                                                                        class="shell-image-source__menu"
+                                                                                        data-binding-key={panel.bindingKey}
+                                                                                        data-image-mode={panel.mode}
+                                                                                        onselect={handleShellImageSourceChange}>
+                                                                                        <template for:each={panel.sourceMenuItems} for:item="sourceItem">
+                                                                                            <lightning-menu-item
+                                                                                                key={sourceItem.value}
+                                                                                                value={sourceItem.value}
+                                                                                                label={sourceItem.label}
+                                                                                                checked={sourceItem.checked}>
+                                                                                            </lightning-menu-item>
+                                                                                        </template>
+                                                                                    </lightning-button-menu>
+                                                                                </div>
                                                                                 <template lwc:if={panel.showUpload}>
                                                                                     <lightning-file-upload
                                                                                         class="slds-m-top_x-small"

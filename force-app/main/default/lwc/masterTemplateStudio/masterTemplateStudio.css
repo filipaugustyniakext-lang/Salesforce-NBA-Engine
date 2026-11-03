@@ -444,7 +444,39 @@
 
 .shell-image-settings__column {
     flex: 1 1 0;
-    min-width: 14rem;
+    min-width: 0;
+    max-width: 100%;
+    container-type: inline-size;
+    container-name: shell-image-panel;
+}
+
+.shell-image-source__compact {
+    display: none;
+}
+
+.shell-image-source__menu {
+    display: block;
+    max-width: 100%;
+}
+
+.shell-image-source__menu lightning-button-menu {
+    max-width: 100%;
+}
+
+@container shell-image-panel (max-width: 26rem) {
+    .shell-image-source__wide {
+        display: none;
+    }
+
+    .shell-image-source__compact {
+        display: block;
+    }
+}
+
+@media (max-width: 30rem) {
+    .shell-image-settings__column {
+        flex: 1 1 100%;
+    }
 }
 
 .shell-image-cms {

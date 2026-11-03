@@ -1183,17 +1183,26 @@ export default class MasterTemplateStudio extends LightningElement {
                 { mode: 'dark', title: 'Dark mode', source: row.imageDarkSource || 'upload', placeholder: row.placeholderDark || row.placeholder }
             ]
             : [{ mode: 'default', title: 'Image', source: row.imageSource || 'upload', placeholder: row.placeholder }];
-        return panels.map(panel => ({
-            ...panel,
-            key: `${bindingKey}-${panel.mode}`,
-            bindingKey,
-            sourceOptions: IMAGE_SOURCE_OPTIONS,
-            sourceRadioName: `image-source-${bindingKey}-${panel.mode}`,
-            showUpload: panel.source === 'upload',
-            showUrl: panel.source === 'url',
-            showCms: panel.source === 'cms',
-            urlValue: this.shellPreviewValues[panel.placeholder] || ''
-        }));
+        return panels.map(panel => {
+            const sourceMenuItems = IMAGE_SOURCE_OPTIONS.map(option => ({
+                ...option,
+                checked: panel.source === option.value
+            }));
+            const activeSource = IMAGE_SOURCE_OPTIONS.find(option => option.value === panel.source);
+            return {
+                ...panel,
+                key: `${bindingKey}-${panel.mode}`,
+                bindingKey,
+                sourceOptions: IMAGE_SOURCE_OPTIONS,
+                sourceMenuItems,
+                sourceMenuLabel: activeSource?.label || 'Image source',
+                sourceRadioName: `image-source-${bindingKey}-${panel.mode}`,
+                showUpload: panel.source === 'upload',
+                showUrl: panel.source === 'url',
+                showCms: panel.source === 'cms',
+                urlValue: this.shellPreviewValues[panel.placeholder] || ''
+            };
+        });
     }
 
     _imagePlaceholder(row, imageMode) {
