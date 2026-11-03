@@ -687,7 +687,7 @@ function applyShellPreviewActionLabels(html, values) {
             'gi'
         );
         const escaped = escapePreviewHtml(raw);
-        output = output.replace(pattern, (_match, openTag) => `${openTag}>${escaped}`);
+        output = output.replace(pattern, (_match, openTag) => `${openTag}>${escaped}</a>`);
     });
     return output;
 }
