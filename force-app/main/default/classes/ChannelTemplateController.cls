@@ -1119,6 +1119,7 @@ public with sharing class ChannelTemplateController {
         }
         source.bodySlotKey = detectBodySlotKey(source.shellHtml, source.bodySlotKey);
         source.previewActions = previewActions(source.shellHtml);
+        source.shellBindingsJson = shellBindingsJson(template.Manifest_JSON__c);
         addShellContentBlock(source);
         return source;
     }
@@ -1134,6 +1135,7 @@ public with sharing class ChannelTemplateController {
         @AuraEnabled public Id templateId;
         @AuraEnabled public String name;
         @AuraEnabled public String shellHtml;
+        @AuraEnabled public String shellBindingsJson;
         @AuraEnabled public String bodySlotKey;
         @AuraEnabled public List<String> previewActions = new List<String>();
         @AuraEnabled public List<RenderBlock> blocks = new List<RenderBlock>();
@@ -1502,6 +1504,46 @@ public with sharing class ChannelTemplateController {
         String extension = link.ContentDocument.LatestPublishedVersion.FileExtension;
         String title = link.ContentDocument.Title == null ? '' : link.ContentDocument.Title.toLowerCase();
         return 'html'.equalsIgnoreCase(extension) || title.endsWith('.html');
+    }
+
+    @AuraEnabled
+    public static void saveShellBindings(Id templateId, String bindingsJson) {
+        if (templateId == null) {
+            throw new AuraHandledException('Template is required.');
+        }
+        try {
+            Channel_Template__c template = [
+                SELECT Id, Manifest_JSON__c
+                FROM Channel_Template__c
+                WHERE Id = :templateId
+                LIMIT 1
+            ];
+            Map<String, Object> manifest = new Map<String, Object>();
+            if (String.isNotBlank(template.Manifest_JSON__c)) {
+                manifest = (Map<String, Object>) JSON.deserializeUntyped(template.Manifest_JSON__c);
+            }
+            Object parsed = String.isBlank(bindingsJson)
+                ? new List<Object>()
+                : JSON.deserializeUntyped(bindingsJson);
+            manifest.put('shellBindings', parsed);
+            template.Manifest_JSON__c = JSON.serialize(manifest);
+            update template;
+        } catch (AuraHandledException error) {
+            throw error;
+        } catch (Exception error) {
+            throw new AuraHandledException(error.getMessage());
+        }
+    }
+
+    private static String shellBindingsJson(String manifestJson) {
+        if (String.isBlank(manifestJson)) return '[]';
+        try {
+            Map<String, Object> manifest = (Map<String, Object>) JSON.deserializeUntyped(manifestJson);
+            Object raw = manifest.get('shellBindings');
+            return raw == null ? '[]' : JSON.serialize(raw);
+        } catch (Exception error) {
+            return '[]';
+        }
     }
 
     private static String protectManifest(String jsonText) {

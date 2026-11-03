@@ -7,7 +7,9 @@ import classifyUploadedFiles from '@salesforce/apex/ChannelTemplateController.cl
 import deleteTemplateAsset from '@salesforce/apex/ChannelTemplateController.deleteTemplateAsset';
 import deleteTemplate from '@salesforce/apex/ChannelTemplateController.deleteTemplate';
 import getTemplateRenderSource from '@salesforce/apex/ChannelTemplateController.getTemplateRenderSource';
-import { scanCcPreviewRegionLabelsInOrder } from 'c/copyTemplatePreview';
+import { scanCcPreviewRegionLabelsInOrder, parseTemplateKind, parseShellEditorFields } from 'c/copyTemplatePreview';
+import getChannelRecords from '@salesforce/apex/MarketingDictionaryManagerController.getChannelRecords';
+import saveShellBindings from '@salesforce/apex/ChannelTemplateController.saveShellBindings';
 import syncDraftBlockCatalog from '@salesforce/apex/ChannelTemplateController.syncDraftBlockCatalog';
 import saveComponentCatalog from '@salesforce/apex/ChannelTemplateController.saveComponentCatalog';
 import validateContentBlockDefinition from '@salesforce/apex/ChannelTemplateController.validateContentBlockDefinition';
@@ -45,6 +47,9 @@ export default class MasterTemplateStudio extends LightningElement {
     @track pendingBlockDelete = null;
     @track shellRegions = [];
     @track shellRegionError = '';
+    @track templateKind = 'multi';
+    @track shellBindings = [];
+    @track intentOptions = [];
     @track showNewBlockDefinitionForm = false;
     @track pendingBlockDraft = {
         label: '',
@@ -286,12 +291,50 @@ export default class MasterTemplateStudio extends LightningElement {
         return 'studio-panel';
     }
 
+    get isSingleBlockTemplate() {
+        return this.templateKind === 'single';
+    }
+
+    get visibleWizardSteps() {
+        const steps = this.isSingleBlockTemplate
+            ? WIZARD_STEPS.filter(step => step.value !== 'blocks')
+            : WIZARD_STEPS;
+        const numbers = ['I', 'II', 'III', 'IV'];
+        return steps.map((step, index) => ({ ...step, number: numbers[index] || step.number }));
+    }
+
+    get shellBindingRows() {
+        const labels = {
+            text: 'Text input',
+            richtext: 'Rich text',
+            image: 'Image',
+            action: 'Button'
+        };
+        const actionOptions = [
+            { label: 'URL', value: 'url' },
+            { label: 'Intent', value: 'intent' }
+        ];
+        return (this.shellBindings || []).map(row => ({
+            ...row,
+            placeholderLabel: `{{${row.placeholder}}}`,
+            editorLabel: labels[row.editor] || row.editor,
+            isAction: row.editor === 'action',
+            isIntent: row.editor === 'action' && row.actionMode === 'intent',
+            actionOptions,
+            actionRadioName: `shell-action-${row.placeholder}`
+        }));
+    }
+
+    get hasShellBindings() {
+        return this.isSingleBlockTemplate && this.shellBindingRows.length > 0;
+    }
+
     get navItems() {
         const definedBlockCount = this._savedBlockDefinitions().length;
         const activeBlockCount = this._savedBlockDefinitions().filter(
             component => (component.status || '').toLowerCase() === 'active'
         ).length;
-        return WIZARD_STEPS.map(step => ({
+        return this.visibleWizardSteps.map(step => ({
             ...step,
             itemClass: 'studio-nav__item' + (this.wizardStep === step.value ? ' studio-nav__item_active' : ''),
             ariaCurrent: this.wizardStep === step.value ? 'step' : 'false',
@@ -431,7 +474,7 @@ export default class MasterTemplateStudio extends LightningElement {
 
     async handleNavSelect(event) {
         const step = event.currentTarget.dataset.step;
-        if (!step) return;
+        if (!step || (step === 'blocks' && this.isSingleBlockTemplate)) return;
         this.wizardStep = step;
         if (step === 'shell' || step === 'blocks' || step === 'summary') {
             this._refreshShellRegions(this.draft.Id);
@@ -498,7 +541,7 @@ export default class MasterTemplateStudio extends LightningElement {
                 this._toast('Shell', this.shellRegionError, 'warning');
                 return;
             }
-            this.wizardStep = 'blocks';
+            this.wizardStep = this.isSingleBlockTemplate ? 'summary' : 'blocks';
             if (this.draft.Id) {
                 // eslint-disable-next-line @lwc/lwc/no-async-operation
                 Promise.resolve(this._syncDraftBlockCatalogIfNeeded()).then(() => {
@@ -515,8 +558,27 @@ export default class MasterTemplateStudio extends LightningElement {
     }
 
     handleBack() {
-        const index = WIZARD_STEPS.findIndex(s => s.value === this.wizardStep);
-        if (index > 0) this.wizardStep = WIZARD_STEPS[index - 1].value;
+        const steps = this.visibleWizardSteps;
+        const index = steps.findIndex(step => step.value === this.wizardStep);
+        if (index > 0) this.wizardStep = steps[index - 1].value;
+    }
+
+    handleShellActionModeChange(event) {
+        const placeholder = event.currentTarget.dataset.placeholder;
+        const actionMode = event.detail.value;
+        this.shellBindings = this.shellBindings.map(row => (
+            row.placeholder === placeholder ? { ...row, actionMode, intentId: actionMode === 'intent' ? row.intentId : '' } : row
+        ));
+        this._persistShellBindings();
+    }
+
+    handleShellIntentChange(event) {
+        const placeholder = event.currentTarget.dataset.placeholder;
+        const intentId = event.detail.value || '';
+        this.shellBindings = this.shellBindings.map(row => (
+            row.placeholder === placeholder ? { ...row, intentId } : row
+        ));
+        this._persistShellBindings();
     }
 
     async handleShellUpload(event) {
@@ -804,17 +866,76 @@ export default class MasterTemplateStudio extends LightningElement {
     async _refreshShellRegions(templateId) {
         if (!templateId) {
             this.shellRegions = [];
+            this.templateKind = 'multi';
+            this.shellBindings = [];
             return;
         }
         try {
             const source = await getTemplateRenderSource({ templateId });
-            this.shellRegions = scanCcPreviewRegionLabelsInOrder(source?.shellHtml || '');
+            const shellHtml = source?.shellHtml || '';
+            this.shellRegions = scanCcPreviewRegionLabelsInOrder(shellHtml);
+            this.templateKind = parseTemplateKind(shellHtml);
+            this._mergeShellBindings(shellHtml, source?.shellBindingsJson);
+            if (this.isSingleBlockTemplate) {
+                this._loadIntentOptions();
+                if (this.wizardStep === 'blocks') this.wizardStep = 'shell';
+            }
             this.shellRegionError = this.shellRegions.length
                 ? ''
                 : 'No cc-preview regions found in the shell HTML yet.';
         } catch (error) {
             this.shellRegions = [];
+            this.templateKind = 'multi';
+            this.shellBindings = [];
             this.shellRegionError = error.body?.message || error.message;
+        }
+    }
+
+    _mergeShellBindings(shellHtml, savedJson) {
+        let saved = [];
+        try {
+            saved = JSON.parse(savedJson || '[]');
+        } catch (error) {
+            saved = [];
+        }
+        const savedByName = new Map((Array.isArray(saved) ? saved : []).map(row => [row.placeholder, row]));
+        this.shellBindings = parseShellEditorFields(shellHtml).map(field => {
+            const previous = savedByName.get(field.placeholder) || {};
+            return {
+                placeholder: field.placeholder,
+                editor: field.editor,
+                actionMode: previous.actionMode === 'intent' ? 'intent' : 'url',
+                intentId: previous.intentId || ''
+            };
+        });
+    }
+
+    async _loadIntentOptions() {
+        if (!this.channelId) {
+            this.intentOptions = [];
+            return;
+        }
+        try {
+            const channels = await getChannelRecords();
+            const channel = (channels || []).find(row => row.Id === this.channelId);
+            this.intentOptions = (channel?.Channel_Banner_Intents__r || []).map(intent => ({
+                label: intent.Name,
+                value: intent.Id
+            }));
+        } catch (error) {
+            this.intentOptions = [];
+        }
+    }
+
+    async _persistShellBindings() {
+        if (!this.draft.Id || !this.isSingleBlockTemplate) return;
+        try {
+            await saveShellBindings({
+                templateId: this.draft.Id,
+                bindingsJson: JSON.stringify(this.shellBindings)
+            });
+        } catch (error) {
+            this._toast('Bindings', error.body?.message || error.message, 'error');
         }
     }
 

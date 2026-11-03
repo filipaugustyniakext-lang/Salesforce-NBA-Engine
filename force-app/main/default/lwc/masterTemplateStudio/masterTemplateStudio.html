@@ -256,6 +256,45 @@
                                                     </template>
                                                 </div>
                                             </section>
+                                            <template lwc:if={hasShellBindings}>
+                                                <section class="slds-box slds-m-top_small" aria-label="Copy Center bindings">
+                                                    <h2 class="slds-text-heading_small slds-m-bottom_x-small">Copy Center bindings</h2>
+                                                    <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
+                                                        This shell is a single-block template, so Content Blocks is not used. Each placeholder below is what authors can edit in Copy Center.
+                                                    </p>
+                                                    <template for:each={shellBindingRows} for:item="row">
+                                                        <div key={row.placeholder} class="slds-box slds-box_x-small slds-m-bottom_x-small">
+                                                            <div class="slds-grid slds-grid_vertical-align-center">
+                                                                <code class="slds-text-body_small">{row.placeholderLabel}</code>
+                                                                <span class="slds-badge slds-badge_lightest slds-m-left_x-small">{row.editorLabel}</span>
+                                                            </div>
+                                                            <template lwc:if={row.isAction}>
+                                                                <lightning-radio-group
+                                                                    class="slds-m-top_x-small"
+                                                                    label="Button target"
+                                                                    type="button"
+                                                                    name={row.actionRadioName}
+                                                                    options={row.actionOptions}
+                                                                    value={row.actionMode}
+                                                                    data-placeholder={row.placeholder}
+                                                                    onchange={handleShellActionModeChange}>
+                                                                </lightning-radio-group>
+                                                                <template lwc:if={row.isIntent}>
+                                                                    <lightning-combobox
+                                                                        class="slds-m-top_x-small"
+                                                                        label="Intent"
+                                                                        placeholder="Select an intent"
+                                                                        value={row.intentId}
+                                                                        options={intentOptions}
+                                                                        data-placeholder={row.placeholder}
+                                                                        onchange={handleShellIntentChange}>
+                                                                    </lightning-combobox>
+                                                                </template>
+                                                            </template>
+                                                        </div>
+                                                    </template>
+                                                </section>
+                                            </template>
                                             <div
                                                 class="slds-notify slds-notify_alert slds-theme_info studio-shell-requirements"
                                                 role="alert"
@@ -279,7 +318,8 @@
                                                     </ul>
                                                     <p class="studio-panel__aside-label">Wrap the entire template body:</p>
                                                     <ul class="studio-panel__aside-code">
-                                                        <li>&lt;cc-preview data-action="template-start" desktop-width="600" mobile-width="375"&gt;…&lt;/cc-preview&gt;</li>
+                                                        <li>&lt;cc-preview data-action="template-start" template-kind="single" views="mobile" mobile-width="375"&gt;…&lt;/cc-preview&gt;</li>
+                                                        <li>template-kind="single" skips Content Blocks and binds placeholders on this step. Omit it for multi-block templates.</li>
                                                     </ul>
                                                     <p class="studio-panel__aside-label">Inner regions:</p>
                                                     <ul class="studio-panel__aside-code">

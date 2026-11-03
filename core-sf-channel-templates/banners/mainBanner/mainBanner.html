@@ -4,7 +4,7 @@
   Use views="desktop", views="mobile", or views="desktop,mobile".
   Placeholders: {{title}} {{description}} {{imageUrl}} {{legalLabel}} {{secondaryLabel}} {{primaryLabel}}
 -->
-<cc-preview data-action="template-start" views="mobile" mobile-width="375" desktop-width="375">
+<cc-preview data-action="template-start" template-kind="single" views="mobile" mobile-width="375" desktop-width="375">
 <style>
   .main-banner-screen {
     box-sizing: border-box;
@@ -128,6 +128,7 @@
     display: flex;
     gap: 8px;
     width: 100%;
+    margin-top: 20px;
   }
   .main-banner__btn {
     box-sizing: border-box;
@@ -143,12 +144,12 @@
     font-weight: 700;
   }
   .main-banner__btn_primary {
-    border: solid 2px #E7F8FB;
+    border: solid 1px #E7F8FB;
     background: #E7F8FB;
     color: #002D36;
   }
   .main-banner__btn_secondary {
-    border: solid 2px #E7F8FB;
+    border: solid 1px #E7F8FB;
     background: transparent;
     color: #E7F8FB;
   }
@@ -160,11 +161,13 @@
       background: rgb(33, 0, 4);
     }
     .main-banner__btn_primary {
+      border-width: 1px;
       border-color: #7A1A12;
       background: #7A1A12;
       color: #ffffff;
     }
     .main-banner__btn_secondary {
+      border-width: 1px;
       border-color: #909090;
       background: transparent;
       color: #CCCCCC;
@@ -177,17 +180,17 @@
       <button type="button" class="main-banner__close" aria-label="Close">×</button>
       <div class="main-banner__top">
         <div class="main-banner__copy">
-          <h2 class="main-banner__title">{{title}}</h2>
-          <p class="main-banner__description">{{description}}</p>
-          <a class="main-banner__legal" href="#legal">{{legalLabel}}</a>
+          <h2 class="main-banner__title" data-editor="text">{{title}}</h2>
+          <p class="main-banner__description" data-editor="text">{{description}}</p>
+          <a class="main-banner__legal" data-editor="richtext" href="#legal">{{legalLabel}}</a>
         </div>
         <div class="main-banner__image">
-          <img alt="" src="{{imageUrl}}" width="100" height="100" />
+          <img data-editor="image" alt="" src="{{imageUrl}}" width="100" height="100" />
         </div>
       </div>
       <div class="main-banner__actions">
-        <a class="main-banner__btn main-banner__btn_secondary" href="{{secondaryUrl}}">{{secondaryLabel}}</a>
-        <a class="main-banner__btn main-banner__btn_primary" href="{{primaryUrl}}">{{primaryLabel}}</a>
+        <a class="main-banner__btn main-banner__btn_secondary" data-editor="action" href="{{secondaryUrl}}">{{secondaryLabel}}</a>
+        <a class="main-banner__btn main-banner__btn_primary" data-editor="action" href="{{primaryUrl}}">{{primaryLabel}}</a>
       </div>
     </article>
   </div>

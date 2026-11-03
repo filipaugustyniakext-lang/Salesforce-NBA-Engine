@@ -443,6 +443,42 @@ export function parsePreviewViewsFromShell(shellHtml) {
     };
 }
 
+const SHELL_EDITOR_PATTERN = /<([a-zA-Z0-9:_-]+)\b([^>]*\bdata-editor\s*=\s*(['"])(text|richtext|image|action)\3[^>]*)(?:\/>|>([\s\S]*?)<\/\1>)/gi;
+
+/** single = one shell, no content-block step. Anything else is a multi-block template. */
+export function parseTemplateKind(shellHtml) {
+    const regions = findCcPreviewRegions(String(shellHtml || ''));
+    const wrapper = regions.find(region => region.dataAction === 'template-start');
+    const kind = parseCcPreviewAttr(wrapper?.attrs || '', 'template-kind').trim().toLowerCase();
+    return kind === 'single' ? 'single' : 'multi';
+}
+
+/** Fields declared with data-editor on the shell, for Copy Center binding. */
+export function parseShellEditorFields(shellHtml) {
+    const fields = [];
+    const source = String(shellHtml || '');
+    SHELL_EDITOR_PATTERN.lastIndex = 0;
+    let match = SHELL_EDITOR_PATTERN.exec(source);
+    while (match) {
+        const attrs = match[2] || '';
+        const editor = String(match[4] || '').toLowerCase();
+        const inner = match[5] || '';
+        const placeholder = editor === 'image'
+            ? firstPlaceholder(attrs) || firstPlaceholder(inner)
+            : firstPlaceholder(inner) || firstPlaceholder(attrs);
+        if (placeholder && !fields.some(field => field.placeholder === placeholder)) {
+            fields.push({ placeholder, editor });
+        }
+        match = SHELL_EDITOR_PATTERN.exec(source);
+    }
+    return fields;
+}
+
+function firstPlaceholder(value) {
+    const match = /\{\{\s*([A-Za-z0-9_.:-]+)\s*\}\}/.exec(String(value || ''));
+    return match ? match[1] : '';
+}
+
 /** Reads desktop-width / mobile-width from the template-start cc-preview wrapper. */
 export function parsePreviewLayoutFromShell(shellHtml) {
     const fallback = {
