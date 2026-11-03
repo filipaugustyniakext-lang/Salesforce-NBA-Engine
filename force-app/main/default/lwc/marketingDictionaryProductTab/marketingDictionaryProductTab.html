@@ -245,7 +245,7 @@
     <template lwc:if={isModalOpen}>
         <section role="dialog" tabindex="-1" aria-modal="true"
                  aria-labelledby="product-modal-heading"
-                 class="slds-modal slds-fade-in-open">
+                 class={addModalClass}>
             <div class="slds-modal__container">
                 <header class="slds-modal__header">
                     <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse"
@@ -344,24 +344,61 @@
                             </div>
                         </template>
                         <template lwc:if={isProductFamily}>
-                            <lightning-combobox
-                                label="Related Family of Needs (applies to all entries below)"
-                                value={bulkFonId}
-                                options={familyOfNeedsOptions}
-                                placeholder="Select Family of Needs..."
-                                onchange={handleBulkFonChange}
-                                class="slds-m-bottom_small">
-                            </lightning-combobox>
-                            <lightning-combobox
-                                label="Product Type (applies to all entries below)"
-                                value={bulkProductTypeId}
-                                options={productTypeOptions}
-                                placeholder="Select Product Type..."
-                                onchange={handleBulkProductTypeChange}
-                                class="slds-m-bottom_medium">
-                            </lightning-combobox>
+                            <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
+                                Customer types inherit from the selected Family of Needs category.
+                            </p>
+                            <template for:each={addFamilyRows} for:item="row">
+                                <article key={row.key} class="bulk-edit-row bulk-edit-row_removable slds-box slds-box_x-small slds-m-bottom_small">
+                                    <lightning-button-icon
+                                        class="bulk-edit-row__remove"
+                                        icon-name="utility:close"
+                                        variant="bare"
+                                        size="small"
+                                        alternative-text="Remove"
+                                        title="Remove"
+                                        data-key={row.key}
+                                        onclick={handleRemoveAddFamilyRow}>
+                                    </lightning-button-icon>
+                                    <div class="slds-grid slds-wrap slds-gutters_small">
+                                        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                                            <lightning-input label="Name" value={row.name} required
+                                                data-key={row.key} data-field="name" onchange={handleAddFamilyRowChange}>
+                                            </lightning-input>
+                                        </div>
+                                        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                                            <lightning-combobox label="Family of Needs" value={row.fonId}
+                                                options={familyOfNeedsOptions} data-key={row.key} data-field="fonId"
+                                                onchange={handleAddFamilyRowChange}>
+                                            </lightning-combobox>
+                                        </div>
+                                        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                                            <lightning-combobox label="Product Type" value={row.productTypeId}
+                                                options={productTypeOptions} data-key={row.key} data-field="productTypeId"
+                                                onchange={handleAddFamilyRowChange}>
+                                            </lightning-combobox>
+                                        </div>
+                                        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                                            <p class="slds-form-element__label">Customer Types (inherited)</p>
+                                            <p class="slds-text-body_small">{row.customerTypeSummary}</p>
+                                        </div>
+                                        <div class="slds-col slds-size_1-of-1 pf-tagging-only-row">
+                                            <lightning-input type="checkbox" label="For tagging only"
+                                                checked={row.forTaggingOnly} data-key={row.key} data-field="forTaggingOnly"
+                                                onchange={handleAddFamilyRowChange}>
+                                            </lightning-input>
+                                        </div>
+                                    </div>
+                                </article>
+                            </template>
+                            <lightning-button-icon
+                                icon-name="utility:add"
+                                variant="border"
+                                alternative-text="Add another"
+                                title="Add another"
+                                onclick={handleAddFamilyRow}>
+                            </lightning-button-icon>
                         </template>
-
+                        <template lwc:else>
                         <div class="slds-m-bottom_x-small">
                             <p class="slds-text-title slds-text-color_weak">
                                 Enter one name per row. Use the + button to add more.
@@ -401,6 +438,7 @@
                                 onclick={handleAddRow}>
                             </lightning-button>
                         </div>
+                        </template>
                     </template>
                 </div>
 

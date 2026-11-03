@@ -162,7 +162,18 @@
 }
 
 .bulk-edit-row {
+    position: relative;
     background: #fafbfc;
+}
+
+.bulk-edit-row_removable {
+    padding-right: 2rem;
+}
+
+.bulk-edit-row__remove {
+    position: absolute;
+    top: 0.35rem;
+    right: 0.35rem;
 }
 
 .pf-tagging-only-row {

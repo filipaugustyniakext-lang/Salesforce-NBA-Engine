@@ -19,6 +19,14 @@ const EMPTY_RECORD = () => ({
     For_Tagging_Only__c: false
 });
 const newRow = (index) => ({ key: newKey(), name: '', label: `Name ${index}` });
+const newFamilyDraftRow = () => ({
+    key: newKey(),
+    name: '',
+    fonId: '',
+    productTypeId: '',
+    forTaggingOnly: false,
+    customerTypeSummary: '—'
+});
 const newBulkEditRow = (rec) => ({
     key: rec.Id,
     id: rec.Id,
@@ -285,6 +293,7 @@ export default class MarketingDictionaryProductTab extends LightningElement {
     @track editRecord = EMPTY_RECORD();
     @track isSaving = false;
     @track bulkRows = [newRow(1)];
+    @track addFamilyRows = [newFamilyDraftRow()];
     @track bulkFonId = null;
     @track bulkProductTypeId = null;
     @track bulkEditRows = [];
@@ -311,14 +320,21 @@ export default class MarketingDictionaryProductTab extends LightningElement {
     }
     get pendingDeleteName() { return this._pendingDeleteName; }
 
+    get _addDraftRows() {
+        return this.isProductFamily && !this._isEditMode ? this.addFamilyRows : this.bulkRows;
+    }
+    get addModalClass() {
+        const large = this.isProductFamily && !this._isEditMode ? ' slds-modal_large' : '';
+        return `slds-modal slds-fade-in-open${large}`;
+    }
     get modalTitle() {
         if (this._isEditMode) return `Edit ${this._activeSubtype}`;
-        const count = this.bulkRows.length;
+        const count = this._addDraftRows.length;
         return `Add ${this._activeSubtype}${count > 1 ? ` (${count})` : ''}`;
     }
     get saveButtonLabel() {
         if (this._isEditMode) return 'Save';
-        const filled = this.bulkRows.filter(r => r.name.trim()).length;
+        const filled = this._addDraftRows.filter(r => r.name.trim()).length;
         return filled > 1 ? `Save ${filled}` : 'Save';
     }
 
@@ -337,6 +353,7 @@ export default class MarketingDictionaryProductTab extends LightningElement {
         this._activeSubtype = event.currentTarget.dataset.subtype;
         this._isEditMode = false;
         this.bulkRows = [newRow(1)];
+        this.addFamilyRows = [newFamilyDraftRow()];
         this.bulkFonId = null;
         this.bulkProductTypeId = null;
         this._editModalCtSet = new Set();
@@ -386,6 +403,23 @@ export default class MarketingDictionaryProductTab extends LightningElement {
         this.bulkRows = this.bulkRows.map(r => r.key === key ? { ...r, name: e.detail.value } : r);
     }
     handleAddRow() { this.bulkRows = [...this.bulkRows, newRow(this.bulkRows.length + 1)]; }
+    handleAddFamilyRow() {
+        this.addFamilyRows = [...this.addFamilyRows, newFamilyDraftRow()];
+    }
+    handleRemoveAddFamilyRow(event) {
+        const key = event.currentTarget.dataset.key;
+        this.addFamilyRows = this.addFamilyRows.filter(row => row.key !== key);
+    }
+    handleAddFamilyRowChange(event) {
+        const key = event.currentTarget.dataset.key;
+        const field = event.currentTarget.dataset.field;
+        const isCheckbox = event.target?.type === 'checkbox';
+        const value = isCheckbox ? event.target.checked : event.detail.value;
+        this.addFamilyRows = this.addFamilyRows.map(row => {
+            if (row.key !== key) return row;
+            return this._applyFamilyRowField(row, field, value);
+        });
+    }
     handleRemoveRow(e) {
         const key = e.currentTarget.dataset.key;
         if (this.bulkRows.length === 1) return;
@@ -417,12 +451,26 @@ export default class MarketingDictionaryProductTab extends LightningElement {
         const value = isCheckbox ? event.target.checked : event.detail.value;
         this.bulkEditRows = this.bulkEditRows.map(row => {
             if (row.key !== key) return row;
-            if (field === 'name') return { ...row, name: value };
-            if (field === 'fonId') return { ...row, fonId: value || '' };
-            if (field === 'productTypeId') return { ...row, productTypeId: value || '' };
-            if (field === 'forTaggingOnly') return { ...row, forTaggingOnly: value === true };
-            return row;
+            return this._applyFamilyRowField(row, field, value);
         });
+    }
+
+    _applyFamilyRowField(row, field, value) {
+        if (field === 'name') return { ...row, name: value };
+        if (field === 'fonId') {
+            const fonId = value || '';
+            return { ...row, fonId, customerTypeSummary: this._customerTypeSummary(fonId) };
+        }
+        if (field === 'productTypeId') return { ...row, productTypeId: value || '' };
+        if (field === 'forTaggingOnly') return { ...row, forTaggingOnly: value === true };
+        return row;
+    }
+
+    _customerTypeSummary(fonId) {
+        if (!fonId) return '—';
+        const ctSet = this._fonCtMap[fonId] || new Set();
+        const names = this.customerTypes.filter(ct => ctSet.has(ct.Id)).map(ct => ct.Name);
+        return names.join(', ') || '—';
     }
 
     async handleSaveBulkEdit() {
@@ -492,18 +540,27 @@ export default class MarketingDictionaryProductTab extends LightningElement {
     }
 
     async _saveBulk() {
-        const filled = this.bulkRows.filter(r => r.name.trim());
+        const sourceRows = this.isProductFamily ? this.addFamilyRows : this.bulkRows;
+        const filled = sourceRows.filter(r => r.name.trim());
         if (!filled.length) {
             this._showToast('Validation', 'Enter at least one name', 'error');
             return;
         }
-        const records = filled.map(r => ({
-            Name: r.name.trim(),
-            Dictionary_Sub_Type__c: this._activeSubtype,
-            Related_Family_of_Needs__c: this.isProductFamily ? (this.bulkFonId || null) : null,
-            Related_Product_Type__c: this.isProductFamily ? (this.bulkProductTypeId || null) : null,
-            For_Tagging_Only__c: false
-        }));
+        const records = this.isProductFamily
+            ? filled.map(r => ({
+                Name: r.name.trim(),
+                Dictionary_Sub_Type__c: 'Product Family',
+                Related_Family_of_Needs__c: r.fonId || null,
+                Related_Product_Type__c: r.productTypeId || null,
+                For_Tagging_Only__c: r.forTaggingOnly === true
+            }))
+            : filled.map(r => ({
+                Name: r.name.trim(),
+                Dictionary_Sub_Type__c: this._activeSubtype,
+                Related_Family_of_Needs__c: null,
+                Related_Product_Type__c: null,
+                For_Tagging_Only__c: false
+            }));
         this.isSaving = true;
         try {
             await saveProductRecordsBulk({
