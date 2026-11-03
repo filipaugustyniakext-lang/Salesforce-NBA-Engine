@@ -5,7 +5,7 @@ const CC_PREVIEW_CLOSE = /<\/cc-preview\s*>/gi;
 const EMPTY_BLOCKS_PLACEHOLDER = '<div class="cc-preview-blocks-empty" style="border:1px dashed #939393;padding:48px 24px;text-align:center;color:#444444;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;max-width:100%;box-sizing:border-box;">No content blocks yet. Start adding content blocks using the editor canvas.</div>';
 
 export const PREVIEW_PANEL_PADDING_PX = 20;
-export const PREVIEW_MOBILE_FRAME_WIDTH_PX = 288;
+export const PREVIEW_MOBILE_FRAME_WIDTH_PX = 375;
 export const PREVIEW_MOBILE_FRAME_HEIGHT_PX = 600;
 /** Browser chrome above the email canvas on desktop mockups. */
 export const PREVIEW_DESKTOP_FRAME_CHROME_PX = 48;
@@ -119,7 +119,7 @@ export function normalizeEmailConditionalComments(html) {
     return result;
 }
 
-/** Shell HTML mobile rules when the preview frame is narrower than SFMC desktop (288px). */
+/** Shell HTML mobile rules when the preview frame is the 375px phone width. */
 function mobileShellPreviewCss() {
     const s = PREVIEW_SCOPE;
     return `${s}{width:100%!important;max-width:100%!important;box-sizing:border-box!important;overflow-x:hidden!important;}`

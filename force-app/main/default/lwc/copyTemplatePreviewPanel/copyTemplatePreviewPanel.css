@@ -102,6 +102,7 @@
 }
 
 .preview-panel__frame_mobile {
+    width: 375px;
     height: 600px;
     border-radius: 45px;
     border: 8px solid #3e3e3c;
