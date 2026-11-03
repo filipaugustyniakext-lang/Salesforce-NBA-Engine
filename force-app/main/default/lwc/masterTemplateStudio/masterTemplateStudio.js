@@ -343,6 +343,8 @@ export default class MasterTemplateStudio extends LightningElement {
         });
         return JSON.stringify(values);
     }
+
+    get hasShellBindings() {
         return this.isSingleBlockTemplate && this.shellBindingRows.length > 0;
     }
 
