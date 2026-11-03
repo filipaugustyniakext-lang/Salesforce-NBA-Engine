@@ -446,7 +446,7 @@ export function parsePreviewViewsFromShell(shellHtml) {
     };
 }
 
-const SHELL_EDITOR_PATTERN = /<([a-zA-Z0-9:_-]+)\b([^>]*\bdata-editor\s*=\s*(['"])(text|richtext|image|action)\3[^>]*)(?:\/>|>([\s\S]*?)<\/\1>)/gi;
+const SHELL_EDITOR_PATTERN = /<([a-zA-Z0-9:_-]+)\b([^>]*\bdata-editor\s*=\s*(['"])(text|richtext|image|action)\3[^>]*)(?:\/>|>([\s\S]*?)<\/\1\s*>)/gi;
 
 /** single = one shell, no content-block step. Anything else is a multi-block template. */
 export function parseTemplateKind(shellHtml) {
