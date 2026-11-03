@@ -257,38 +257,69 @@
                                                 </div>
                                             </section>
                                             <template lwc:if={hasShellBindings}>
-                                                <section class="slds-box slds-m-top_small" aria-label="Copy Center bindings">
-                                                    <h2 class="slds-text-heading_small slds-m-bottom_x-small">Copy Center bindings</h2>
+                                                <section class="slds-box slds-m-top_small" aria-label="Content Bindings">
+                                                    <h2 class="slds-text-heading_small slds-m-bottom_x-small">Content Bindings</h2>
                                                     <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
-                                                        This shell is a single-block template, so Content Blocks is not used. Each placeholder below is what authors can edit in Copy Center.
+                                                        This shell is a single-block template, so Content Blocks is not used. Select a placeholder and enter a value to check it in the preview.
                                                     </p>
                                                     <template for:each={shellBindingRows} for:item="row">
-                                                        <div key={row.placeholder} class="slds-box slds-box_x-small slds-m-bottom_x-small">
-                                                            <div class="slds-grid slds-grid_vertical-align-center">
+                                                        <div key={row.placeholder} class={row.rowClass}>
+                                                            <button type="button" class="shell-binding__choice" data-placeholder={row.placeholder} onclick={handleSelectShellBinding}>
                                                                 <code class="slds-text-body_small">{row.placeholderLabel}</code>
                                                                 <span class="slds-badge slds-badge_lightest slds-m-left_x-small">{row.editorLabel}</span>
-                                                            </div>
-                                                            <template lwc:if={row.isAction}>
-                                                                <lightning-radio-group
-                                                                    class="slds-m-top_x-small"
-                                                                    label="Button target"
-                                                                    type="button"
-                                                                    name={row.actionRadioName}
-                                                                    options={row.actionOptions}
-                                                                    value={row.actionMode}
-                                                                    data-placeholder={row.placeholder}
-                                                                    onchange={handleShellActionModeChange}>
-                                                                </lightning-radio-group>
-                                                                <template lwc:if={row.isIntent}>
-                                                                    <lightning-combobox
+                                                            </button>
+                                                            <template lwc:if={row.selected}>
+                                                                <template lwc:if={row.isText}>
+                                                                    <lightning-input class="slds-m-top_x-small" label="Text" value={row.previewValue} data-placeholder={row.placeholder} onchange={handleShellPreviewValueChange}></lightning-input>
+                                                                </template>
+                                                                <template lwc:if={row.isRichtext}>
+                                                                    <lightning-input-rich-text class="slds-m-top_x-small" label="Rich text" value={row.previewValue} data-placeholder={row.placeholder} onchange={handleShellPreviewValueChange}></lightning-input-rich-text>
+                                                                </template>
+                                                                <template lwc:if={row.isImage}>
+                                                                    <div class="slds-m-top_x-small">
+                                                                        <lightning-file-upload
+                                                                            label="Upload to Salesforce CMS"
+                                                                            name="shellBindingImage"
+                                                                            accept=".png,.jpg,.jpeg,.gif,.webp"
+                                                                            record-id={draft.Id}
+                                                                            data-placeholder={row.placeholder}
+                                                                            onuploadfinished={handleShellImageUpload}>
+                                                                        </lightning-file-upload>
+                                                                        <lightning-button class="slds-m-top_x-small" label="Get from Salesforce CMS" data-placeholder={row.placeholder} onclick={handleOpenCmsPicker}></lightning-button>
+                                                                        <template lwc:if={cmsPickerOpen}>
+                                                                            <ul class="slds-has-dividers_top-space slds-m-top_x-small">
+                                                                                <template for:each={cmsImages} for:item="image">
+                                                                                    <li key={image.id} class="slds-item">
+                                                                                        <button type="button" class="slds-button slds-button_reset" data-url={image.url} onclick={handlePickCmsImage}>{image.title}</button>
+                                                                                    </li>
+                                                                                </template>
+                                                                            </ul>
+                                                                        </template>
+                                                                    </div>
+                                                                </template>
+                                                                <template lwc:if={row.isAction}>
+                                                                    <lightning-radio-group
                                                                         class="slds-m-top_x-small"
-                                                                        label="Intent"
-                                                                        placeholder="Select an intent"
-                                                                        value={row.intentId}
-                                                                        options={intentOptions}
+                                                                        label="Button target"
+                                                                        type="button"
+                                                                        name={row.actionRadioName}
+                                                                        options={row.actionOptions}
+                                                                        value={row.actionMode}
                                                                         data-placeholder={row.placeholder}
-                                                                        onchange={handleShellIntentChange}>
-                                                                    </lightning-combobox>
+                                                                        onchange={handleShellActionModeChange}>
+                                                                    </lightning-radio-group>
+                                                                    <template lwc:if={row.isIntent}>
+                                                                        <lightning-combobox
+                                                                            class="slds-m-top_x-small"
+                                                                            label="Intent"
+                                                                            placeholder="Select an intent"
+                                                                            value={row.intentId}
+                                                                            options={intentOptions}
+                                                                            data-placeholder={row.placeholder}
+                                                                            onchange={handleShellIntentChange}>
+                                                                        </lightning-combobox>
+                                                                    </template>
+                                                                    <lightning-input class="slds-m-top_x-small" label="Button label" value={row.previewValue} data-placeholder={row.placeholder} onchange={handleShellPreviewValueChange}></lightning-input>
                                                                 </template>
                                                             </template>
                                                         </div>
@@ -318,7 +349,7 @@
                                                     </ul>
                                                     <p class="studio-panel__aside-label">Wrap the entire template body:</p>
                                                     <ul class="studio-panel__aside-code">
-                                                        <li>&lt;cc-preview data-action="template-start" template-kind="single" views="mobile" mobile-width="375"&gt;…&lt;/cc-preview&gt;</li>
+                                                        <li>&lt;cc-preview data-action="template-start" template-kind="single" views="mobile" mobile-width="375" mobile-height="812"&gt;…&lt;/cc-preview&gt;</li>
                                                         <li>template-kind="single" skips Content Blocks and binds placeholders on this step. Omit it for multi-block templates.</li>
                                                     </ul>
                                                     <p class="studio-panel__aside-label">Inner regions:</p>
@@ -340,6 +371,7 @@
                                                 template-id={draft.Id}
                                                 preview-mode="shell"
                                                 heading="Shell preview"
+                                                shell-preview-values-json={shellPreviewValuesJson}
                                                 help-text="fixed-read and fixed-edit render as-is; the blocks region shows the empty canvas until content blocks are added.">
                                             </c-copy-template-preview-panel>
                                         </div>

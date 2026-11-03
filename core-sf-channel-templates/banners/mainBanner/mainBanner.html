@@ -4,12 +4,14 @@
   Use views="desktop", views="mobile", or views="desktop,mobile".
   Placeholders: {{title}} {{description}} {{imageUrl}} {{legalLabel}} {{secondaryLabel}} {{primaryLabel}}
 -->
-<cc-preview data-action="template-start" template-kind="single" views="mobile" mobile-width="375" desktop-width="375">
+<cc-preview data-action="template-start" template-kind="single" views="mobile" mobile-width="375" mobile-height="812" desktop-width="375">
 <style>
   .main-banner-screen {
     box-sizing: border-box;
+    position: relative;
     width: 100%;
-    padding: 12px 20px;
+    min-height: 100%;
+    padding: 12px 20px 24px;
     background: #f4f6f8;
     font-family: 'UniCredit', Arial, Helvetica, sans-serif;
   }
@@ -93,11 +95,59 @@
   .main-banner__legal {
     display: inline-block;
     margin: 0 0 12px;
+    padding: 0;
+    border: 0;
+    background: transparent;
     font-size: 14px;
     line-height: 32px;
     font-weight: 400;
     color: #ffffff;
     text-decoration: underline;
+    cursor: pointer;
+  }
+  .main-banner-drawer {
+    max-height: 0;
+    margin: 0 0 0;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(24px);
+    transition: max-height 0.35s ease, opacity 0.35s ease, transform 0.35s ease, margin 0.35s ease;
+    background: rgb(0, 45, 54);
+    color: #ffffff;
+    border-radius: 16px;
+  }
+  .main-banner-drawer.is-open {
+    max-height: 520px;
+    margin-top: 12px;
+    opacity: 1;
+    transform: none;
+    overflow: auto;
+  }
+  .main-banner-drawer__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 16px 8px;
+  }
+  .main-banner-drawer__title {
+    margin: 0;
+    font-size: 18px;
+    line-height: 24px;
+    font-weight: 700;
+  }
+  .main-banner-drawer__close {
+    border: 0;
+    background: transparent;
+    color: #ffffff;
+    font-size: 20px;
+    line-height: 20px;
+    cursor: pointer;
+  }
+  .main-banner-drawer__body {
+    padding: 0 16px 16px;
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 400;
   }
   .main-banner__image {
     flex: 0 0 100px;
@@ -160,6 +210,9 @@
     .main-banner {
       background: rgb(33, 0, 4);
     }
+    .main-banner-drawer {
+      background: rgb(33, 0, 4);
+    }
     .main-banner__btn_primary {
       border-width: 1px;
       border-color: #7A1A12;
@@ -182,7 +235,7 @@
         <div class="main-banner__copy">
           <h2 class="main-banner__title" data-editor="text">{{title}}</h2>
           <p class="main-banner__description" data-editor="text">{{description}}</p>
-          <a class="main-banner__legal" data-editor="richtext" href="#legal">{{legalLabel}}</a>
+          <button type="button" class="main-banner__legal" data-editor="text" data-drawer-open="legal">{{legalLabel}}</button>
         </div>
         <div class="main-banner__image">
           <img data-editor="image" alt="" src="{{imageUrl}}" width="100" height="100" />
@@ -193,6 +246,13 @@
         <a class="main-banner__btn main-banner__btn_primary" data-editor="action" href="{{primaryUrl}}">{{primaryLabel}}</a>
       </div>
     </article>
+    <section class="main-banner-drawer" data-drawer="legal" aria-label="Legal note">
+      <div class="main-banner-drawer__header">
+        <h3 class="main-banner-drawer__title">{{legalLabel}}</h3>
+        <button type="button" class="main-banner-drawer__close" data-drawer-close aria-label="Close">×</button>
+      </div>
+      <div class="main-banner-drawer__body" data-editor="richtext">{{legalNote}}</div>
+    </section>
   </div>
 </cc-preview>
 </cc-preview>

@@ -7,4 +7,7 @@ export {
     parsePreviewViewsFromShell,
     previewPanelWidthPx,
     previewFrameWidthPx,
+    previewFrameHeightPx,
+    applyShellPreviewValues,
+    bindShellPreviewInteractions,
 } from 'c/copyTemplatePreview';

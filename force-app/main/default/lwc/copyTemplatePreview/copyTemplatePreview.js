@@ -6,7 +6,7 @@ const EMPTY_BLOCKS_PLACEHOLDER = '<div class="cc-preview-blocks-empty" style="bo
 
 export const PREVIEW_PANEL_PADDING_PX = 20;
 export const PREVIEW_MOBILE_FRAME_WIDTH_PX = 375;
-export const PREVIEW_MOBILE_FRAME_HEIGHT_PX = 600;
+export const PREVIEW_MOBILE_FRAME_HEIGHT_PX = 812;
 /** Browser chrome above the email canvas on desktop mockups. */
 export const PREVIEW_DESKTOP_FRAME_CHROME_PX = 48;
 export const PREVIEW_DESKTOP_BODY_MAX_PX = 600;
@@ -483,7 +483,8 @@ function firstPlaceholder(value) {
 export function parsePreviewLayoutFromShell(shellHtml) {
     const fallback = {
         desktopWidth: PREVIEW_DESKTOP_BODY_MAX_PX,
-        mobileWidth: PREVIEW_MOBILE_FRAME_WIDTH_PX
+        mobileWidth: PREVIEW_MOBILE_FRAME_WIDTH_PX,
+        mobileHeight: PREVIEW_MOBILE_FRAME_HEIGHT_PX
     };
     const regions = findCcPreviewRegions(String(shellHtml || ''));
     const wrapper = regions.find(region => region.dataAction === 'template-start');
@@ -498,8 +499,14 @@ export function parsePreviewLayoutFromShell(shellHtml) {
         mobileWidth: clampPreviewDimension(
             parseCcPreviewAttr(wrapper.attrs, 'mobile-width'),
             240,
-            400,
+            480,
             PREVIEW_MOBILE_FRAME_WIDTH_PX
+        ),
+        mobileHeight: clampPreviewDimension(
+            parseCcPreviewAttr(wrapper.attrs, 'mobile-height'),
+            480,
+            1200,
+            PREVIEW_MOBILE_FRAME_HEIGHT_PX
         )
     };
 }
@@ -509,9 +516,37 @@ export function previewFrameWidthPx(device, layout) {
         desktopWidth: PREVIEW_DESKTOP_BODY_MAX_PX,
         mobileWidth: PREVIEW_MOBILE_FRAME_WIDTH_PX
     };
-    if (device === 'mobile') return PREVIEW_MOBILE_FRAME_WIDTH_PX;
+    if (device === 'mobile') return config.mobileWidth || PREVIEW_MOBILE_FRAME_WIDTH_PX;
     const chrome = PREVIEW_DESKTOP_FRAME_CHROME_PX;
     return Math.min(config.desktopWidth + chrome, PREVIEW_DESKTOP_BODY_MAX_PX + chrome);
+}
+
+export function previewFrameHeightPx(device, layout) {
+    if (device !== 'mobile') return null;
+    const config = layout || {};
+    return config.mobileHeight || PREVIEW_MOBILE_FRAME_HEIGHT_PX;
+}
+
+export function applyShellPreviewValues(html, values) {
+    const source = values && typeof values === 'object' ? values : {};
+    return String(html || '').replace(/\{\{\s*([A-Za-z0-9_.:-]+)\s*\}\}/g, (token, name) => {
+        const value = source[name];
+        return value == null || value === '' ? token : String(value);
+    });
+}
+
+export function bindShellPreviewInteractions(host) {
+    if (!host || host._shellPreviewBound) return;
+    host._shellPreviewBound = true;
+    host.addEventListener('click', (event) => {
+        const opener = event.target.closest('[data-drawer-open]');
+        const closer = event.target.closest('[data-drawer-close]');
+        if (!opener && !closer) return;
+        event.preventDefault();
+        const drawer = host.querySelector('[data-drawer]');
+        if (!drawer) return;
+        drawer.classList.toggle('is-open', !!opener);
+    });
 }
 
 export function previewPanelWidthPx(device, layout) {

@@ -9,7 +9,10 @@ import {
     parsePreviewLayoutFromShell,
     parsePreviewViewsFromShell,
     previewPanelWidthPx,
-    previewFrameWidthPx
+    previewFrameWidthPx,
+    previewFrameHeightPx,
+    applyShellPreviewValues,
+    bindShellPreviewInteractions
 } from 'c/copyTemplatePreview';
 
 export default class CopyTemplatePreviewPanel extends LightningElement {
@@ -29,7 +32,24 @@ export default class CopyTemplatePreviewPanel extends LightningElement {
 
     _templateId;
     _canvasBlocks = [];
-    _previewBlockKey = '';
+    _shellPreviewValues = {};
+
+    @api
+    get shellPreviewValuesJson() {
+        return JSON.stringify(this._shellPreviewValues || {});
+    }
+
+    set shellPreviewValuesJson(value) {
+        let next = {};
+        try {
+            next = value ? JSON.parse(value) : {};
+        } catch (error) {
+            next = {};
+        }
+        if (JSON.stringify(next) === JSON.stringify(this._shellPreviewValues)) return;
+        this._shellPreviewValues = next;
+        this._previewTick += 1;
+    }
 
     @api
     get previewBlockKey() {
@@ -92,7 +112,10 @@ export default class CopyTemplatePreviewPanel extends LightningElement {
         const revision = this._previewTick;
         const source = this._previewRenderSource();
         if (!source?.shellHtml || revision < 0) return '';
-        return renderTemplatePreview(source, this._canvasBlocks, this._previewDevice);
+        return applyShellPreviewValues(
+            renderTemplatePreview(source, this._canvasBlocks, this._previewDevice),
+            this._shellPreviewValues
+        );
     }
 
     get isDesktop() {
@@ -146,7 +169,8 @@ export default class CopyTemplatePreviewPanel extends LightningElement {
     get previewFrameStyle() {
         const frameWidth = previewFrameWidthPx(this._previewDevice, this._previewLayout);
         if (this.isMobile) {
-            return `width: ${frameWidth}px;`;
+            const height = previewFrameHeightPx('mobile', this._previewLayout);
+            return `width: ${frameWidth}px; height: ${height}px;`;
         }
         return `width: 100%; max-width: ${frameWidth}px;`;
     }
@@ -290,6 +314,7 @@ export default class CopyTemplatePreviewPanel extends LightningElement {
             theme: this._previewTheme
         });
         pinPreviewWidths(host, { device: this._previewDevice });
+        bindShellPreviewInteractions(host);
         host._previewStamp = stamp;
     }
 }

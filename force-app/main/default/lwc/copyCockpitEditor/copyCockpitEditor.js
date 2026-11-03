@@ -12,6 +12,9 @@ import {
     parsePreviewViewsFromShell,
     previewPanelWidthPx,
     previewFrameWidthPx,
+    previewFrameHeightPx,
+    applyShellPreviewValues,
+    bindShellPreviewInteractions,
     pinPreviewWidths,
 } from './templatePreview';
 import { parseBlockTemplate, alignLayout } from 'c/contentBindingModel';
@@ -719,7 +722,8 @@ export default class CopyCockpitEditor extends LightningElement {
     get previewFrameStyle() {
         const frameWidth = previewFrameWidthPx(this._previewDevice, this._previewLayout);
         if (this._previewDevice === 'mobile') {
-            return `width: ${frameWidth}px;`;
+            const height = previewFrameHeightPx('mobile', this._previewLayout);
+            return `width: ${frameWidth}px; height: ${height}px;`;
         }
         return `width: 100%; max-width: ${frameWidth}px;`;
     }
@@ -1440,6 +1444,7 @@ export default class CopyCockpitEditor extends LightningElement {
             theme: this._previewTheme,
         });
         pinPreviewWidths(host, { device: this._previewDevice });
+        bindShellPreviewInteractions(host);
         host._previewStamp = stamp;
     }
 

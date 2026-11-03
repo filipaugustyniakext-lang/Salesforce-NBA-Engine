@@ -1507,6 +1507,50 @@ public with sharing class ChannelTemplateController {
     }
 
     @AuraEnabled
+    public static List<CmsImageOption> listCmsImages() {
+        List<CmsImageOption> images = new List<CmsImageOption>();
+        for (ContentVersion version : [
+            SELECT Id, Title
+            FROM ContentVersion
+            WHERE IsLatest = true
+            AND FileExtension IN ('png', 'jpg', 'jpeg', 'gif', 'webp')
+            ORDER BY LastModifiedDate DESC
+            LIMIT 30
+        ]) {
+            CmsImageOption image = new CmsImageOption();
+            image.id = version.Id;
+            image.title = version.Title;
+            image.url = '/sfc/servlet.shepherd/version/download/' + version.Id;
+            images.add(image);
+        }
+        return images;
+    }
+
+    @AuraEnabled
+    public static String contentVersionDownloadUrl(Id contentDocumentId) {
+        if (contentDocumentId == null) {
+            throw new AuraHandledException('Image file is required.');
+        }
+        List<ContentVersion> versions = [
+            SELECT Id
+            FROM ContentVersion
+            WHERE ContentDocumentId = :contentDocumentId
+            AND IsLatest = true
+            LIMIT 1
+        ];
+        if (versions.isEmpty()) {
+            throw new AuraHandledException('Uploaded image could not be found.');
+        }
+        return '/sfc/servlet.shepherd/version/download/' + versions[0].Id;
+    }
+
+    public class CmsImageOption {
+        @AuraEnabled public Id id;
+        @AuraEnabled public String title;
+        @AuraEnabled public String url;
+    }
+
+    @AuraEnabled
     public static void saveShellBindings(Id templateId, String bindingsJson) {
         if (templateId == null) {
             throw new AuraHandledException('Template is required.');

@@ -10,6 +10,8 @@ import getTemplateRenderSource from '@salesforce/apex/ChannelTemplateController.
 import { scanCcPreviewRegionLabelsInOrder, parseTemplateKind, parseShellEditorFields } from 'c/copyTemplatePreview';
 import getChannelRecords from '@salesforce/apex/MarketingDictionaryManagerController.getChannelRecords';
 import saveShellBindings from '@salesforce/apex/ChannelTemplateController.saveShellBindings';
+import listCmsImages from '@salesforce/apex/ChannelTemplateController.listCmsImages';
+import contentVersionDownloadUrl from '@salesforce/apex/ChannelTemplateController.contentVersionDownloadUrl';
 import syncDraftBlockCatalog from '@salesforce/apex/ChannelTemplateController.syncDraftBlockCatalog';
 import saveComponentCatalog from '@salesforce/apex/ChannelTemplateController.saveComponentCatalog';
 import validateContentBlockDefinition from '@salesforce/apex/ChannelTemplateController.validateContentBlockDefinition';
@@ -49,7 +51,10 @@ export default class MasterTemplateStudio extends LightningElement {
     @track shellRegionError = '';
     @track templateKind = 'multi';
     @track shellBindings = [];
+    @track selectedShellPlaceholder = '';
     @track intentOptions = [];
+    @track cmsImages = [];
+    @track cmsPickerOpen = false;
     @track showNewBlockDefinitionForm = false;
     @track pendingBlockDraft = {
         label: '',
@@ -320,12 +325,24 @@ export default class MasterTemplateStudio extends LightningElement {
             editorLabel: labels[row.editor] || row.editor,
             isAction: row.editor === 'action',
             isIntent: row.editor === 'action' && row.actionMode === 'intent',
+            isText: row.editor === 'text',
+            isRichtext: row.editor === 'richtext',
+            isImage: row.editor === 'image',
+            selected: row.placeholder === this.selectedShellPlaceholder,
+            rowClass: 'slds-box slds-box_x-small slds-m-bottom_x-small shell-binding'
+                + (row.placeholder === this.selectedShellPlaceholder ? ' shell-binding_selected' : ''),
             actionOptions,
             actionRadioName: `shell-action-${row.placeholder}`
         }));
     }
 
-    get hasShellBindings() {
+    get shellPreviewValuesJson() {
+        const values = {};
+        (this.shellBindings || []).forEach(row => {
+            if (row.previewValue) values[row.placeholder] = row.previewValue;
+        });
+        return JSON.stringify(values);
+    }
         return this.isSingleBlockTemplate && this.shellBindingRows.length > 0;
     }
 
@@ -561,6 +578,55 @@ export default class MasterTemplateStudio extends LightningElement {
         const steps = this.visibleWizardSteps;
         const index = steps.findIndex(step => step.value === this.wizardStep);
         if (index > 0) this.wizardStep = steps[index - 1].value;
+    }
+
+    handleSelectShellBinding(event) {
+        this.selectedShellPlaceholder = event.currentTarget.dataset.placeholder;
+        this.cmsPickerOpen = false;
+    }
+
+    handleShellPreviewValueChange(event) {
+        const placeholder = event.currentTarget.dataset.placeholder;
+        const value = event.detail?.value ?? event.target?.value ?? '';
+        this.shellBindings = this.shellBindings.map(row => (
+            row.placeholder === placeholder ? { ...row, previewValue: value } : row
+        ));
+    }
+
+    async handleShellImageUpload(event) {
+        const placeholder = event.currentTarget.dataset.placeholder;
+        const file = (event.detail?.files || [])[0];
+        if (!file?.documentId || !placeholder) return;
+        try {
+            const url = await contentVersionDownloadUrl({ contentDocumentId: file.documentId });
+            this._setShellPreviewValue(placeholder, url);
+        } catch (error) {
+            this._toast('Image upload', error.body?.message || error.message, 'error');
+        }
+    }
+
+    async handleOpenCmsPicker(event) {
+        this.selectedShellPlaceholder = event.currentTarget.dataset.placeholder;
+        this.cmsPickerOpen = true;
+        try {
+            this.cmsImages = await listCmsImages();
+        } catch (error) {
+            this.cmsImages = [];
+            this._toast('Salesforce CMS', error.body?.message || error.message, 'error');
+        }
+    }
+
+    handlePickCmsImage(event) {
+        const url = event.currentTarget.dataset.url;
+        if (!this.selectedShellPlaceholder || !url) return;
+        this._setShellPreviewValue(this.selectedShellPlaceholder, url);
+        this.cmsPickerOpen = false;
+    }
+
+    _setShellPreviewValue(placeholder, value) {
+        this.shellBindings = this.shellBindings.map(row => (
+            row.placeholder === placeholder ? { ...row, previewValue: value } : row
+        ));
     }
 
     handleShellActionModeChange(event) {
