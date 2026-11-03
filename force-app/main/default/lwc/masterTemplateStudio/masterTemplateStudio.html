@@ -270,10 +270,17 @@
                                                             </button>
                                                             <template lwc:if={row.selected}>
                                                                 <template lwc:if={row.isText}>
-                                                                    <lightning-input class="slds-m-top_x-small" label="Text" value={row.previewValue} data-placeholder={row.placeholder} onchange={handleShellPreviewValueChange}></lightning-input>
+                                                                    <div class="slds-form-element slds-m-top_x-small">
+                                                                        <label class="slds-form-element__label" for={row.inputId}>Text</label>
+                                                                        <div class="slds-form-element__control">
+                                                                            <input id={row.inputId} class="slds-input" type="text" data-placeholder={row.placeholder} data-shell-preview-input oninput={handleShellPreviewValueChange} />
+                                                                        </div>
+                                                                    </div>
                                                                 </template>
                                                                 <template lwc:if={row.isRichtext}>
-                                                                    <lightning-input-rich-text class="slds-m-top_x-small" label="Rich text" value={row.previewValue} data-placeholder={row.placeholder} onchange={handleShellPreviewValueChange}></lightning-input-rich-text>
+                                                                    <div class="slds-m-top_x-small" data-placeholder={row.placeholder} onchange={handleShellPreviewValueChange}>
+                                                                        <lightning-input-rich-text label="Rich text" data-placeholder={row.placeholder} data-shell-preview-input></lightning-input-rich-text>
+                                                                    </div>
                                                                 </template>
                                                                 <template lwc:if={row.isImage}>
                                                                     <div class="slds-m-top_x-small">
@@ -319,7 +326,12 @@
                                                                             onchange={handleShellIntentChange}>
                                                                         </lightning-combobox>
                                                                     </template>
-                                                                    <lightning-input class="slds-m-top_x-small" label="Button label" value={row.previewValue} data-placeholder={row.placeholder} onchange={handleShellPreviewValueChange}></lightning-input>
+                                                                    <div class="slds-form-element slds-m-top_x-small">
+                                                                        <label class="slds-form-element__label" for={row.inputId}>Button label</label>
+                                                                        <div class="slds-form-element__control">
+                                                                            <input id={row.inputId} class="slds-input" type="text" data-placeholder={row.placeholder} data-shell-preview-input oninput={handleShellPreviewValueChange} />
+                                                                        </div>
+                                                                    </div>
                                                                 </template>
                                                             </template>
                                                         </div>

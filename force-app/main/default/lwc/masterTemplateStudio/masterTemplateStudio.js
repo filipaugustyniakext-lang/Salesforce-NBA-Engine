@@ -51,6 +51,7 @@ export default class MasterTemplateStudio extends LightningElement {
     @track shellRegionError = '';
     @track templateKind = 'multi';
     @track shellBindings = [];
+    @track shellPreviewValues = {};
     @track selectedShellPlaceholder = '';
     @track intentOptions = [];
     @track cmsImages = [];
@@ -332,16 +333,13 @@ export default class MasterTemplateStudio extends LightningElement {
             rowClass: 'slds-box slds-box_x-small slds-m-bottom_x-small shell-binding'
                 + (row.placeholder === this.selectedShellPlaceholder ? ' shell-binding_selected' : ''),
             actionOptions,
-            actionRadioName: `shell-action-${row.placeholder}`
+            actionRadioName: `shell-action-${row.placeholder}`,
+            inputId: `shell-preview-${row.placeholder}`
         }));
     }
 
     get shellPreviewValuesJson() {
-        const values = {};
-        (this.shellBindings || []).forEach(row => {
-            if (row.previewValue) values[row.placeholder] = row.previewValue;
-        });
-        return JSON.stringify(values);
+        return JSON.stringify(this.shellPreviewValues || {});
     }
 
     get hasShellBindings() {
@@ -582,21 +580,32 @@ export default class MasterTemplateStudio extends LightningElement {
         if (index > 0) this.wizardStep = steps[index - 1].value;
     }
 
+    renderedCallback() {
+        this.template.querySelectorAll('[data-shell-preview-input]').forEach((input) => {
+            if (this.template.activeElement === input) return;
+            const placeholder = input.dataset.placeholder;
+            if (!placeholder || !Object.prototype.hasOwnProperty.call(this.shellPreviewValues, placeholder)) return;
+            const value = this.shellPreviewValues[placeholder] || '';
+            if (input.value !== value) input.value = value;
+        });
+    }
+
     handleSelectShellBinding(event) {
         this.selectedShellPlaceholder = event.currentTarget.dataset.placeholder;
         this.cmsPickerOpen = false;
     }
 
     handleShellPreviewValueChange(event) {
-        const placeholder = event.currentTarget.dataset.placeholder;
-        const value = event.detail?.value ?? event.target?.value ?? '';
-        this.shellBindings = this.shellBindings.map(row => (
-            row.placeholder === placeholder ? { ...row, previewValue: value } : row
-        ));
+        const placeholder = this._previewPlaceholder(event);
+        const value = event.detail && Object.prototype.hasOwnProperty.call(event.detail, 'value')
+            ? event.detail.value
+            : (event.target?.value ?? '');
+        if (!placeholder) return;
+        this._setShellPreviewValue(placeholder, value);
     }
 
     async handleShellImageUpload(event) {
-        const placeholder = event.currentTarget.dataset.placeholder;
+        const placeholder = this._previewPlaceholder(event);
         const file = (event.detail?.files || [])[0];
         if (!file?.documentId || !placeholder) return;
         try {
@@ -625,10 +634,16 @@ export default class MasterTemplateStudio extends LightningElement {
         this.cmsPickerOpen = false;
     }
 
+    _previewPlaceholder(event) {
+        const from = (node) => node?.dataset?.placeholder || node?.getAttribute?.('data-placeholder') || '';
+        return from(event.currentTarget) || from(event.target) || '';
+    }
+
     _setShellPreviewValue(placeholder, value) {
-        this.shellBindings = this.shellBindings.map(row => (
-            row.placeholder === placeholder ? { ...row, previewValue: value } : row
-        ));
+        const next = String(value ?? '');
+        if ((this.shellPreviewValues[placeholder] || '') === next) return;
+        this.shellPreviewValues = { ...this.shellPreviewValues, [placeholder]: next };
+        this.template.querySelector('c-copy-template-preview-panel')?.applyPreviewValues(this.shellPreviewValues);
     }
 
     handleShellActionModeChange(event) {

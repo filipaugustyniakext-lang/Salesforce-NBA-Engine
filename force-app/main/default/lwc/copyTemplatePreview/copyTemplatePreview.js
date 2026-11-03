@@ -529,7 +529,11 @@ export function previewFrameHeightPx(device, layout) {
 
 export function applyShellPreviewValues(html, values) {
     const source = values && typeof values === 'object' ? values : {};
-    return String(html || '').replace(/\{\{\s*([A-Za-z0-9_.:-]+)\s*\}\}/g, (token, name) => {
+    const normalized = String(html || '')
+        .replace(/&#123;&#123;\s*([A-Za-z0-9_.:-]+)\s*&#125;&#125;/g, '{{$1}}')
+        .replace(/&lbrace;&lbrace;\s*([A-Za-z0-9_.:-]+)\s*&rbrace;&rbrace;/gi, '{{$1}}');
+    return normalized.replace(/\{\{\s*([A-Za-z0-9_.:-]+)\s*\}\}/g, (token, name) => {
+        if (!Object.prototype.hasOwnProperty.call(source, name)) return token;
         const value = source[name];
         return value == null || value === '' ? token : String(value);
     });

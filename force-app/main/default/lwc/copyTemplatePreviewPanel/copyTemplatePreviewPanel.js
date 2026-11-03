@@ -52,6 +52,15 @@ export default class CopyTemplatePreviewPanel extends LightningElement {
     }
 
     @api
+    applyPreviewValues(values) {
+        const next = values && typeof values === 'object' ? { ...values } : {};
+        if (JSON.stringify(next) === JSON.stringify(this._shellPreviewValues)) return;
+        this._shellPreviewValues = next;
+        this._previewTick += 1;
+        this._syncPreviewFrame();
+    }
+
+    @api
     get previewBlockKey() {
         return this._previewBlockKey;
     }
@@ -309,12 +318,16 @@ export default class CopyTemplatePreviewPanel extends LightningElement {
         const html = this.previewDocument || '';
         const stamp = `${this._previewDevice}|${this._previewTheme}|${html}`;
         if (!html || host._previewStamp === stamp) return;
+        const openDrawer = host.querySelector('[data-drawer].is-open')?.getAttribute('data-drawer');
         host.innerHTML = scopePreviewDocument(html, {
             device: this._previewDevice,
             theme: this._previewTheme
         });
         pinPreviewWidths(host, { device: this._previewDevice });
         bindShellPreviewInteractions(host);
+        if (openDrawer) {
+            host.querySelector(`[data-drawer="${openDrawer}"]`)?.classList.add('is-open');
+        }
         host._previewStamp = stamp;
     }
 }
