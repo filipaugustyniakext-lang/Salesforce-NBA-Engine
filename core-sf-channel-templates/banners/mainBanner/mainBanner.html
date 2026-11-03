@@ -114,32 +114,51 @@
     text-decoration: underline;
     cursor: pointer;
   }
-  .main-banner-drawer-slot {
-    position: relative;
+  .main-banner-drawer-overlay {
+    position: absolute;
+    top: -12px;
+    right: -20px;
+    bottom: -12px;
+    left: -20px;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.35s ease, visibility 0.35s ease;
+  }
+  .main-banner-drawer-overlay.is-open {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+  }
+  .main-banner-drawer-backdrop {
     flex: 1 1 auto;
-    min-height: 0;
+    min-height: 34%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: rgba(0, 0, 0, 0.45);
+    cursor: pointer;
   }
   .main-banner-drawer {
-    position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    left: 0;
+    flex: 0 1 auto;
+    width: 100%;
+    max-height: 66%;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    opacity: 0;
-    transform: translateY(110%);
-    transition: transform 0.35s ease, opacity 0.35s ease;
-    pointer-events: none;
+    transform: translateY(100%);
+    transition: transform 0.35s ease;
     background: rgb(0, 45, 54);
     color: #ffffff;
-    border-radius: 16px;
+    border-radius: 16px 16px 0 0;
   }
-  .main-banner-drawer.is-open {
-    opacity: 1;
+  .main-banner-drawer-overlay.is-open .main-banner-drawer {
     transform: translateY(0);
-    pointer-events: auto;
   }
   .main-banner-drawer__header {
     display: flex;
@@ -277,7 +296,8 @@
         <a class="main-banner__btn main-banner__btn_primary" data-editor="action" href="{{primaryUrl}}">{{primaryLabel}}</a>
       </div>
     </article>
-    <div class="main-banner-drawer-slot">
+    <div class="main-banner-drawer-overlay" data-drawer-overlay="legal" aria-hidden="true">
+      <button type="button" class="main-banner-drawer-backdrop" data-drawer-close aria-label="Close legal note"></button>
       <section class="main-banner-drawer" data-drawer="legal" aria-label="Legal note">
         <div class="main-banner-drawer__header">
           <h3 class="main-banner-drawer__title">{{legalLabel}}</h3>

@@ -547,9 +547,21 @@ export function bindShellPreviewInteractions(host) {
         const closer = event.target.closest('[data-drawer-close]');
         if (!opener && !closer) return;
         event.preventDefault();
-        const drawer = host.querySelector('[data-drawer]');
-        if (!drawer) return;
-        drawer.classList.toggle('is-open', !!opener);
+        if (opener) {
+            const overlayId = opener.getAttribute('data-drawer-open');
+            const overlay = overlayId
+                ? host.querySelector(`[data-drawer-overlay="${overlayId}"]`)
+                : host.querySelector('[data-drawer-overlay]');
+            if (!overlay) return;
+            overlay.classList.add('is-open');
+            overlay.setAttribute('aria-hidden', 'false');
+            return;
+        }
+        const overlay = closer.closest('[data-drawer-overlay]')
+            || host.querySelector('[data-drawer-overlay].is-open');
+        if (!overlay) return;
+        overlay.classList.remove('is-open');
+        overlay.setAttribute('aria-hidden', 'true');
     });
 }
 
