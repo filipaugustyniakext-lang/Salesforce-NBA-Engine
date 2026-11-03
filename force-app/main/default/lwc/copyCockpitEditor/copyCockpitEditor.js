@@ -9,6 +9,7 @@ import {
     renderTemplatePreview,
     scopePreviewDocument,
     parsePreviewLayoutFromShell,
+    parsePreviewViewsFromShell,
     previewPanelWidthPx,
     previewFrameWidthPx,
     pinPreviewWidths,
@@ -933,14 +934,35 @@ export default class CopyCockpitEditor extends LightningElement {
 
     // ── handlers: preview controls ────────────────────────────────────────────
 
+    get _previewViews() {
+        return parsePreviewViewsFromShell(this._renderSource?.shellHtml || '');
+    }
+    get showDesktopPreview() {
+        return this._previewViews.desktop;
+    }
+    get showMobilePreview() {
+        return this._previewViews.mobile;
+    }
+
     handleDeviceDesktop() {
+        if (!this.showDesktopPreview) return;
         this._previewDevice = 'desktop';
         this._previewTick += 1;
     }
 
     handleDeviceMobile() {
+        if (!this.showMobilePreview) return;
         this._previewDevice = 'mobile';
         this._previewTick += 1;
+    }
+
+    _applySupportedPreviewDevice() {
+        const views = parsePreviewViewsFromShell(this._renderSource?.shellHtml || '');
+        if (this._previewDevice === 'desktop' && !views.desktop && views.mobile) {
+            this._previewDevice = 'mobile';
+        } else if (this._previewDevice === 'mobile' && !views.mobile && views.desktop) {
+            this._previewDevice = 'desktop';
+        }
     }
 
     handleThemeLight() {
@@ -1446,6 +1468,7 @@ export default class CopyCockpitEditor extends LightningElement {
         getTemplateRenderSource({ templateId })
             .then(source => {
                 this._renderSource = source;
+                this._applySupportedPreviewDevice();
                 this._seedSingleContentBlock();
             })
             .catch(err => {

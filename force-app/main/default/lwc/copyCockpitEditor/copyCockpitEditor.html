@@ -1093,14 +1093,18 @@
                         <h2 class="slds-panel__header-title slds-text-heading_small slds-truncate" title="Preview">Preview</h2>
                         <div class="slds-panel__header-actions">
                             <div class="slds-button-group" role="group" aria-label="Device">
-                                <button class={deviceDesktopClass} onclick={handleDeviceDesktop} title="Desktop preview" aria-pressed={isDesktop}>
-                                    <lightning-icon icon-name="utility:desktop" size="x-small" variant={deviceDesktopVariant} class="slds-button__icon"></lightning-icon>
-                                    <span class="slds-assistive-text">Desktop</span>
-                                </button>
-                                <button class={deviceMobileClass} onclick={handleDeviceMobile} title="Mobile preview" aria-pressed={isMobile}>
-                                    <lightning-icon icon-name="utility:phone_portrait" size="x-small" variant={deviceMobileVariant} class="slds-button__icon"></lightning-icon>
-                                    <span class="slds-assistive-text">Mobile</span>
-                                </button>
+                                <template lwc:if={showDesktopPreview}>
+                                    <button class={deviceDesktopClass} onclick={handleDeviceDesktop} title="Desktop preview" aria-pressed={isDesktop}>
+                                        <lightning-icon icon-name="utility:desktop" size="x-small" variant={deviceDesktopVariant} class="slds-button__icon"></lightning-icon>
+                                        <span class="slds-assistive-text">Desktop</span>
+                                    </button>
+                                </template>
+                                <template lwc:if={showMobilePreview}>
+                                    <button class={deviceMobileClass} onclick={handleDeviceMobile} title="Mobile preview" aria-pressed={isMobile}>
+                                        <lightning-icon icon-name="utility:phone_portrait" size="x-small" variant={deviceMobileVariant} class="slds-button__icon"></lightning-icon>
+                                        <span class="slds-assistive-text">Mobile</span>
+                                    </button>
+                                </template>
                             </div>
                             <div class="slds-button-group slds-m-left_x-small" role="group" aria-label="Theme">
                                 <button class={themeLightClass} type="button" onclick={handleThemeLight} title="Light mode" aria-pressed={isLightTheme}>

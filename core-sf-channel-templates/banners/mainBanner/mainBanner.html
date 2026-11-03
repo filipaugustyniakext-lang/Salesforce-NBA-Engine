@@ -1,0 +1,195 @@
+<!--
+  mainBanner — upload this file as the Template Shell for the Banner channel.
+  views="mobile" limits preview to the phone frame in Template Studio and Copy Center.
+  Use views="desktop", views="mobile", or views="desktop,mobile".
+  Placeholders: {{title}} {{description}} {{imageUrl}} {{legalLabel}} {{secondaryLabel}} {{primaryLabel}}
+-->
+<cc-preview data-action="template-start" views="mobile" mobile-width="375" desktop-width="375">
+<style>
+  .main-banner-screen {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 12px 20px;
+    background: #f4f6f8;
+    font-family: 'UniCredit', Arial, Helvetica, sans-serif;
+  }
+  .main-banner {
+    position: relative;
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 180px;
+    padding: 16px 16px 14px;
+    border-radius: 16px;
+    overflow: hidden;
+    color: #ffffff;
+    background: rgb(0, 45, 54);
+  }
+  .main-banner::before,
+  .main-banner::after {
+    content: "";
+    width: 88.78px;
+    height: 98.9px;
+    position: absolute;
+    opacity: 0.1;
+    filter: blur(22px);
+    transform: rotate(45deg);
+    background: white;
+    border-radius: 50px;
+    pointer-events: none;
+  }
+  .main-banner::before {
+    top: 15%;
+    left: -17%;
+  }
+  .main-banner::after {
+    top: 23%;
+    right: -7%;
+  }
+  .main-banner__close {
+    position: absolute;
+    z-index: 2;
+    top: 10px;
+    right: 10px;
+    width: 10.6px;
+    height: 10.6px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #ffffff;
+    font-size: 10.6px;
+    line-height: 10.6px;
+    cursor: pointer;
+  }
+  .main-banner__top {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .main-banner__copy {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding-right: 4px;
+  }
+  .main-banner__title {
+    margin: 0 0 6px;
+    font-size: 16px;
+    line-height: 22px;
+    font-weight: 700;
+    color: #ffffff;
+  }
+  .main-banner__description {
+    margin: 0 0 8px;
+    font-size: 14px;
+    line-height: 18px;
+    font-weight: 400;
+    color: #ffffff;
+    display: -webkit-box;
+    -webkit-line-clamp: 6;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .main-banner__legal {
+    display: inline-block;
+    margin: 0 0 12px;
+    font-size: 14px;
+    line-height: 32px;
+    font-weight: 400;
+    color: #ffffff;
+    text-decoration: underline;
+  }
+  .main-banner__image {
+    flex: 0 0 100px;
+    width: 100px;
+    height: 100px;
+    border-radius: 4px;
+    background-color: #c8c8c8;
+    background-image:
+      linear-gradient(45deg, #bdbdbd 25%, transparent 25%),
+      linear-gradient(-45deg, #bdbdbd 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #bdbdbd 75%),
+      linear-gradient(-45deg, transparent 75%, #bdbdbd 75%);
+    background-size: 16px 16px;
+    background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+    overflow: hidden;
+  }
+  .main-banner__image img {
+    display: block;
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 4px;
+    background: #c8c8c8;
+  }
+  .main-banner__actions {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    gap: 8px;
+    width: 100%;
+  }
+  .main-banner__btn {
+    box-sizing: border-box;
+    flex: 1 1 0;
+    min-width: 0;
+    height: 32px;
+    border-radius: 48px;
+    padding: 8px 16px;
+    text-align: center;
+    text-decoration: none;
+    font-size: 14px;
+    line-height: 16px;
+    font-weight: 700;
+  }
+  .main-banner__btn_primary {
+    border: solid 2px #E7F8FB;
+    background: #E7F8FB;
+    color: #002D36;
+  }
+  .main-banner__btn_secondary {
+    border: solid 2px #E7F8FB;
+    background: transparent;
+    color: #E7F8FB;
+  }
+  @media (prefers-color-scheme: dark) {
+    .main-banner-screen {
+      background: #1a1a1a;
+    }
+    .main-banner {
+      background: rgb(33, 0, 4);
+    }
+    .main-banner__btn_primary {
+      border-color: #7A1A12;
+      background: #7A1A12;
+      color: #ffffff;
+    }
+    .main-banner__btn_secondary {
+      border-color: #909090;
+      background: transparent;
+      color: #CCCCCC;
+    }
+  }
+</style>
+<cc-preview region="fixed-edit">
+  <div class="main-banner-screen">
+    <article class="main-banner">
+      <button type="button" class="main-banner__close" aria-label="Close">×</button>
+      <div class="main-banner__top">
+        <div class="main-banner__copy">
+          <h2 class="main-banner__title">{{title}}</h2>
+          <p class="main-banner__description">{{description}}</p>
+          <a class="main-banner__legal" href="#legal">{{legalLabel}}</a>
+        </div>
+        <div class="main-banner__image">
+          <img alt="" src="{{imageUrl}}" width="100" height="100" />
+        </div>
+      </div>
+      <div class="main-banner__actions">
+        <a class="main-banner__btn main-banner__btn_secondary" href="{{secondaryUrl}}">{{secondaryLabel}}</a>
+        <a class="main-banner__btn main-banner__btn_primary" href="{{primaryUrl}}">{{primaryLabel}}</a>
+      </div>
+    </article>
+  </div>
+</cc-preview>
+</cc-preview>

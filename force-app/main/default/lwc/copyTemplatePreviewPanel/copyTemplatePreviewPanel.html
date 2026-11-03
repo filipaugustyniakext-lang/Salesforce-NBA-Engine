@@ -4,14 +4,18 @@
             <h2 class="preview-panel__title slds-text-heading_small slds-truncate" title={heading}>{heading}</h2>
             <div class="preview-panel__header-actions" role="toolbar" aria-label="Preview options">
                 <div class="slds-button-group" role="group" aria-label="Device">
-                    <button class={deviceDesktopClass} type="button" onclick={handleDeviceDesktop} title="Desktop preview" aria-pressed={isDesktop}>
-                        <lightning-icon icon-name="utility:desktop" size="x-small" variant={deviceDesktopVariant} class="slds-button__icon"></lightning-icon>
-                        <span class="slds-assistive-text">Desktop</span>
-                    </button>
-                    <button class={deviceMobileClass} type="button" onclick={handleDeviceMobile} title="Mobile preview" aria-pressed={isMobile}>
-                        <lightning-icon icon-name="utility:phone_portrait" size="x-small" variant={deviceMobileVariant} class="slds-button__icon"></lightning-icon>
-                        <span class="slds-assistive-text">Mobile</span>
-                    </button>
+                    <template lwc:if={showDesktopPreview}>
+                        <button class={deviceDesktopClass} type="button" onclick={handleDeviceDesktop} title="Desktop preview" aria-pressed={isDesktop}>
+                            <lightning-icon icon-name="utility:desktop" size="x-small" variant={deviceDesktopVariant} class="slds-button__icon"></lightning-icon>
+                            <span class="slds-assistive-text">Desktop</span>
+                        </button>
+                    </template>
+                    <template lwc:if={showMobilePreview}>
+                        <button class={deviceMobileClass} type="button" onclick={handleDeviceMobile} title="Mobile preview" aria-pressed={isMobile}>
+                            <lightning-icon icon-name="utility:phone_portrait" size="x-small" variant={deviceMobileVariant} class="slds-button__icon"></lightning-icon>
+                            <span class="slds-assistive-text">Mobile</span>
+                        </button>
+                    </template>
                 </div>
                 <div class="slds-button-group slds-m-left_x-small" role="group" aria-label="Theme">
                     <button class={themeLightClass} type="button" onclick={handleThemeLight} title="Light mode" aria-pressed={isLightTheme}>

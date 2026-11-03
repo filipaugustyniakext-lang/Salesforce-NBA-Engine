@@ -427,6 +427,22 @@ function clampPreviewDimension(value, min, max, fallback) {
     return Math.min(max, Math.max(min, parsed));
 }
 
+/** Reads views="desktop", views="mobile", or views="desktop,mobile" from the template-start wrapper. */
+export function parsePreviewViewsFromShell(shellHtml) {
+    const both = { desktop: true, mobile: true };
+    const regions = findCcPreviewRegions(String(shellHtml || ''));
+    const wrapper = regions.find(region => region.dataAction === 'template-start');
+    if (!wrapper) return both;
+    const raw = parseCcPreviewAttr(wrapper.attrs, 'views').trim().toLowerCase();
+    if (!raw) return both;
+    const requested = raw.split(/[\s,]+/).filter(value => value === 'desktop' || value === 'mobile');
+    if (!requested.length) return both;
+    return {
+        desktop: requested.includes('desktop'),
+        mobile: requested.includes('mobile')
+    };
+}
+
 /** Reads desktop-width / mobile-width from the template-start cc-preview wrapper. */
 export function parsePreviewLayoutFromShell(shellHtml) {
     const fallback = {

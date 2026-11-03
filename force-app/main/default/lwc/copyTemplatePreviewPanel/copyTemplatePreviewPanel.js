@@ -7,6 +7,7 @@ import {
     buildStudioPreviewBlocks,
     pinPreviewWidths,
     parsePreviewLayoutFromShell,
+    parsePreviewViewsFromShell,
     previewPanelWidthPx,
     previewFrameWidthPx
 } from 'c/copyTemplatePreview';
@@ -114,6 +115,18 @@ export default class CopyTemplatePreviewPanel extends LightningElement {
         return parsePreviewLayoutFromShell(this._renderSource?.shellHtml || '');
     }
 
+    get _previewViews() {
+        return parsePreviewViewsFromShell(this._renderSource?.shellHtml || '');
+    }
+
+    get showDesktopPreview() {
+        return this._previewViews.desktop;
+    }
+
+    get showMobilePreview() {
+        return this._previewViews.mobile;
+    }
+
     get panelClass() {
         const device = this.isMobile ? ' preview-panel_device-mobile' : ' preview-panel_device-desktop';
         return `preview-panel${device}`;
@@ -175,15 +188,26 @@ export default class CopyTemplatePreviewPanel extends LightningElement {
     }
 
     handleDeviceDesktop() {
+        if (!this.showDesktopPreview) return;
         this._previewDevice = 'desktop';
         this._previewTick += 1;
         this._emitLayoutChange();
     }
 
     handleDeviceMobile() {
+        if (!this.showMobilePreview) return;
         this._previewDevice = 'mobile';
         this._previewTick += 1;
         this._emitLayoutChange();
+    }
+
+    _applySupportedPreviewDevice() {
+        const views = parsePreviewViewsFromShell(this._renderSource?.shellHtml || '');
+        if (this._previewDevice === 'desktop' && !views.desktop && views.mobile) {
+            this._previewDevice = 'mobile';
+        } else if (this._previewDevice === 'mobile' && !views.mobile && views.desktop) {
+            this._previewDevice = 'desktop';
+        }
     }
 
     handleThemeLight() {
@@ -243,6 +267,7 @@ export default class CopyTemplatePreviewPanel extends LightningElement {
         getTemplateRenderSource({ templateId })
             .then(source => {
                 this._renderSource = source;
+                this._applySupportedPreviewDevice();
                 this._canvasBlocks = this._resolveCanvasBlocks(this._previewRenderSource());
                 this._previewTick += 1;
             })

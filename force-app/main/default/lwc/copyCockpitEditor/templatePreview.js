@@ -4,6 +4,7 @@ export {
     buildSamplePreviewBlocks,
     pinPreviewWidths,
     parsePreviewLayoutFromShell,
+    parsePreviewViewsFromShell,
     previewPanelWidthPx,
     previewFrameWidthPx,
 } from 'c/copyTemplatePreview';
