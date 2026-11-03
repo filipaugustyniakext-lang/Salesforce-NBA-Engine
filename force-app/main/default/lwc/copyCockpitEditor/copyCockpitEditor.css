@@ -1112,6 +1112,7 @@
 }
 
 .editor-preview_mobile .editor-preview__shell {
+    position: relative;
     min-height: 0;
     overflow-x: hidden;
     overflow-y: auto;

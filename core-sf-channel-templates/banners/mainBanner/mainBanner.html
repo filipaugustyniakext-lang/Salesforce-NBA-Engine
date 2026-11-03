@@ -8,16 +8,25 @@
 <style>
   .main-banner-screen {
     box-sizing: border-box;
-    position: relative;
-    width: 100%;
-    min-height: 100%;
-    padding: 12px 20px 24px;
-    background: #f4f6f8;
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: auto;
+    height: auto;
+    padding: 12px 20px;
+    background: transparent;
+    overflow: hidden;
     font-family: 'UniCredit', Arial, Helvetica, sans-serif;
   }
   .main-banner {
     position: relative;
     box-sizing: border-box;
+    flex: 0 0 auto;
     width: 100%;
     min-height: 180px;
     padding: 16px 16px 14px;
@@ -105,23 +114,32 @@
     text-decoration: underline;
     cursor: pointer;
   }
+  .main-banner-drawer-slot {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
   .main-banner-drawer {
-    max-height: 0;
-    margin: 0 0 0;
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
     opacity: 0;
-    transform: translateY(24px);
-    transition: max-height 0.35s ease, opacity 0.35s ease, transform 0.35s ease, margin 0.35s ease;
+    transform: translateY(110%);
+    transition: transform 0.35s ease, opacity 0.35s ease;
+    pointer-events: none;
     background: rgb(0, 45, 54);
     color: #ffffff;
     border-radius: 16px;
   }
   .main-banner-drawer.is-open {
-    max-height: 520px;
-    margin-top: 12px;
     opacity: 1;
-    transform: none;
-    overflow: auto;
+    transform: translateY(0);
+    pointer-events: auto;
   }
   .main-banner-drawer__header {
     display: flex;
@@ -144,10 +162,26 @@
     cursor: pointer;
   }
   .main-banner-drawer__body {
-    padding: 0 16px 16px;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 0 10px 16px 16px;
     font-size: 14px;
     line-height: 20px;
     font-weight: 400;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.35) transparent;
+  }
+  .main-banner-drawer__body::-webkit-scrollbar {
+    width: 4px;
+  }
+  .main-banner-drawer__body::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .main-banner-drawer__body::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.35);
+    border-radius: 4px;
   }
   .main-banner__image {
     flex: 0 0 100px;
@@ -204,9 +238,6 @@
     color: #E7F8FB;
   }
   @media (prefers-color-scheme: dark) {
-    .main-banner-screen {
-      background: #1a1a1a;
-    }
     .main-banner {
       background: rgb(33, 0, 4);
     }
@@ -246,13 +277,15 @@
         <a class="main-banner__btn main-banner__btn_primary" data-editor="action" href="{{primaryUrl}}">{{primaryLabel}}</a>
       </div>
     </article>
-    <section class="main-banner-drawer" data-drawer="legal" aria-label="Legal note">
-      <div class="main-banner-drawer__header">
-        <h3 class="main-banner-drawer__title">{{legalLabel}}</h3>
-        <button type="button" class="main-banner-drawer__close" data-drawer-close aria-label="Close">×</button>
-      </div>
-      <div class="main-banner-drawer__body" data-editor="richtext">{{legalNote}}</div>
-    </section>
+    <div class="main-banner-drawer-slot">
+      <section class="main-banner-drawer" data-drawer="legal" aria-label="Legal note">
+        <div class="main-banner-drawer__header">
+          <h3 class="main-banner-drawer__title">{{legalLabel}}</h3>
+          <button type="button" class="main-banner-drawer__close" data-drawer-close aria-label="Close">×</button>
+        </div>
+        <div class="main-banner-drawer__body" data-editor="richtext">{{legalNote}}</div>
+      </section>
+    </div>
   </div>
 </cc-preview>
 </cc-preview>
