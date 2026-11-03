@@ -759,11 +759,10 @@ export default class MasterTemplateStudio extends LightningElement {
     }
 
     handleShellButtonLabelChange(event) {
-        const bindingKey = event.currentTarget.dataset.bindingKey;
-        const row = this._shellBinding(bindingKey);
-        if (!row) return;
-        const value = event.detail?.value ?? event.target?.value ?? '';
-        const labelKey = event.currentTarget.dataset.labelPlaceholder || row.labelPlaceholder || row.placeholder;
+        const input = event.currentTarget;
+        const labelKey = input?.dataset?.labelPlaceholder;
+        if (!labelKey) return;
+        const value = event.detail?.value ?? input?.value ?? '';
         this._setShellPreviewValue(labelKey, value);
     }
 

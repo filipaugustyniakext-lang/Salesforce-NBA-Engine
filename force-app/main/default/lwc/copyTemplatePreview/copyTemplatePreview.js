@@ -664,16 +664,45 @@ export function previewFrameHeightPx(device, layout) {
     return config.mobileHeight || PREVIEW_MOBILE_FRAME_HEIGHT_PX;
 }
 
+function escapePreviewHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function escapeRegExp(value) {
+    return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Replace anchor body for data-label-placeholder bindings (supports multiline <a> tags). */
+function applyShellPreviewActionLabels(html, values) {
+    let output = String(html || '');
+    Object.entries(values || {}).forEach(([name, raw]) => {
+        if (!name || raw == null || raw === '') return;
+        const safeName = escapeRegExp(name);
+        const pattern = new RegExp(
+            `(<a\\b[\\s\\S]*?\\bdata-label-placeholder\\s*=\\s*(["'])${safeName}\\2[\\s\\S]*?)>([\\s\\S]*?)<\\/a\\s*>`,
+            'gi'
+        );
+        const escaped = escapePreviewHtml(raw);
+        output = output.replace(pattern, (_match, openTag) => `${openTag}>${escaped}`);
+    });
+    return output;
+}
+
 export function applyShellPreviewValues(html, values) {
     const source = values && typeof values === 'object' ? values : {};
     const normalized = String(html || '')
         .replace(/&#123;&#123;\s*([A-Za-z0-9_.:-]+)\s*&#125;&#125;/g, '{{$1}}')
         .replace(/&lbrace;&lbrace;\s*([A-Za-z0-9_.:-]+)\s*&rbrace;&rbrace;/gi, '{{$1}}');
-    return normalized.replace(/\{\{\s*([A-Za-z0-9_.:-]+)\s*\}\}/g, (token, name) => {
+    const withTokens = normalized.replace(/\{\{\s*([A-Za-z0-9_.:-]+)\s*\}\}/g, (token, name) => {
         if (!Object.prototype.hasOwnProperty.call(source, name)) return token;
         const value = source[name];
-        return value == null || value === '' ? token : String(value);
+        return value == null || value === '' ? token : escapePreviewHtml(value);
     });
+    return applyShellPreviewActionLabels(withTokens, source);
 }
 
 export function bindShellPreviewInteractions(host) {
