@@ -387,6 +387,10 @@
     padding: 0;
 }
 
+.shell-binding__title {
+    font-weight: 600;
+}
+
 .shell-binding__head {
     display: flex;
     align-items: center;

@@ -456,6 +456,24 @@ export function parseTemplateKind(shellHtml) {
     return kind === 'single' ? 'single' : 'multi';
 }
 
+function parseDelimitedOptions(raw) {
+    return String(raw || '')
+        .split(/[|,]/)
+        .map(part => part.trim())
+        .filter(Boolean);
+}
+
+function parseImageModes(attrs) {
+    return parseDelimitedOptions(parseCcPreviewAttr(attrs, 'data-image-modes'))
+        .map(mode => mode.toLowerCase())
+        .filter(mode => mode === 'light' || mode === 'dark');
+}
+
+function placeholderFromHref(attrs) {
+    const hrefMatch = /\bhref\s*=\s*(['"])(.*?)\1/i.exec(String(attrs || ''));
+    return hrefMatch ? firstPlaceholder(hrefMatch[2]) : '';
+}
+
 /** Fields declared with data-editor on the shell, for Copy Center binding. */
 export function parseShellEditorFields(shellHtml) {
     const fields = [];
@@ -466,19 +484,71 @@ export function parseShellEditorFields(shellHtml) {
         const attrs = match[2] || '';
         const editor = String(match[4] || '').toLowerCase();
         const inner = match[5] || '';
-        const placeholder = editor === 'image'
-            ? firstPlaceholder(attrs) || firstPlaceholder(inner)
-            : firstPlaceholder(inner) || firstPlaceholder(attrs);
-        if (placeholder) {
-            const variantName = parseCcPreviewAttr(attrs, 'data-variant').trim();
-            const variantLabel = parseCcPreviewAttr(attrs, 'data-variant-label').trim() || variantName;
-            const existing = fields.find(field => field.placeholder === placeholder);
-            if (!existing) {
-                fields.push({ placeholder, editor, variantName, variantLabel });
-            } else if (!existing.variantName && variantName) {
-                existing.variantName = variantName;
-                existing.variantLabel = variantLabel;
-            }
+        const variantName = parseCcPreviewAttr(attrs, 'data-variant').trim();
+        const variantLabel = parseCcPreviewAttr(attrs, 'data-variant-label').trim() || variantName;
+        const bindingTitle = parseCcPreviewAttr(attrs, 'data-binding-title').trim() || variantLabel;
+        const bindingKey = parseCcPreviewAttr(attrs, 'data-binding-key').trim()
+            || variantName
+            || parseCcPreviewAttr(attrs, 'data-label-placeholder').trim()
+            || firstPlaceholder(inner)
+            || firstPlaceholder(attrs);
+        if (!bindingKey) {
+            match = SHELL_EDITOR_PATTERN.exec(source);
+            continue;
+        }
+        if (fields.some(field => field.bindingKey === bindingKey)) {
+            match = SHELL_EDITOR_PATTERN.exec(source);
+            continue;
+        }
+
+        const labelOptions = parseDelimitedOptions(parseCcPreviewAttr(attrs, 'data-label-options'));
+        const imageModes = parseImageModes(attrs);
+        const placeholderLight = parseCcPreviewAttr(attrs, 'data-placeholder-light').trim()
+            || firstPlaceholder(attrs)
+            || firstPlaceholder(inner);
+        const placeholderDark = parseCcPreviewAttr(attrs, 'data-placeholder-dark').trim()
+            || firstPlaceholder(inner);
+
+        if (editor === 'image' && imageModes.length) {
+            fields.push({
+                bindingKey,
+                placeholder: placeholderLight || placeholderDark || bindingKey,
+                placeholderLight: placeholderLight || '',
+                placeholderDark: placeholderDark || '',
+                imageModes,
+                editor,
+                variantName,
+                variantLabel,
+                bindingTitle
+            });
+        } else if (editor === 'action') {
+            const labelPlaceholder = parseCcPreviewAttr(attrs, 'data-label-placeholder').trim()
+                || firstPlaceholder(inner)
+                || bindingKey;
+            const urlPlaceholder = parseCcPreviewAttr(attrs, 'data-url-placeholder').trim()
+                || placeholderFromHref(attrs);
+            fields.push({
+                bindingKey,
+                placeholder: labelPlaceholder,
+                labelPlaceholder,
+                urlPlaceholder,
+                editor,
+                variantName,
+                variantLabel,
+                bindingTitle
+            });
+        } else {
+            const placeholder = firstPlaceholder(inner) || firstPlaceholder(attrs) || bindingKey;
+            fields.push({
+                bindingKey,
+                placeholder,
+                editor,
+                variantName,
+                variantLabel,
+                bindingTitle,
+                labelOptions,
+                labelCustomOption: parseCcPreviewAttr(attrs, 'data-label-custom').trim() || 'Custom Label'
+            });
         }
         match = SHELL_EDITOR_PATTERN.exec(source);
     }
