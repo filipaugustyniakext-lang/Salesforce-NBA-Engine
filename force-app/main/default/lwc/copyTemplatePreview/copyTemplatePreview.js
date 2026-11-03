@@ -469,8 +469,16 @@ export function parseShellEditorFields(shellHtml) {
         const placeholder = editor === 'image'
             ? firstPlaceholder(attrs) || firstPlaceholder(inner)
             : firstPlaceholder(inner) || firstPlaceholder(attrs);
-        if (placeholder && !fields.some(field => field.placeholder === placeholder)) {
-            fields.push({ placeholder, editor });
+        if (placeholder) {
+            const variantName = parseCcPreviewAttr(attrs, 'data-variant').trim();
+            const variantLabel = parseCcPreviewAttr(attrs, 'data-variant-label').trim() || variantName;
+            const existing = fields.find(field => field.placeholder === placeholder);
+            if (!existing) {
+                fields.push({ placeholder, editor, variantName, variantLabel });
+            } else if (!existing.variantName && variantName) {
+                existing.variantName = variantName;
+                existing.variantLabel = variantLabel;
+            }
         }
         match = SHELL_EDITOR_PATTERN.exec(source);
     }

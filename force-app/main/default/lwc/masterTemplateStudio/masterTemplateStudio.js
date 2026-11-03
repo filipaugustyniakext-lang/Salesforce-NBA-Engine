@@ -322,7 +322,11 @@ export default class MasterTemplateStudio extends LightningElement {
             { label: 'URL', value: 'url' },
             { label: 'Intent', value: 'intent' }
         ];
-        return (this.shellBindings || []).map(row => ({
+        const seenVariants = new Set();
+        return (this.shellBindings || []).map(row => {
+            const showVariant = !!row.variantName && !seenVariants.has(row.variantName);
+            if (row.variantName) seenVariants.add(row.variantName);
+            return {
             ...row,
             placeholderLabel: `{{${row.placeholder}}}`,
             editorLabel: labels[row.editor] || row.editor,
@@ -336,23 +340,15 @@ export default class MasterTemplateStudio extends LightningElement {
                 + (row.placeholder === this.selectedShellPlaceholder ? ' shell-binding_selected' : ''),
             actionOptions,
             actionRadioName: `shell-action-${row.placeholder}`,
-            inputId: `shell-preview-${row.placeholder}`
-        }));
+            inputId: `shell-preview-${row.placeholder}`,
+            showVariant,
+            variantEnabled: row.variantName ? this.shellVariantState?.[row.variantName] !== false : false
+            };
+        });
     }
 
     get shellPreviewValuesJson() {
         return JSON.stringify(this.shellPreviewValues || {});
-    }
-
-    get shellVariantRows() {
-        return (this.shellVariants || []).map(row => ({
-            ...row,
-            enabled: this.shellVariantState?.[row.name] !== false
-        }));
-    }
-
-    get hasShellVariants() {
-        return this.shellVariantRows.length > 0;
     }
 
     get shellVariantStateJson() {
@@ -1019,6 +1015,8 @@ export default class MasterTemplateStudio extends LightningElement {
             return {
                 placeholder: field.placeholder,
                 editor: field.editor,
+                variantName: field.variantName || '',
+                variantLabel: field.variantLabel || '',
                 actionMode: previous.actionMode === 'intent' ? 'intent' : 'url',
                 intentId: previous.intentId || ''
             };
