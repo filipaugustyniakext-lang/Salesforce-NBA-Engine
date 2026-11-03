@@ -50,9 +50,6 @@
             <template lwc:elseif={hasShellPreview}>
                 <div class="preview-panel__mock-wrap">
                     <div class={previewFrameClass} style={previewFrameStyle}>
-                        <template lwc:if={isMobile}>
-                            <div class="preview-panel__notch"></div>
-                        </template>
                         <template lwc:if={isDesktop}>
                             <div class="preview-panel__browser-bar">
                                 <span class="preview-panel__browser-dot"></span>

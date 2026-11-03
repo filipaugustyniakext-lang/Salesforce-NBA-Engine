@@ -102,11 +102,26 @@
 }
 
 .preview-panel__frame_mobile {
+    position: relative;
     width: 375px;
     height: 812px;
     border-radius: 45px;
     border: 8px solid #3e3e3c;
     flex-shrink: 0;
+}
+
+.preview-panel__frame.preview-panel__frame_mobile::before {
+    content: '';
+    position: absolute;
+    top: 0.5rem;
+    left: 50%;
+    z-index: 3;
+    width: 90px;
+    height: 22px;
+    border-radius: 50px;
+    background: #3e3e3c;
+    transform: translateX(-50%);
+    pointer-events: none;
 }
 
 .preview-panel__frame_light {
@@ -148,15 +163,6 @@
 
 .preview-panel__browser-dot:nth-child(3) {
     background: #34d399;
-}
-
-.preview-panel__notch {
-    background: #3e3e3c;
-    flex-shrink: 0;
-    width: 90px;
-    height: 22px;
-    border-radius: 50px;
-    margin: 0.5rem auto 0;
 }
 
 .preview-panel__document {
