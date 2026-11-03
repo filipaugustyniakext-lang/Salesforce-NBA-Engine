@@ -536,10 +536,12 @@ export function parseShellEditorFields(shellHtml) {
                 || bindingKey;
             const urlPlaceholder = parseCcPreviewAttr(attrs, 'data-url-placeholder').trim()
                 || placeholderFromHref(attrs);
+            const labelDefault = parseCcPreviewAttr(attrs, 'data-label-default').trim();
             fields.push({
                 bindingKey,
                 placeholder: labelPlaceholder,
                 labelPlaceholder,
+                labelDefault,
                 urlPlaceholder,
                 editor,
                 variantName,

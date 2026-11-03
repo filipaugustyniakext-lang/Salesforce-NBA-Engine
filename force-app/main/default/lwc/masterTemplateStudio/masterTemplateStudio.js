@@ -1109,6 +1109,7 @@ export default class MasterTemplateStudio extends LightningElement {
             this.shellRegions = scanCcPreviewRegionLabelsInOrder(shellHtml);
             this.templateKind = parseTemplateKind(shellHtml);
             this._mergeShellBindings(shellHtml, source?.shellBindingsJson);
+            this._seedShellPreviewLabelDefaults();
             this._mergeShellVariants(shellHtml);
             if (this.isSingleBlockTemplate) {
                 this._loadIntentOptions();
@@ -1156,6 +1157,24 @@ export default class MasterTemplateStudio extends LightningElement {
                 imageDarkSource: previous.imageDarkSource || 'upload'
             };
         });
+    }
+
+    _seedShellPreviewLabelDefaults() {
+        const next = { ...(this.shellPreviewValues || {}) };
+        let changed = false;
+        (this.shellBindings || []).forEach(row => {
+            if (row.editor !== 'action' || !row.labelPlaceholder) return;
+            const key = row.labelPlaceholder;
+            const defaultLabel = String(row.labelDefault || '').trim();
+            if (!defaultLabel) return;
+            if (next[key] == null || next[key] === '') {
+                next[key] = defaultLabel;
+                changed = true;
+            }
+        });
+        if (changed) {
+            this.shellPreviewValues = next;
+        }
     }
 
     _buildImagePanels(row, bindingKey, isDualImage) {

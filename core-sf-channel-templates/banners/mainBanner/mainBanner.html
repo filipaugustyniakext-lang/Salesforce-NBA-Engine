@@ -3,6 +3,7 @@
   views="mobile" limits preview to the phone frame in Template Studio and Copy Center.
   Use views="desktop", views="mobile", or views="desktop,mobile".
   Placeholders: {{title}} {{description}} {{imageUrlLight}} {{imageUrlDark}} {{legalLabel}} {{legalNote}} {{secondaryLabel}} {{primaryLabel}} {{secondaryUrl}} {{primaryUrl}}
+  Default button labels: Button 2 (secondary), Button 1 (primary) via data-label-default on action bindings.
   Optional parts use data-variant and data-variant-label. The shell stays complete; CSS reacts to
   .cc-preview[data-cc-variant-<name>="off"]. legalNote and secondaryButton are optional. The primary button stays.
 -->
@@ -237,9 +238,11 @@
   }
   .main-banner__image img {
     display: block;
-    width: 100px;
-    height: 100px;
-    object-fit: cover;
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
     border-radius: 4px;
     background: #c8c8c8;
   }
@@ -325,8 +328,8 @@
         </div>
       </div>
       <div class="main-banner__actions">
-        <a class="main-banner__btn main-banner__btn_secondary" data-editor="action" data-ui-component="buttons" data-variant="secondaryButton" data-variant-label="Secondary button" data-binding-title="Secondary button" data-label-placeholder="secondaryLabel" data-url-placeholder="secondaryUrl" href="{{secondaryUrl}}">{{secondaryLabel}}</a>
-        <a class="main-banner__btn main-banner__btn_primary" data-editor="action" data-ui-component="buttons" data-binding-title="Primary button" data-label-placeholder="primaryLabel" data-url-placeholder="primaryUrl" href="{{primaryUrl}}">{{primaryLabel}}</a>
+        <a class="main-banner__btn main-banner__btn_secondary" data-editor="action" data-ui-component="buttons" data-variant="secondaryButton" data-variant-label="Secondary button" data-binding-title="Secondary button" data-label-placeholder="secondaryLabel" data-label-default="Button 2" data-url-placeholder="secondaryUrl" href="{{secondaryUrl}}">{{secondaryLabel}}</a>
+        <a class="main-banner__btn main-banner__btn_primary" data-editor="action" data-ui-component="buttons" data-binding-title="Primary button" data-label-placeholder="primaryLabel" data-label-default="Button 1" data-url-placeholder="primaryUrl" href="{{primaryUrl}}">{{primaryLabel}}</a>
       </div>
     </article>
     <div class="main-banner-drawer-overlay" data-drawer-overlay="legal" data-variant="legalNote" aria-hidden="true">
