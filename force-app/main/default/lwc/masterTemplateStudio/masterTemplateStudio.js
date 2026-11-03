@@ -26,6 +26,12 @@ import {
 
 const VALID_BLOCK_ICON = /^[a-zA-Z0-9_]+:[a-zA-Z0-9_]+$/;
 
+const IMAGE_SOURCE_OPTIONS = [
+    { label: 'Upload Image', value: 'upload' },
+    { label: 'Paste URL', value: 'url' },
+    { label: 'Choose from Salesforce Content', value: 'cms' }
+];
+
 const EMPTY_DRAFT = () => ({
     Id: null,
     Name: '',
@@ -55,7 +61,7 @@ export default class MasterTemplateStudio extends LightningElement {
     @track shellVariants = [];
     @track shellVariantState = {};
     @track selectedShellBindingKey = '';
-    @track cmsPickerTarget = { bindingKey: '', mode: '' };
+    @track cmsSearchQuery = '';
     @track intentOptions = [];
     @track cmsImages = [];
     @track showNewBlockDefinitionForm = false;
@@ -332,6 +338,7 @@ export default class MasterTemplateStudio extends LightningElement {
                 labelChoiceOptions.push({ label: row.labelCustomOption || 'Custom Label', value: '__custom__' });
             }
             const isDualImage = row.editor === 'image' && (row.imageModes || []).includes('light') && (row.imageModes || []).includes('dark');
+            const showImageSettings = row.editor === 'image';
             return {
                 ...row,
                 bindingKey,
@@ -344,8 +351,10 @@ export default class MasterTemplateStudio extends LightningElement {
                 isText: row.editor === 'text' && !row.labelOptions?.length,
                 isLabelPicklist: row.editor === 'text' && !!row.labelOptions?.length,
                 isRichtext: row.editor === 'richtext',
-                isImage: row.editor === 'image' && !isDualImage,
-                isDualImage,
+                showImageSettings,
+                imagePanels: showImageSettings
+                    ? this._buildImagePanels(row, bindingKey, isDualImage)
+                    : [],
                 selected: bindingKey === this.selectedShellBindingKey,
                 rowClass: 'slds-box slds-box_x-small slds-m-bottom_x-small shell-binding'
                     + (bindingKey === this.selectedShellBindingKey ? ' shell-binding_selected' : ''),
@@ -356,10 +365,17 @@ export default class MasterTemplateStudio extends LightningElement {
                 labelChoiceOptions,
                 showCustomLabelInput: row.labelChoice === '__custom__',
                 showVariant,
-                variantEnabled: row.variantName ? this.shellVariantState?.[row.variantName] !== false : false,
-                cmsPickerOpenForRow: this.cmsPickerTarget.bindingKey === bindingKey
+                variantEnabled: row.variantName ? this.shellVariantState?.[row.variantName] !== false : false
             };
         });
+    }
+
+    get filteredCmsImages() {
+        const query = String(this.cmsSearchQuery || '').trim().toLowerCase();
+        if (!query) return this.cmsImages || [];
+        return (this.cmsImages || []).filter(image => (
+            String(image.title || '').toLowerCase().includes(query)
+        ));
     }
 
     get shellPreviewValuesJson() {
@@ -620,7 +636,7 @@ export default class MasterTemplateStudio extends LightningElement {
 
     handleSelectShellBinding(event) {
         this.selectedShellBindingKey = event.currentTarget.dataset.bindingKey;
-        this.cmsPickerTarget = { bindingKey: '', mode: '' };
+        this.cmsSearchQuery = '';
     }
 
     handleShellPreviewValueChange(event) {
@@ -639,9 +655,7 @@ export default class MasterTemplateStudio extends LightningElement {
         if (!file?.documentId || !bindingKey) return;
         const row = this._shellBinding(bindingKey);
         if (!row) return;
-        const placeholder = imageMode === 'dark'
-            ? (row.placeholderDark || row.placeholder)
-            : (row.placeholderLight || row.placeholder);
+        const placeholder = this._imagePlaceholder(row, imageMode || 'default');
         try {
             const url = await contentVersionDownloadUrl({ contentDocumentId: file.documentId });
             this._setShellPreviewValue(placeholder, url);
@@ -650,29 +664,42 @@ export default class MasterTemplateStudio extends LightningElement {
         }
     }
 
-    async handleOpenCmsPicker(event) {
+    handleShellImageSourceChange(event) {
         const bindingKey = event.currentTarget.dataset.bindingKey;
-        const imageMode = event.currentTarget.dataset.imageMode || '';
-        this.cmsPickerTarget = { bindingKey, mode: imageMode };
-        try {
-            this.cmsImages = await listCmsImages();
-        } catch (error) {
-            this.cmsImages = [];
-            this._toast('Salesforce CMS', error.body?.message || error.message, 'error');
+        const imageMode = event.currentTarget.dataset.imageMode || 'default';
+        const sourceMode = event.detail.value;
+        const patch = {};
+        if (imageMode === 'light') patch.imageLightSource = sourceMode;
+        else if (imageMode === 'dark') patch.imageDarkSource = sourceMode;
+        else patch.imageSource = sourceMode;
+        this._updateShellBinding(bindingKey, patch);
+        if (sourceMode === 'cms') {
+            this._loadCmsImages();
         }
+    }
+
+    handleShellImageUrlChange(event) {
+        const bindingKey = event.currentTarget.dataset.bindingKey;
+        const imageMode = event.currentTarget.dataset.imageMode || 'default';
+        const row = this._shellBinding(bindingKey);
+        if (!row) return;
+        const value = event.detail?.value ?? event.target?.value ?? '';
+        const placeholder = this._imagePlaceholder(row, imageMode);
+        this._setShellPreviewValue(placeholder, value);
+    }
+
+    handleCmsSearchChange(event) {
+        this.cmsSearchQuery = event.detail?.value ?? event.target?.value ?? '';
     }
 
     handlePickCmsImage(event) {
         const url = event.currentTarget.dataset.url;
-        const { bindingKey, mode } = this.cmsPickerTarget || {};
+        const bindingKey = event.currentTarget.dataset.bindingKey;
+        const imageMode = event.currentTarget.dataset.imageMode || 'default';
         if (!bindingKey || !url) return;
         const row = this._shellBinding(bindingKey);
         if (!row) return;
-        const placeholder = mode === 'dark'
-            ? (row.placeholderDark || row.placeholder)
-            : (row.placeholderLight || row.placeholder);
-        this._setShellPreviewValue(placeholder, url);
-        this.cmsPickerTarget = { bindingKey: '', mode: '' };
+        this._setShellPreviewValue(this._imagePlaceholder(row, imageMode), url);
     }
 
     handleShellLabelChoiceChange(event) {
@@ -1080,9 +1107,48 @@ export default class MasterTemplateStudio extends LightningElement {
                 intentId: previous.intentId || '',
                 actionUrl: previous.actionUrl || '',
                 labelChoice: previous.labelChoice || defaultLabelChoice,
-                labelCustomText: previous.labelCustomText || ''
+                labelCustomText: previous.labelCustomText || '',
+                imageSource: previous.imageSource || 'upload',
+                imageLightSource: previous.imageLightSource || 'upload',
+                imageDarkSource: previous.imageDarkSource || 'upload'
             };
         });
+    }
+
+    _buildImagePanels(row, bindingKey, isDualImage) {
+        const panels = isDualImage
+            ? [
+                { mode: 'light', title: 'Light mode', source: row.imageLightSource || 'upload', placeholder: row.placeholderLight || row.placeholder },
+                { mode: 'dark', title: 'Dark mode', source: row.imageDarkSource || 'upload', placeholder: row.placeholderDark || row.placeholder }
+            ]
+            : [{ mode: 'default', title: 'Image', source: row.imageSource || 'upload', placeholder: row.placeholder }];
+        return panels.map(panel => ({
+            ...panel,
+            key: `${bindingKey}-${panel.mode}`,
+            bindingKey,
+            sourceOptions: IMAGE_SOURCE_OPTIONS,
+            sourceRadioName: `image-source-${bindingKey}-${panel.mode}`,
+            showUpload: panel.source === 'upload',
+            showUrl: panel.source === 'url',
+            showCms: panel.source === 'cms',
+            urlValue: this.shellPreviewValues[panel.placeholder] || ''
+        }));
+    }
+
+    _imagePlaceholder(row, imageMode) {
+        if (imageMode === 'dark') return row.placeholderDark || row.placeholder;
+        if (imageMode === 'light') return row.placeholderLight || row.placeholder;
+        return row.placeholder;
+    }
+
+    async _loadCmsImages() {
+        if ((this.cmsImages || []).length) return;
+        try {
+            this.cmsImages = await listCmsImages();
+        } catch (error) {
+            this.cmsImages = [];
+            this._toast('Salesforce Content', error.body?.message || error.message, 'error');
+        }
     }
 
     _shellBinding(bindingKey) {

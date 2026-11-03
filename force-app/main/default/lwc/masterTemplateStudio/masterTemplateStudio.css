@@ -418,6 +418,36 @@
     box-shadow: 0 0 0 1px #0176d3;
 }
 
+.shell-image-settings {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: flex-start;
+}
+
+.shell-image-settings__column {
+    flex: 1 1 0;
+    min-width: 14rem;
+}
+
+.shell-image-cms {
+    max-height: 14rem;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.shell-image-cms__list {
+    overflow: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.shell-image-cms__pick {
+    width: 100%;
+    text-align: left;
+}
+
 .studio-file {
     display: inline-flex;
     align-items: center;

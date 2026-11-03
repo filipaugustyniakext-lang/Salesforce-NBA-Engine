@@ -308,62 +308,63 @@
                                                                         <lightning-input-rich-text label="Rich text" data-placeholder={row.placeholder} data-shell-preview-input></lightning-input-rich-text>
                                                                     </div>
                                                                 </template>
-                                                                <template lwc:if={row.isImage}>
-                                                                    <div class="slds-m-top_x-small">
-                                                                        <lightning-file-upload
-                                                                            label="Upload to Salesforce CMS"
-                                                                            name="shellBindingImage"
-                                                                            accept=".png,.jpg,.jpeg,.gif,.webp"
-                                                                            record-id={draft.Id}
-                                                                            data-binding-key={row.bindingKey}
-                                                                            onuploadfinished={handleShellImageUpload}>
-                                                                        </lightning-file-upload>
-                                                                        <lightning-button class="slds-m-top_x-small" label="Get from Salesforce CMS" data-binding-key={row.bindingKey} onclick={handleOpenCmsPicker}></lightning-button>
-                                                                        <template lwc:if={row.cmsPickerOpenForRow}>
-                                                                            <ul class="slds-has-dividers_top-space slds-m-top_x-small">
-                                                                                <template for:each={cmsImages} for:item="image">
-                                                                                    <li key={image.id} class="slds-item">
-                                                                                        <button type="button" class="slds-button slds-button_reset" data-url={image.url} onclick={handlePickCmsImage}>{image.title}</button>
-                                                                                    </li>
+                                                                <template lwc:if={row.showImageSettings}>
+                                                                    <div class="shell-image-settings slds-m-top_x-small">
+                                                                        <template for:each={row.imagePanels} for:item="panel">
+                                                                            <section key={panel.key} class="shell-image-settings__column">
+                                                                                <h3 class="slds-text-title_caps slds-m-bottom_x-small">{panel.title}</h3>
+                                                                                <lightning-radio-group
+                                                                                    label="Image source"
+                                                                                    type="button"
+                                                                                    name={panel.sourceRadioName}
+                                                                                    options={panel.sourceOptions}
+                                                                                    value={panel.source}
+                                                                                    data-binding-key={panel.bindingKey}
+                                                                                    data-image-mode={panel.mode}
+                                                                                    onchange={handleShellImageSourceChange}>
+                                                                                </lightning-radio-group>
+                                                                                <template lwc:if={panel.showUpload}>
+                                                                                    <lightning-file-upload
+                                                                                        class="slds-m-top_x-small"
+                                                                                        label="Upload image"
+                                                                                        accept=".png,.jpg,.jpeg,.gif,.webp"
+                                                                                        record-id={draft.Id}
+                                                                                        data-binding-key={panel.bindingKey}
+                                                                                        data-image-mode={panel.mode}
+                                                                                        onuploadfinished={handleShellImageUpload}>
+                                                                                    </lightning-file-upload>
                                                                                 </template>
-                                                                            </ul>
+                                                                                <template lwc:if={panel.showUrl}>
+                                                                                    <lightning-input
+                                                                                        class="slds-m-top_x-small"
+                                                                                        type="url"
+                                                                                        label="Image URL"
+                                                                                        value={panel.urlValue}
+                                                                                        data-binding-key={panel.bindingKey}
+                                                                                        data-image-mode={panel.mode}
+                                                                                        onchange={handleShellImageUrlChange}>
+                                                                                    </lightning-input>
+                                                                                </template>
+                                                                                <template lwc:if={panel.showCms}>
+                                                                                    <div class="shell-image-cms slds-box slds-theme_shade slds-m-top_x-small" role="dialog" aria-label="Choose from Salesforce Content">
+                                                                                        <lightning-input
+                                                                                            type="search"
+                                                                                            label="Search content"
+                                                                                            value={cmsSearchQuery}
+                                                                                            onchange={handleCmsSearchChange}>
+                                                                                        </lightning-input>
+                                                                                        <ul class="shell-image-cms__list slds-has-dividers_top-space slds-m-top_x-small">
+                                                                                            <template for:each={filteredCmsImages} for:item="image">
+                                                                                                <li key={image.id} class="slds-item">
+                                                                                                    <button type="button" class="slds-button slds-button_reset shell-image-cms__pick" data-url={image.url} data-binding-key={panel.bindingKey} data-image-mode={panel.mode} onclick={handlePickCmsImage}>{image.title}</button>
+                                                                                                </li>
+                                                                                            </template>
+                                                                                        </ul>
+                                                                                    </div>
+                                                                                </template>
+                                                                            </section>
                                                                         </template>
                                                                     </div>
-                                                                </template>
-                                                                <template lwc:if={row.isDualImage}>
-                                                                    <div class="slds-m-top_x-small">
-                                                                        <p class="slds-text-title_caps slds-m-bottom_xx-small">Light mode</p>
-                                                                        <lightning-file-upload
-                                                                            label="Upload light image"
-                                                                            accept=".png,.jpg,.jpeg,.gif,.webp"
-                                                                            record-id={draft.Id}
-                                                                            data-binding-key={row.bindingKey}
-                                                                            data-image-mode="light"
-                                                                            onuploadfinished={handleShellImageUpload}>
-                                                                        </lightning-file-upload>
-                                                                        <lightning-button class="slds-m-top_x-small" label="Get from Salesforce CMS" data-binding-key={row.bindingKey} data-image-mode="light" onclick={handleOpenCmsPicker}></lightning-button>
-                                                                    </div>
-                                                                    <div class="slds-m-top_small">
-                                                                        <p class="slds-text-title_caps slds-m-bottom_xx-small">Dark mode</p>
-                                                                        <lightning-file-upload
-                                                                            label="Upload dark image"
-                                                                            accept=".png,.jpg,.jpeg,.gif,.webp"
-                                                                            record-id={draft.Id}
-                                                                            data-binding-key={row.bindingKey}
-                                                                            data-image-mode="dark"
-                                                                            onuploadfinished={handleShellImageUpload}>
-                                                                        </lightning-file-upload>
-                                                                        <lightning-button class="slds-m-top_x-small" label="Get from Salesforce CMS" data-binding-key={row.bindingKey} data-image-mode="dark" onclick={handleOpenCmsPicker}></lightning-button>
-                                                                    </div>
-                                                                    <template lwc:if={row.cmsPickerOpenForRow}>
-                                                                        <ul class="slds-has-dividers_top-space slds-m-top_x-small">
-                                                                            <template for:each={cmsImages} for:item="image">
-                                                                                <li key={image.id} class="slds-item">
-                                                                                    <button type="button" class="slds-button slds-button_reset" data-url={image.url} onclick={handlePickCmsImage}>{image.title}</button>
-                                                                                </li>
-                                                                            </template>
-                                                                        </ul>
-                                                                    </template>
                                                                 </template>
                                                                 <template lwc:if={row.isAction}>
                                                                     <div class="slds-form-element slds-m-top_x-small">
