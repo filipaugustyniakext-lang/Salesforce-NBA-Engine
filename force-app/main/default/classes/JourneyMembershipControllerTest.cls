@@ -16,12 +16,12 @@ private class JourneyMembershipControllerTest {
             } else if (endpoint.contains('/journeyhistory/download')) {
                 res.setHeader('Content-Type', 'text/csv');
                 res.setBody(
-                    'TransactionTime,Status,DefinitionId,DefinitionName,DefinitionInstanceId,ActivityName,ActivityType,ContactKey\n'
-                    + '2026-10-01T10:00:00.000Z,Complete,journey-welcome,Welcome,instance-2,Email 1,emailv2,003000000000001\n'
-                    + '2026-10-02T11:00:00.000Z,Waiting,journey-welcome,Welcome,instance-2,Wait 1 day,wait,003000000000001\n'
-                    + '2026-09-01T09:00:00.000Z,ExitCriteriaMet,journey-old,"Old, Journey",instance-1,Exit,exitcriteriaactivity,003000000000001\n'
-                    + '2026-08-01T09:00:00.000Z,Complete,journey-done,Done path,instance-3,End,stopinteractionactivity,003000000000001\n'
-                    + '2026-07-01T09:00:00.000Z,DidNotMeetEntryCriteria,journey-skip,Skipped,,Entry,trigger,003000000000001\n'
+                    'TransactionTime,Status,DefinitionId,DefinitionName,DefinitionInstanceId,ActivityId,ActivityName,ActivityType,ContactKey\n'
+                    + '2026-10-01T10:00:00.000Z,Complete,journey-welcome,Welcome,instance-2,act-1,Email 1,emailv2,003000000000001\n'
+                    + '2026-10-02T11:00:00.000Z,Waiting,journey-welcome,Welcome,instance-2,act-2,Wait 1 day,wait,003000000000001\n'
+                    + '2026-09-01T09:00:00.000Z,ExitCriteriaMet,journey-old,"Old, Journey",instance-1,act-3,Exit,exitcriteriaactivity,003000000000001\n'
+                    + '2026-08-01T09:00:00.000Z,Complete,journey-done,Done path,instance-3,act-4,End,stopinteractionactivity,003000000000001\n'
+                    + '2026-07-01T09:00:00.000Z,DidNotMeetEntryCriteria,journey-skip,Skipped,,act-5,Entry,trigger,003000000000001\n'
                 );
             } else if (endpoint.contains('/contactexit')) {
                 res.setBody('[{"status":"OK"}]');
@@ -40,6 +40,8 @@ private class JourneyMembershipControllerTest {
         JourneyMembershipController.HistoryEvent waiting = event(
             '2026-10-02T11:00:00.000Z', 'Waiting', 'journey-welcome', 'Welcome', 'instance-2', 'Wait 1 day'
         );
+        waiting.activityType = 'wait';
+        waiting.activityId = 'act-2';
         JourneyMembershipController.HistoryEvent earlier = event(
             '2026-10-01T10:00:00.000Z', 'Complete', 'journey-welcome', 'Welcome', 'instance-2', 'Email 1'
         );
@@ -82,6 +84,9 @@ private class JourneyMembershipControllerTest {
         System.assertEquals('In-flight', rows[1].status);
         System.assertEquals(true, rows[1].canStop);
         System.assertEquals('Wait 1 day', rows[1].latestActivityName);
+        System.assertEquals('wait', rows[1].latestActivityType);
+        System.assertEquals('Waiting', rows[1].latestActivityStatus);
+        System.assertEquals('act-2', rows[1].latestActivityId);
         System.assertEquals('Done path', rows[2].journeyName);
         System.assertEquals('Finished', rows[2].status);
         System.assertEquals(false, rows[2].canStop);

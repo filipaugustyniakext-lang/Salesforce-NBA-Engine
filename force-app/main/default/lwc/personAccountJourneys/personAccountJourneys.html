@@ -1,5 +1,5 @@
 <template>
-    <lightning-card title="Marketing Cloud journeys" icon-name="standard:flow">
+    <lightning-card title="MCE Journeys" icon-name="standard:flow">
         <lightning-button
             slot="actions"
             label="Refresh"
@@ -20,41 +20,86 @@
                     <p class="slds-text-body_small slds-m-bottom_small">External Customer Id: {contactKeyLabel}</p>
                 </template>
                 <template lwc:if={journeys.length}>
-                    <div class="slds-scrollable_x">
-                        <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_striped" aria-label="Journey membership">
-                            <thead>
-                                <tr class="slds-line-height_reset">
-                                    <th scope="col"><div class="slds-truncate" title="Journey">Journey</div></th>
-                                    <th scope="col"><div class="slds-truncate" title="Version">Version</div></th>
-                                    <th scope="col"><div class="slds-truncate" title="Status">Status</div></th>
-                                    <th scope="col"><div class="slds-truncate" title="Latest activity">Latest activity</div></th>
-                                    <th scope="col"><div class="slds-truncate" title="Latest activity date">Latest activity date</div></th>
-                                    <th scope="col"><div class="slds-truncate" title="Action">Action</div></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <template for:each={journeys} for:item="row">
-                                    <tr key={row.rowKey}>
-                                        <th scope="row" data-label="Journey">{row.journeyName}</th>
-                                        <td data-label="Version">{row.versionLabel}</td>
-                                        <td data-label="Status"><span class={row.statusClass}>{row.status}</span></td>
-                                        <td data-label="Latest activity">{row.latestActivityName}</td>
-                                        <td data-label="Latest activity date">{row.activityDateLabel}</td>
-                                        <td data-label="Action">
-                                            <template lwc:if={row.canStop}>
-                                                <lightning-button
-                                                    label="Stop"
-                                                    variant="destructive-text"
-                                                    data-row-key={row.rowKey}
-                                                    onclick={handleStop}>
-                                                </lightning-button>
-                                            </template>
-                                        </td>
-                                    </tr>
+                    <ul class="journey-list">
+                        <template for:each={journeys} for:item="row">
+                            <li key={row.rowKey} class="slds-box slds-box_x-small slds-m-bottom_x-small journey-card">
+                                <div class="journey-card__summary">
+                                    <lightning-button-icon
+                                        icon-name={row.chevronIcon}
+                                        variant="bare"
+                                        size="small"
+                                        alternative-text={row.expandLabel}
+                                        title={row.expandLabel}
+                                        data-row-key={row.rowKey}
+                                        onclick={handleToggle}>
+                                    </lightning-button-icon>
+                                    <span class="journey-card__name" title={row.journeyName}>{row.shortName}</span>
+                                    <span class={row.statusClass}>{row.status}</span>
+                                    <template lwc:if={row.canStop}>
+                                        <lightning-button
+                                            class="journey-card__stop"
+                                            label="Stop"
+                                            icon-name="utility:stop"
+                                            variant="destructive-text"
+                                            data-row-key={row.rowKey}
+                                            onclick={handleStop}>
+                                        </lightning-button>
+                                    </template>
+                                </div>
+                                <template lwc:if={row.expanded}>
+                                    <dl class="journey-card__details">
+                                        <div class="journey-card__row">
+                                            <dt>Journey Version</dt>
+                                            <dd>
+                                                <lightning-badge label={row.versionLabel} icon-alternative-text={row.versionLabel}></lightning-badge>
+                                            </dd>
+                                        </div>
+                                        <div class="journey-card__row">
+                                            <dt>Latest Activity Name</dt>
+                                            <dd>
+                                                <lightning-badge
+                                                    label={row.latestActivityName}
+                                                    icon-name="utility:fallback"
+                                                    icon-position="end"
+                                                    icon-alternative-text={row.latestActivityName}>
+                                                </lightning-badge>
+                                            </dd>
+                                        </div>
+                                        <div class="journey-card__row">
+                                            <dt>Latest Activity Type</dt>
+                                            <dd>
+                                                <lightning-badge
+                                                    label={row.latestActivityType}
+                                                    icon-name="utility:fallback"
+                                                    icon-position="end"
+                                                    icon-alternative-text={row.latestActivityType}
+                                                    class={row.activityTypeClass}>
+                                                </lightning-badge>
+                                            </dd>
+                                        </div>
+                                        <div class="journey-card__row">
+                                            <dt>Latest Activity Status</dt>
+                                            <dd>
+                                                <lightning-badge label={row.latestActivityStatus} class="slds-badge_lightest"></lightning-badge>
+                                            </dd>
+                                        </div>
+                                        <div class="journey-card__row">
+                                            <dt>Last Activity Time</dt>
+                                            <dd>
+                                                <lightning-badge label={row.activityDateLabel} class="slds-badge_lightest"></lightning-badge>
+                                            </dd>
+                                        </div>
+                                        <div class="journey-card__row">
+                                            <dt>Latest Activity ID</dt>
+                                            <dd>
+                                                <lightning-badge label={row.latestActivityId} class="slds-badge_lightest"></lightning-badge>
+                                            </dd>
+                                        </div>
+                                    </dl>
                                 </template>
-                            </tbody>
-                        </table>
-                    </div>
+                            </li>
+                        </template>
+                    </ul>
                 </template>
             </template>
         </div>

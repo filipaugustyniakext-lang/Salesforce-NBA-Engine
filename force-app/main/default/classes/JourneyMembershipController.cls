@@ -156,6 +156,9 @@ public with sharing class JourneyMembershipController {
             : (String.isNotBlank(latest.definitionName) ? latest.definitionName : latest.definitionId);
         row.versionLabel = meta != null && meta.version != null ? String.valueOf(meta.version) : '';
         row.latestActivityName = latest.activityName;
+        row.latestActivityType = latest.activityType;
+        row.latestActivityStatus = latest.status;
+        row.latestActivityId = latest.activityId;
         row.latestActivityDate = latest.transactionTime;
         row.contactKey = latest.contactKey;
         row.definitionKey = meta != null && String.isNotBlank(meta.definitionKey)
@@ -324,7 +327,7 @@ public with sharing class JourneyMembershipController {
     private static List<HistoryEvent> fetchHistory(String restBase, String token, List<String> contactKeys) {
         Datetime endAt = Datetime.now();
         Datetime startAt = endAt.addDays(-HISTORY_DAYS);
-        String columns = 'TransactionTime,Status,DefinitionId,DefinitionName,DefinitionInstanceId,ActivityName,ActivityType,ContactKey';
+        String columns = 'TransactionTime,Status,DefinitionId,DefinitionName,DefinitionInstanceId,ActivityId,ActivityName,ActivityType,ContactKey';
         String endpoint = restBase + '/interaction/v1/interactions/journeyhistory/download?format=csv&columns='
             + EncodingUtil.urlEncode(columns, 'UTF-8');
         HttpRequest req = authorized(endpoint, token, 'POST');
@@ -373,6 +376,8 @@ public with sharing class JourneyMembershipController {
             event.definitionName = cell(cells, index, 'definitionname');
             event.definitionInstanceId = cell(cells, index, 'definitioninstanceid');
             event.activityName = cell(cells, index, 'activityname');
+            event.activityType = cell(cells, index, 'activitytype');
+            event.activityId = cell(cells, index, 'activityid');
             event.contactKey = cell(cells, index, 'contactkey');
             if (String.isNotBlank(event.definitionId)) {
                 events.add(event);
@@ -578,6 +583,9 @@ public with sharing class JourneyMembershipController {
         @AuraEnabled public String versionLabel;
         @AuraEnabled public String status;
         @AuraEnabled public String latestActivityName;
+        @AuraEnabled public String latestActivityType;
+        @AuraEnabled public String latestActivityStatus;
+        @AuraEnabled public String latestActivityId;
         @AuraEnabled public Datetime latestActivityDate;
         @AuraEnabled public Boolean canStop;
         @AuraEnabled public String contactKey;
@@ -607,6 +615,8 @@ public with sharing class JourneyMembershipController {
         public String definitionName;
         public String definitionInstanceId;
         public String activityName;
+        public String activityType;
+        public String activityId;
         public String contactKey;
 
         public Integer compareTo(Object other) {
