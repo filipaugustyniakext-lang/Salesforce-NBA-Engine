@@ -48,29 +48,52 @@
                                 </div>
                                 <template lwc:if={row.expanded}>
                                     <dl class="journey-card__details">
-                                        <div>
+                                        <div class="journey-card__row">
                                             <dt>Journey Version</dt>
-                                            <dd>{row.versionLabel}</dd>
+                                            <dd>
+                                                <lightning-badge label={row.versionLabel} icon-alternative-text={row.versionLabel}></lightning-badge>
+                                            </dd>
                                         </div>
-                                        <div>
+                                        <div class="journey-card__row">
                                             <dt>Latest Activity Name</dt>
-                                            <dd>{row.latestActivityName}</dd>
+                                            <dd>
+                                                <lightning-badge
+                                                    label={row.latestActivityName}
+                                                    icon-name="utility:fallback"
+                                                    icon-position="end"
+                                                    icon-alternative-text={row.latestActivityName}>
+                                                </lightning-badge>
+                                            </dd>
                                         </div>
-                                        <div>
+                                        <div class="journey-card__row">
                                             <dt>Latest Activity Type</dt>
-                                            <dd>{row.latestActivityType}</dd>
+                                            <dd>
+                                                <lightning-badge
+                                                    label={row.latestActivityType}
+                                                    icon-name="utility:fallback"
+                                                    icon-position="end"
+                                                    icon-alternative-text={row.latestActivityType}
+                                                    class={row.activityTypeClass}>
+                                                </lightning-badge>
+                                            </dd>
                                         </div>
-                                        <div>
+                                        <div class="journey-card__row">
                                             <dt>Latest Activity Status</dt>
-                                            <dd>{row.latestActivityStatus}</dd>
+                                            <dd>
+                                                <lightning-badge label={row.latestActivityStatus} class="slds-badge_lightest"></lightning-badge>
+                                            </dd>
                                         </div>
-                                        <div>
+                                        <div class="journey-card__row">
                                             <dt>Last Activity Time</dt>
-                                            <dd>{row.activityDateLabel}</dd>
+                                            <dd>
+                                                <lightning-badge label={row.activityDateLabel} class="slds-badge_lightest"></lightning-badge>
+                                            </dd>
                                         </div>
-                                        <div>
+                                        <div class="journey-card__row">
                                             <dt>Latest Activity ID</dt>
-                                            <dd>{row.latestActivityId}</dd>
+                                            <dd>
+                                                <lightning-badge label={row.latestActivityId} class="slds-badge_lightest"></lightning-badge>
+                                            </dd>
                                         </div>
                                     </dl>
                                 </template>

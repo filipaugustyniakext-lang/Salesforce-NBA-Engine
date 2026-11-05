@@ -66,7 +66,8 @@ export default class PersonAccountJourneys extends LightningElement {
             latestActivityType: displayValue(row.latestActivityType),
             latestActivityStatus: displayValue(row.latestActivityStatus),
             latestActivityId: displayValue(row.latestActivityId),
-            activityDateLabel: displayValue(formatDate(row.latestActivityDate))
+            activityDateLabel: displayValue(formatDate(row.latestActivityDate)),
+            activityTypeClass: activityTypeBadgeClass(row.latestActivityType)
         };
     }
 
@@ -107,6 +108,23 @@ export default class PersonAccountJourneys extends LightningElement {
             this.stoppingKey = '';
         }
     }
+}
+
+function activityTypeBadgeClass(type) {
+    const value = String(type || '').trim().toLowerCase();
+    if (!value || value === '—') {
+        return 'slds-badge_lightest';
+    }
+    if (value.startsWith('wait')
+        || value === 'path optimizer'
+        || value.includes('decis')
+        || value.includes('split')) {
+        return 'journey-badge_path';
+    }
+    if (value.includes('activity') || value.includes('update')) {
+        return 'journey-badge_action';
+    }
+    return 'slds-badge_lightest';
 }
 
 function displayValue(value) {
