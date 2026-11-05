@@ -1,0 +1,40 @@
+.journey-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.journey-card__summary {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.journey-card__name {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.journey-card__summary .slds-badge,
+.journey-card__stop {
+    flex: 0 0 auto;
+}
+
+.journey-card__details {
+    display: grid;
+    gap: 0.35rem;
+    margin: 0.75rem 0 0.25rem 1.75rem;
+}
+
+.journey-card__details dt {
+    font-size: 0.75rem;
+    color: var(--slds-g-color-neutral-base-30, #706e6b);
+}
+
+.journey-card__details dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+}

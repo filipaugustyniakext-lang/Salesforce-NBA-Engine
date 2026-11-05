@@ -12,6 +12,7 @@ export default class PersonAccountJourneys extends LightningElement {
     isLoading = true;
     error;
     stoppingKey;
+    expandedKeys = [];
 
     connectedCallback() {
         this.loadJourneys();
@@ -24,12 +25,8 @@ export default class PersonAccountJourneys extends LightningElement {
             const result = await getJourneyHistory({ recordId: this.recordId });
             this.message = result?.message || '';
             this.contactKeyLabel = (result?.contactKeys || []).join(', ');
-            this.journeys = (result?.journeys || []).map(row => ({
-                ...row,
-                statusClass: statusClass(row.status),
-                activityDateLabel: formatDate(row.latestActivityDate),
-                isStopping: false
-            }));
+            const expanded = new Set(this.expandedKeys);
+            this.journeys = (result?.journeys || []).map(row => this._decorate(row, expanded.has(row.rowKey)));
         } catch (error) {
             this.journeys = [];
             this.message = '';
@@ -41,6 +38,36 @@ export default class PersonAccountJourneys extends LightningElement {
 
     handleRefresh() {
         this.loadJourneys();
+    }
+
+    handleToggle(event) {
+        const rowKey = event.currentTarget.dataset.rowKey;
+        const expanded = new Set(this.expandedKeys);
+        if (expanded.has(rowKey)) {
+            expanded.delete(rowKey);
+        } else {
+            expanded.add(rowKey);
+        }
+        this.expandedKeys = [...expanded];
+        this.journeys = this.journeys.map(row => this._decorate(row, expanded.has(row.rowKey)));
+    }
+
+    _decorate(row, expanded) {
+        const name = row.journeyName || '';
+        return {
+            ...row,
+            expanded,
+            shortName: name.length > 20 ? name.slice(0, 20) : name,
+            chevronIcon: expanded ? 'utility:chevrondown' : 'utility:chevronright',
+            expandLabel: expanded ? 'Hide journey details' : 'Show journey details',
+            statusClass: statusClass(row.status),
+            versionLabel: displayValue(row.versionLabel),
+            latestActivityName: displayValue(row.latestActivityName),
+            latestActivityType: displayValue(row.latestActivityType),
+            latestActivityStatus: displayValue(row.latestActivityStatus),
+            latestActivityId: displayValue(row.latestActivityId),
+            activityDateLabel: displayValue(formatDate(row.latestActivityDate))
+        };
     }
 
     async handleStop(event) {
@@ -80,6 +107,10 @@ export default class PersonAccountJourneys extends LightningElement {
             this.stoppingKey = '';
         }
     }
+}
+
+function displayValue(value) {
+    return value ? value : '—';
 }
 
 function statusClass(status) {
