@@ -377,6 +377,12 @@
     <flexiPageRegions>
         <itemInstances>
             <componentInstance>
+                <componentName>personAccountJourneys</componentName>
+                <identifier>c_personAccountJourneys</identifier>
+            </componentInstance>
+        </itemInstances>
+        <itemInstances>
+            <componentInstance>
                 <componentInstanceProperties>
                     <name>hideHeader</name>
                     <value>true</value>
@@ -457,7 +463,7 @@
         </itemInstances>
         <itemInstances>
             <fieldInstance>
-                <fieldItem>Record.externalCustomerId__c</fieldItem>
+                <fieldItem>Record.gcp_externalCustomerId__c</fieldItem>
                 <identifier>RecordexternalCustomerId__cField</identifier>
             </fieldInstance>
         </itemInstances>
@@ -487,7 +493,7 @@
         </itemInstances>
         <itemInstances>
             <fieldInstance>
-                <fieldItem>Record.Customer_Status__c</fieldItem>
+                <fieldItem>Record.gcp_Customer_Status__c</fieldItem>
                 <identifier>RecordCustomer_Status__cField</identifier>
             </fieldInstance>
         </itemInstances>
@@ -501,6 +507,42 @@
             <fieldInstance>
                 <fieldItem>Record.gcp_profile_type__c</fieldItem>
                 <identifier>Recordgcp_profile_type__cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldItem>Record.gcp_Citizenship_Type__c</fieldItem>
+                <identifier>RecordCitizenship_Type__cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldItem>Record.gcp_PESEL_Number__c</fieldItem>
+                <identifier>RecordPESEL_Number__cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldItem>Record.gcp_ID_Document_Number__c</fieldItem>
+                <identifier>RecordID_Document_Number__cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldItem>Record.gcp_ID_Document_Type__c</fieldItem>
+                <identifier>RecordID_Document_Type__cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldItem>Record.gcp_ID_Document_Validity_Due_Date__c</fieldItem>
+                <identifier>RecordID_Document_Validity_Due_Date__cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldItem>Record.gcp_Last_KYC_Verification_Date__c</fieldItem>
+                <identifier>RecordLast_KYC_Verification_Date__cField</identifier>
             </fieldInstance>
         </itemInstances>
         <name>Facet-47396b09-68af-4166-943f-4fca64ddb4d8</name>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <classAccesses>
+        <apexClass>JourneyMembershipController</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <description>Lets CRM users view Marketing Cloud journey history on person accounts and contacts, and eject an in-flight contact.</description>
+    <hasActivationRequired>false</hasActivationRequired>
+    <label>Person Account Journeys</label>
+</PermissionSet>

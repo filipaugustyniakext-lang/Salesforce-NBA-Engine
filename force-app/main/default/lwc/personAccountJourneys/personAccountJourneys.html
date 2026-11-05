@@ -1,0 +1,62 @@
+<template>
+    <lightning-card title="Marketing Cloud journeys" icon-name="standard:flow">
+        <lightning-button
+            slot="actions"
+            label="Refresh"
+            icon-name="utility:refresh"
+            onclick={handleRefresh}
+            disabled={isLoading}>
+        </lightning-button>
+        <div class="slds-p-around_medium">
+            <template lwc:if={isLoading}>
+                <lightning-spinner alternative-text="Loading journeys" size="small"></lightning-spinner>
+            </template>
+            <template lwc:else>
+                <template lwc:if={error}>
+                    <p class="slds-text-color_error slds-m-bottom_small">{error}</p>
+                </template>
+                <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">{message}</p>
+                <template lwc:if={contactKeyLabel}>
+                    <p class="slds-text-body_small slds-m-bottom_small">Contact key: {contactKeyLabel}</p>
+                </template>
+                <template lwc:if={journeys.length}>
+                    <div class="slds-scrollable_x">
+                        <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_striped" aria-label="Journey membership">
+                            <thead>
+                                <tr class="slds-line-height_reset">
+                                    <th scope="col"><div class="slds-truncate" title="Journey">Journey</div></th>
+                                    <th scope="col"><div class="slds-truncate" title="Version">Version</div></th>
+                                    <th scope="col"><div class="slds-truncate" title="Status">Status</div></th>
+                                    <th scope="col"><div class="slds-truncate" title="Latest activity">Latest activity</div></th>
+                                    <th scope="col"><div class="slds-truncate" title="Latest activity date">Latest activity date</div></th>
+                                    <th scope="col"><div class="slds-truncate" title="Action">Action</div></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template for:each={journeys} for:item="row">
+                                    <tr key={row.rowKey}>
+                                        <th scope="row" data-label="Journey">{row.journeyName}</th>
+                                        <td data-label="Version">{row.versionLabel}</td>
+                                        <td data-label="Status"><span class={row.statusClass}>{row.status}</span></td>
+                                        <td data-label="Latest activity">{row.latestActivityName}</td>
+                                        <td data-label="Latest activity date">{row.activityDateLabel}</td>
+                                        <td data-label="Action">
+                                            <template lwc:if={row.canStop}>
+                                                <lightning-button
+                                                    label="Stop"
+                                                    variant="destructive-text"
+                                                    data-row-key={row.rowKey}
+                                                    onclick={handleStop}>
+                                                </lightning-button>
+                                            </template>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </template>
+            </template>
+        </div>
+    </lightning-card>
+</template>
