@@ -2,6 +2,8 @@
  * Journey membership for a person account or contact.
  * Uses the same Marketing Cloud client credentials as Copy Center (MCE_Settings__mdt.Default).
  * History comes from the journey history download API, which retains 30 days of activity.
+ * The Marketing Cloud contact key is External Customer Id (gcp_externalCustomerId__c on
+ * Contact, gcp_externalCustomerId__pc on Person Account), not the Salesforce record id.
  * Current membership comes from contactMembership. Eject uses contactexit.
  */
 public with sharing class JourneyMembershipController {
@@ -28,14 +30,15 @@ public with sharing class JourneyMembershipController {
 
     @AuraEnabled
     public static JourneyHistory getJourneyHistory(Id recordId) {
-        List<String> contactKeys = resolveContactKeys(recordId);
-        if (contactKeys.isEmpty()) {
+        ContactKeyResolution resolved = resolveContactKeys(recordId);
+        if (resolved.keys.isEmpty()) {
             JourneyHistory emptyResult = new JourneyHistory();
             emptyResult.journeys = new List<JourneyMembership>();
             emptyResult.historyDays = HISTORY_DAYS;
-            emptyResult.message = 'Journey membership is available on person accounts and contacts.';
+            emptyResult.message = resolved.message;
             return emptyResult;
         }
+        List<String> contactKeys = resolved.keys;
 
         MCE_Settings__mdt settings = loadSettings();
         String token = requestToken(settings);
@@ -61,7 +64,7 @@ public with sharing class JourneyMembershipController {
         if (String.isBlank(contactKey) || String.isBlank(definitionKey)) {
             throw auraError('A contact key and journey key are required to stop a journey.');
         }
-        Set<String> allowed = new Set<String>(resolveContactKeys(recordId));
+        Set<String> allowed = new Set<String>(resolveContactKeys(recordId).keys);
         if (!allowed.contains(contactKey)) {
             throw auraError('That contact key does not belong to this record.');
         }
@@ -231,48 +234,53 @@ public with sharing class JourneyMembershipController {
         return null;
     }
 
-    private static List<String> resolveContactKeys(Id recordId) {
+    private static ContactKeyResolution resolveContactKeys(Id recordId) {
         if (recordId == null) {
             throw auraError('A record is required.');
         }
-        List<String> keys = new List<String>();
+        ContactKeyResolution resolved = new ContactKeyResolution();
         Schema.SObjectType token = recordId.getSObjectType();
         if (token == Account.SObjectType) {
-            String soql = 'SELECT IsPersonAccount, PersonContactId';
             Map<String, Schema.SObjectField> fields = Account.SObjectType.getDescribe().fields.getMap();
-            if (fields.containsKey('gcp_externalcustomerid__pc')) {
-                soql += ', gcp_externalCustomerId__pc';
+            if (!fields.containsKey('gcp_externalcustomerid__pc')) {
+                resolved.message = 'External Customer Id is not available on Account.';
+                return resolved;
             }
-            soql += ' FROM Account WHERE Id = :recordId LIMIT 1';
-            List<SObject> rows = Database.query(soql, AccessLevel.USER_MODE);
+            List<SObject> rows = Database.query(
+                'SELECT IsPersonAccount, gcp_externalCustomerId__pc FROM Account WHERE Id = :recordId LIMIT 1',
+                AccessLevel.USER_MODE
+            );
             if (rows.isEmpty()) {
                 throw auraError('Account was not found.');
             }
-            if (rows[0].get('IsPersonAccount') != true || rows[0].get('PersonContactId') == null) {
-                return keys;
+            if (rows[0].get('IsPersonAccount') != true) {
+                resolved.message = 'Journey membership is available on person accounts and contacts.';
+                return resolved;
             }
-            keys.add(String.valueOf(rows[0].get('PersonContactId')));
-            if (fields.containsKey('gcp_externalcustomerid__pc')) {
-                addKey(keys, (String) rows[0].get('gcp_externalCustomerId__pc'));
+            addKey(resolved.keys, (String) rows[0].get('gcp_externalCustomerId__pc'));
+            if (resolved.keys.isEmpty()) {
+                resolved.message = 'Set External Customer Id on this person account. Journey search uses that value, not the Salesforce record id.';
             }
-            return keys;
+            return resolved;
         }
         if (token == Contact.SObjectType) {
-            String soql = 'SELECT Id';
             Map<String, Schema.SObjectField> fields = Contact.SObjectType.getDescribe().fields.getMap();
-            if (fields.containsKey('gcp_externalcustomerid__c')) {
-                soql += ', gcp_externalCustomerId__c';
+            if (!fields.containsKey('gcp_externalcustomerid__c')) {
+                resolved.message = 'External Customer Id is not available on Contact.';
+                return resolved;
             }
-            soql += ' FROM Contact WHERE Id = :recordId LIMIT 1';
-            List<SObject> rows = Database.query(soql, AccessLevel.USER_MODE);
+            List<SObject> rows = Database.query(
+                'SELECT gcp_externalCustomerId__c FROM Contact WHERE Id = :recordId LIMIT 1',
+                AccessLevel.USER_MODE
+            );
             if (rows.isEmpty()) {
                 throw auraError('Contact was not found.');
             }
-            keys.add(String.valueOf(rows[0].Id));
-            if (fields.containsKey('gcp_externalcustomerid__c')) {
-                addKey(keys, (String) rows[0].get('gcp_externalCustomerId__c'));
+            addKey(resolved.keys, (String) rows[0].get('gcp_externalCustomerId__c'));
+            if (resolved.keys.isEmpty()) {
+                resolved.message = 'Set External Customer Id on this contact. Journey search uses that value, not the Salesforce record id.';
             }
-            return keys;
+            return resolved;
         }
         throw auraError('Journey membership is available on person accounts and contacts.');
     }
@@ -550,6 +558,11 @@ public with sharing class JourneyMembershipController {
         AuraHandledException error = new AuraHandledException(message);
         error.setMessage(message);
         return error;
+    }
+
+    private class ContactKeyResolution {
+        public List<String> keys = new List<String>();
+        public String message;
     }
 
     public class JourneyHistory {

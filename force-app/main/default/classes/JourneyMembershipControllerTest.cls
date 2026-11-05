@@ -119,10 +119,9 @@ private class JourneyMembershipControllerTest {
     @IsTest
     static void loadsHistoryAndEjectsUsingMarketingCloud() {
         endpoints.clear();
+        String externalId = 'EXT-' + String.valueOf(Math.abs(Crypto.getRandomInteger()));
         Contact contact = new Contact(LastName = 'Journey');
-        if (Schema.SObjectType.Contact.fields.getMap().containsKey('gcp_externalcustomerid__c')) {
-            contact.put('gcp_externalCustomerId__c', 'EXT-' + String.valueOf(Crypto.getRandomInteger()));
-        }
+        contact.put('gcp_externalCustomerId__c', externalId);
         insert contact;
 
         JourneyMembershipController.settingsOverride = new MCE_Settings__mdt(
@@ -135,11 +134,13 @@ private class JourneyMembershipControllerTest {
 
         Test.startTest();
         JourneyMembershipController.JourneyHistory history = JourneyMembershipController.getJourneyHistory(contact.Id);
-        JourneyMembershipController.ejectFromJourney(contact.Id, String.valueOf(contact.Id), 'journey-welcome');
+        JourneyMembershipController.ejectFromJourney(contact.Id, externalId, 'journey-welcome');
         Test.stopTest();
 
         System.assert(!history.journeys.isEmpty());
-        System.assert(history.contactKeys.contains(String.valueOf(contact.Id)));
+        System.assertEquals(1, history.contactKeys.size());
+        System.assertEquals(externalId, history.contactKeys[0]);
+        System.assert(!history.contactKeys.contains(String.valueOf(contact.Id)));
         System.assert(endpoints[0].contains('/v2/token'));
         Boolean ejected = false;
         for (String endpoint : endpoints) {
@@ -152,10 +153,9 @@ private class JourneyMembershipControllerTest {
 
     @IsTest
     static void rejectsEjectForAnotherContactKey() {
+        String externalId = 'EXT-' + String.valueOf(Math.abs(Crypto.getRandomInteger()));
         Contact contact = new Contact(LastName = 'Journey');
-        if (Schema.SObjectType.Contact.fields.getMap().containsKey('gcp_externalcustomerid__c')) {
-            contact.put('gcp_externalCustomerId__c', 'EXT-' + String.valueOf(Crypto.getRandomInteger()));
-        }
+        contact.put('gcp_externalCustomerId__c', externalId);
         insert contact;
         JourneyMembershipController.settingsOverride = new MCE_Settings__mdt(
             Subdomain__c = 'mc-example',
@@ -166,8 +166,8 @@ private class JourneyMembershipControllerTest {
         Test.setMock(HttpCalloutMock.class, new JourneyMock());
 
         try {
-            JourneyMembershipController.ejectFromJourney(contact.Id, 'someone-else', 'journey-welcome');
-            System.assert(false, 'Expected a rejection');
+            JourneyMembershipController.ejectFromJourney(contact.Id, String.valueOf(contact.Id), 'journey-welcome');
+            System.assert(false, 'Salesforce record id must not be accepted as the contact key');
         } catch (AuraHandledException error) {
             System.assert(error.getMessage().contains('does not belong'));
         }
