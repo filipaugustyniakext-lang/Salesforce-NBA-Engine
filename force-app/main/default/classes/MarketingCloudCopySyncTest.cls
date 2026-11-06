@@ -9,9 +9,7 @@ private class MarketingCloudCopySyncTest {
             res.setStatusCode(200);
             res.setHeader('Content-Type', 'application/json');
             String endpoint = req.getEndpoint();
-            if (endpoint.contains('/v2/token')) {
-                res.setBody('{"access_token":"token","expires_in":1000}');
-            } else if (endpoint.contains('/customobjects')) {
+            if (endpoint.contains('/customobjects')) {
                 res.setBody('{"count":1,"items":[{"id":"71647d3c-4ba1-f111-ba7f-f40343e980b0","name":"CC_Message_Metadata","rowCount":2}]}');
             } else if (endpoint.contains('MessageType%20eq%20%27WebBanner%27')) {
                 res.setBody('{"count":1,"page":1,"pageSize":2500,"items":[{"keys":{"messagevariantid":"banner-1"},"values":{"messagename":"BAN_PL_Home","messagetype":"WebBanner","lastmodifiedat":"9/15/2026 4:24:44 PM"}}]}');
@@ -45,7 +43,6 @@ private class MarketingCloudCopySyncTest {
     @IsTest
     static void fetchesDataExtensionRowsInOrder() {
         endpoints.clear();
-        MarketingCloudCopySync.settingsOverride = settings();
         Test.setMock(HttpCalloutMock.class, new SuccessMock());
 
         Test.startTest();
@@ -76,17 +73,17 @@ private class MarketingCloudCopySyncTest {
         System.assertEquals('PL', saved.Language__c);
         System.assertEquals(Datetime.newInstanceGmt(2026, 9, 15, 16, 24, 44), saved.LastModifiedAt__c);
         System.assertEquals('blocks', saved.Message_Properties_JSON__c);
-        System.assert(endpoints.size() >= 3, 'token, DE lookup, and metadata rowset');
-        System.assert(endpoints[1].contains('$search=CC_Message_Metadata'));
-        System.assert(endpoints[2].contains('/customobjectdata/71647d3c-4ba1-f111-ba7f-f40343e980b0/rowset'));
-        System.assert(endpoints[2].contains('$filter=MessageType%20eq%20%27Email%27'));
-        System.assert(endpoints[2].contains('$orderBy=LastModifiedAt%20DESC'));
+        System.assert(endpoints.size() >= 2, 'DE lookup and metadata rowset');
+        System.assert(endpoints[0].startsWith(MarketingCloudApi.REST + '/'), endpoints[0]);
+        System.assert(endpoints[0].contains('$search=CC_Message_Metadata'));
+        System.assert(endpoints[1].contains('/customobjectdata/71647d3c-4ba1-f111-ba7f-f40343e980b0/rowset'));
+        System.assert(endpoints[1].contains('$filter=MessageType%20eq%20%27Email%27'));
+        System.assert(endpoints[1].contains('$orderBy=LastModifiedAt%20DESC'));
     }
 
     @IsTest
     static void syncVariantsWithMCE_fetchesRowsByVariantId() {
         endpoints.clear();
-        MarketingCloudCopySync.settingsOverride = settings();
         Test.setMock(HttpCalloutMock.class, new SuccessMock());
 
         Test.startTest();
@@ -116,14 +113,13 @@ private class MarketingCloudCopySyncTest {
     @IsTest
     static void filtersTheActiveChannelType() {
         endpoints.clear();
-        MarketingCloudCopySync.settingsOverride = settings();
         Test.setMock(HttpCalloutMock.class, new SuccessMock());
 
         Test.startTest();
         MarketingCloudCopySync.syncWithMCE('In-App', null);
         Test.stopTest();
 
-        System.assert(endpoints[2].contains('$filter=MessageType%20eq%20%27In-App%27'));
+        System.assert(endpoints[1].contains('$filter=MessageType%20eq%20%27In-App%27'));
         System.assertEquals(2, [SELECT COUNT() FROM CC_Message_Metadata__c]);
         System.assertEquals(0, [SELECT COUNT() FROM CC_Message_Metadata__c WHERE Name = 'Missing Key']);
     }
@@ -131,7 +127,6 @@ private class MarketingCloudCopySyncTest {
     @IsTest
     static void requestsWebBannerRowsForTheBannerChannel() {
         endpoints.clear();
-        MarketingCloudCopySync.settingsOverride = settings();
         Test.setMock(HttpCalloutMock.class, new SuccessMock());
 
         Test.startTest();
@@ -139,7 +134,7 @@ private class MarketingCloudCopySyncTest {
         Test.stopTest();
 
         System.assertEquals('Banner', result.channel);
-        System.assert(endpoints[2].contains('$filter=MessageType%20eq%20%27WebBanner%27'));
+        System.assert(endpoints[1].contains('$filter=MessageType%20eq%20%27WebBanner%27'));
         CC_Message_Metadata__c saved = [
             SELECT Channel_Type__c, MessageType__c
             FROM CC_Message_Metadata__c
@@ -151,7 +146,6 @@ private class MarketingCloudCopySyncTest {
 
     @IsTest
     static void requiresAChannel() {
-        MarketingCloudCopySync.settingsOverride = settings();
         try {
             MarketingCloudCopySync.syncWithMCE(' ', null);
             System.assert(false, 'Expected a missing channel to be rejected.');
@@ -162,7 +156,6 @@ private class MarketingCloudCopySyncTest {
 
     @IsTest
     static void reportsAFailedMarketingCloudCall() {
-        MarketingCloudCopySync.settingsOverride = settings();
         Test.setMock(HttpCalloutMock.class, new FailureMock());
 
         try {
@@ -171,15 +164,5 @@ private class MarketingCloudCopySyncTest {
         } catch (AuraHandledException ex) {
             System.assert(ex.getMessage().contains('401'));
         }
-    }
-
-    private static MCE_Settings__mdt settings() {
-        return new MCE_Settings__mdt(
-            Subdomain__c = 'example',
-            Client_Id__c = 'client-id',
-            Client_Secret__c = 'client-secret',
-            Account_Id__c = '536010187',
-            Data_Extension_Key__c = 'CC_Message_Metadata'
-        );
     }
 }

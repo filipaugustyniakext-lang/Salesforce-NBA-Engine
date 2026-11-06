@@ -9,9 +9,7 @@ private class MCEContentCenterHourlySyncTest {
             res.setHeader('Content-Type', 'application/json');
             
             String endpoint = req.getEndpoint();
-            if (endpoint.contains('/v2/token')) {
-                res.setBody('{"access_token":"token","expires_in":1000}');
-            } else if (endpoint.contains('/customobjects')) {
+            if (endpoint.contains('/customobjects')) {
                 res.setBody('{"count":1,"items":[{"id":"12345678","name":"CC_Message_Metadata","rowCount":0}]}');
             } else {
                 // Empty rowset response
@@ -41,15 +39,6 @@ private class MCEContentCenterHourlySyncTest {
 
     @IsTest
     static void testQueueableExecutes() {
-        // Inject settings to bypass custom metadata queries during tests
-        MarketingCloudCopySync.settingsOverride = new MCE_Settings__mdt(
-            Subdomain__c = 'example',
-            Client_Id__c = 'client-id',
-            Client_Secret__c = 'client-secret',
-            Account_Id__c = '123456',
-            Data_Extension_Key__c = 'CC_Message_Metadata'
-        );
-        
         // Set the mock callout
         Test.setMock(HttpCalloutMock.class, new SuccessMock());
         

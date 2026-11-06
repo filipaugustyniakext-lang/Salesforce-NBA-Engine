@@ -8,16 +8,13 @@
 public with sharing class MarketingCloudCopyDelete {
     private static final Integer VARIANT_ID_CHUNK = 25;
     private static final Integer SOAP_OBJECT_CHUNK = 200;
-    private static final String BLOCKS_DE_KEY = 'CC_Message_Blocks_All';
+    private static final String BLOCKS_DE_KEY = MarketingCloudApi.BLOCKS_DATA_EXTENSION_KEY;
     private static final String SOAP_NS = 'http://exacttarget.com/wsdl/partnerAPI';
     private static final String SOAP_ENV = 'http://www.w3.org/2003/05/soap-envelope';
     // SFMC SOAP responses use schemas.xmlsoap.org WS-Addressing (matches working Postman Delete).
     private static final String WS_ADDR = 'http://schemas.xmlsoap.org/ws/2004/08/addressing';
     private static final String WS_SEC_UTIL = 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd';
     private static final String FUEL_OAUTH_NS = 'http://exacttarget.com';
-
-    @TestVisible
-    private static MCE_Settings__mdt settingsOverride;
 
     public static void enqueueVariantDeletes(List<String> messageVariantIds) {
         List<String> variantIds = normalizeVariantIds(messageVariantIds);
@@ -40,16 +37,12 @@ public with sharing class MarketingCloudCopyDelete {
             ? MceDeleteLogService.SOURCE_SOAP_QUEUEABLE
             : logSource;
         try {
-            MCE_Settings__mdt settings = loadSettings();
-            String token = requestToken(settings);
-            String metadataDeKey = settings.Data_Extension_Key__c;
-            Map<String, Object> blocksDe = findDataExtensionByKey(settings, token, BLOCKS_DE_KEY);
+            String metadataDeKey = MarketingCloudApi.METADATA_DATA_EXTENSION_KEY;
+            Map<String, Object> blocksDe = findDataExtensionByKey(BLOCKS_DE_KEY);
             String blocksDeId = (String) blocksDe.get('id');
 
-            deleteMetadataRowsSoap(settings, token, metadataDeKey, variantIds);
+            deleteMetadataRowsSoap(metadataDeKey, variantIds);
             Integer blockDeleteCount = deleteBlockRowsSoap(
-                settings,
-                token,
                 blocksDeId,
                 BLOCKS_DE_KEY,
                 variantIds
@@ -67,8 +60,7 @@ public with sharing class MarketingCloudCopyDelete {
         } catch (Exception ex) {
             String detail = ex.getStackTraceString();
             if (ex.getMessage() != null && ex.getMessage().contains('Unauthorized endpoint')) {
-                detail = 'Add Remote Site Settings for https://{subdomain}.soap.marketingcloudapis.com '
-                    + '(see MarketingCloudSoap). '
+                detail = 'Check the MarketingCloudEngagementSOAP named credential and its external credential principal access. '
                     + detail;
             }
             MceDeleteLogService.logFailure(
@@ -82,8 +74,6 @@ public with sharing class MarketingCloudCopyDelete {
     }
 
     private static void deleteMetadataRowsSoap(
-        MCE_Settings__mdt settings,
-        String token,
         String customerKey,
         List<String> variantIds
     ) {
@@ -91,12 +81,10 @@ public with sharing class MarketingCloudCopyDelete {
         for (String variantId : variantIds) {
             soapObjects.add(buildDataExtensionObjectDeleteXml(customerKey, buildMessageVariantKeys(variantId)));
         }
-        sendSoapDeleteBatches(settings, token, soapObjects);
+        sendSoapDeleteBatches(soapObjects);
     }
 
     private static Integer deleteBlockRowsSoap(
-        MCE_Settings__mdt settings,
-        String token,
         String blocksDeId,
         String blocksCustomerKey,
         List<String> variantIds
@@ -108,7 +96,7 @@ public with sharing class MarketingCloudCopyDelete {
             for (Integer i = start; i < endIndex; i++) {
                 chunk.add(variantIds[i]);
             }
-            List<Map<String, String>> rows = fetchRowsetByVariantIds(settings, token, blocksDeId, chunk, null);
+            List<Map<String, String>> rows = fetchRowsetByVariantIds(blocksDeId, chunk, null);
             for (Map<String, String> row : rows) {
                 String variantId = firstNonBlank(row, new List<String>{ 'messagevariantid' });
                 String blockOrder = firstNonBlank(row, new List<String>{ 'contentblockorder' });
@@ -125,13 +113,11 @@ public with sharing class MarketingCloudCopyDelete {
         if (soapObjects.isEmpty()) {
             return 0;
         }
-        sendSoapDeleteBatches(settings, token, soapObjects);
+        sendSoapDeleteBatches(soapObjects);
         return soapObjects.size();
     }
 
     private static void sendSoapDeleteBatches(
-        MCE_Settings__mdt settings,
-        String token,
         List<String> objectXmlFragments
     ) {
         for (Integer start = 0; start < objectXmlFragments.size(); start += SOAP_OBJECT_CHUNK) {
@@ -140,11 +126,11 @@ public with sharing class MarketingCloudCopyDelete {
             for (Integer i = start; i < endIndex; i++) {
                 chunk.add(objectXmlFragments[i]);
             }
-            sendSoapDelete(settings, token, chunk);
+            sendSoapDelete(chunk);
         }
     }
 
-    private static void sendSoapDelete(MCE_Settings__mdt settings, String token, List<String> objectXmlFragments) {
+    private static void sendSoapDelete(List<String> objectXmlFragments) {
         if (objectXmlFragments == null || objectXmlFragments.isEmpty()) {
             return;
         }
@@ -154,8 +140,8 @@ public with sharing class MarketingCloudCopyDelete {
             + '<s:Envelope xmlns:s="' + SOAP_ENV + '" xmlns:a="' + WS_ADDR + '" xmlns:u="' + WS_SEC_UTIL + '">'
             + '<s:Header>'
             + '<a:Action s:mustUnderstand="1">Delete</a:Action>'
-            + '<a:To s:mustUnderstand="1">https://' + escapeXml(settings.Subdomain__c) + '.soap.marketingcloudapis.com/Service.asmx</a:To>'
-            + '<fueloauth xmlns="' + FUEL_OAUTH_NS + '">' + escapeXml(token) + '</fueloauth>'
+            + '<a:To s:mustUnderstand="1">' + escapeXml(MarketingCloudApi.soapServiceUrl()) + '</a:To>'
+            + '<fueloauth xmlns="' + FUEL_OAUTH_NS + '">' + MarketingCloudApi.SOAP_TOKEN + '</fueloauth>'
             + '</s:Header>'
             + '<s:Body xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">'
             + '<DeleteRequest xmlns="' + SOAP_NS + '">'
@@ -167,7 +153,7 @@ public with sharing class MarketingCloudCopyDelete {
 
         HttpRequest req = new HttpRequest();
         req.setMethod('POST');
-        req.setEndpoint('https://' + settings.Subdomain__c + '.soap.marketingcloudapis.com/Service.asmx');
+        req.setEndpoint(MarketingCloudApi.SOAP);
         req.setHeader('Content-Type', 'text/xml; charset=UTF-8');
         req.setHeader('SOAPAction', 'Delete');
         req.setTimeout(120000);
@@ -220,8 +206,6 @@ public with sharing class MarketingCloudCopyDelete {
     }
 
     private static List<Map<String, String>> fetchRowsetByVariantIds(
-        MCE_Settings__mdt settings,
-        String token,
         String dataExtensionId,
         List<String> variantIds,
         String orderByEncoded
@@ -233,8 +217,7 @@ public with sharing class MarketingCloudCopyDelete {
         }
         Integer page = 1;
         while (page <= 20) {
-            String endpoint = 'https://' + settings.Subdomain__c
-                + '.rest.marketingcloudapis.com/data/v1/customobjectdata/'
+            String endpoint = MarketingCloudApi.REST + '/data/v1/customobjectdata/'
                 + dataExtensionId
                 + '/rowset?$page=' + page
                 + '&$pageSize=2500'
@@ -242,7 +225,7 @@ public with sharing class MarketingCloudCopyDelete {
             if (String.isNotBlank(orderByEncoded)) {
                 endpoint += '&$orderBy=' + orderByEncoded;
             }
-            Map<String, Object> body = sendJson(authorizedGet(endpoint, token));
+            Map<String, Object> body = sendJson(authorizedGet(endpoint));
             List<Object> items = (List<Object>) body.get('items');
             List<Object> pageItems = items == null ? new List<Object>() : items;
             for (Object itemValue : pageItems) {
@@ -324,58 +307,12 @@ public with sharing class MarketingCloudCopyDelete {
         return null;
     }
 
-    private static MCE_Settings__mdt loadSettings() {
-        if (settingsOverride != null) {
-            return settingsOverride;
-        }
-        List<MCE_Settings__mdt> rows = [
-            SELECT Client_Id__c, Client_Secret__c, Subdomain__c, Account_Id__c, Data_Extension_Key__c
-            FROM MCE_Settings__mdt
-            WHERE DeveloperName = 'Default'
-            LIMIT 1
-        ];
-        if (rows.isEmpty()) {
-            throw new CalloutException('Marketing Cloud settings are missing.');
-        }
-        MCE_Settings__mdt settings = rows[0];
-        if (String.isBlank(settings.Client_Id__c)
-            || String.isBlank(settings.Client_Secret__c)
-            || String.isBlank(settings.Subdomain__c)
-            || String.isBlank(settings.Data_Extension_Key__c)) {
-            throw new CalloutException('Marketing Cloud settings are incomplete.');
-        }
-        return settings;
-    }
-
-    private static String requestToken(MCE_Settings__mdt settings) {
-        HttpRequest req = new HttpRequest();
-        req.setMethod('POST');
-        req.setEndpoint('https://' + settings.Subdomain__c + '.auth.marketingcloudapis.com/v2/token');
-        req.setHeader('Content-Type', 'application/json');
-        req.setTimeout(120000);
-        req.setBody(JSON.serialize(new Map<String, String>{
-            'grant_type' => 'client_credentials',
-            'client_id' => settings.Client_Id__c,
-            'client_secret' => settings.Client_Secret__c,
-            'account_id' => settings.Account_Id__c
-        }));
-        Map<String, Object> body = sendJson(req);
-        String token = (String) body.get('access_token');
-        if (String.isBlank(token)) {
-            throw new CalloutException('Marketing Cloud did not return an access token.');
-        }
-        return token;
-    }
-
     private static Map<String, Object> findDataExtensionByKey(
-        MCE_Settings__mdt settings,
-        String token,
         String dataExtensionKey
     ) {
-        String endpoint = 'https://' + settings.Subdomain__c
-            + '.rest.marketingcloudapis.com/data/v1/customobjects?$search='
+        String endpoint = MarketingCloudApi.REST + '/data/v1/customobjects?$search='
             + EncodingUtil.urlEncode(dataExtensionKey, 'UTF-8');
-        Map<String, Object> body = sendJson(authorizedGet(endpoint, token));
+        Map<String, Object> body = sendJson(authorizedGet(endpoint));
         List<Object> items = (List<Object>) body.get('items');
         if (items == null || items.isEmpty()) {
             throw new CalloutException('Data extension ' + dataExtensionKey + ' was not found.');
@@ -387,11 +324,10 @@ public with sharing class MarketingCloudCopyDelete {
         return first;
     }
 
-    private static HttpRequest authorizedGet(String endpoint, String token) {
+    private static HttpRequest authorizedGet(String endpoint) {
         HttpRequest req = new HttpRequest();
         req.setMethod('GET');
         req.setEndpoint(endpoint);
-        req.setHeader('Authorization', 'Bearer ' + token);
         req.setTimeout(120000);
         return req;
     }

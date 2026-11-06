@@ -9,12 +9,9 @@ public with sharing class MarketingCloudCopySync {
     private static final String ORDER_BY = 'LastModifiedAt%20DESC';
 
     @TestVisible
-    private static MCE_Settings__mdt settingsOverride;
-
-    @TestVisible
     private static Boolean inboundSyncActive = false;
 
-    private static final String BLOCKS_DATA_EXTENSION_KEY = 'CC_Message_Blocks_All';
+    private static final String BLOCKS_DATA_EXTENSION_KEY = MarketingCloudApi.BLOCKS_DATA_EXTENSION_KEY;
 
     public static Boolean isInboundSyncActive() {
         return inboundSyncActive == true;
@@ -50,11 +47,9 @@ public with sharing class MarketingCloudCopySync {
             ? logSource
             : MceDeleteLogService.SOURCE_SCHEDULED;
         try {
-            MCE_Settings__mdt settings = loadSettings();
-            String token = requestToken(settings);
-            Map<String, Object> dataExtension = findDataExtension(settings, token);
+            Map<String, Object> dataExtension = findDataExtension();
 
-            SyncResult result = fetchRows(settings, token, dataExtension, null, minutesBack);
+            SyncResult result = fetchRows(dataExtension, null, minutesBack);
 
             syncBlocksAsync(null, minutesBack);
 
@@ -95,9 +90,7 @@ public with sharing class MarketingCloudCopySync {
                 throw auraError('Sync at most 100 variants at a time.');
             }
 
-            MCE_Settings__mdt settings = loadSettings();
-            String token = requestToken(settings);
-            Map<String, Object> dataExtension = findDataExtension(settings, token);
+            Map<String, Object> dataExtension = findDataExtension();
 
             SyncResult result = new SyncResult();
             result.dataExtensionId = (String) dataExtension.get('id');
@@ -110,8 +103,6 @@ public with sharing class MarketingCloudCopySync {
 
             String dataExtensionId = (String) dataExtension.get('id');
             List<Map<String, String>> rows = fetchMetadataRowsByVariantIds(
-                settings,
-                token,
                 dataExtensionId,
                 variantIds,
                 result
@@ -156,11 +147,9 @@ public with sharing class MarketingCloudCopySync {
             if (String.isBlank(channel)) {
                 throw auraError('Select a channel before syncing from Marketing Cloud.');
             }
-            MCE_Settings__mdt settings = loadSettings();
-            String token = requestToken(settings);
-            Map<String, Object> dataExtension = findDataExtension(settings, token);
+            Map<String, Object> dataExtension = findDataExtension();
 
-            SyncResult result = fetchRows(settings, token, dataExtension, channel.trim(), minutesBack);
+            SyncResult result = fetchRows(dataExtension, channel.trim(), minutesBack);
 
             syncBlocksAsync(channel.trim(), minutesBack);
 
@@ -196,9 +185,6 @@ public with sharing class MarketingCloudCopySync {
             if (variantIds == null || variantIds.isEmpty()) {
                 return;
             }
-            
-            MCE_Settings__mdt settings = loadSettings();
-            String token = requestToken(settings);
 
             // Apex allows up to 100 synchronous callouts per transaction.
             // For standard LWC UI deletions, this loop is perfectly safe.
@@ -206,15 +192,13 @@ public with sharing class MarketingCloudCopySync {
                 if (String.isBlank(variantId)) continue;
                 
                 // MCE REST API format for targeting a Data Extension row by primary key
-                String endpoint = 'https://' + settings.Subdomain__c
-                    + '.rest.marketingcloudapis.com/data/v1/customobjectdata/key/'
-                    + EncodingUtil.urlEncode(settings.Data_Extension_Key__c, 'UTF-8')
+                String endpoint = MarketingCloudApi.REST + '/data/v1/customobjectdata/key/'
+                    + EncodingUtil.urlEncode(MarketingCloudApi.METADATA_DATA_EXTENSION_KEY, 'UTF-8')
                     + '/row/MessageVariantId:' + EncodingUtil.urlEncode(variantId, 'UTF-8');
 
                 HttpRequest req = new HttpRequest();
                 req.setMethod('DELETE');
                 req.setEndpoint(endpoint);
-                req.setHeader('Authorization', 'Bearer ' + token);
                 req.setTimeout(120000);
 
                 HttpResponse res = new Http().send(req);
@@ -239,12 +223,9 @@ public with sharing class MarketingCloudCopySync {
             if (ids.isEmpty()) {
                 return;
             }
-            MCE_Settings__mdt settings = loadSettings();
-            String token = requestToken(settings);
 
-            String endpoint = 'https://' + settings.Subdomain__c
-                + '.rest.marketingcloudapis.com/data/v1/customobjects?$search=CC_Message_Blocks_All';
-            Map<String, Object> body = send(authorizedGet(endpoint, token));
+            String endpoint = MarketingCloudApi.REST + '/data/v1/customobjects?$search=CC_Message_Blocks_All';
+            Map<String, Object> body = send(authorizedGet(endpoint));
 
             List<Object> items = (List<Object>) body.get('items');
             if (items == null || items.isEmpty()) {
@@ -257,8 +238,6 @@ public with sharing class MarketingCloudCopySync {
             }
 
             List<Map<String, String>> blockRows = fetchBlockRowsByVariantIds(
-                settings,
-                token,
                 deId,
                 ids
             );
@@ -277,19 +256,14 @@ public with sharing class MarketingCloudCopySync {
         String source = MceDeleteLogService.SOURCE_REST_FUTURE;
         List<String> failures = new List<String>();
         try {
-            MCE_Settings__mdt settings = loadSettings();
-            String token = requestToken(settings);
-
             for (String variantId : ids) {
-                String endpoint = 'https://' + settings.Subdomain__c
-                    + '.rest.marketingcloudapis.com/data/v1/customobjectdata/key/'
-                    + EncodingUtil.urlEncode(settings.Data_Extension_Key__c, 'UTF-8')
+                String endpoint = MarketingCloudApi.REST + '/data/v1/customobjectdata/key/'
+                    + EncodingUtil.urlEncode(MarketingCloudApi.METADATA_DATA_EXTENSION_KEY, 'UTF-8')
                     + '/row/MessageVariantId:' + EncodingUtil.urlEncode(variantId, 'UTF-8');
 
                 HttpRequest req = new HttpRequest();
                 req.setMethod('DELETE');
                 req.setEndpoint(endpoint);
-                req.setHeader('Authorization', 'Bearer ' + token);
                 req.setTimeout(120000);
 
                 HttpResponse res = new Http().send(req);
@@ -332,62 +306,17 @@ public with sharing class MarketingCloudCopySync {
         }
     }
 
-    private static MCE_Settings__mdt loadSettings() {
-        if (settingsOverride != null) {
-            return settingsOverride;
-        }
-        List<MCE_Settings__mdt> rows = [
-            SELECT Subdomain__c, Client_Id__c, Client_Secret__c, Account_Id__c, Data_Extension_Key__c
-            FROM MCE_Settings__mdt
-            WHERE DeveloperName = 'Default'
-            LIMIT 1
-        ];
-        if (rows.isEmpty()) {
-            throw auraError('Marketing Cloud settings are not configured.');
-        }
-        MCE_Settings__mdt settings = rows[0];
-        if (String.isBlank(settings.Subdomain__c)
-            || String.isBlank(settings.Client_Id__c)
-            || String.isBlank(settings.Client_Secret__c)
-            || String.isBlank(settings.Account_Id__c)
-            || String.isBlank(settings.Data_Extension_Key__c)) {
-            throw auraError('Marketing Cloud settings are incomplete.');
-        }
-        return settings;
-    }
-
-    private static String requestToken(MCE_Settings__mdt settings) {
-        HttpRequest req = new HttpRequest();
-        req.setMethod('POST');
-        req.setEndpoint('https://' + settings.Subdomain__c + '.auth.marketingcloudapis.com/v2/token');
-        req.setHeader('Content-Type', 'application/json');
-        req.setTimeout(120000);
-        req.setBody(JSON.serialize(new Map<String, String>{
-            'grant_type' => 'client_credentials',
-            'client_id' => settings.Client_Id__c,
-            'client_secret' => settings.Client_Secret__c,
-            'account_id' => settings.Account_Id__c
-        }));
-        Map<String, Object> body = send(req);
-        String token = (String) body.get('access_token');
-        if (String.isBlank(token)) {
-            throw auraError('Marketing Cloud did not return an access token.');
-        }
-        return token;
-    }
-
-    private static Map<String, Object> findDataExtension(MCE_Settings__mdt settings, String token) {
-        String endpoint = 'https://' + settings.Subdomain__c
-            + '.rest.marketingcloudapis.com/data/v1/customobjects?$search='
-            + EncodingUtil.urlEncode(settings.Data_Extension_Key__c, 'UTF-8');
-        Map<String, Object> body = send(authorizedGet(endpoint, token));
+    private static Map<String, Object> findDataExtension() {
+        String endpoint = MarketingCloudApi.REST + '/data/v1/customobjects?$search='
+            + EncodingUtil.urlEncode(MarketingCloudApi.METADATA_DATA_EXTENSION_KEY, 'UTF-8');
+        Map<String, Object> body = send(authorizedGet(endpoint));
         List<Object> items = (List<Object>) body.get('items');
         if (items == null || items.isEmpty()) {
-            throw auraError('Data extension ' + settings.Data_Extension_Key__c + ' was not found.');
+            throw auraError('Data extension ' + MarketingCloudApi.METADATA_DATA_EXTENSION_KEY + ' was not found.');
         }
         Map<String, Object> first = (Map<String, Object>) items[0];
         if (String.isBlank((String) first.get('id'))) {
-            throw auraError('Data extension ' + settings.Data_Extension_Key__c + ' did not include an id.');
+            throw auraError('Data extension ' + MarketingCloudApi.METADATA_DATA_EXTENSION_KEY + ' did not include an id.');
         }
         return first;
     }
@@ -414,15 +343,11 @@ public with sharing class MarketingCloudCopySync {
     }
 
     private static List<Map<String, String>> fetchMetadataRowsByVariantIds(
-        MCE_Settings__mdt settings,
-        String token,
         String dataExtensionId,
         List<String> variantIds,
         SyncResult result
     ) {
         List<Map<String, String>> rows = fetchRowsetByVariantIdFilter(
-            settings,
-            token,
             dataExtensionId,
             variantIds,
             null
@@ -445,14 +370,10 @@ public with sharing class MarketingCloudCopySync {
     }
 
     private static List<Map<String, String>> fetchBlockRowsByVariantIds(
-        MCE_Settings__mdt settings,
-        String token,
         String dataExtensionId,
         List<String> variantIds
     ) {
         return fetchRowsetByVariantIdFilter(
-            settings,
-            token,
             dataExtensionId,
             variantIds,
             'updatedat%20DESC'
@@ -463,8 +384,6 @@ public with sharing class MarketingCloudCopySync {
      * MCE rowset filter: MessageVariantId in ('id1', 'id2', ...).
      */
     private static List<Map<String, String>> fetchRowsetByVariantIdFilter(
-        MCE_Settings__mdt settings,
-        String token,
         String dataExtensionId,
         List<String> variantIds,
         String orderByEncoded
@@ -481,15 +400,13 @@ public with sharing class MarketingCloudCopySync {
                 chunk.add(variantIds[index]);
             }
             rows.addAll(
-                fetchRowsetChunk(settings, token, dataExtensionId, chunk, orderByEncoded)
+                fetchRowsetChunk(dataExtensionId, chunk, orderByEncoded)
             );
         }
         return rows;
     }
 
     private static List<Map<String, String>> fetchRowsetChunk(
-        MCE_Settings__mdt settings,
-        String token,
         String dataExtensionId,
         List<String> variantIdsChunk,
         String orderByEncoded
@@ -502,8 +419,7 @@ public with sharing class MarketingCloudCopySync {
 
         Integer page = 1;
         while (page <= MAX_PAGES) {
-            String endpoint = 'https://' + settings.Subdomain__c
-                + '.rest.marketingcloudapis.com/data/v1/customobjectdata/'
+            String endpoint = MarketingCloudApi.REST + '/data/v1/customobjectdata/'
                 + dataExtensionId
                 + '/rowset?$page=' + page
                 + '&$pageSize=' + PAGE_SIZE
@@ -512,7 +428,7 @@ public with sharing class MarketingCloudCopySync {
                 endpoint += '&$orderBy=' + orderByEncoded;
             }
 
-            Map<String, Object> body = send(authorizedGet(endpoint, token));
+            Map<String, Object> body = send(authorizedGet(endpoint));
             List<Object> items = (List<Object>) body.get('items');
             List<Object> pageItems = items == null ? new List<Object>() : items;
             for (Object itemValue : pageItems) {
@@ -543,8 +459,6 @@ public with sharing class MarketingCloudCopySync {
     }
 
     private static SyncResult fetchRows(
-        MCE_Settings__mdt settings,
-        String token,
         Map<String, Object> dataExtension,
         String channel,
         Integer minutesBack
@@ -566,8 +480,7 @@ public with sharing class MarketingCloudCopySync {
         Boolean stopFetching = false;
 
         while (page <= MAX_PAGES) {
-            String endpoint = 'https://' + settings.Subdomain__c
-                + '.rest.marketingcloudapis.com/data/v1/customobjectdata/'
+            String endpoint = MarketingCloudApi.REST + '/data/v1/customobjectdata/'
                 + dataExtensionId
                 + '/rowset?$page=' + page
                 + '&$pageSize=' + PAGE_SIZE
@@ -577,7 +490,7 @@ public with sharing class MarketingCloudCopySync {
                 endpoint += '&$filter=' + messageTypeFilter(channel);
             }
 
-            Map<String, Object> body = send(authorizedGet(endpoint, token));
+            Map<String, Object> body = send(authorizedGet(endpoint));
             List<Object> items = (List<Object>) body.get('items');
             List<Object> pageItems = items == null ? new List<Object>() : items;
             
@@ -1018,11 +931,10 @@ public with sharing class MarketingCloudCopySync {
         return messageType;
     }
 
-    private static HttpRequest authorizedGet(String endpoint, String token) {
+    private static HttpRequest authorizedGet(String endpoint) {
         HttpRequest req = new HttpRequest();
         req.setMethod('GET');
         req.setEndpoint(endpoint);
-        req.setHeader('Authorization', 'Bearer ' + token);
         req.setTimeout(120000);
         return req;
     }
@@ -1059,12 +971,8 @@ public with sharing class MarketingCloudCopySync {
     @future(callout=true)
     public static void syncBlocksAsync(String channel, Integer minutesBack) {
         try {
-            MCE_Settings__mdt settings = loadSettings();
-            String token = requestToken(settings);
-            
-            String endpoint = 'https://' + settings.Subdomain__c
-                + '.rest.marketingcloudapis.com/data/v1/customobjects?$search=CC_Message_Blocks_All';
-            Map<String, Object> body = send(authorizedGet(endpoint, token));
+            String endpoint = MarketingCloudApi.REST + '/data/v1/customobjects?$search=CC_Message_Blocks_All';
+            Map<String, Object> body = send(authorizedGet(endpoint));
             
             List<Object> items = (List<Object>) body.get('items');
             if (items == null || items.isEmpty()) return;
@@ -1073,21 +981,20 @@ public with sharing class MarketingCloudCopySync {
             String deId = (String) first.get('id');
             if (String.isBlank(deId)) return;
             
-            fetchBlockRows(settings, token, deId, channel, minutesBack);
+            fetchBlockRows(deId, channel, minutesBack);
         } catch (Exception ex) {
             System.debug('Error in syncBlocksAsync: ' + ex.getMessage());
         }
     }
 
-    private static void fetchBlockRows(MCE_Settings__mdt settings, String token, String dataExtensionId, String channel, Integer minutesBack) {
+    private static void fetchBlockRows(String dataExtensionId, String channel, Integer minutesBack) {
         List<Map<String, String>> rows = new List<Map<String, String>>();
         Integer page = 1;
         Datetime cutoffTime = null;
         Boolean stopFetching = false;
         
         while (page <= MAX_PAGES) {
-            String endpoint = 'https://' + settings.Subdomain__c
-                + '.rest.marketingcloudapis.com/data/v1/customobjectdata/'
+            String endpoint = MarketingCloudApi.REST + '/data/v1/customobjectdata/'
                 + dataExtensionId
                 + '/rowset?$page=' + page
                 + '&$pageSize=' + PAGE_SIZE
@@ -1097,7 +1004,7 @@ public with sharing class MarketingCloudCopySync {
                 endpoint += '&$filter=' + messageTypeFilter(channel);
             }
             
-            Map<String, Object> body = send(authorizedGet(endpoint, token));
+            Map<String, Object> body = send(authorizedGet(endpoint));
             List<Object> items = (List<Object>) body.get('items');
             List<Object> pageItems = items == null ? new List<Object>() : items;
             
@@ -1360,8 +1267,6 @@ public with sharing class MarketingCloudCopySync {
         String kind = String.isNotBlank(pushKind) ? pushKind : 'Update';
         List<String> variantKeys = new List<String>();
         try {
-            MCE_Settings__mdt settings = loadSettings();
-            String token = requestToken(settings);
             List<CC_Message_Metadata__c> rows = [
                 SELECT Id, MessageVariantId__c, Message_Variant_Id__c, MessageName__c,
                        Message_Type__c, Channel_Type__c, Subject__c, Status__c, Language__c,
@@ -1394,7 +1299,7 @@ public with sharing class MarketingCloudCopySync {
                 );
                 return;
             }
-            pushAsyncDataExtensionRows(settings, token, settings.Data_Extension_Key__c, items);
+            pushAsyncDataExtensionRows(MarketingCloudApi.METADATA_DATA_EXTENSION_KEY, items);
             MceDeleteLogService.logSuccess(
                 MceDeleteLogService.OP_OUTBOUND_PUSH,
                 source,
@@ -1425,8 +1330,6 @@ public with sharing class MarketingCloudCopySync {
         String kind = String.isNotBlank(pushKind) ? pushKind : 'Update';
         List<String> variantKeys = new List<String>();
         try {
-            MCE_Settings__mdt settings = loadSettings();
-            String token = requestToken(settings);
             List<CC_Message_Blocks_All__c> rows = [
                 SELECT Id, MessageVariantId__c, ContentBlockOrder__c, MessageName__c, MessageType__c,
                        BlockType__c, ContentBlockPath__c, ContentBuilderAssetId__c,
@@ -1460,7 +1363,7 @@ public with sharing class MarketingCloudCopySync {
                 );
                 return;
             }
-            pushAsyncDataExtensionRows(settings, token, BLOCKS_DATA_EXTENSION_KEY, items);
+            pushAsyncDataExtensionRows(BLOCKS_DATA_EXTENSION_KEY, items);
             MceDeleteLogService.logSuccess(
                 MceDeleteLogService.OP_OUTBOUND_PUSH,
                 source,
@@ -1564,12 +1467,10 @@ public with sharing class MarketingCloudCopySync {
     }
 
     private static void pushAsyncDataExtensionRows(
-        MCE_Settings__mdt settings,
-        String token,
         String dataExtensionKey,
         List<Object> items
     ) {
-        if (settings == null || String.isBlank(token) || String.isBlank(dataExtensionKey) || items == null || items.isEmpty()) {
+        if (String.isBlank(dataExtensionKey) || items == null || items.isEmpty()) {
             return;
         }
         Integer chunkSize = 50;
@@ -1579,14 +1480,12 @@ public with sharing class MarketingCloudCopySync {
             for (Integer index = start; index < endIndex; index++) {
                 chunk.add(items[index]);
             }
-            String endpoint = 'https://' + settings.Subdomain__c
-                + '.rest.marketingcloudapis.com/data/v1/async/dataextensions/key:'
+            String endpoint = MarketingCloudApi.REST + '/data/v1/async/dataextensions/key:'
                 + EncodingUtil.urlEncode(dataExtensionKey, 'UTF-8')
                 + '/rows';
             HttpRequest req = new HttpRequest();
             req.setMethod('PUT');
             req.setEndpoint(endpoint);
-            req.setHeader('Authorization', 'Bearer ' + token);
             req.setHeader('Content-Type', 'application/json');
             req.setTimeout(120000);
             req.setBody(JSON.serialize(new Map<String, Object>{ 'items' => chunk }));

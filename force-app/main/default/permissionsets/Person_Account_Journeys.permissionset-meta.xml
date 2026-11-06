@@ -5,6 +5,10 @@
         <enabled>true</enabled>
     </classAccesses>
     <description>Lets CRM users view Marketing Cloud journey history on person accounts and contacts, and eject an in-flight contact.</description>
+    <externalCredentialPrincipalAccesses>
+        <enabled>true</enabled>
+        <externalCredentialPrincipal>MarketingCloudEngagementoAuth20-MCE_Principal</externalCredentialPrincipal>
+    </externalCredentialPrincipalAccesses>
     <hasActivationRequired>false</hasActivationRequired>
     <label>Person Account Journeys</label>
 </PermissionSet>

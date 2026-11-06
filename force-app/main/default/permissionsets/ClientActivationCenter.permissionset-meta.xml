@@ -69,6 +69,10 @@
         <enabled>true</enabled>
     </classAccesses>
     <description>Grants Client Activation Center users access to the Marketing Dictionary, campaign wizard, Copy Center, offers, channel templates, product mass update, and Marketing Cloud copy sync.</description>
+    <externalCredentialPrincipalAccesses>
+        <enabled>true</enabled>
+        <externalCredentialPrincipal>MarketingCloudEngagementoAuth20-MCE_Principal</externalCredentialPrincipal>
+    </externalCredentialPrincipalAccesses>
     <fieldPermissions>
         <editable>true</editable>
         <field>Blackout_Day_Rule__c.Blocked_From_Hour__c</field>

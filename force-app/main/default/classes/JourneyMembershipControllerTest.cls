@@ -9,9 +9,7 @@ private class JourneyMembershipControllerTest {
             res.setStatusCode(200);
             res.setHeader('Content-Type', 'application/json');
             String endpoint = req.getEndpoint();
-            if (endpoint.contains('/v2/token')) {
-                res.setBody('{"access_token":"token"}');
-            } else if (endpoint.contains('/contactMembership')) {
+            if (endpoint.contains('/contactMembership')) {
                 res.setBody('{"contactMemberships":[{"contactKey":"003000000000001","definitionKey":"journey-welcome","version":2}]}');
             } else if (endpoint.contains('/journeyhistory/download')) {
                 res.setHeader('Content-Type', 'text/csv');
@@ -129,12 +127,6 @@ private class JourneyMembershipControllerTest {
         contact.put('gcp_externalCustomerId__c', externalId);
         insert contact;
 
-        JourneyMembershipController.settingsOverride = new MCE_Settings__mdt(
-            Subdomain__c = 'mc-example',
-            Client_Id__c = 'client',
-            Client_Secret__c = 'secret',
-            Account_Id__c = '1'
-        );
         Test.setMock(HttpCalloutMock.class, new JourneyMock());
 
         Test.startTest();
@@ -146,7 +138,7 @@ private class JourneyMembershipControllerTest {
         System.assertEquals(1, history.contactKeys.size());
         System.assertEquals(externalId, history.contactKeys[0]);
         System.assert(!history.contactKeys.contains(String.valueOf(contact.Id)));
-        System.assert(endpoints[0].contains('/v2/token'));
+        System.assert(endpoints[0].startsWith(MarketingCloudApi.REST + '/'), endpoints[0]);
         Boolean ejected = false;
         for (String endpoint : endpoints) {
             if (endpoint.contains('/contactexit')) {
@@ -162,12 +154,6 @@ private class JourneyMembershipControllerTest {
         Contact contact = new Contact(LastName = 'Journey');
         contact.put('gcp_externalCustomerId__c', externalId);
         insert contact;
-        JourneyMembershipController.settingsOverride = new MCE_Settings__mdt(
-            Subdomain__c = 'mc-example',
-            Client_Id__c = 'client',
-            Client_Secret__c = 'secret',
-            Account_Id__c = '1'
-        );
         Test.setMock(HttpCalloutMock.class, new JourneyMock());
 
         try {

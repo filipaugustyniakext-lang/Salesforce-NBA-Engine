@@ -5,9 +5,9 @@ private class MarketingCloudCopyDeleteTest {
             HttpResponse res = new HttpResponse();
             res.setHeader('Content-Type', req.getEndpoint().contains('Service.asmx') ? 'text/xml' : 'application/json');
             String endpoint = req.getEndpoint();
-            if (endpoint.contains('/v2/token')) {
+            if (endpoint.contains('/platform/v1/endpoints/soap')) {
                 res.setStatusCode(200);
-                res.setBody('{"access_token":"test-token","expires_in":1000}');
+                res.setBody('{"type":"soap","url":"https://mc-example.soap.marketingcloudapis.com/Service.asmx"}');
             } else if (endpoint.contains('/customobjects')) {
                 res.setStatusCode(200);
                 if (endpoint.contains('CC_Message_Blocks_All')) {
@@ -23,6 +23,7 @@ private class MarketingCloudCopyDeleteTest {
                 res.setBody('');
             } else if (endpoint.contains('Service.asmx')) {
                 res.setStatusCode(200);
+                System.assertEquals(MarketingCloudApi.SOAP, endpoint);
                 String soapBody = req.getBody();
                 System.assert(soapBody.contains('DeleteRequest'), 'Expected SOAP Delete');
                 System.assert(soapBody.contains('DataExtensionObject'), 'Expected DE object delete');
@@ -31,7 +32,14 @@ private class MarketingCloudCopyDeleteTest {
                     soapBody.contains('http://schemas.xmlsoap.org/ws/2004/08/addressing'),
                     'Expected SFMC WS-Addressing namespace'
                 );
-                System.assert(soapBody.contains('<fueloauth xmlns="http://exacttarget.com">'), 'Expected header fueloauth');
+                System.assert(
+                    soapBody.contains('<fueloauth xmlns="http://exacttarget.com">' + MarketingCloudApi.SOAP_TOKEN + '</fueloauth>'),
+                    'Expected the named credential token merge field in fueloauth'
+                );
+                System.assert(
+                    soapBody.contains('https://mc-example.soap.marketingcloudapis.com/Service.asmx</a:To>'),
+                    'Expected the discovered SOAP endpoint in WS-Addressing To'
+                );
                 System.assert(!soapBody.contains(':Security'), 'fueloauth should not be wrapped in WS-Security');
                 res.setBody(
                     '<?xml version="1.0" encoding="utf-8"?>'
@@ -48,19 +56,8 @@ private class MarketingCloudCopyDeleteTest {
         }
     }
 
-    private static MCE_Settings__mdt settings() {
-        return new MCE_Settings__mdt(
-            Client_Id__c = 'client',
-            Client_Secret__c = 'secret',
-            Subdomain__c = 'mc-example',
-            Account_Id__c = '536010187',
-            Data_Extension_Key__c = 'CC_Message_Metadata'
-        );
-    }
-
     @IsTest
     static void deleteVariantsFromMce_issuesSoapDeleteForMetadataAndBlocks() {
-        MarketingCloudCopyDelete.settingsOverride = settings();
         Test.setMock(HttpCalloutMock.class, new DeleteMock());
 
         Test.startTest();
@@ -89,7 +86,6 @@ private class MarketingCloudCopyDeleteTest {
         );
         insert variant;
 
-        MarketingCloudCopyDelete.settingsOverride = settings();
         Test.setMock(HttpCalloutMock.class, new DeleteMock());
 
         Test.startTest();

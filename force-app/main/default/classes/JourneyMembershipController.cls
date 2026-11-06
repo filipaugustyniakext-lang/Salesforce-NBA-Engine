@@ -1,15 +1,12 @@
 /**
  * Journey membership for a person account or contact.
- * Uses the same Marketing Cloud client credentials as Copy Center (MCE_Settings__mdt.Default).
+ * Calls Marketing Cloud through the MarketingCloudEngagementAPI named credential, like Copy Center sync.
  * History comes from the journey history download API, which retains 30 days of activity.
  * The Marketing Cloud contact key is External Customer Id (gcp_externalCustomerId__c on
  * Contact, gcp_externalCustomerId__pc on Person Account), not the Salesforce record id.
  * Current membership comes from contactMembership. Eject uses contactexit.
  */
 public with sharing class JourneyMembershipController {
-    @TestVisible
-    private static MCE_Settings__mdt settingsOverride;
-
     private static final Integer HISTORY_DAYS = 30;
     private static final Integer MAX_VERSION_LOOKUPS = 25;
 
@@ -40,13 +37,9 @@ public with sharing class JourneyMembershipController {
         }
         List<String> contactKeys = resolved.keys;
 
-        MCE_Settings__mdt settings = loadSettings();
-        String token = requestToken(settings);
-        String restBase = 'https://' + settings.Subdomain__c + '.rest.marketingcloudapis.com';
-
-        List<MembershipHit> memberships = fetchMemberships(restBase, token, contactKeys);
-        List<HistoryEvent> events = fetchHistory(restBase, token, contactKeys);
-        Map<String, JourneyMeta> metas = fetchJourneyMetas(restBase, token, events, memberships);
+        List<MembershipHit> memberships = fetchMemberships(contactKeys);
+        List<HistoryEvent> events = fetchHistory(contactKeys);
+        Map<String, JourneyMeta> metas = fetchJourneyMetas(events, memberships);
         List<JourneyMembership> rows = buildRows(events, memberships, metas);
 
         JourneyHistory result = new JourneyHistory();
@@ -68,11 +61,7 @@ public with sharing class JourneyMembershipController {
         if (!allowed.contains(contactKey)) {
             throw auraError('That contact key does not belong to this record.');
         }
-        MCE_Settings__mdt settings = loadSettings();
-        String token = requestToken(settings);
-        String endpoint = 'https://' + settings.Subdomain__c
-            + '.rest.marketingcloudapis.com/interaction/v1/interactions/contactexit';
-        HttpRequest req = authorized(endpoint, token, 'POST');
+        HttpRequest req = authorized(MarketingCloudApi.REST + '/interaction/v1/interactions/contactexit', 'POST');
         req.setBody(JSON.serialize(new List<Object>{
             new Map<String, String>{
                 'ContactKey' => contactKey,
@@ -295,8 +284,8 @@ public with sharing class JourneyMembershipController {
         keys.add(value);
     }
 
-    private static List<MembershipHit> fetchMemberships(String restBase, String token, List<String> contactKeys) {
-        HttpRequest req = authorized(restBase + '/interaction/v1/interactions/contactMembership', token, 'POST');
+    private static List<MembershipHit> fetchMemberships(List<String> contactKeys) {
+        HttpRequest req = authorized(MarketingCloudApi.REST + '/interaction/v1/interactions/contactMembership', 'POST');
         req.setBody(JSON.serialize(new Map<String, Object>{ 'ContactKeyList' => contactKeys }));
         HttpResponse res = send(req);
         if (res.getStatusCode() == 404) {
@@ -324,13 +313,13 @@ public with sharing class JourneyMembershipController {
         return hits;
     }
 
-    private static List<HistoryEvent> fetchHistory(String restBase, String token, List<String> contactKeys) {
+    private static List<HistoryEvent> fetchHistory(List<String> contactKeys) {
         Datetime endAt = Datetime.now();
         Datetime startAt = endAt.addDays(-HISTORY_DAYS);
         String columns = 'TransactionTime,Status,DefinitionId,DefinitionName,DefinitionInstanceId,ActivityId,ActivityName,ActivityType,ContactKey';
-        String endpoint = restBase + '/interaction/v1/interactions/journeyhistory/download?format=csv&columns='
+        String endpoint = MarketingCloudApi.REST + '/interaction/v1/interactions/journeyhistory/download?format=csv&columns='
             + EncodingUtil.urlEncode(columns, 'UTF-8');
-        HttpRequest req = authorized(endpoint, token, 'POST');
+        HttpRequest req = authorized(endpoint, 'POST');
         req.setHeader('x-direct-pipe', 'true');
         req.setBody(JSON.serialize(new Map<String, Object>{
             'contactKeys' => contactKeys,
@@ -387,8 +376,6 @@ public with sharing class JourneyMembershipController {
     }
 
     private static Map<String, JourneyMeta> fetchJourneyMetas(
-        String restBase,
-        String token,
         List<HistoryEvent> events,
         List<MembershipHit> memberships
     ) {
@@ -412,7 +399,7 @@ public with sharing class JourneyMembershipController {
                 break;
             }
             lookups++;
-            JourneyMeta meta = fetchJourneyMeta(restBase, token, journeyId);
+            JourneyMeta meta = fetchJourneyMeta(journeyId);
             if (meta != null) {
                 metas.put(journeyId, meta);
                 if (String.isNotBlank(meta.id)) {
@@ -426,11 +413,11 @@ public with sharing class JourneyMembershipController {
         return metas;
     }
 
-    private static JourneyMeta fetchJourneyMeta(String restBase, String token, String journeyId) {
+    private static JourneyMeta fetchJourneyMeta(String journeyId) {
         String encoded = EncodingUtil.urlEncode(journeyId, 'UTF-8');
-        HttpResponse res = send(authorized(restBase + '/interaction/v1/interactions/' + encoded, token, 'GET'));
+        HttpResponse res = send(authorized(MarketingCloudApi.REST + '/interaction/v1/interactions/' + encoded, 'GET'));
         if (res.getStatusCode() == 404) {
-            res = send(authorized(restBase + '/interaction/v1/interactions/key:' + encoded, token, 'GET'));
+            res = send(authorized(MarketingCloudApi.REST + '/interaction/v1/interactions/key:' + encoded, 'GET'));
         }
         if (res.getStatusCode() < 200 || res.getStatusCode() >= 300) {
             return null;
@@ -446,55 +433,10 @@ public with sharing class JourneyMembershipController {
         return meta;
     }
 
-    private static MCE_Settings__mdt loadSettings() {
-        if (settingsOverride != null) {
-            return settingsOverride;
-        }
-        List<MCE_Settings__mdt> rows = [
-            SELECT Subdomain__c, Client_Id__c, Client_Secret__c, Account_Id__c
-            FROM MCE_Settings__mdt
-            WHERE DeveloperName = 'Default'
-            LIMIT 1
-        ];
-        if (rows.isEmpty()
-            || String.isBlank(rows[0].Subdomain__c)
-            || String.isBlank(rows[0].Client_Id__c)
-            || String.isBlank(rows[0].Client_Secret__c)
-            || String.isBlank(rows[0].Account_Id__c)) {
-            throw auraError('Marketing Cloud settings are not configured.');
-        }
-        return rows[0];
-    }
-
-    private static String requestToken(MCE_Settings__mdt settings) {
-        HttpRequest req = new HttpRequest();
-        req.setMethod('POST');
-        req.setEndpoint('https://' + settings.Subdomain__c + '.auth.marketingcloudapis.com/v2/token');
-        req.setHeader('Content-Type', 'application/json');
-        req.setTimeout(120000);
-        req.setBody(JSON.serialize(new Map<String, String>{
-            'grant_type' => 'client_credentials',
-            'client_id' => settings.Client_Id__c,
-            'client_secret' => settings.Client_Secret__c,
-            'account_id' => settings.Account_Id__c
-        }));
-        HttpResponse res = send(req);
-        if (res.getStatusCode() < 200 || res.getStatusCode() >= 300) {
-            throw auraError('Marketing Cloud authentication failed (' + res.getStatusCode() + ').');
-        }
-        Map<String, Object> body = (Map<String, Object>) JSON.deserializeUntyped(res.getBody());
-        String token = (String) body.get('access_token');
-        if (String.isBlank(token)) {
-            throw auraError('Marketing Cloud did not return an access token.');
-        }
-        return token;
-    }
-
-    private static HttpRequest authorized(String endpoint, String token, String method) {
+    private static HttpRequest authorized(String endpoint, String method) {
         HttpRequest req = new HttpRequest();
         req.setMethod(method);
         req.setEndpoint(endpoint);
-        req.setHeader('Authorization', 'Bearer ' + token);
         req.setHeader('Content-Type', 'application/json');
         req.setTimeout(120000);
         return req;
