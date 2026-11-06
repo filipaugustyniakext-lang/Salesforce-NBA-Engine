@@ -661,7 +661,7 @@ public with sharing class MarketingCloudCopySync {
             messageVariantNum = row.get('version');
         }
         String syncedName = composeMceSyncedRecordName(messageName, messageVariantNum);
-        putText(rec, 'Name', firstFilled(row, new List<String>{ syncedName, 'messagevariantid' }), 80);
+        putText(rec, 'Name', String.isNotBlank(syncedName) ? syncedName : row.get('messagevariantid'), 80);
         putText(rec, 'MessageName__c', messageName, 255);
         putText(rec, 'MessageType__c', row.get('messagetype'), 255);
         putText(rec, 'Message_Type__c', row.get('messagetype'), 100);
