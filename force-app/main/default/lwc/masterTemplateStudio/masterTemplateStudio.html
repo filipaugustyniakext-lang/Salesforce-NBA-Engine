@@ -256,31 +256,40 @@
                                                     </template>
                                                 </div>
                                             </section>
-                                            <template lwc:if={hasShellVariants}>
-                                                <section class="slds-box slds-m-top_small" aria-label="Configurations">
-                                                    <h2 class="slds-text-heading_small slds-m-bottom_x-small">Configurations</h2>
-                                                    <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
-                                                        The shell includes every optional part. Turn one off to preview that configuration. Layout changes come from the shell CSS.
-                                                    </p>
-                                                    <template for:each={shellVariantRows} for:item="row">
-                                                        <div key={row.name} class="slds-m-bottom_x-small" data-variant={row.name} onchange={handleShellVariantToggle}>
-                                                            <lightning-input type="toggle" label={row.label} checked={row.enabled}></lightning-input>
-                                                        </div>
-                                                    </template>
-                                                </section>
-                                            </template>
                                             <template lwc:if={hasShellBindings}>
                                                 <section class="slds-box slds-m-top_small" aria-label="Content Bindings">
                                                     <h2 class="slds-text-heading_small slds-m-bottom_x-small">Content Bindings</h2>
                                                     <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
-                                                        This shell is a single-block template, so Content Blocks is not used. Select a placeholder and enter a value to check it in the preview.
+                                                        This shell is a single-block template, so Content Blocks is not used. Select a placeholder and enter a value to check it in the preview. Optional parts can be turned off from the component group or binding row.
                                                     </p>
-                                                    <template for:each={shellBindingRows} for:item="row">
-                                                        <div key={row.placeholder} class={row.rowClass}>
-                                                            <button type="button" class="shell-binding__choice" data-placeholder={row.placeholder} onclick={handleSelectShellBinding}>
-                                                                <code class="slds-text-body_small">{row.placeholderLabel}</code>
-                                                                <span class="slds-badge slds-badge_lightest slds-m-left_x-small">{row.editorLabel}</span>
-                                                            </button>
+                                                    <template for:each={shellBindingGroups} for:item="group">
+                                                        <div key={group.key} class="shell-binding-group slds-m-bottom_small">
+                                                            <template lwc:if={group.showGroupHeading}>
+                                                                <div class="shell-binding-group__head">
+                                                                    <h3 class="shell-binding-group__title slds-text-body_regular">{group.title}</h3>
+                                                                    <template for:each={group.variantToggles} for:item="vt">
+                                                                        <div key={vt.key} class="shell-binding__variant" data-variant={vt.variantName} onchange={handleShellVariantToggle}>
+                                                                            <lightning-input type="toggle" label={vt.variantLabel} checked={vt.variantEnabled}></lightning-input>
+                                                                        </div>
+                                                                    </template>
+                                                                </div>
+                                                            </template>
+                                                            <template for:each={group.rows} for:item="row">
+                                                        <div key={row.bindingKey} class={row.rowClass}>
+                                                            <div class="shell-binding__head">
+                                                                <button type="button" class="shell-binding__choice" data-binding-key={row.bindingKey} onclick={handleSelectShellBinding}>
+                                                                    <span class="slds-text-body_small shell-binding__title">{row.rowTitle}</span>
+                                                                    <template lwc:if={row.showPlaceholderCode}>
+                                                                        <code class="slds-text-body_small slds-m-left_x-small">{row.placeholderLabel}</code>
+                                                                    </template>
+                                                                    <span class="slds-badge slds-badge_lightest slds-m-left_x-small">{row.editorLabel}</span>
+                                                                </button>
+                                                                <template lwc:if={row.showVariant}>
+                                                                    <div class="shell-binding__variant" data-variant={row.variantName} onchange={handleShellVariantToggle}>
+                                                                        <lightning-input type="toggle" label={row.variantLabel} checked={row.variantEnabled}></lightning-input>
+                                                                    </div>
+                                                                </template>
+                                                            </div>
                                                             <template lwc:if={row.selected}>
                                                                 <template lwc:if={row.isText}>
                                                                     <div class="slds-form-element slds-m-top_x-small">
@@ -290,62 +299,153 @@
                                                                         </div>
                                                                     </div>
                                                                 </template>
+                                                                <template lwc:if={row.isLabelPicklist}>
+                                                                    <lightning-combobox
+                                                                        class="slds-m-top_x-small"
+                                                                        label="Label"
+                                                                        value={row.labelChoice}
+                                                                        options={row.labelChoiceOptions}
+                                                                        data-binding-key={row.bindingKey}
+                                                                        onchange={handleShellLabelChoiceChange}>
+                                                                    </lightning-combobox>
+                                                                    <template lwc:if={row.showCustomLabelInput}>
+                                                                        <div class="slds-form-element slds-m-top_x-small">
+                                                                            <label class="slds-form-element__label" for={row.inputId}>Custom label</label>
+                                                                            <div class="slds-form-element__control">
+                                                                                <input id={row.inputId} class="slds-input" type="text" value={row.labelCustomText} data-binding-key={row.bindingKey} oninput={handleShellLabelCustomChange} />
+                                                                            </div>
+                                                                        </div>
+                                                                    </template>
+                                                                </template>
                                                                 <template lwc:if={row.isRichtext}>
                                                                     <div class="slds-m-top_x-small" data-placeholder={row.placeholder} onchange={handleShellPreviewValueChange}>
                                                                         <lightning-input-rich-text label="Rich text" data-placeholder={row.placeholder} data-shell-preview-input></lightning-input-rich-text>
                                                                     </div>
                                                                 </template>
-                                                                <template lwc:if={row.isImage}>
-                                                                    <div class="slds-m-top_x-small">
-                                                                        <lightning-file-upload
-                                                                            label="Upload to Salesforce CMS"
-                                                                            name="shellBindingImage"
-                                                                            accept=".png,.jpg,.jpeg,.gif,.webp"
-                                                                            record-id={draft.Id}
-                                                                            data-placeholder={row.placeholder}
-                                                                            onuploadfinished={handleShellImageUpload}>
-                                                                        </lightning-file-upload>
-                                                                        <lightning-button class="slds-m-top_x-small" label="Get from Salesforce CMS" data-placeholder={row.placeholder} onclick={handleOpenCmsPicker}></lightning-button>
-                                                                        <template lwc:if={cmsPickerOpen}>
-                                                                            <ul class="slds-has-dividers_top-space slds-m-top_x-small">
-                                                                                <template for:each={cmsImages} for:item="image">
-                                                                                    <li key={image.id} class="slds-item">
-                                                                                        <button type="button" class="slds-button slds-button_reset" data-url={image.url} onclick={handlePickCmsImage}>{image.title}</button>
-                                                                                    </li>
+                                                                <template lwc:if={row.showImageSettings}>
+                                                                    <div class="shell-image-settings slds-m-top_x-small">
+                                                                        <template for:each={row.imagePanels} for:item="panel">
+                                                                            <section key={panel.key} class="shell-image-settings__column">
+                                                                                <h3 class="slds-text-title_caps slds-m-bottom_x-small">{panel.title}</h3>
+                                                                                <div class="shell-image-source shell-image-source__wide">
+                                                                                    <lightning-radio-group
+                                                                                        label="Image source"
+                                                                                        type="button"
+                                                                                        name={panel.sourceRadioName}
+                                                                                        options={panel.sourceOptions}
+                                                                                        value={panel.source}
+                                                                                        data-binding-key={panel.bindingKey}
+                                                                                        data-image-mode={panel.mode}
+                                                                                        onchange={handleShellImageSourceChange}>
+                                                                                    </lightning-radio-group>
+                                                                                </div>
+                                                                                <div class="shell-image-source shell-image-source__compact">
+                                                                                    <label class="slds-form-element__label">Image source</label>
+                                                                                    <lightning-button-menu
+                                                                                        alternative-text="Image source"
+                                                                                        label={panel.sourceMenuLabel}
+                                                                                        icon-name="utility:down"
+                                                                                        icon-size="x-small"
+                                                                                        menu-alignment="left"
+                                                                                        variant="border-filled"
+                                                                                        class="shell-image-source__menu"
+                                                                                        data-binding-key={panel.bindingKey}
+                                                                                        data-image-mode={panel.mode}
+                                                                                        onselect={handleShellImageSourceChange}>
+                                                                                        <template for:each={panel.sourceMenuItems} for:item="sourceItem">
+                                                                                            <lightning-menu-item
+                                                                                                key={sourceItem.value}
+                                                                                                value={sourceItem.value}
+                                                                                                label={sourceItem.label}
+                                                                                                checked={sourceItem.checked}>
+                                                                                            </lightning-menu-item>
+                                                                                        </template>
+                                                                                    </lightning-button-menu>
+                                                                                </div>
+                                                                                <template lwc:if={panel.showUpload}>
+                                                                                    <lightning-file-upload
+                                                                                        class="slds-m-top_x-small"
+                                                                                        label="Upload image"
+                                                                                        accept=".png,.jpg,.jpeg,.gif,.webp"
+                                                                                        record-id={draft.Id}
+                                                                                        data-binding-key={panel.bindingKey}
+                                                                                        data-image-mode={panel.mode}
+                                                                                        onuploadfinished={handleShellImageUpload}>
+                                                                                    </lightning-file-upload>
                                                                                 </template>
-                                                                            </ul>
+                                                                                <template lwc:if={panel.showUrl}>
+                                                                                    <lightning-input
+                                                                                        class="slds-m-top_x-small"
+                                                                                        type="url"
+                                                                                        label="Image URL"
+                                                                                        value={panel.urlValue}
+                                                                                        data-binding-key={panel.bindingKey}
+                                                                                        data-image-mode={panel.mode}
+                                                                                        onchange={handleShellImageUrlChange}>
+                                                                                    </lightning-input>
+                                                                                </template>
+                                                                                <template lwc:if={panel.showCms}>
+                                                                                    <div class="shell-image-cms slds-box slds-theme_shade slds-m-top_x-small" role="dialog" aria-label="Choose from Salesforce Content">
+                                                                                        <lightning-input
+                                                                                            type="search"
+                                                                                            label="Search content"
+                                                                                            value={cmsSearchQuery}
+                                                                                            onchange={handleCmsSearchChange}>
+                                                                                        </lightning-input>
+                                                                                        <ul class="shell-image-cms__list slds-has-dividers_top-space slds-m-top_x-small">
+                                                                                            <template for:each={filteredCmsImages} for:item="image">
+                                                                                                <li key={image.id} class="slds-item">
+                                                                                                    <button type="button" class="slds-button slds-button_reset shell-image-cms__pick" data-url={image.url} data-binding-key={panel.bindingKey} data-image-mode={panel.mode} onclick={handlePickCmsImage}>{image.title}</button>
+                                                                                                </li>
+                                                                                            </template>
+                                                                                        </ul>
+                                                                                    </div>
+                                                                                </template>
+                                                                            </section>
                                                                         </template>
                                                                     </div>
                                                                 </template>
                                                                 <template lwc:if={row.isAction}>
+                                                                    <div class="slds-form-element slds-m-top_x-small">
+                                                                        <label class="slds-form-element__label" for={row.labelInputId}>Label</label>
+                                                                        <div class="slds-form-element__control">
+                                                                            <input id={row.labelInputId} class="slds-input" type="text" data-binding-key={row.bindingKey} data-label-placeholder={row.labelPlaceholder} data-shell-preview-input oninput={handleShellButtonLabelChange} />
+                                                                        </div>
+                                                                    </div>
                                                                     <lightning-radio-group
                                                                         class="slds-m-top_x-small"
-                                                                        label="Button target"
+                                                                        label="Action target"
                                                                         type="button"
                                                                         name={row.actionRadioName}
                                                                         options={row.actionOptions}
                                                                         value={row.actionMode}
-                                                                        data-placeholder={row.placeholder}
+                                                                        data-binding-key={row.bindingKey}
                                                                         onchange={handleShellActionModeChange}>
                                                                     </lightning-radio-group>
                                                                     <template lwc:if={row.isIntent}>
                                                                         <lightning-combobox
                                                                             class="slds-m-top_x-small"
                                                                             label="Intent"
-                                                                            placeholder="Select an intent"
+                                                                            placeholder="Search intent..."
                                                                             value={row.intentId}
                                                                             options={intentOptions}
-                                                                            data-placeholder={row.placeholder}
+                                                                            data-binding-key={row.bindingKey}
                                                                             onchange={handleShellIntentChange}>
                                                                         </lightning-combobox>
                                                                     </template>
-                                                                    <div class="slds-form-element slds-m-top_x-small">
-                                                                        <label class="slds-form-element__label" for={row.inputId}>Button label</label>
-                                                                        <div class="slds-form-element__control">
-                                                                            <input id={row.inputId} class="slds-input" type="text" data-placeholder={row.placeholder} data-shell-preview-input oninput={handleShellPreviewValueChange} />
-                                                                        </div>
-                                                                    </div>
+                                                                    <template lwc:if={row.isUrlMode}>
+                                                                        <lightning-input
+                                                                            class="slds-m-top_x-small"
+                                                                            type="url"
+                                                                            label="URL"
+                                                                            value={row.actionUrl}
+                                                                            data-binding-key={row.bindingKey}
+                                                                            onchange={handleShellActionUrlChange}>
+                                                                        </lightning-input>
+                                                                    </template>
                                                                 </template>
+                                                            </template>
+                                                        </div>
                                                             </template>
                                                         </div>
                                                     </template>
@@ -377,6 +477,10 @@
                                                         <li>&lt;cc-preview data-action="template-start" template-kind="single" views="mobile" mobile-width="375" mobile-height="812"&gt;…&lt;/cc-preview&gt;</li>
                                                         <li>template-kind="single" skips Content Blocks and binds placeholders on this step. Omit it for multi-block templates.</li>
                                                         <li>Mark an optional part with data-variant="name" data-variant-label="Label". Hide it in CSS with .cc-preview[data-cc-variant-name="off"].</li>
+                                                        <li>data-label-options="Option A|Option B" and data-label-custom="Custom Label" for picklist labels.</li>
+                                                        <li>data-image-modes="light,dark" with data-placeholder-light / data-placeholder-dark for theme images.</li>
+                                                        <li>Buttons: data-label-placeholder and data-url-placeholder on data-editor="action".</li>
+                                                        <li>data-ui-component="id" groups Content Bindings (e.g. legal-note, buttons). Use the same id on every placeholder that belongs to one UI component.</li>
                                                     </ul>
                                                     <p class="studio-panel__aside-label">Inner regions:</p>
                                                     <ul class="studio-panel__aside-code">
