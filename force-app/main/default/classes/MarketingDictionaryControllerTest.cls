@@ -73,6 +73,15 @@ private class MarketingDictionaryControllerTest {
         );
         insert offer;
 
+        Id productRecordTypeId = Schema.SObjectType.Marketing_Dictionary__c
+            .getRecordTypeInfosByDeveloperName().get('Product').getRecordTypeId();
+        Marketing_Dictionary__c retail = new Marketing_Dictionary__c(
+            Name = 'Retail',
+            RecordTypeId = productRecordTypeId,
+            Dictionary_Sub_Type__c = 'Customer Type'
+        );
+        insert retail;
+
         insert new List<Offer_Version__c>{
             // Active version -> surfaced in the summary.
             new Offer_Version__c(
@@ -80,7 +89,6 @@ private class MarketingDictionaryControllerTest {
                 Is_Active__c = true,
                 Product_Family_Name__c = 'Consolidation Loan',
                 Source_Products__c = 'Cash Loan',
-                Offer_Target_Audience__c = 'Retail',
                 Valid_From__c = Date.today(),
                 Valid_To__c = Date.today().addDays(30),
                 Nominal_Interest_Rate__c = 7.5,
@@ -94,6 +102,16 @@ private class MarketingDictionaryControllerTest {
                 Product_Family_Name__c = 'Consolidation Loan'
             )
         };
+
+        Offer_Version__c activeVersion = [
+            SELECT Id FROM Offer_Version__c
+            WHERE Offer_Lookup__c = :offer.Id AND Is_Active__c = true
+            LIMIT 1
+        ];
+        insert new Offer_Version_Customer_Type__c(
+            Offer_Version__c = activeVersion.Id,
+            Customer_Type__c = retail.Id
+        );
 
         Test.startTest();
         List<Map<String, Object>> results = MarketingDictionaryController.getOfferSummaries(
