@@ -4,7 +4,7 @@
     <active>true</active>
     <description>Catalogue of offer parameter definitions. Each record is one configurable attribute with its API name, type, display order, and global requiredness. Per-product-family rules live in child Offer Attribute Rule records.</description>
     <label>Offer</label>
-<picklistValues>
+    <picklistValues>
         <picklist>Channels__c</picklist>
         <values>
             <fullName>AI Agent - Inbound</fullName>

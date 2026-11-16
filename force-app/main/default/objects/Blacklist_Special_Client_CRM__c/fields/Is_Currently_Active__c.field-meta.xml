@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Is_Currently_Active__c</fullName>
+    <formula>IF(
+OR(
+ISBLANK(Valid_To__c),
+Valid_To__c &gt;= NOW()
+),
+TRUE,
+FALSE
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <inlineHelpText>Check if the exclusion is active - Valid To date is in the past or empty</inlineHelpText>
+    <label>Is Currently Active</label>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>

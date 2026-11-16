@@ -17,8 +17,6 @@ import activateOffer from '@salesforce/apex/OfferController.activateOfferVersion
 import activateVersion from '@salesforce/apex/OfferController.activateVersion';
 import deactivateOffer from '@salesforce/apex/OfferController.deactivateOffer';
 import decommissionOffer from '@salesforce/apex/OfferController.decommissionOffer';
-import markVersionReady from '@salesforce/apex/OfferController.markVersionReady';
-import revertVersionToDraft from '@salesforce/apex/OfferController.revertVersionToDraft';
 import checkDateOverlap from '@salesforce/apex/OfferController.checkDateOverlap';
 import checkActiveValidToOverlap from '@salesforce/apex/OfferController.checkActiveValidToOverlap';
 import resolveDateOverlap from '@salesforce/apex/OfferController.resolveDateOverlap';
@@ -132,6 +130,8 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
     @track pendingStatusValue = '';
 
     @track showValidationErrors = false;
+    // true after a check for activation (everything required); false for a Draft save.
+    @track fullValidation = false;
     @track showOptionalParams = false;
     @track mdAttributes = [];
     // MERGE 2026-09-14: loading flag for Step 2 attribute fetch (from Filip's version).
@@ -172,6 +172,7 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
                 this.currentScheduleStatus = latest.Schedule_Status__c || null;
                 this.prefillFromVersion(latest);
             }
+            this.applyEditableName();
             this.loadMdAttributes();
         } catch (error) {
             console.error('Error loading offer:', error);
@@ -207,6 +208,7 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
                 this.prefillFromVersion(version);
                 this._pendingSourceProducts = version.Source_Products__c || '';
                 this.resolveSourceProductIds();
+                this.applyEditableName();
             }
         } catch (error) {
             console.error('Error loading version:', error);
@@ -265,6 +267,7 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
                 this.currentVersionStatus = version.Version_Status__c || 'Draft';
                 this.currentScheduleStatus = version.Schedule_Status__c || null;
                 this.statusLocked = false;
+                this.applyEditableName();
             }
 
             // clone: same as new-version
@@ -360,39 +363,8 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
         return !!this._versionId;
     }
 
-    get isStatusLocked() {
-        return this.statusLocked;
-    }
-
-    get isStatusUnlocked() {
-        return !this.statusLocked;
-    }
-
-    get lockButtonClass() {
-        return this.statusLocked
-            ? 'lock-toggle-btn lock-toggle-locked'
-            : 'lock-toggle-btn lock-toggle-unlocked';
-    }
-
-    get lockToggleTitle() {
-        return this.statusLocked ? 'Click to unlock status controls' : 'Click to lock status controls';
-    }
-
     get canEditStatus() {
         return this.isExistingOffer && !this.statusLocked;
-    }
-
-    // Version status is editable only when unlocked AND the version is not In Use (or effectively in use)
-    get canEditVersionStatus() {
-        return this.isExistingOffer && !this.statusLocked && !this.isVersionEffectivelyInUse && !this.isVersionScheduledActivation && !this.isVersionDeactivated;
-    }
-
-    get versionStatusOptions() {
-        const all = [
-            { label: 'Draft', value: 'Draft' },
-            { label: 'Ready', value: 'Ready' }
-        ];
-        return all.map(o => ({ ...o, selected: o.value === this.currentVersionStatus }));
     }
 
     get isActiveLocked() {
@@ -500,22 +472,6 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
         return this.areDatesReadOnly;
     }
 
-    get showMarkReadyButton() {
-        return this.isExistingOffer && this.isVersionDraft && !this.statusLocked;
-    }
-
-    get showRevertToDraftButton() {
-        return this.isExistingOffer && this.isVersionReady && !this.statusLocked;
-    }
-
-    get showActivateButton() {
-        // Cannot activate Deactivated versions or ones already scheduled/in-use
-        return this.isExistingOffer
-            && (this.isVersionReady || this.isVersionDraft)
-            && !this.statusLocked
-            && !this.isVersionDeactivated;
-    }
-
     get areCtaFieldsReadOnly() {
         if (!this.isExistingOffer) return false;
         if (this.isLimitedEditMode) return false;
@@ -535,18 +491,45 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
         ];
     }
 
-    // Offer Identity fields (Name, CountryCode, CurrencyCode) are only editable
-    // when creating a brand-new offer (no recordId, no versionId).
+    // Offer Identity fields (Name, CountryCode) stay editable while the offer has never
+    // left Draft, so a draft saved with only a name can be completed later.
     get isIdentityReadOnly() {
-        return !!this._recordId || !!this._versionId || this.wizardMode === 'new-version' || this.wizardMode === 'clone' || this.wizardMode === 'edit';
+        if (this.wizardMode === 'new-version' || this.wizardMode === 'clone') return true;
+        if (!this.isExistingOffer) return false;
+        return this.offerStatus !== 'Draft' || !this.isVersionDraft;
     }
 
-
+    // Parts that are not filled in yet are left out of the name.
     get generatedOfferName() {
-        const cc = this.countryCode || '{{CountryCode}}';
-        const pf = this.selectedProductFamily ? this.toCamelCase(this.selectedProductFamily) : '{{ProductFamily}}';
-        const name = this.offerName ? this.toCamelCase(this.offerName) : '{{OfferName}}';
-        return `OFR_${cc}_${pf}_${name}`;
+        const cc = (this.countryCode || '').replace(/,+$/, '');
+        const pf = this.selectedProductFamily ? this.toCamelCase(this.selectedProductFamily) : '';
+        const name = this.offerName ? this.toCamelCase(this.offerName) : '';
+        return ['OFR', cc, pf, name].filter(Boolean).join('_');
+    }
+
+    // Recovers the typed name from a saved OFR_<Country>_<Family>_<Name>.
+    shortOfferName(fullName) {
+        let s = fullName || '';
+        if (s.startsWith('OFR_')) s = s.slice(4);
+        s = s.replace(/^(\{\{[^}]*\}\}_)+/, '');
+        const cc = (this.countryCode || '').replace(/,+$/, '');
+        if (cc && s.startsWith(`${cc}_`)) s = s.slice(cc.length + 1);
+        s = s.replace(/^(\{\{[^}]*\}\}_)+/, '');
+        const pf = this.selectedProductFamily ? this.toCamelCase(this.selectedProductFamily) : '';
+        if (pf && s.startsWith(`${pf}_`)) s = s.slice(pf.length + 1);
+        return s.replace(/^\{\{[^}]*\}\}$/, '');
+    }
+
+    applyEditableName() {
+        if (this.isExistingOffer && !this.isIdentityReadOnly) {
+            this.offerName = this.shortOfferName(this.existingOfferName);
+        }
+    }
+
+    // Edits on a non-Draft version (Ready/Scheduled dates and links, Active modify)
+    // keep their full checks; everything else is a Draft that saves with only a name.
+    get isDraftFlow() {
+        return !this.isLimitedEditMode && !this.isActiveModifyMode;
     }
 
     // Date getters
@@ -568,8 +551,13 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
 
     get dateValidationError() {
         if (!this.showValidationErrors) return '';
-        if (!this.validFrom) return 'Valid From date is required.';
-        if (!this.validTo) return 'Valid To date is required.';
+        if (this.fullValidation && !this.validFrom) return 'Valid From date is required.';
+        if (this.fullValidation && !this.validTo) return 'Valid To date is required.';
+        if (!this.validFrom || !this.validTo) {
+            if (!this.isExistingOffer && this.validFrom && this.validFrom < this.todayDate) return 'Valid From cannot be in the past.';
+            if (!this.isExistingOffer && this.validTo && this.validTo < this.todayDate) return 'Valid To cannot be in the past.';
+            return '';
+        }
         if (!this.isExistingOffer && this.validFrom < this.todayDate) return 'Valid From cannot be in the past.';
         if (!this.isExistingOffer && this.validTo < this.todayDate) return 'Valid To cannot be in the past.';
         if (this.isActiveModifyMode && this.validTo <= this.todayDate) return 'Valid To must be a future date.';
@@ -578,7 +566,7 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
     }
 
     get customerTypeError() {
-        if (!this.showValidationErrors) return false;
+        if (!this.showValidationErrors || !this.fullValidation) return false;
         return this.selectedCustomerTypes.length === 0;
     }
 
@@ -618,6 +606,7 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
         const referenceMax = a.referenceValueMax;
         const storedMin = minField ? this.offerParams[minField] : undefined;
         const storedMax = maxField ? this.offerParams[maxField] : undefined;
+        const { boundHint, outsideBound } = this._referenceGuidance(a.boundMin, a.boundMax, stored);
         return {
             key: a.ruleId || a.attributeId,
             field,
@@ -645,9 +634,26 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
             maxField,
             referenceMin,
             referenceMax,
+            boundHint,
+            outsideBound,
             currentMin: storedMin !== undefined && storedMin !== null ? storedMin : referenceMin,
             currentMax: storedMax !== undefined && storedMax !== null ? storedMax : referenceMax
         };
+    }
+
+    // Reference ranges only guide the user: any value can be entered, and a value past the
+    // range simply scores as the edge of the range.
+    _referenceGuidance(lo, hi, value) {
+        const hasLo = lo !== undefined && lo !== null;
+        const hasHi = hi !== undefined && hi !== null;
+        const fmt = n => Number(n).toLocaleString();
+        let boundHint = '';
+        if (hasLo && hasHi) boundHint = `Reference range ${fmt(lo)} – ${fmt(hi)}`;
+        else if (hasLo) boundHint = `Reference minimum ${fmt(lo)}`;
+        else if (hasHi) boundHint = `Reference maximum ${fmt(hi)}`;
+        const num = value === undefined || value === null || value === '' ? NaN : Number(value);
+        const outsideBound = !Number.isNaN(num) && ((hasLo && num < Number(lo)) || (hasHi && num > Number(hi)));
+        return { boundHint, outsideBound };
     }
 
     // RANGE: build the paired Offer_Version__c field names from a base fieldApiName by naming
@@ -753,16 +759,6 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
     }
     get isLastStep() { return this.currentStep === this.totalSteps; }
 
-    // A Draft can be saved as Draft again. Ready and later statuses cannot move back to Draft.
-    get canSaveAsDraft() {
-        return this.isVersionDraft;
-    }
-
-    // Draft promotes to Ready. An already Ready version can be saved again without changing status.
-    get canSaveAsReady() {
-        return this.isVersionDraft || this.isVersionReady;
-    }
-
     get canSaveAndActivate() {
         return this.isVersionDraft || this.isVersionReady;
     }
@@ -781,7 +777,7 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
 
     get attractivenessScoreDisplay() {
         const s = this.attractivenessScore;
-        return s === null ? '0' : s.toFixed(6);
+        return s === null || Number.isNaN(s) ? 'N/A' : s.toFixed(6);
     }
 
     @track _dictionaryScore = null;
@@ -920,8 +916,48 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
         return parts.length >= 2 ? parts[1] : '';
     }
 
+    // Draft save: only the offer name is needed; dates are checked only once typed.
+    validateDraft() {
+        this.showValidationErrors = true;
+        this.fullValidation = false;
+        if (!this.offerName) return false;
+        return this.validateTypedDates();
+    }
+
+    validateTypedDates() {
+        if (!this.isExistingOffer && this.validFrom && this.validFrom < this.todayDate) return false;
+        if (!this.isExistingOffer && this.validTo && this.validTo < this.todayDate) return false;
+        if (this.validFrom && this.validTo && this.validTo < this.validFrom) return false;
+        return true;
+    }
+
+    // Everything activation needs, as labels, for one clear message.
+    missingForActivation() {
+        const missing = [];
+        if (!this.offerName) missing.push('Offer Name');
+        if (!this.countryCode) missing.push('Country Code');
+        if (!this.validFrom) missing.push('Valid From');
+        if (!this.validTo) missing.push('Valid To');
+        if (this.selectedCustomerTypes.length === 0) missing.push('Customer Type');
+        if (!this.selectedProductFamily) missing.push('Product Family');
+        else if (!this.selectedProductIds || this.selectedProductIds.length === 0) missing.push('Source Products');
+        this.requiredParams.forEach(p => {
+            if (p.isCheckbox) return;
+            if (p.isRange) {
+                const lo = this.offerParams[p.minField];
+                const hi = this.offerParams[p.maxField];
+                if (lo === undefined || lo === null || hi === undefined || hi === null) missing.push(p.label);
+                return;
+            }
+            const val = this.offerParams[p.field];
+            if (val === undefined || val === '' || val === null) missing.push(p.label);
+        });
+        return missing;
+    }
+
     validateStep1() {
         this.showValidationErrors = true;
+        this.fullValidation = true;
 
         if (!this.offerName) return false;
         if (!this.countryCode) return false;
@@ -954,12 +990,6 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
         });
     }
 
-    // --- HANDLERS: Lock/Unlock ---
-
-    handleLockToggle() {
-        this.statusLocked = !this.statusLocked;
-    }
-
     // --- HANDLERS: Status Control ---
 
     handleStatusChange(event) {
@@ -986,15 +1016,6 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
 
         this.offerStatus = newValue;
         this.isActive = false;
-    }
-
-    async handleVersionStatusChange(event) {
-        const newValue = event.target.value;
-        if (newValue === 'Ready') {
-            await this.handleMarkVersionReady();
-        } else if (newValue === 'Draft') {
-            await this.handleRevertToDraft();
-        }
     }
 
     handleActiveToggle(event) {
@@ -1107,44 +1128,6 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
         }
     }
 
-    async handleMarkVersionReady() {
-        if (!this.currentVersionSfId) return;
-        this.isLoading = true;
-        try {
-            await markVersionReady({ versionId: this.currentVersionSfId });
-            this.currentVersionStatus = 'Ready';
-            this.dispatchEvent(new ShowToastEvent({
-                title: 'Version Ready',
-                message: 'This version is now marked as Ready and its attributes are locked.',
-                variant: 'success'
-            }));
-        } catch (error) {
-            const msg = error?.body?.message || error?.message || 'Unknown error';
-            this.dispatchEvent(new ShowToastEvent({ title: 'Error', message: msg, variant: 'error' }));
-        } finally {
-            this.isLoading = false;
-        }
-    }
-
-    async handleRevertToDraft() {
-        if (!this.currentVersionSfId) return;
-        this.isLoading = true;
-        try {
-            await revertVersionToDraft({ versionId: this.currentVersionSfId });
-            this.currentVersionStatus = 'Draft';
-            this.dispatchEvent(new ShowToastEvent({
-                title: 'Version Reverted',
-                message: 'This version has been reverted to Draft and can now be edited.',
-                variant: 'info'
-            }));
-        } catch (error) {
-            const msg = error?.body?.message || error?.message || 'Unknown error';
-            this.dispatchEvent(new ShowToastEvent({ title: 'Error', message: msg, variant: 'error' }));
-        } finally {
-            this.isLoading = false;
-        }
-    }
-
     // --- HANDLERS: Date fields ---
 
     handleValidFromChange(event) {
@@ -1200,7 +1183,7 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
         if (this.overlapMode === 'active-valid-to') {
             this.overlapMode = '';
             this._activeOverlapConfirmed = true;
-            this.handleSave(this._pendingActivate, this._pendingCloseAfter, this._pendingSaveAsReady);
+            this.handleSave(this._pendingActivate, this._pendingCloseAfter);
             return;
         }
         if (this.currentStep < this.totalSteps) {
@@ -1227,10 +1210,12 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
 
     async handleNextStep() {
         if (this.currentStep === 1) {
-            if (!this.validateStep1()) {
+            const stepOk = this.isDraftFlow ? this.validateTypedDates() : this.validateStep1();
+            if (!stepOk) {
+                this.showValidationErrors = true;
                 this.dispatchEvent(new ShowToastEvent({
-                    title: 'Required Fields',
-                    message: 'Please complete all required fields before proceeding.',
+                    title: 'Check the dates',
+                    message: this.isDraftFlow ? 'Fix the validity dates before moving on.' : 'Please complete all required fields before proceeding.',
                     variant: 'error'
                 }));
                 return;
@@ -1238,7 +1223,9 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
             this.showValidationErrors = false;
 
             // Check for date overlap with currently active version when creating/editing versions
-            if (this._recordId && this.validFrom && this.validTo) {
+            // Editing the Active version itself never overlaps another version here: its Valid From
+            // is locked, and a Valid To that runs into a scheduled version is checked on save.
+            if (this._recordId && this.validFrom && this.validTo && !this.isActiveModifyMode) {
                 try {
                     const overlap = await checkDateOverlap({
                         offerId: this._recordId,
@@ -1254,16 +1241,6 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
                 } catch (e) {
                     // non-blocking: skip overlap check on error
                 }
-            }
-        }
-        if (this.currentStep === 2) {
-            if (!this.validateStep2()) {
-                this.dispatchEvent(new ShowToastEvent({
-                    title: 'Required Fields',
-                    message: 'Please fill in all required (*) parameters before proceeding.',
-                    variant: 'error'
-                }));
-                return;
             }
         }
         if (this.currentStep < this.totalSteps) {
@@ -1499,40 +1476,51 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
         this.handleCancel();
     }
 
+    // Modify on a live (Active) version is a one-page edit: dates and links, then save and close.
+    handleSaveActiveModify() {
+        this.handleSave(false, true);
+    }
+
+    // Save keeps the form open and writes it as it is; the version status does not change.
     handleSaveInPlace() {
-        this.handleSave(false, false, false);
-    }
-
-    handleSaveDraft() {
-        this.handleSave(false, true, false);
-    }
-
-    handleSaveAsReady() {
-        this.handleSave(false, true, true);
+        this.handleSave(false, false);
     }
 
     handleSaveAndActivate() {
-        this.handleSave(true, true, false);
+        this.handleSave(true, true);
     }
 
-    saveSuccessMessage(isEditMode, activated, asReady) {
+    saveSuccessMessage(isEditMode, activated) {
         if (this.wizardMode === 'edit') {
             if (activated) return 'Version saved and activated.';
-            if (asReady || this.isVersionReady) return 'Version saved as Ready.';
-            if (this.isVersionInUse || this.isVersionScheduledActivation) return 'Version updated.';
-            return 'Version saved as draft.';
+            return 'Version saved.';
         }
-        if (this.wizardMode === 'new-version') return activated ? 'New version created and activated.' : asReady ? 'New version saved as Ready.' : 'New version saved as draft.';
-        if (this.wizardMode === 'clone')       return activated ? 'Clone created and activated.' : asReady ? 'Clone saved as Ready.' : 'Clone saved as draft.';
-        if (isEditMode)                        return activated ? 'New version created and activated.' : asReady ? 'New version saved as Ready.' : 'New version saved as draft.';
-        return activated ? 'Offer created and activated.' : asReady ? 'Offer saved as Ready.' : 'Offer saved as draft.';
+        if (this.wizardMode === 'new-version') return activated ? 'New version created and activated.' : 'New version saved as draft.';
+        if (this.wizardMode === 'clone')       return activated ? 'Clone created and activated.' : 'Clone saved as draft.';
+        if (isEditMode)                        return activated ? 'Offer saved and activated.' : 'Offer saved.';
+        return activated ? 'Offer created and activated.' : 'Offer saved as draft.';
     }
 
-    async handleSave(activateImmediately, closeAfter, saveAsReady) {
-        if (!this.validateStep1()) {
+    validateForSave(activateImmediately) {
+        if (activateImmediately === true) {
+            const missing = this.missingForActivation();
+            const step1Ok = this.validateStep1();
+            if (missing.length > 0) return `Complete these before activating: ${missing.join(', ')}.`;
+            return step1Ok ? null : 'Fix the validity dates before activating.';
+        }
+        if (!this.isDraftFlow) {
+            return this.validateStep1() ? null : 'Please complete all required fields before saving.';
+        }
+        if (this.validateDraft()) return null;
+        return this.offerName ? 'Fix the validity dates before saving.' : 'Give the offer a name before saving.';
+    }
+
+    async handleSave(activateImmediately, closeAfter) {
+        const problem = this.validateForSave(activateImmediately);
+        if (problem) {
             this.dispatchEvent(new ShowToastEvent({
-                title: 'Required Fields',
-                message: 'Please complete all required fields before saving.',
+                title: 'Cannot save yet',
+                message: problem,
                 variant: 'error'
             }));
             return;
@@ -1551,7 +1539,6 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
                     this.overlapCurrentValidTo = overlap.scheduledValidTo || '';
                     this._pendingActivate = activateImmediately;
                     this._pendingCloseAfter = closeAfter;
-                    this._pendingSaveAsReady = saveAsReady;
                     this.showOverlapConfirm = true;
                     return;
                 }
@@ -1604,6 +1591,17 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
             let savedVersionSfId = null;
             let didActivate = false;
 
+            if (this._recordId && !this.isIdentityReadOnly && this.generatedOfferName !== this.existingOfferName) {
+                _step = 'updateMasterOffer';
+                await updateMasterOffer({
+                    offerId: this._recordId,
+                    offerName: this.generatedOfferName,
+                    countryCode: this.countryCode || null,
+                    currencyCode: this.countryCode ? (this.countryCode === 'PL' ? 'PLN' : 'EUR') : null
+                });
+                this.existingOfferName = this.generatedOfferName;
+            }
+
             if (this.wizardMode === 'edit' && this._sourceVersionId && (this.isLimitedEditMode || this.isActiveModifyMode)) {
                 // Limited/active-modify edit: only dates + URLs overwritten in place, no new version
                 _step = 'updateVersionDatesAndUrls';
@@ -1636,9 +1634,6 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
                     _step = 'activateVersion';
                     await activateVersion({ offerId, versionId: this._sourceVersionId });
                     didActivate = true;
-                } else if (saveAsReady === true) {
-                    _step = 'markVersionReady';
-                    await markVersionReady({ versionId: this._sourceVersionId });
                 }
             } else if (this.currentVersionSfId && !isVersionMode) {
                 // Bug 3 fix: a prior in-place save already created a version this session —
@@ -1652,9 +1647,7 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
                 if (activateImmediately === true) {
                     _step = 'activateVersion';
                     await activateVersion({ offerId, versionId: this.currentVersionSfId });
-                } else if (saveAsReady === true) {
-                    _step = 'markVersionReady';
-                    await markVersionReady({ versionId: this.currentVersionSfId });
+                    didActivate = true;
                 }
             } else if (isVersionMode || isEditMode) {
                 // Create a new version record on an existing offer
@@ -1663,7 +1656,7 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
                     offerId: this.recordId,
                     versionData: offerData,
                     activateImmediately: activateImmediately === true,
-                    saveAsReady: saveAsReady === true
+                    saveAsReady: false
                 });
                 offerId = this.recordId;
             } else {
@@ -1672,7 +1665,7 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
                 offerId = await saveNewOffer({
                     offerData,
                     activateImmediately: activateImmediately === true,
-                    saveAsReady: saveAsReady === true
+                    saveAsReady: false
                 });
                 // AC-S3-009: saveNewOffer returns only the Offer__c Id, not the created
                 // version. When the wizard stays open (in-place Save), capture the newly
@@ -1692,8 +1685,7 @@ export default class OfferManager extends NavigationMixin(LightningElement) {
                 title: 'Success',
                 message: this.saveSuccessMessage(
                     isEditMode,
-                    didActivate || (activateImmediately === true && this.wizardMode !== 'edit'),
-                    saveAsReady === true
+                    didActivate || (activateImmediately === true && this.wizardMode !== 'edit')
                 ),
                 variant: 'success'
             }));

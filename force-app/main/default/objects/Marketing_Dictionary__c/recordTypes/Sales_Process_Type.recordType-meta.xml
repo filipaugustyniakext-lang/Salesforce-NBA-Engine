@@ -3,7 +3,7 @@
     <fullName>Sales_Process_Type</fullName>
     <active>true</active>
     <label>Sales Process Type</label>
-<picklistValues>
+    <picklistValues>
         <picklist>Channels__c</picklist>
         <values>
             <fullName>AI Agent - Inbound</fullName>

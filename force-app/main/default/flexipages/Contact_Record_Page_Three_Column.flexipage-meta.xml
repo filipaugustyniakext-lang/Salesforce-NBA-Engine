@@ -541,8 +541,86 @@
         </itemInstances>
         <itemInstances>
             <fieldInstance>
-                <fieldItem>Record.gcp_Last_KYC_Verification_Date__c</fieldItem>
+                <fieldItem>Record.gcp_Last_KYC_Verification_DateTime__c</fieldItem>
                 <identifier>RecordLast_KYC_Verification_Date__cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldItem>Record.gcp_addr_longitude__c</fieldItem>
+                <identifier>Recordgcp_addr_longitude__cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldItem>Record.gcp_addr_latitude__c</fieldItem>
+                <identifier>Recordgcp_addr_latitude__cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldItem>Record.gcp_address_street_type__c</fieldItem>
+                <identifier>Recordgcp_address_street_type__cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldItem>Record.gcp_mobile_id__c</fieldItem>
+                <identifier>Recordgcp_mobile_id__cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldItem>Record.gcp_tenant__c</fieldItem>
+                <identifier>Recordgcp_tenant__cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldItem>Record.gcp_address_country__c</fieldItem>
+                <identifier>Recordgcp_address_country__cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldItem>Record.gcp_IdentityDocumentConfirmed__c</fieldItem>
+                <identifier>Recordgcp_IdentityDocumentConfirmed__cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldItem>Record.gcp_address_street__c</fieldItem>
+                <identifier>Recordgcp_address_street__cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldItem>Record.gcp_brand__c</fieldItem>
+                <identifier>Recordgcp_brand__cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldItem>Record.gcp_externalCustomerId_legacy__c</fieldItem>
+                <identifier>Recordgcp_externalCustomerId_legacy__cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldItem>Record.gcp_address_house_number__c</fieldItem>
+                <identifier>Recordgcp_address_house_number__cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldItem>Record.gcp_address_postalCode__c</fieldItem>
+                <identifier>Recordgcp_address_postalCode__cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldItem>Record.gcp_address_city__c</fieldItem>
+                <identifier>Recordgcp_address_city__cField</identifier>
             </fieldInstance>
         </itemInstances>
         <name>Facet-47396b09-68af-4166-943f-4fca64ddb4d8</name>

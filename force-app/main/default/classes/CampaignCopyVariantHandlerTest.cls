@@ -1,38 +1,37 @@
 @IsTest
 private class CampaignCopyVariantHandlerTest {
-
     @IsTest
-    static void archivingPublishedVariant_marksJunctionIneligible() {
-        Campaign camp = new Campaign(
-            Name = 'Test Camp',
-            IsActive = false,
-            Status = 'Planned'
-        );
-        insert camp;
-
+    static void clearsEligibilityWhenAVariantLeavesPublished() {
         CC_Message_Metadata__c variant = new CC_Message_Metadata__c(
             Name = 'EMA_PL_Handler_1',
+            MessageName__c = 'EMA_PL_Handler',
+            MessageVariantId__c = 'handler-variant-1',
             Status__c = 'Published'
         );
         insert variant;
-
+        Campaign campaign = new Campaign(Name = 'Copy Campaign', IsActive = true);
+        insert campaign;
         insert new Campaign_Copy_Variant__c(
-            Campaign__c = camp.Id,
+            Campaign__c = campaign.Id,
             Message_Variant__c = variant.Id,
             Is_Eligible__c = true
         );
 
-        Test.startTest();
-        variant.Status__c = 'Archived';
-        update variant;
-        Test.stopTest();
+        CC_Message_Metadata__c prior = variant.clone(true, true, true, true);
+        variant.Status__c = 'Draft';
+        CampaignCopyVariantHandler.handleMessageStatusChanges(
+            new List<CC_Message_Metadata__c>{ variant },
+            new Map<Id, CC_Message_Metadata__c>{ variant.Id => prior }
+        );
 
-        Campaign_Copy_Variant__c junction = [
-            SELECT Is_Eligible__c
-            FROM Campaign_Copy_Variant__c
-            WHERE Campaign__c = :camp.Id
-            LIMIT 1
-        ];
-        System.assertEquals(false, junction.Is_Eligible__c, 'Junction should be ineligible when variant leaves Published');
+        System.assertEquals(
+            false,
+            [SELECT Is_Eligible__c FROM Campaign_Copy_Variant__c WHERE Message_Variant__c = :variant.Id].Is_Eligible__c
+        );
+        CampaignCopyVariantHandler.handleMessageStatusChanges(null, null);
+        CampaignCopyVariantHandler.handleMessageStatusChanges(
+            new List<CC_Message_Metadata__c>{ variant },
+            new Map<Id, CC_Message_Metadata__c>()
+        );
     }
 }

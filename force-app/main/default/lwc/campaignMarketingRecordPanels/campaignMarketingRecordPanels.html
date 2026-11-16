@@ -1,0 +1,206 @@
+<template>
+    <template if:true={isDetailsMode}>
+        <div class="slds-p-around_small panel-root">
+            <article class="slds-card slds-m-bottom_small">
+                <div class="slds-card__header slds-grid">
+                    <header class="slds-media slds-media_center slds-has-flexi-truncate">
+                        <div class="slds-media__body">
+                            <h2 class="slds-card__header-title">
+                                <span>Step 1 — Exclusions (detail)</span>
+                            </h2>
+                        </div>
+                    </header>
+                </div>
+                <div class="slds-card__body slds-card__body_inner">
+                    <dl class="slds-dl_horizontal slds-wrap">
+                        <dt class="slds-dl_horizontal__label">Exclude other marketing activations</dt>
+                        <dd class="slds-dl_horizontal__detail">{excludeOtherActivationsLabel}</dd>
+                    </dl>
+                    <template if:true={hasExclusions}>
+                        <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-m-top_small">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Source</th>
+                                    <th scope="col">Target</th>
+                                    <th scope="col">Member key mapping</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template for:each={exclusionRows} for:item="row">
+                                    <tr key={row.key}>
+                                        <td>{row.source}</td>
+                                        <td>{row.display}</td>
+                                        <td>{row.mapping}</td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </template>
+                    <template if:false={hasExclusions}>
+                        <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">No manual exclusions configured in JSON.</p>
+                    </template>
+                </div>
+            </article>
+
+            <article class="slds-card">
+                <div class="slds-card__header slds-grid">
+                    <header class="slds-media slds-media_center slds-has-flexi-truncate">
+                        <div class="slds-media__body">
+                            <h2 class="slds-card__header-title">
+                                <span>Step 3 — Channels &amp; copy (runtime health)</span>
+                            </h2>
+                        </div>
+                    </header>
+                    <div class="slds-no-flex">
+                        <lightning-button-icon
+                            icon-name="utility:refresh"
+                            alternative-text="Refresh"
+                            title="Refresh"
+                            onclick={handleRefresh}>
+                        </lightning-button-icon>
+                    </div>
+                </div>
+                <div class="slds-card__body slds-card__body_inner">
+                    <dl class="slds-dl_horizontal slds-wrap slds-m-bottom_small">
+                        <dt class="slds-dl_horizontal__label">Assigned channels</dt>
+                        <dd class="slds-dl_horizontal__detail">{assignedChannelsDisplay}</dd>
+                    </dl>
+                    <template if:true={isLoadingSummary}>
+                        <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
+                    </template>
+                    <template if:true={summaryError}>
+                        <div class="slds-notify slds-notify_alert slds-theme_error" role="alert">{summaryError}</div>
+                    </template>
+                    <template if:true={summary}>
+                        <template if:true={summary.hasCatalogGap}>
+                            <div class="slds-notify slds-notify_alert slds-theme_warning slds-m-bottom_small" role="alert">
+                                Some assigned copy is not Published. Runtime processing uses only eligible copy.
+                            </div>
+                        </template>
+                        <p class="slds-text-body_small slds-m-bottom_x-small">{summary.copyHeadline}</p>
+                        <template if:true={summary.copyVariants.length}>
+                            <table class="slds-table slds-table_cell-buffer slds-table_bordered catalog-table">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Copy variant</th>
+                                        <th scope="col">Channel</th>
+                                        <th scope="col">Status</th>
+                                        <th scope="col">Runtime</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template for:each={summary.copyVariants} for:item="row">
+                                        <tr key={row.id} class={row.rowClass}>
+                                            <td><a href={row.recordUrl}>{row.name}</a></td>
+                                            <td>{row.channelType}</td>
+                                            <td>{row.status}</td>
+                                            <td><span class={row.statusBadgeClass}>{row.statusBadgeLabel}</span></td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </template>
+                        <template if:false={summary.copyVariants.length}>
+                            <p class="slds-text-body_small slds-text-color_weak">No copy variants assigned — see Related tab.</p>
+                        </template>
+                    </template>
+                </div>
+            </article>
+        </div>
+    </template>
+
+    <template if:true={isRelatedMode}>
+        <div class="slds-p-around_small panel-root">
+            <div class="slds-grid slds-grid_align-spread slds-m-bottom_small">
+                <h2 class="slds-text-heading_small">Campaign catalogues (offers &amp; copy)</h2>
+                <lightning-button-icon
+                    icon-name="utility:refresh"
+                    alternative-text="Refresh"
+                    title="Refresh"
+                    onclick={handleRefresh}>
+                </lightning-button-icon>
+            </div>
+            <template if:true={isLoadingSummary}>
+                <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
+            </template>
+            <template if:true={summaryError}>
+                <div class="slds-notify slds-notify_alert slds-theme_error" role="alert">{summaryError}</div>
+            </template>
+            <template if:true={summary}>
+                <template if:true={summary.hasCatalogGap}>
+                    <div class="slds-notify slds-notify_alert slds-theme_warning slds-m-bottom_small" role="alert">
+                        Assigned catalogue rows may include inactive offers or non-Published copy. Only eligible rows are used at runtime.
+                    </div>
+                </template>
+
+                <article class="slds-card slds-m-bottom_medium">
+                    <div class="slds-card__header">
+                        <h3 class="slds-card__header-title">Campaign offers — {summary.offerHeadline}</h3>
+                    </div>
+                    <div class="slds-card__body slds-card__body_inner">
+                        <template if:true={summary.offers.length}>
+                            <table class="slds-table slds-table_cell-buffer slds-table_bordered catalog-table">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Offer</th>
+                                        <th scope="col">Status</th>
+                                        <th scope="col">Runtime</th>
+                                        <th scope="col">Note</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template for:each={summary.offers} for:item="row">
+                                        <tr key={row.id} class={row.rowClass}>
+                                            <td><a href={row.recordUrl}>{row.name}</a></td>
+                                            <td>{row.status}</td>
+                                            <td><span class={row.statusBadgeClass}>{row.statusBadgeLabel}</span></td>
+                                            <td>{row.note}</td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </template>
+                        <template if:false={summary.offers.length}>
+                            <p class="slds-text-body_small slds-text-color_weak">No offers assigned to this campaign.</p>
+                        </template>
+                    </div>
+                </article>
+
+                <article class="slds-card">
+                    <div class="slds-card__header">
+                        <h3 class="slds-card__header-title">Campaign copy variants — {summary.copyHeadline}</h3>
+                    </div>
+                    <div class="slds-card__body slds-card__body_inner">
+                        <template if:true={summary.copyVariants.length}>
+                            <table class="slds-table slds-table_cell-buffer slds-table_bordered catalog-table">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Message variant</th>
+                                        <th scope="col">Channel</th>
+                                        <th scope="col">Copy Cockpit status</th>
+                                        <th scope="col">Runtime</th>
+                                        <th scope="col">Note</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template for:each={summary.copyVariants} for:item="row">
+                                        <tr key={row.id} class={row.rowClass}>
+                                            <td><a href={row.recordUrl}>{row.name}</a></td>
+                                            <td>{row.channelType}</td>
+                                            <td>{row.status}</td>
+                                            <td><span class={row.statusBadgeClass}>{row.statusBadgeLabel}</span></td>
+                                            <td>{row.note}</td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </template>
+                        <template if:false={summary.copyVariants.length}>
+                            <p class="slds-text-body_small slds-text-color_weak">No copy variants assigned.</p>
+                        </template>
+                    </div>
+                </article>
+            </template>
+        </div>
+    </template>
+</template>

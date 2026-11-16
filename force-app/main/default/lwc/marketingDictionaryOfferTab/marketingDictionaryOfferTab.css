@@ -566,47 +566,19 @@
 .rv-power-input:focus { outline: none; border-color: var(--md-color-accent, var(--slds-g-color-accent-2, #0176d3)); }
 .rv-power-input_warn { border-color: var(--md-color-error, var(--slds-g-color-error-1, #c23934)); background: #fff5f4; }
 
-/* ── Family modal: collapsible Reference values section ─────────────── */
-.fm-refsec {
-    border: 1px solid var(--md-color-border, var(--slds-g-color-border-base-1, #e0e5ee));
-    border-radius: 0.375rem;
-    background: #fbfcfe;
+.ofa-attr-calc-missing {
+    background: #fef1ee;
+    color: #ba0517;
 }
-.fm-refsec__header {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    width: 100%;
-    padding: 0.5rem 0.75rem;
-    background: #f4f6f9;
-    border: none;
-    border-radius: 0.375rem 0.375rem 0 0;
-    cursor: pointer;
-    font-weight: 600;
-    color: var(--md-color-accent, var(--slds-g-color-accent-2, #0176d3));
-    text-align: left;
+
+.fm-calc-problems ul {
+    margin: 0.25rem 0 0 1.25rem;
+    list-style: disc;
 }
-.fm-refsec__title { font-size: 0.8125rem; }
-.fm-refsec__hint {
-    margin-left: 0.5rem;
-    font-size: 0.75rem;
-    font-weight: 400;
-    font-style: italic;
-    color: var(--md-color-text-muted, var(--slds-g-color-on-surface-2, #706e6b));
+
+.fm-calc-box {
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    padding: 0.5rem;
+    background: #fafaf9;
 }
-.fm-refsec__body { padding: 0.625rem 0.75rem; }
-.fm-refsec-card {
-    border: 1px solid var(--md-color-border, var(--slds-g-color-border-base-1, #e0e5ee));
-    border-radius: 0.25rem;
-    background: transparent;
-    padding: 0.5rem 0.625rem;
-    margin-bottom: 0.5rem;
-}
-.fm-refsec-card_active { border-color: var(--md-color-accent, var(--slds-g-color-accent-2, #0176d3)); background: #f7fbff; }
-.fm-refsec-row { display: flex; align-items: center; gap: 0.5rem; }
-.fm-refsec-row__name { font-weight: 600; color: var(--md-color-text-default, var(--slds-g-color-on-surface-1, #3e3e3c)); font-size: 0.8125rem; }
-.fm-refsec-row__value { color: var(--md-color-text-muted, var(--slds-g-color-on-surface-2, #706e6b)); font-size: 0.75rem; }
-.fm-refsec-row__spacer { flex: 1 1 auto; }
-.fm-refsec-row__value-input { width: 8rem; }
-.fm-refsec-check { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.8125rem; cursor: pointer; }
-.fm-refsec-powers { margin-top: 0.5rem; padding-left: 0.25rem; }

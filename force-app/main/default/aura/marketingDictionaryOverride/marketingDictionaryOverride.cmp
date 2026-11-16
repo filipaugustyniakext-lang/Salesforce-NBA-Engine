@@ -1,0 +1,15 @@
+<aura:component implements="lightning:actionOverride,lightning:hasPageReference,force:hasRecordId" access="global">
+    <!-- Attributes -->
+    <aura:attribute name="selectedRecordTypeId" type="String" />
+    
+    <!-- Handlers -->
+    <!-- init runs on load; change runs as soon as Salesforce injects URL parameters -->
+    <aura:handler name="init" value="{!this}" action="{!c.doInit}" />
+    <aura:handler name="change" value="{!v.pageReference}" action="{!c.doInit}" />
+    
+    <!-- Embedded LWC -->
+    <c:marketingDictionaryManager 
+        record-type-id="{!v.selectedRecordTypeId}" 
+        onclose="{!c.handleClose}">
+    </c:marketingDictionaryManager>
+</aura:component>

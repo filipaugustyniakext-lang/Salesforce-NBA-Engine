@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>All</fullName>
+    <columns>NAME</columns>
+    <columns>MessageVariantId__c</columns>
+    <columns>MessageVariantVersionId__c</columns>
+    <columns>ContentBlockOrder__c</columns>
+    <columns>MessageType__c</columns>
+    <columns>MessageName__c</columns>
+    <columns>MessageVariant__c</columns>
+    <columns>Action__c</columns>
+    <columns>BlockType__c</columns>
+    <columns>SnapshotJson__c</columns>
+    <columns>SnapshotJsonPart2__c</columns>
+    <filterScope>Everything</filterScope>
+    <label>All Records</label>
+</ListView>

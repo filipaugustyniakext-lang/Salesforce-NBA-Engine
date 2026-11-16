@@ -1,0 +1,75 @@
+<template>
+    <div class="range-slider">
+        <template lwc:if={label}>
+            <label class="slds-form-element__label">{label}</label>
+        </template>
+        <div class="range-slider__body">
+            <div class="range-slider__input">
+                <lightning-input
+                    type="number"
+                    variant="label-hidden"
+                    label="Minimum"
+                    value={valueMin}
+                    step={step}
+                    min={inputMin}
+                    max={inputMax}
+                    disabled={disabled}
+                    onchange={handleLowInput}
+                ></lightning-input>
+                <template lwc:if={unit}>
+                    <span class="range-slider__unit">{unit}</span>
+                </template>
+            </div>
+
+            <div class="slider-track" role="group" aria-label={label}>
+                <div class="slider-track__rail"></div>
+                <div class="slider-track__fill" style={fillStyle}></div>
+                <span
+                    class="slider-track__handle"
+                    role="slider"
+                    tabindex="0"
+                    aria-label="Minimum"
+                    aria-valuemin={min}
+                    aria-valuemax={valueMax}
+                    aria-valuenow={valueMin}
+                    aria-disabled={disabled}
+                    style={lowHandleStyle}
+                    onmousedown={handleLowPointerdown}
+                    ontouchstart={handleLowPointerdown}
+                    onkeydown={handleLowKeydown}
+                ></span>
+                <span
+                    class="slider-track__handle"
+                    role="slider"
+                    tabindex="0"
+                    aria-label="Maximum"
+                    aria-valuemin={valueMin}
+                    aria-valuemax={max}
+                    aria-valuenow={valueMax}
+                    aria-disabled={disabled}
+                    style={highHandleStyle}
+                    onmousedown={handleHighPointerdown}
+                    ontouchstart={handleHighPointerdown}
+                    onkeydown={handleHighKeydown}
+                ></span>
+            </div>
+
+            <div class="range-slider__input">
+                <lightning-input
+                    type="number"
+                    variant="label-hidden"
+                    label="Maximum"
+                    value={valueMax}
+                    step={step}
+                    min={inputMin}
+                    max={inputMax}
+                    disabled={disabled}
+                    onchange={handleHighInput}
+                ></lightning-input>
+                <template lwc:if={unit}>
+                    <span class="range-slider__unit">{unit}</span>
+                </template>
+            </div>
+        </div>
+    </div>
+</template>

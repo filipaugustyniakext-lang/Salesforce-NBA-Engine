@@ -10,6 +10,10 @@
                 <lightning-icon icon-name="utility:activations" size="x-small" class="vtab-icon" alternative-text=""></lightning-icon>
                 Offer Attributes
             </button>
+            <button role="tab" class={calcVtabClass} onclick={handleVtabSelect} data-tab="calc" aria-selected={isCalcTab}>
+                <lightning-icon icon-name="utility:formula" size="x-small" class="vtab-icon" alternative-text=""></lightning-icon>
+                Calculations
+            </button>
         </nav>
 
         <div class="vtab-content" role="tabpanel">
@@ -213,6 +217,12 @@
                                             title={grp.weightSumWarning} class="ofa-card__warn-icon">
                                         </lightning-icon>
                                     </template>
+                                    <template lwc:if={grp.calcWarning}>
+                                        <lightning-icon icon-name="utility:formula" size="xx-small"
+                                            variant="warning" alternative-text="Missing calculation"
+                                            title={grp.calcWarning} class="ofa-card__warn-icon">
+                                        </lightning-icon>
+                                    </template>
                                     <lightning-button-icon icon-name="utility:edit" variant="bare"
                                         size="x-small" alternative-text="Edit" title="Edit attributes"
                                         data-familyid={grp.familyId} onclick={handleOpenEditFamilyModal}
@@ -237,6 +247,12 @@
                                                 <span class={attr.statusBadgeClass}>{attr.statusLabel}</span>
                                                 <template lwc:if={attr.weightBadgeLabel}>
                                                     <span class="slds-badge oa-badge-attract">{attr.weightBadgeLabel}</span>
+                                                </template>
+                                                <template lwc:if={attr.calcLabel}>
+                                                    <span class="slds-badge slds-badge_lightest ofa-attr-meta-badge">ƒ {attr.calcLabel}</span>
+                                                </template>
+                                                <template lwc:else>
+                                                    <span class="slds-badge ofa-attr-calc-missing" title="No calculation, so this attribute scores 0">No calculation</span>
                                                 </template>
                                                 <template lwc:if={attr.typeBadgeLabel}>
                                                     <span class="slds-badge slds-badge_lightest ofa-attr-meta-badge">{attr.typeBadgeLabel}</span>
@@ -308,6 +324,10 @@
                 </template>
 
             </div>
+            </template>
+
+            <template lwc:if={isCalcTab}>
+                <c-offer-calculation-manager oncalculationschange={handleCalculationsChange}></c-offer-calculation-manager>
             </template>
 
         </div><!-- /vtab-content -->
@@ -631,92 +651,17 @@
                             </div>
                         </template>
 
-                        <!-- ── Reference values section (collapsible) ────────────── -->
-                        <div class="fm-refsec slds-m-top_small">
-                            <button class="fm-refsec__header" type="button" onclick={toggleFmRefSection}
-                                aria-expanded={isFmRefSectionOpen}>
-                                <lightning-icon icon-name={fmRefSectionChevron} size="xx-small"
-                                    alternative-text="expand"></lightning-icon>
-                                <span class="fm-refsec__title">Reference Attributes</span>
-                                <template lwc:if={fmRefSectionHint}>
-                                    <span class="fm-refsec__hint">{fmRefSectionHint}</span>
-                                </template>
-                            </button>
-                            <template lwc:if={isFmRefSectionOpen}>
-                                <div class="fm-refsec__body">
-                                    <template lwc:if={fmHasRefSectionRows}>
-                                        <template for:each={fmRefSectionRows} for:item="ref">
-                                            <div key={ref.id} class={ref.cardClass}>
-                                                <div class="fm-refsec-row">
-                                                    <span class="fm-refsec-row__name">{ref.name}</span>
-                                                    <span class="slds-badge slds-badge_lightest fm-hdr-badge">{ref.valueType}</span>
-                                                    <template lwc:if={ref.showValueInput}>
-                                                        <div class="fm-refsec-row__value-input">
-                                                            <lightning-input variant="label-hidden" label="Value"
-                                                                value={ref.value} placeholder="Value"
-                                                                data-id={ref.id} onchange={handleFmRefValue}>
-                                                            </lightning-input>
-                                                        </div>
-                                                    </template>
-                                                    <template lwc:else>
-                                                        <span class="fm-refsec-row__value">{ref.displayValue}</span>
-                                                    </template>
-                                                    <span class="fm-refsec-row__spacer"></span>
-
-                                                    <!-- Use reference attribute -->
-                                                    <label class="fm-refsec-check">
-                                                        <input type="checkbox" checked={ref.use}
-                                                            data-id={ref.id} onchange={handleFmRefUse} />
-                                                        <span>Use reference attribute</span>
-                                                    </label>
-
-                                                    <!-- Impacts Attractiveness (only once used) -->
-                                                    <template lwc:if={ref.showImpactsToggle}>
-                                                        <div class="fm-hdr-toggle-wrap" title="Impacts Attractiveness Score">
-                                                            <span class="fm-hdr-toggle-label">Impacts Attractiveness Score</span>
-                                                            <label class="slds-checkbox_toggle fm-hdr-toggle">
-                                                                <input type="checkbox" checked={ref.impacts}
-                                                                    data-id={ref.id} onchange={handleFmRefImpacts} />
-                                                                <span class="slds-checkbox_faux_container">
-                                                                    <span class="slds-checkbox_faux"></span>
-                                                                </span>
-                                                            </label>
-                                                        </div>
-                                                    </template>
-                                                </div>
-
-                                                <!-- Key + Power of effect pairs -->
-                                                <template lwc:if={ref.showPowers}>
-                                                    <div class="fm-refsec-powers">
-                                                        <template for:each={ref.powerRows} for:item="prow">
-                                                            <div key={prow._key} class="rv-pair-row">
-                                                                <lightning-input variant="label-hidden" label="Picklist Label"
-                                                                    value={prow.label} disabled class="rv-pair-input">
-                                                                </lightning-input>
-                                                                <div class="rv-power-wrap rv-pair-input">
-                                                                    <input type="number" min="0" max="1" step="0.01"
-                                                                        value={prow.power} class={prow.inputClass}
-                                                                        placeholder="0.00" aria-label="Power of effect"
-                                                                        data-id={ref.id} data-label={prow.label}
-                                                                        onchange={handleFmRefPower} />
-                                                                </div>
-                                                            </div>
-                                                        </template>
-                                                    </div>
-                                                </template>
-                                            </div>
-                                        </template>
+                        <template lwc:if={fmHasProblems}>
+                            <div class="fm-sum fm-sum-warn fm-calc-problems">
+                                <lightning-icon icon-name="utility:warning" size="xx-small" class="slds-m-right_xx-small" alternative-text=""></lightning-icon>
+                                Fix these before saving:
+                                <ul>
+                                    <template for:each={fmProblems} for:item="problem">
+                                        <li key={problem.key}>{problem.text}</li>
                                     </template>
-                                    <template lwc:if={fmHasRefSectionRows}>
-                                    </template>
-                                    <template lwc:else>
-                                        <p class="slds-text-body_small slds-text-color_weak">
-                                            No reference attributes exist for this product family yet.
-                                        </p>
-                                    </template>
-                                </div>
-                            </template>
-                        </div>
+                                </ul>
+                            </div>
+                        </template>
 
                         <!-- ── Existing / staged attribute rows ──────────────────── -->
                         <template lwc:if={fmHasPending}>
@@ -754,11 +699,12 @@
 
                                         <!-- Attractiveness toggle — immediately after name -->
                                         <div class="fm-hdr-toggle-wrap" onclick={handleFmActionClick}
-                                            title="Impacts Attractiveness Score">
+                                            title={row.impactsTitle}>
                                             <span class="fm-hdr-toggle-label">Impact Attractiveness</span>
                                             <label class="slds-checkbox_toggle fm-hdr-toggle">
                                                 <input type="checkbox"
                                                     checked={row.impactsAttractiveness}
+                                                    disabled={row.impactsDisabled}
                                                     data-key={row._key}
                                                     onchange={handleFmAttractiveness} />
                                                 <span class="slds-checkbox_faux_container">
@@ -823,25 +769,20 @@
                                             <div class="slds-grid slds-gutters_xx-small slds-wrap">
 
                                                 <template lwc:if={row.impactsAttractiveness}>
-                                                    <div class="slds-col slds-size_1-of-1 slds-m-bottom_xx-small">
-                                                        <lightning-combobox label="Scoring method"
-                                                            value={row.scoringMethod}
-                                                            options={scoringMethodOptions}
-                                                            placeholder="Select how this attribute is scored"
+                                                    <div class="slds-col slds-size_1-of-1 slds-m-bottom_x-small fm-calc-box">
+                                                        <c-offer-attribute-calculation-editor
+                                                            attribute-type={row.calcType}
+                                                            calculations={calculations}
+                                                            calculation-id={row.calculationId}
+                                                            inputs={row.calcInputs}
+                                                            value-rows={row.valueRows}
+                                                            value-labels={row.calcValueLabels}
+                                                            references={fmCalcReferences}
+                                                            attributes={row.calcAttributeOptions}
                                                             data-key={row._key}
-                                                            onchange={handleFmScoringMethod}>
-                                                        </lightning-combobox>
+                                                            oncalcchange={handleFmCalcChange}>
+                                                        </c-offer-attribute-calculation-editor>
                                                     </div>
-                                                    <template lwc:if={row.showBandEditor}>
-                                                        <div class="slds-col slds-size_1-of-1 slds-m-bottom_xx-small">
-                                                            <lightning-textarea label="Score bands"
-                                                                value={row.bandText}
-                                                                placeholder="YES=0&#10;NO=1&#10;or&#10;&lt;=1=0.1&#10;(1..2]=0.2&#10;&gt;9=1"
-                                                                data-key={row._key}
-                                                                onchange={handleFmBandText}>
-                                                            </lightning-textarea>
-                                                        </div>
-                                                    </template>
                                                 </template>
 
                                                 <!-- Creation method -->
@@ -996,32 +937,17 @@
                                                 data-field="Attribute_Description__c" onchange={handleFmFormField}>
                                             </lightning-textarea>
                                         </div>
-                                        <!-- Picklist reference: labels (grayed) + optional Power of effect -->
                                         <template lwc:if={fmRefIsPicklist}>
                                             <div class="slds-col slds-size_1-of-1 slds-m-top_small">
                                                 <span class="slds-form-element__label">Picklist Labels</span>
                                                 <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_xx-small">
-                                                    Inherited from the reference value.
-                                                    <template lwc:if={fmShowRefPowers}>
-                                                        Enter the Power of effect for each label.
-                                                    </template>
+                                                    Inherited from the reference value. Strengths are set with the calculation after you add the attribute.
                                                 </p>
                                                 <template for:each={fmRefPowerRows} for:item="prow">
                                                     <div key={prow._key} class="rv-pair-row">
                                                         <lightning-input variant="label-hidden" label="Picklist Label"
                                                             value={prow.label} disabled class="rv-pair-input">
                                                         </lightning-input>
-                                                        <template lwc:if={fmShowRefPowers}>
-                                                            <div class="rv-power-wrap rv-pair-input">
-                                                                <input type="number" min="0" max="1" step="0.01"
-                                                                    value={prow.power}
-                                                                    class={prow.inputClass}
-                                                                    placeholder="0.00"
-                                                                    aria-label="Power of effect"
-                                                                    data-key={prow._key}
-                                                                    onchange={handleFmRefPowerInput} />
-                                                            </div>
-                                                        </template>
                                                     </div>
                                                 </template>
                                             </div>
@@ -1096,6 +1022,7 @@
                                         <label class="slds-checkbox_toggle">
                                             <input type="checkbox"
                                                 checked={fmPendingForm.impactsAttractiveness}
+                                                disabled={fmFormImpactsDisabled}
                                                 data-field="impactsAttractiveness"
                                                 onchange={handleFmFormCheckbox} />
                                             <span class="slds-checkbox_faux_container">

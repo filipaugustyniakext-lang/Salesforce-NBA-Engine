@@ -26,6 +26,8 @@ public with sharing class OfferAttributeController {
         // The offer wizard hard-clamps its dual slider to [referenceValueMin, referenceValueMax].
         @AuraEnabled public Decimal referenceValueMin;
         @AuraEnabled public Decimal referenceValueMax;
+        @AuraEnabled public Decimal boundMin;
+        @AuraEnabled public Decimal boundMax;
         @AuraEnabled public List<String> picklistOptions = new List<String>();
         @AuraEnabled public Boolean isMapped = false;  // Parameter_API_Name__c resolves to a writable Offer_Version__c field
         // MERGE 2026-09-14: added so the wizard can render per-param read-only state, description
@@ -221,8 +223,17 @@ public with sharing class OfferAttributeController {
 
         List<String> keys = new List<String>(ordered.keySet());
         keys.sort();
+        Map<String, OfferAttractivenessCalculator.InputBound> bounds = OfferAttractivenessCalculator.boundsForFamily(familyName);
         List<AttributeView> views = new List<AttributeView>();
-        for (String k : keys) views.add(ordered.get(k));
+        for (String k : keys) {
+            AttributeView view = ordered.get(k);
+            OfferAttractivenessCalculator.InputBound bound = bounds.get(view.fieldApiName);
+            if (bound != null) {
+                view.boundMin = bound.minimum;
+                view.boundMax = bound.maximum;
+            }
+            views.add(view);
+        }
         return views;
     }
 

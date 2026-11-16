@@ -43,6 +43,13 @@
     letter-spacing: -0.02em;
 }
 
+.live-score {
+    margin-left: 0.75rem;
+    font-weight: 700;
+    font-size: 1.35rem;
+    color: #ba0517;
+}
+
 /* Body */
 .custom-modal-body {
     flex: 1 1 0;
@@ -619,6 +626,19 @@ button.slds-button.slds-progress__marker.slds-progress__marker_icon {
     width: 100%;
     height: 100%;
     z-index: 9998;
+}
+
+/* Reference range guidance under number inputs */
+.param-range-hint {
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    color: #706e6b;
+}
+
+.param-range-note {
+    margin-top: 0.125rem;
+    font-size: 0.75rem;
+    color: #a96404;
 }
 
 /* Animation */

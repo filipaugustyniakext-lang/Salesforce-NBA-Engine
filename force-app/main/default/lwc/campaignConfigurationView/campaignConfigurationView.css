@@ -1,0 +1,113 @@
+.campaign-config-view {
+    padding: 0.25rem 0;
+}
+
+.campaign-config-intro {
+    font-size: 0.85rem;
+    color: #514f4d;
+}
+
+.config-step-card {
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    background: #fdfdfd;
+    padding: 1rem 1.25rem;
+}
+
+.config-step-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.config-step-badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #0176d3;
+    background: #eef4ff;
+    border: 1px solid #afd8f8;
+    border-radius: 4px;
+    padding: 0.2rem 0.5rem;
+}
+
+.config-step-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #001e4e;
+    margin: 0;
+}
+
+.config-step-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+}
+
+.config-step-grid--single {
+    grid-template-columns: 1fr 1fr;
+}
+
+@media (max-width: 900px) {
+    .config-step-grid,
+    .config-step-grid--single {
+        grid-template-columns: 1fr;
+    }
+}
+
+.config-block-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #706e6b;
+    margin: 0 0 0.5rem 0;
+}
+
+.config-dl {
+    margin: 0;
+    display: grid;
+    grid-template-columns: minmax(8rem, 40%) 1fr;
+    gap: 0.35rem 0.75rem;
+    font-size: 0.85rem;
+}
+
+.config-dl dt {
+    color: #706e6b;
+    font-weight: 500;
+}
+
+.config-dl dd {
+    margin: 0;
+    color: #1b1b1b;
+    font-weight: 600;
+    word-break: break-word;
+}
+
+.config-dl--inline {
+    max-width: 40rem;
+}
+
+.config-link-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.config-link-list li {
+    margin: 0.25rem 0;
+}
+
+.config-link-btn {
+    color: #0176d3;
+    font-weight: 600;
+    text-align: left;
+}
+
+.config-copy-table {
+    font-size: 0.8rem;
+}

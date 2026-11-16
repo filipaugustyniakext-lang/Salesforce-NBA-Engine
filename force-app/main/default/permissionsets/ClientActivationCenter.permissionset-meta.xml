@@ -5,11 +5,11 @@
         <visible>true</visible>
     </applicationVisibilities>
     <classAccesses>
-        <apexClass>CampaignPathController</apexClass>
+        <apexClass>CampaignExclusionController</apexClass>
         <enabled>true</enabled>
     </classAccesses>
     <classAccesses>
-        <apexClass>CampaignExclusionController</apexClass>
+        <apexClass>CampaignPathController</apexClass>
         <enabled>true</enabled>
     </classAccesses>
     <classAccesses>
@@ -575,12 +575,7 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
-        <field>Campaign.Exclude_Onboarding__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>Campaign.Exclude_Other_Marketing_Activations__c</field>
+        <field>Campaign.Exclude_Campaign_Group_Dict_Ids__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
@@ -590,7 +585,12 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
-        <field>Campaign.Exclude_Campaign_Group_Dict_Ids__c</field>
+        <field>Campaign.Exclude_Onboarding__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Campaign.Exclude_Other_Marketing_Activations__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
@@ -795,6 +795,11 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
+        <field>Campaign_Tier__c.Excl_Campaign_Groups__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
         <field>Campaign_Tier__c.Excl_Debt_Collection__c</field>
         <readable>true</readable>
     </fieldPermissions>
@@ -816,11 +821,6 @@
     <fieldPermissions>
         <editable>true</editable>
         <field>Campaign_Tier__c.Excl_Other_Marketing_Activations__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>Campaign_Tier__c.Excl_Campaign_Groups__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
@@ -1010,11 +1010,6 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
-        <field>Marketing_Dictionary__c.Main_Channel__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
         <field>Marketing_Dictionary__c.Channels__c</field>
         <readable>true</readable>
     </fieldPermissions>
@@ -1071,6 +1066,11 @@
     <fieldPermissions>
         <editable>true</editable>
         <field>Marketing_Dictionary__c.Is_Globally_Required__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Marketing_Dictionary__c.Main_Channel__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>

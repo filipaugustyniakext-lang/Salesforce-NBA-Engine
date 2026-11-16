@@ -1,0 +1,90 @@
+<template>
+    <div class="oace">
+        <template lwc:if={isScorable}>
+            <template lwc:if={hasCalculationOptions}>
+                <lightning-combobox label="Calculation" required
+                    value={calculationId}
+                    options={calculationOptions}
+                    placeholder="Pick how this attribute scores"
+                    onchange={handleCalculation}>
+                </lightning-combobox>
+            </template>
+            <template lwc:else>
+                <p class="oace-warn">No calculation fits a {attributeType} attribute yet. Create one in the Calculations section first.</p>
+            </template>
+
+            <template lwc:if={calcDescription}>
+                <p class="oace-desc">{calcDescription}</p>
+            </template>
+
+            <template lwc:if={isFormula}>
+                <div class="oace-formula">{formulaText}</div>
+                <p class="oace-hint">&#123;Value&#125; is what the operator types for this attribute. Fill every other placeholder for this family.</p>
+                <template for:each={placeholderRows} for:item="ph">
+                    <div key={ph.name} class={ph.rowClass}>
+                        <span class="oace-ph-token">{ph.token}</span>
+                        <lightning-combobox class="oace-ph-source" label="Source" variant="label-hidden"
+                            value={ph.source} options={sourceOptions}
+                            data-name={ph.name} onchange={handleSource}>
+                        </lightning-combobox>
+                        <template lwc:if={ph.isReference}>
+                            <lightning-combobox class="oace-ph-input" label="Reference value" variant="label-hidden"
+                                value={ph.refId} options={referenceOptions} placeholder="Pick a reference value"
+                                data-name={ph.name} onchange={handleReference}>
+                            </lightning-combobox>
+                        </template>
+                        <template lwc:if={ph.isNumber}>
+                            <lightning-input class="oace-ph-input" type="number" step="any" label="Number" variant="label-hidden"
+                                value={ph.numberValue} placeholder="Type a number"
+                                data-name={ph.name} onchange={handleNumber}>
+                            </lightning-input>
+                        </template>
+                        <template lwc:if={ph.isAttribute}>
+                            <lightning-combobox class="oace-ph-input" label="Offer attribute" variant="label-hidden"
+                                value={ph.field} options={attributeOptions} placeholder="Pick an offer attribute"
+                                data-name={ph.name} onchange={handleAttribute}>
+                            </lightning-combobox>
+                        </template>
+                        <span class="oace-ph-resolved">{ph.resolved}</span>
+                    </div>
+                </template>
+                <template lwc:if={hasBands}>
+                    <p class="oace-hint slds-m-top_x-small">The result is scored by these bands:</p>
+                    <div class="oace-bands">
+                        <template for:each={bandChips} for:item="b">
+                            <span key={b.key} class="oace-band">{b.text}</span>
+                        </template>
+                    </div>
+                </template>
+            </template>
+
+            <template lwc:if={isValueMap}>
+                <p class="oace-hint">Give each value a strength from 0 to 1. Values not listed score 0.</p>
+                <div class="oace-vm-head">
+                    <span>Value</span><span>Strength</span><span></span>
+                </div>
+                <template for:each={valueRowViews} for:item="row">
+                    <div key={row._key} class="oace-vm-row">
+                        <input class="oace-vm-key" type="text" value={row.key} placeholder="Value"
+                            aria-label="Value" data-index={row.index} onchange={handleValueKey} />
+                        <input class={row.inputClass} type="number" min="0" max="1" step="0.01" value={row.score}
+                            placeholder="0.00" aria-label="Strength" data-index={row.index} onchange={handleValueScore} />
+                        <lightning-button-icon icon-name="utility:delete" variant="bare" size="small"
+                            alternative-text="Remove value" title="Remove value"
+                            data-index={row.index} onclick={handleRemoveValue}>
+                        </lightning-button-icon>
+                    </div>
+                </template>
+                <div class="oace-vm-actions">
+                    <lightning-button label="Add value" icon-name="utility:add" variant="neutral" onclick={handleAddValue}></lightning-button>
+                    <template lwc:if={hasUnlistedLabels}>
+                        <lightning-button label="Add missing picklist values" variant="base" class="slds-m-left_x-small" onclick={handleFillLabels}></lightning-button>
+                    </template>
+                </div>
+            </template>
+        </template>
+        <template lwc:else>
+            <p class="oace-warn">A {attributeType} attribute cannot impact attractiveness. Only Number, Currency, Percent, Picklist and Checkbox attributes can.</p>
+        </template>
+    </div>
+</template>

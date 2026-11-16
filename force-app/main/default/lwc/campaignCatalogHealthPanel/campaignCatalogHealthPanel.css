@@ -1,0 +1,7 @@
+.row-ineligible {
+    background-color: var(--slds-g-color-neutral-base-95, #f3f3f3);
+}
+
+.health-table .record-link {
+    font-weight: 600;
+}

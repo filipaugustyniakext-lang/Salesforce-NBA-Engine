@@ -4,7 +4,7 @@
     <active>true</active>
     <description>Stores managed lists of campaign configuration values. Each record is one entry in the Topics, Sales Process Types, or Activation Paths catalogues, controlled by the Dictionary Sub-Type field.</description>
     <label>Campaign</label>
-<picklistValues>
+    <picklistValues>
         <picklist>Channels__c</picklist>
         <values>
             <fullName>AI Agent - Inbound</fullName>

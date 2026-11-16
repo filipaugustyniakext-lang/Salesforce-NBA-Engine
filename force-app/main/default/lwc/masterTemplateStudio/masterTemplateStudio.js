@@ -26,6 +26,22 @@ import {
 
 const VALID_BLOCK_ICON = /^[a-zA-Z0-9_]+:[a-zA-Z0-9_]+$/;
 
+function formatUiComponentTitle(componentId) {
+    const raw = String(componentId || '').trim();
+    if (!raw) return '';
+    return raw
+        .split(/[-_\s]+/)
+        .filter(Boolean)
+        .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+        .join(' ');
+}
+
+const IMAGE_SOURCE_OPTIONS = [
+    { label: 'Upload Image', value: 'upload' },
+    { label: 'Paste URL', value: 'url' },
+    { label: 'Choose from Salesforce Content', value: 'cms' }
+];
+
 const EMPTY_DRAFT = () => ({
     Id: null,
     Name: '',
@@ -54,10 +70,10 @@ export default class MasterTemplateStudio extends LightningElement {
     @track shellPreviewValues = {};
     @track shellVariants = [];
     @track shellVariantState = {};
-    @track selectedShellPlaceholder = '';
+    @track selectedShellBindingKey = '';
+    @track cmsSearchQuery = '';
     @track intentOptions = [];
     @track cmsImages = [];
-    @track cmsPickerOpen = false;
     @track showNewBlockDefinitionForm = false;
     @track pendingBlockDraft = {
         label: '',
@@ -322,37 +338,91 @@ export default class MasterTemplateStudio extends LightningElement {
             { label: 'URL', value: 'url' },
             { label: 'Intent', value: 'intent' }
         ];
-        return (this.shellBindings || []).map(row => ({
-            ...row,
-            placeholderLabel: `{{${row.placeholder}}}`,
-            editorLabel: labels[row.editor] || row.editor,
-            isAction: row.editor === 'action',
-            isIntent: row.editor === 'action' && row.actionMode === 'intent',
-            isText: row.editor === 'text',
-            isRichtext: row.editor === 'richtext',
-            isImage: row.editor === 'image',
-            selected: row.placeholder === this.selectedShellPlaceholder,
-            rowClass: 'slds-box slds-box_x-small slds-m-bottom_x-small shell-binding'
-                + (row.placeholder === this.selectedShellPlaceholder ? ' shell-binding_selected' : ''),
-            actionOptions,
-            actionRadioName: `shell-action-${row.placeholder}`,
-            inputId: `shell-preview-${row.placeholder}`
-        }));
+        const seenVariants = new Set();
+        return (this.shellBindings || []).map(row => {
+            const showVariant = !!row.variantName && !seenVariants.has(row.variantName);
+            if (row.variantName) seenVariants.add(row.variantName);
+            const bindingKey = row.bindingKey || row.placeholder;
+            const labelChoiceOptions = (row.labelOptions || []).map(option => ({ label: option, value: option }));
+            if (row.labelOptions?.length) {
+                labelChoiceOptions.push({ label: row.labelCustomOption || 'Custom Label', value: '__custom__' });
+            }
+            const isDualImage = row.editor === 'image' && (row.imageModes || []).includes('light') && (row.imageModes || []).includes('dark');
+            const showImageSettings = row.editor === 'image';
+            return {
+                ...row,
+                bindingKey,
+                rowTitle: row.bindingTitle || row.placeholder,
+                showPlaceholderCode: !row.bindingTitle,
+                placeholderLabel: `{{${row.placeholder}}}`,
+                editorLabel: labels[row.editor] || row.editor,
+                isAction: row.editor === 'action',
+                isIntent: row.editor === 'action' && row.actionMode === 'intent',
+                isUrlMode: row.editor === 'action' && row.actionMode !== 'intent',
+                isText: row.editor === 'text' && !row.labelOptions?.length,
+                isLabelPicklist: row.editor === 'text' && !!row.labelOptions?.length,
+                isRichtext: row.editor === 'richtext',
+                showImageSettings,
+                imagePanels: showImageSettings
+                    ? this._buildImagePanels(row, bindingKey, isDualImage)
+                    : [],
+                selected: bindingKey === this.selectedShellBindingKey,
+                rowClass: 'slds-box slds-box_x-small slds-m-bottom_x-small shell-binding'
+                    + (bindingKey === this.selectedShellBindingKey ? ' shell-binding_selected' : ''),
+                actionOptions,
+                actionRadioName: `shell-action-${bindingKey}`,
+                inputId: `shell-preview-${bindingKey}`,
+                labelInputId: `shell-label-${bindingKey}`,
+                labelChoiceOptions,
+                showCustomLabelInput: row.labelChoice === '__custom__',
+                showVariant,
+                variantEnabled: row.variantName ? this.shellVariantState?.[row.variantName] !== false : false
+            };
+        });
+    }
+
+    get shellBindingGroups() {
+        const groups = [];
+        const groupIndex = new Map();
+        (this.shellBindingRows || []).forEach(row => {
+            const groupKey = row.uiComponent || row.bindingKey;
+            if (!groupIndex.has(groupKey)) {
+                groupIndex.set(groupKey, groups.length);
+                groups.push({
+                    key: groupKey,
+                    title: row.uiComponent ? formatUiComponentTitle(row.uiComponent) : row.rowTitle,
+                    showGroupHeading: !!row.uiComponent,
+                    rows: []
+                });
+            }
+            groups[groupIndex.get(groupKey)].rows.push(row);
+        });
+        return groups.map(group => {
+            const variantToggles = group.rows
+                .filter(row => row.showVariant)
+                .map(row => ({
+                    key: row.variantName,
+                    variantName: row.variantName,
+                    variantLabel: row.variantLabel,
+                    variantEnabled: row.variantEnabled
+                }));
+            const rows = variantToggles.length
+                ? group.rows.map(row => ({ ...row, showVariant: false }))
+                : group.rows;
+            return { ...group, variantToggles, rows };
+        });
+    }
+
+    get filteredCmsImages() {
+        const query = String(this.cmsSearchQuery || '').trim().toLowerCase();
+        if (!query) return this.cmsImages || [];
+        return (this.cmsImages || []).filter(image => (
+            String(image.title || '').toLowerCase().includes(query)
+        ));
     }
 
     get shellPreviewValuesJson() {
-        return JSON.stringify(this.shellPreviewValues || {});
-    }
-
-    get shellVariantRows() {
-        return (this.shellVariants || []).map(row => ({
-            ...row,
-            enabled: this.shellVariantState?.[row.name] !== false
-        }));
-    }
-
-    get hasShellVariants() {
-        return this.shellVariantRows.length > 0;
+        return JSON.stringify(this._buildShellPreviewValues());
     }
 
     get shellVariantStateJson() {
@@ -600,7 +670,7 @@ export default class MasterTemplateStudio extends LightningElement {
     renderedCallback() {
         this.template.querySelectorAll('[data-shell-preview-input]').forEach((input) => {
             if (this.template.activeElement === input) return;
-            const placeholder = input.dataset.placeholder;
+            const placeholder = input.dataset.placeholder || input.dataset.labelPlaceholder;
             if (!placeholder || !Object.prototype.hasOwnProperty.call(this.shellPreviewValues, placeholder)) return;
             const value = this.shellPreviewValues[placeholder] || '';
             if (input.value !== value) input.value = value;
@@ -608,8 +678,8 @@ export default class MasterTemplateStudio extends LightningElement {
     }
 
     handleSelectShellBinding(event) {
-        this.selectedShellPlaceholder = event.currentTarget.dataset.placeholder;
-        this.cmsPickerOpen = false;
+        this.selectedShellBindingKey = event.currentTarget.dataset.bindingKey;
+        this.cmsSearchQuery = '';
     }
 
     handleShellPreviewValueChange(event) {
@@ -622,9 +692,13 @@ export default class MasterTemplateStudio extends LightningElement {
     }
 
     async handleShellImageUpload(event) {
-        const placeholder = this._previewPlaceholder(event);
+        const bindingKey = event.currentTarget.dataset.bindingKey;
+        const imageMode = event.currentTarget.dataset.imageMode || '';
         const file = (event.detail?.files || [])[0];
-        if (!file?.documentId || !placeholder) return;
+        if (!file?.documentId || !bindingKey) return;
+        const row = this._shellBinding(bindingKey);
+        if (!row) return;
+        const placeholder = this._imagePlaceholder(row, imageMode || 'default');
         try {
             const url = await contentVersionDownloadUrl({ contentDocumentId: file.documentId });
             this._setShellPreviewValue(placeholder, url);
@@ -633,22 +707,70 @@ export default class MasterTemplateStudio extends LightningElement {
         }
     }
 
-    async handleOpenCmsPicker(event) {
-        this.selectedShellPlaceholder = event.currentTarget.dataset.placeholder;
-        this.cmsPickerOpen = true;
-        try {
-            this.cmsImages = await listCmsImages();
-        } catch (error) {
-            this.cmsImages = [];
-            this._toast('Salesforce CMS', error.body?.message || error.message, 'error');
+    handleShellImageSourceChange(event) {
+        const bindingKey = event.currentTarget.dataset.bindingKey;
+        const imageMode = event.currentTarget.dataset.imageMode || 'default';
+        const sourceMode = event.detail.value;
+        const patch = {};
+        if (imageMode === 'light') patch.imageLightSource = sourceMode;
+        else if (imageMode === 'dark') patch.imageDarkSource = sourceMode;
+        else patch.imageSource = sourceMode;
+        this._updateShellBinding(bindingKey, patch);
+        if (sourceMode === 'cms') {
+            this._loadCmsImages();
         }
+    }
+
+    handleShellImageUrlChange(event) {
+        const bindingKey = event.currentTarget.dataset.bindingKey;
+        const imageMode = event.currentTarget.dataset.imageMode || 'default';
+        const row = this._shellBinding(bindingKey);
+        if (!row) return;
+        const value = event.detail?.value ?? event.target?.value ?? '';
+        const placeholder = this._imagePlaceholder(row, imageMode);
+        this._setShellPreviewValue(placeholder, value);
+    }
+
+    handleCmsSearchChange(event) {
+        this.cmsSearchQuery = event.detail?.value ?? event.target?.value ?? '';
     }
 
     handlePickCmsImage(event) {
         const url = event.currentTarget.dataset.url;
-        if (!this.selectedShellPlaceholder || !url) return;
-        this._setShellPreviewValue(this.selectedShellPlaceholder, url);
-        this.cmsPickerOpen = false;
+        const bindingKey = event.currentTarget.dataset.bindingKey;
+        const imageMode = event.currentTarget.dataset.imageMode || 'default';
+        if (!bindingKey || !url) return;
+        const row = this._shellBinding(bindingKey);
+        if (!row) return;
+        this._setShellPreviewValue(this._imagePlaceholder(row, imageMode), url);
+    }
+
+    handleShellLabelChoiceChange(event) {
+        const bindingKey = event.currentTarget.dataset.bindingKey;
+        const labelChoice = event.detail.value;
+        this._updateShellBinding(bindingKey, { labelChoice });
+    }
+
+    handleShellLabelCustomChange(event) {
+        const bindingKey = event.currentTarget.dataset.bindingKey;
+        const labelCustomText = event.detail?.value ?? event.target?.value ?? '';
+        this._updateShellBinding(bindingKey, { labelCustomText });
+        this._syncLabelPreview(bindingKey);
+    }
+
+    handleShellButtonLabelChange(event) {
+        const input = event.currentTarget;
+        const labelKey = input?.dataset?.labelPlaceholder;
+        if (!labelKey) return;
+        const value = event.detail?.value ?? input?.value ?? '';
+        this._setShellPreviewValue(labelKey, value);
+    }
+
+    handleShellActionUrlChange(event) {
+        const bindingKey = event.currentTarget.dataset.bindingKey;
+        const actionUrl = event.detail?.value ?? event.target?.value ?? '';
+        this._updateShellBinding(bindingKey, { actionUrl });
+        this._syncActionUrlPreview(bindingKey);
     }
 
     _previewPlaceholder(event) {
@@ -674,21 +796,19 @@ export default class MasterTemplateStudio extends LightningElement {
     }
 
     handleShellActionModeChange(event) {
-        const placeholder = event.currentTarget.dataset.placeholder;
+        const bindingKey = event.currentTarget.dataset.bindingKey;
         const actionMode = event.detail.value;
-        this.shellBindings = this.shellBindings.map(row => (
-            row.placeholder === placeholder ? { ...row, actionMode, intentId: actionMode === 'intent' ? row.intentId : '' } : row
-        ));
-        this._persistShellBindings();
+        this._updateShellBinding(bindingKey, {
+            actionMode,
+            intentId: actionMode === 'intent' ? (this._shellBinding(bindingKey)?.intentId || '') : ''
+        });
+        this._syncActionUrlPreview(bindingKey);
     }
 
     handleShellIntentChange(event) {
-        const placeholder = event.currentTarget.dataset.placeholder;
+        const bindingKey = event.currentTarget.dataset.bindingKey;
         const intentId = event.detail.value || '';
-        this.shellBindings = this.shellBindings.map(row => (
-            row.placeholder === placeholder ? { ...row, intentId } : row
-        ));
-        this._persistShellBindings();
+        this._updateShellBinding(bindingKey, { intentId });
     }
 
     async handleShellUpload(event) {
@@ -988,6 +1108,7 @@ export default class MasterTemplateStudio extends LightningElement {
             this.shellRegions = scanCcPreviewRegionLabelsInOrder(shellHtml);
             this.templateKind = parseTemplateKind(shellHtml);
             this._mergeShellBindings(shellHtml, source?.shellBindingsJson);
+            this._seedShellPreviewLabelDefaults();
             this._mergeShellVariants(shellHtml);
             if (this.isSingleBlockTemplate) {
                 this._loadIntentOptions();
@@ -1013,16 +1134,141 @@ export default class MasterTemplateStudio extends LightningElement {
         } catch (error) {
             saved = [];
         }
-        const savedByName = new Map((Array.isArray(saved) ? saved : []).map(row => [row.placeholder, row]));
+        const savedByKey = new Map((Array.isArray(saved) ? saved : []).map(row => [
+            row.bindingKey || row.placeholder,
+            row
+        ]));
         this.shellBindings = parseShellEditorFields(shellHtml).map(field => {
-            const previous = savedByName.get(field.placeholder) || {};
+            const key = field.bindingKey || field.placeholder;
+            const previous = savedByKey.get(key) || {};
+            const labelOptions = field.labelOptions || [];
+            const defaultLabelChoice = labelOptions.length ? labelOptions[0] : '';
             return {
-                placeholder: field.placeholder,
-                editor: field.editor,
+                ...field,
+                bindingKey: key,
                 actionMode: previous.actionMode === 'intent' ? 'intent' : 'url',
-                intentId: previous.intentId || ''
+                intentId: previous.intentId || '',
+                actionUrl: previous.actionUrl || '',
+                labelChoice: previous.labelChoice || defaultLabelChoice,
+                labelCustomText: previous.labelCustomText || '',
+                imageSource: previous.imageSource || 'upload',
+                imageLightSource: previous.imageLightSource || 'upload',
+                imageDarkSource: previous.imageDarkSource || 'upload'
             };
         });
+    }
+
+    _seedShellPreviewLabelDefaults() {
+        const next = { ...(this.shellPreviewValues || {}) };
+        let changed = false;
+        (this.shellBindings || []).forEach(row => {
+            if (row.editor !== 'action' || !row.labelPlaceholder) return;
+            const key = row.labelPlaceholder;
+            const defaultLabel = String(row.labelDefault || '').trim();
+            if (!defaultLabel) return;
+            if (next[key] == null || next[key] === '') {
+                next[key] = defaultLabel;
+                changed = true;
+            }
+        });
+        if (changed) {
+            this.shellPreviewValues = next;
+        }
+    }
+
+    _buildImagePanels(row, bindingKey, isDualImage) {
+        const panels = isDualImage
+            ? [
+                { mode: 'light', title: 'Light mode', source: row.imageLightSource || 'upload', placeholder: row.placeholderLight || row.placeholder },
+                { mode: 'dark', title: 'Dark mode', source: row.imageDarkSource || 'upload', placeholder: row.placeholderDark || row.placeholder }
+            ]
+            : [{ mode: 'default', title: 'Image', source: row.imageSource || 'upload', placeholder: row.placeholder }];
+        return panels.map(panel => {
+            const sourceMenuItems = IMAGE_SOURCE_OPTIONS.map(option => ({
+                ...option,
+                checked: panel.source === option.value
+            }));
+            const activeSource = IMAGE_SOURCE_OPTIONS.find(option => option.value === panel.source);
+            return {
+                ...panel,
+                key: `${bindingKey}-${panel.mode}`,
+                bindingKey,
+                sourceOptions: IMAGE_SOURCE_OPTIONS,
+                sourceMenuItems,
+                sourceMenuLabel: activeSource?.label || 'Image source',
+                sourceRadioName: `image-source-${bindingKey}-${panel.mode}`,
+                showUpload: panel.source === 'upload',
+                showUrl: panel.source === 'url',
+                showCms: panel.source === 'cms',
+                urlValue: this.shellPreviewValues[panel.placeholder] || ''
+            };
+        });
+    }
+
+    _imagePlaceholder(row, imageMode) {
+        if (imageMode === 'dark') return row.placeholderDark || row.placeholder;
+        if (imageMode === 'light') return row.placeholderLight || row.placeholder;
+        return row.placeholder;
+    }
+
+    async _loadCmsImages() {
+        if ((this.cmsImages || []).length) return;
+        try {
+            this.cmsImages = await listCmsImages();
+        } catch (error) {
+            this.cmsImages = [];
+            this._toast('Salesforce Content', error.body?.message || error.message, 'error');
+        }
+    }
+
+    _shellBinding(bindingKey) {
+        return (this.shellBindings || []).find(row => (row.bindingKey || row.placeholder) === bindingKey);
+    }
+
+    _updateShellBinding(bindingKey, patch) {
+        if (!bindingKey) return;
+        this.shellBindings = this.shellBindings.map(row => (
+            (row.bindingKey || row.placeholder) === bindingKey ? { ...row, ...patch } : row
+        ));
+        if (patch.labelChoice != null || patch.labelCustomText != null) {
+            this._syncLabelPreview(bindingKey);
+        }
+        this._persistShellBindings();
+    }
+
+    _syncLabelPreview(bindingKey) {
+        const row = this._shellBinding(bindingKey);
+        if (!row?.labelOptions?.length) return;
+        const value = row.labelChoice === '__custom__'
+            ? (row.labelCustomText || row.placeholder)
+            : (row.labelChoice || row.placeholder);
+        this._setShellPreviewValue(row.placeholder, value);
+    }
+
+    _syncActionUrlPreview(bindingKey) {
+        const row = this._shellBinding(bindingKey);
+        if (!row?.urlPlaceholder) return;
+        const value = row.actionMode === 'intent'
+            ? '#'
+            : (row.actionUrl || '#');
+        this._setShellPreviewValue(row.urlPlaceholder, value);
+    }
+
+    _buildShellPreviewValues() {
+        const values = { ...(this.shellPreviewValues || {}) };
+        (this.shellBindings || []).forEach(row => {
+            if (row.labelOptions?.length) {
+                values[row.placeholder] = row.labelChoice === '__custom__'
+                    ? (row.labelCustomText || row.placeholder)
+                    : (row.labelChoice || row.placeholder);
+            }
+            if (row.editor === 'action' && row.urlPlaceholder) {
+                values[row.urlPlaceholder] = row.actionMode === 'intent'
+                    ? '#'
+                    : (row.actionUrl || values[row.urlPlaceholder] || '#');
+            }
+        });
+        return values;
     }
 
     _mergeShellVariants(shellHtml) {

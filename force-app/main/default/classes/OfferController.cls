@@ -238,6 +238,9 @@ public with sharing class OfferController {
         if (offerData == null || offerData.isEmpty()) throw new AuraHandledException('Offer data is required.');
 
         String offerName = offerData.containsKey('Name') ? String.valueOf(offerData.get('Name')) : 'Offer';
+        if (activateImmediately == true || saveAsReady == true) {
+            assertCompleteForActivation(offerData, offerName, str(offerData.get('Country_Code__c')));
+        }
         Decimal score = computeScore(offerData);
 
         Date startDate = offerData.containsKey('Valid_From__c') && offerData.get('Valid_From__c') != null
@@ -326,7 +329,7 @@ public with sharing class OfferController {
         if (versionData == null || versionData.isEmpty()) throw new AuraHandledException('Version data is required.');
 
         Offer__c offer = [
-            SELECT Id, Name, Offer_Status__c
+            SELECT Id, Name, Offer_Status__c, Country_Code__c
             FROM Offer__c
             WHERE Id = :offerId
             LIMIT 1
@@ -334,6 +337,9 @@ public with sharing class OfferController {
 
         if (offer.Offer_Status__c == 'Decommissioned') {
             throw new AuraHandledException('Cannot create a new version for a decommissioned offer.');
+        }
+        if (activateImmediately == true || saveAsReady == true) {
+            assertCompleteForActivation(versionData, offer.Name, offer.Country_Code__c);
         }
 
         Decimal score = computeScore(versionData);
@@ -467,11 +473,16 @@ public with sharing class OfferController {
         if (versionId == null) throw new AuraHandledException('Version Id is required.');
 
         Offer_Version__c v = [
-            SELECT Id, Version_Status__c, Offer_Lookup__c FROM Offer_Version__c WHERE Id = :versionId LIMIT 1
+            SELECT Id, Name, Version_Status__c, Schedule_Status__c, Offer_Lookup__c,
+                   Offer_Version_Id__c, Attractiveness_Score__c, Country_Code__c, Currency_Code__c,
+                   Valid_From__c, Valid_To__c
+            FROM Offer_Version__c WHERE Id = :versionId LIMIT 1
         ];
         if (v.Version_Status__c == 'Deactivated') {
             throw new AuraHandledException('Deactivated versions cannot be edited. Clone it to create a new version.');
         }
+        Boolean wasScheduledForActivation = v.Version_Status__c == 'Scheduled'
+            && v.Schedule_Status__c == 'Scheduled for Activation';
 
         if (validFrom  != null) v.Valid_From__c  = Date.valueOf(validFrom);
         if (validTo    != null) v.Valid_To__c    = Date.valueOf(validTo);
@@ -484,10 +495,27 @@ public with sharing class OfferController {
             realignScheduledVersion(v.Offer_Lookup__c, v, Date.valueOf(validTo));
         }
 
+        // A version waiting to activate follows its Valid From: the schedule date moves with it,
+        // and a start date of today or earlier activates it right away.
+        Boolean startsNow = false;
+        if (wasScheduledForActivation && v.Valid_From__c != null) {
+            v.Schedule_Date__c = v.Valid_From__c;
+            startsNow = v.Valid_From__c <= Date.today()
+                && (v.Valid_To__c == null || v.Valid_To__c >= Date.today());
+        }
+
         try {
             update v;
         } catch (DmlException e) {
             throw new AuraHandledException('Failed to update version: ' + e.getDmlMessage(0));
+        }
+
+        if (wasScheduledForActivation) {
+            if (startsNow) {
+                activateNow(v.Offer_Lookup__c, v);
+            } else {
+                refreshDeactivationSchedule(v.Offer_Lookup__c);
+            }
         }
     }
 
@@ -528,7 +556,10 @@ public with sharing class OfferController {
     public static void updateMasterOffer(Id offerId, String offerName, String countryCode, String currencyCode) {
         if (offerId == null) throw new AuraHandledException('Offer Id is required.');
 
-        Offer__c offer = [SELECT Id, Name, Country_Code__c, CurrencyIsoCode FROM Offer__c WHERE Id = :offerId LIMIT 1];
+        Offer__c offer = [SELECT Id, Name, Country_Code__c, CurrencyIsoCode, Offer_Status__c FROM Offer__c WHERE Id = :offerId LIMIT 1];
+        if (offer.Offer_Status__c != 'Draft') {
+            throw new AuraHandledException('The offer name and country can only change while the offer is still Draft.');
+        }
         if (String.isNotBlank(offerName))   offer.Name = offerName;
         if (String.isNotBlank(countryCode)) offer.Country_Code__c = normaliseCountryCodeForOffer(countryCode);
         if (String.isNotBlank(currencyCode)) offer.CurrencyIsoCode = currencyCode;
@@ -540,12 +571,14 @@ public with sharing class OfferController {
 
         // Propagate to all versions
         List<Offer_Version__c> versions = [
-            SELECT Id, Name, Country_Code__c, Currency_Code__c, CurrencyIsoCode
+            SELECT Id, Name, Country_Code__c, Currency_Code__c, CurrencyIsoCode, Version_Number__c
             FROM Offer_Version__c
             WHERE Offer_Lookup__c = :offerId
         ];
         for (Offer_Version__c v : versions) {
-            if (String.isNotBlank(offerName))   v.Name = offerName;
+            if (String.isNotBlank(offerName)) {
+                v.Name = v.Version_Number__c != null ? offerName + '_v' + v.Version_Number__c.intValue() : offerName;
+            }
             if (String.isNotBlank(countryCode)) v.Country_Code__c = normaliseCountryCodeForVersion(countryCode);
             if (String.isNotBlank(currencyCode)) { v.Currency_Code__c = currencyCode; v.CurrencyIsoCode = currencyCode; }
         }
@@ -597,6 +630,7 @@ public with sharing class OfferController {
         if (v.Version_Status__c != 'Draft') {
             throw new AuraHandledException('Only Draft versions can be marked as Ready.');
         }
+        assertVersionComplete(versionId);
         v.Version_Status__c = 'Ready';
         update v;
     }
@@ -655,6 +689,7 @@ public with sharing class OfferController {
         if (version.Version_Status__c == 'Deactivated') {
             throw new AuraHandledException('A Deactivated version cannot be reactivated. Clone it to create a new version.');
         }
+        assertVersionComplete(versionId);
 
         Date startDate = version.Valid_From__c;
         Boolean isFuture = (startDate != null && startDate > Date.today());
@@ -675,47 +710,55 @@ public with sharing class OfferController {
             refreshDeactivationSchedule(offerId);
             // Offer master stays in its current status — the scheduler will flip it to Active
         } else {
-            // ── Immediate path ────────────────────────────────────────────────
-            // Deactivate any In-Use (including those tagged for deactivation) and Scheduled versions
-            List<Offer_Version__c> toDeactivate = [
-                SELECT Id FROM Offer_Version__c
-                WHERE Offer_Lookup__c = :offerId
-                  AND Version_Status__c IN ('Active', 'Scheduled')
-            ];
-            for (Offer_Version__c v : toDeactivate) {
-                v.Version_Status__c = 'Deactivated';
-                v.Schedule_Status__c = null;
-                v.Schedule_Date__c = null;
-                v.Is_Active__c = false;
-            }
-            if (!toDeactivate.isEmpty()) update toDeactivate;
+            activateNow(offerId, version);
+        }
+    }
 
-            version.Version_Status__c = 'Active';
-            version.Schedule_Status__c = null;
-            version.Schedule_Date__c = null;
-            version.Is_Active__c = true;
-            try {
-                update version;
-            } catch (DmlException e) {
-                throw new AuraHandledException('Failed to activate version: ' + e.getDmlMessage(0));
-            }
+    /**
+     * Immediate activation: every other Active or Scheduled version of the offer is
+     * deactivated, this version becomes Active, and the master offer follows.
+     */
+    private static void activateNow(Id offerId, Offer_Version__c version) {
+        Id keepId = version.Id;
+        List<Offer_Version__c> toDeactivate = [
+            SELECT Id FROM Offer_Version__c
+            WHERE Offer_Lookup__c = :offerId
+              AND Version_Status__c IN ('Active', 'Scheduled')
+              AND Id != :keepId
+        ];
+        for (Offer_Version__c v : toDeactivate) {
+            v.Version_Status__c = 'Deactivated';
+            v.Schedule_Status__c = null;
+            v.Schedule_Date__c = null;
+            v.Is_Active__c = false;
+        }
+        if (!toDeactivate.isEmpty()) update toDeactivate;
 
-            Offer__c offer = [SELECT Id, Country_Code__c, CurrencyIsoCode FROM Offer__c WHERE Id = :offerId LIMIT 1];
-            offer.Is_Active__c = true;
-            offer.Offer_Status__c = 'Active';
-            offer.Offer_Version_Id__c = version.Offer_Version_Id__c;
-            offer.Attractiveness_Score__c = version.Attractiveness_Score__c;
-            if (String.isNotBlank(version.Country_Code__c)) {
-                offer.Country_Code__c = normaliseCountryCodeForOffer(version.Country_Code__c);
-            }
-            if (String.isNotBlank(version.Currency_Code__c)) {
-                offer.CurrencyIsoCode = version.Currency_Code__c;
-            }
-            try {
-                update offer;
-            } catch (DmlException e) {
-                throw new AuraHandledException('Failed to sync Offer: ' + e.getDmlMessage(0));
-            }
+        version.Version_Status__c = 'Active';
+        version.Schedule_Status__c = null;
+        version.Schedule_Date__c = null;
+        version.Is_Active__c = true;
+        try {
+            update version;
+        } catch (DmlException e) {
+            throw new AuraHandledException('Failed to activate version: ' + e.getDmlMessage(0));
+        }
+
+        Offer__c offer = [SELECT Id, Country_Code__c, CurrencyIsoCode FROM Offer__c WHERE Id = :offerId LIMIT 1];
+        offer.Is_Active__c = true;
+        offer.Offer_Status__c = 'Active';
+        offer.Offer_Version_Id__c = version.Offer_Version_Id__c;
+        offer.Attractiveness_Score__c = version.Attractiveness_Score__c;
+        if (String.isNotBlank(version.Country_Code__c)) {
+            offer.Country_Code__c = normaliseCountryCodeForOffer(version.Country_Code__c);
+        }
+        if (String.isNotBlank(version.Currency_Code__c)) {
+            offer.CurrencyIsoCode = version.Currency_Code__c;
+        }
+        try {
+            update offer;
+        } catch (DmlException e) {
+            throw new AuraHandledException('Failed to sync Offer: ' + e.getDmlMessage(0));
         }
     }
 
@@ -912,16 +955,19 @@ public with sharing class OfferController {
             return;
         }
 
+        // Only an overlap pushes the scheduled version later. A shorter Valid To leaves a gap.
         Offer_Version__c incoming = scheduled[0];
         Date nextStart = activeValidTo.addDays(1);
-        if (incoming.Valid_To__c != null && nextStart > incoming.Valid_To__c) {
-            throw new AuraHandledException(
-                'Valid To leaves no room for the scheduled version, which ends on ' + String.valueOf(incoming.Valid_To__c) + '.'
-            );
+        if (incoming.Valid_From__c == null || nextStart > incoming.Valid_From__c) {
+            if (incoming.Valid_To__c != null && nextStart > incoming.Valid_To__c) {
+                throw new AuraHandledException(
+                    'Valid To leaves no room for the scheduled version, which ends on ' + String.valueOf(incoming.Valid_To__c) + '.'
+                );
+            }
+            incoming.Valid_From__c = nextStart;
+            incoming.Schedule_Date__c = nextStart;
+            update incoming;
         }
-        incoming.Valid_From__c = nextStart;
-        incoming.Schedule_Date__c = nextStart;
-        update incoming;
 
         activeVersion.Schedule_Status__c = 'Scheduled for Deactivation';
         activeVersion.Schedule_Date__c = activeValidTo;
@@ -962,11 +1008,13 @@ public with sharing class OfferController {
             } else {
                 Date incomingFrom = scheduled[0].Valid_From__c;
                 av.Schedule_Status__c = 'Scheduled for Deactivation';
-                // Trim Valid_To to the day before the incoming version activates,
-                // but never earlier than Valid_From (would create an invalid date range).
+                // Trim Valid_To to the day before the incoming version activates, only when the two
+                // overlap and never earlier than Valid_From. A later start leaves a gap.
                 if (incomingFrom != null) {
                     Date trimmedTo = incomingFrom.addDays(-1);
-                    if (av.Valid_From__c == null || trimmedTo >= av.Valid_From__c) {
+                    if (av.Valid_To__c != null && trimmedTo >= av.Valid_To__c) {
+                        av.Schedule_Date__c = av.Valid_To__c;
+                    } else if (av.Valid_From__c == null || trimmedTo >= av.Valid_From__c) {
                         av.Valid_To__c = trimmedTo;
                         av.Schedule_Date__c = trimmedTo;
                     } else {
@@ -978,6 +1026,112 @@ public with sharing class OfferController {
             }
         }
         update activeVersions;
+    }
+
+    private static String familyName(Map<String, Object> data) {
+        return data != null && data.containsKey('Product_Family_Name__c') && data.get('Product_Family_Name__c') != null
+            ? String.valueOf(data.get('Product_Family_Name__c')) : null;
+    }
+
+    /** A Draft can be saved with only a name. Ready, Scheduled and Active need the whole offer. */
+    @TestVisible
+    private static void assertCompleteForActivation(Map<String, Object> data, String offerName, String countryCode) {
+        List<String> missing = new List<String>();
+        if (String.isBlank(offerName) || offerName.contains('{{')) missing.add('Offer Name');
+        if (String.isBlank(countryCode)) missing.add('Country Code');
+        if (String.isBlank(str(data.get('Valid_From__c')))) missing.add('Valid From');
+        if (String.isBlank(str(data.get('Valid_To__c')))) missing.add('Valid To');
+        Object ctIds = data.get('Customer_Type_Ids');
+        if (!(ctIds instanceof List<Object>) || ((List<Object>) ctIds).isEmpty()) missing.add('Customer Type');
+        String family = familyName(data);
+        if (String.isBlank(family)) {
+            missing.add('Product Family');
+        } else {
+            if (String.isBlank(str(data.get('Source_Products__c')))) missing.add('Source Products');
+            missing.addAll(missingRequiredParams(family, data));
+        }
+        if (!missing.isEmpty()) {
+            String message = 'Complete these before activating: ' + String.join(missing, ', ') + '.';
+            AuraHandledException e = new AuraHandledException(message);
+            e.setMessage(message);
+            throw e;
+        }
+    }
+
+    private static List<String> missingRequiredParams(String family, Map<String, Object> data) {
+        List<String> missing = new List<String>();
+        for (Offer_Attribute_Rule__c rule : [
+            SELECT Offer_Attribute__r.Name, Offer_Attribute__r.Parameter_API_Name__c, Offer_Attribute__r.Parameter_Type__c
+            FROM Offer_Attribute_Rule__c
+            WHERE Product_Family__r.Name = :family
+              AND Is_Visible__c = true
+              AND (Is_Required__c = true OR Impacts_Attractiveness__c = true)
+              AND Offer_Attribute__r.Is_Active__c = true
+              AND Offer_Attribute__r.Parameter_API_Name__c != null
+              AND (NOT Offer_Attribute__r.Name LIKE '(TEST)%')
+            ORDER BY Display_Order__c ASC NULLS LAST
+        ]) {
+            String type = rule.Offer_Attribute__r.Parameter_Type__c;
+            if (type == 'Checkbox' || type == 'Range') continue;
+            if (String.isBlank(str(data.get(rule.Offer_Attribute__r.Parameter_API_Name__c)))) {
+                missing.add(rule.Offer_Attribute__r.Name);
+            }
+        }
+        return missing;
+    }
+
+    /** Rebuilds the wizard payload from a saved version so activation can check it. */
+    private static void assertVersionComplete(Id versionId) {
+        Offer_Version__c base = [
+            SELECT Product_Family_Name__c, Offer_Lookup__r.Name, Offer_Lookup__r.Country_Code__c
+            FROM Offer_Version__c WHERE Id = :versionId LIMIT 1
+        ];
+        Map<String, Schema.SObjectField> versionFields = Schema.SObjectType.Offer_Version__c.fields.getMap();
+        Set<String> fields = new Set<String>{
+            'valid_from__c', 'valid_to__c', 'product_family_name__c', 'source_products__c', 'additional_parameters__c'
+        };
+        if (String.isNotBlank(base.Product_Family_Name__c)) {
+            for (Offer_Attribute_Rule__c rule : [
+                SELECT Offer_Attribute__r.Parameter_API_Name__c FROM Offer_Attribute_Rule__c
+                WHERE Product_Family__r.Name = :base.Product_Family_Name__c
+                  AND Offer_Attribute__r.Parameter_API_Name__c != null
+            ]) {
+                String api = rule.Offer_Attribute__r.Parameter_API_Name__c.toLowerCase();
+                if (versionFields.containsKey(api)) fields.add(api);
+            }
+        }
+        Offer_Version__c v = Database.query(
+            'SELECT ' + String.join(new List<String>(fields), ', ') + ' FROM Offer_Version__c WHERE Id = :versionId LIMIT 1'
+        );
+        Map<String, Object> data = new Map<String, Object>();
+        for (String f : fields) {
+            data.put(versionFields.get(f).getDescribe().getName(), v.get(f));
+        }
+        String extra = (String) v.get('additional_parameters__c');
+        if (String.isNotBlank(extra)) {
+            try {
+                for (Object item : (List<Object>) JSON.deserializeUntyped(extra)) {
+                    Map<String, Object> entry = (Map<String, Object>) item;
+                    if (entry.get('key') != null && !data.containsKey(String.valueOf(entry.get('key')))) {
+                        data.put(String.valueOf(entry.get('key')), entry.get('value'));
+                    }
+                }
+            } catch (Exception ignore) { /* malformed JSON adds nothing */ }
+        }
+        List<Object> ctIds = new List<Object>();
+        for (Offer_Version_Customer_Type__c row : [
+            SELECT Customer_Type__c FROM Offer_Version_Customer_Type__c WHERE Offer_Version__c = :versionId
+        ]) {
+            ctIds.add(row.Customer_Type__c);
+        }
+        data.put('Customer_Type_Ids', ctIds);
+        assertCompleteForActivation(data, base.Offer_Lookup__r.Name, base.Offer_Lookup__r.Country_Code__c);
+    }
+
+    private static String str(Object val) {
+        if (val == null) return null;
+        String s = String.valueOf(val);
+        return String.isBlank(s) ? null : s;
     }
 
     private static Decimal computeScore(Map<String, Object> data) {
@@ -1007,51 +1161,52 @@ public with sharing class OfferController {
     }
 
     private static void populateVersionFields(Offer_Version__c v, Map<String, Object> d) {
-        if (d.containsKey('Name'))                         v.Name = String.valueOf(d.get('Name'));
-        if (d.containsKey('Country_Code__c'))              v.Country_Code__c = d.get('Country_Code__c') != null ? normaliseCountryCodeForVersion(String.valueOf(d.get('Country_Code__c'))) : null;
-        if (d.containsKey('Currency_Code__c'))             { v.Currency_Code__c = String.valueOf(d.get('Currency_Code__c')); v.CurrencyIsoCode = String.valueOf(d.get('Currency_Code__c')); }
-        if (d.containsKey('Product_Family_Name__c'))       v.Product_Family_Name__c = d.get('Product_Family_Name__c') != null ? String.valueOf(d.get('Product_Family_Name__c')) : null;
-        if (d.containsKey('Source_Products__c'))           v.Source_Products__c = String.valueOf(d.get('Source_Products__c'));
-        if (d.containsKey('Valid_From__c'))                v.Valid_From__c = d.get('Valid_From__c') != null ? Date.valueOf(String.valueOf(d.get('Valid_From__c'))) : null;
-        if (d.containsKey('Valid_To__c'))                  v.Valid_To__c = d.get('Valid_To__c') != null ? Date.valueOf(String.valueOf(d.get('Valid_To__c'))) : null;
+        if (d.containsKey('Name'))                         v.Name = str(d.get('Name'));
+        if (d.containsKey('Country_Code__c'))              v.Country_Code__c = d.get('Country_Code__c') != null ? normaliseCountryCodeForVersion(str(d.get('Country_Code__c'))) : null;
+        if (d.containsKey('Currency_Code__c'))             { v.Currency_Code__c = str(d.get('Currency_Code__c')); v.CurrencyIsoCode = str(d.get('Currency_Code__c')); }
+        if (d.containsKey('Product_Family_Name__c'))       v.Product_Family_Name__c = d.get('Product_Family_Name__c') != null ? str(d.get('Product_Family_Name__c')) : null;
+        if (d.containsKey('Source_Products__c'))           v.Source_Products__c = str(d.get('Source_Products__c'));
+        if (d.containsKey('Valid_From__c'))                v.Valid_From__c = d.get('Valid_From__c') != null ? Date.valueOf(str(d.get('Valid_From__c'))) : null;
+        if (d.containsKey('Valid_To__c'))                  v.Valid_To__c = d.get('Valid_To__c') != null ? Date.valueOf(str(d.get('Valid_To__c'))) : null;
         if (d.containsKey('Is_Promo__c'))                  v.Is_Promo__c = Boolean.valueOf(d.get('Is_Promo__c'));
-        if (d.containsKey('Additional_Parameters__c'))     v.Additional_Parameters__c = d.get('Additional_Parameters__c') != null ? String.valueOf(d.get('Additional_Parameters__c')) : null;
+        if (d.containsKey('Additional_Parameters__c'))     v.Additional_Parameters__c = d.get('Additional_Parameters__c') != null ? str(d.get('Additional_Parameters__c')) : null;
         if (d.containsKey('Base_Interest_Rate__c'))        v.Base_Interest_Rate__c = toDecimal(d.get('Base_Interest_Rate__c'));
         if (d.containsKey('Card_Fee__c'))                  v.Card_Fee__c = Boolean.valueOf(d.get('Card_Fee__c'));
         if (d.containsKey('Commission_Amount_Flat_Fee__c')) v.Commission_Amount_Flat_Fee__c = toDecimal(d.get('Commission_Amount_Flat_Fee__c'));
         if (d.containsKey('Commission_Percentage__c'))     v.Commission_Percentage__c = toDecimal(d.get('Commission_Percentage__c'));
-        if (d.containsKey('CTA_DURL__c'))                  v.CTA_DURL__c = String.valueOf(d.get('CTA_DURL__c'));
-        if (d.containsKey('CTA_URL__c'))                   v.CTA_URL__c = String.valueOf(d.get('CTA_URL__c'));
+        if (d.containsKey('CTA_DURL__c'))                  v.CTA_DURL__c = str(d.get('CTA_DURL__c'));
+        if (d.containsKey('CTA_URL__c'))                   v.CTA_URL__c = str(d.get('CTA_URL__c'));
         if (d.containsKey('Currency__c'))                  v.Currency__c = toDecimal(d.get('Currency__c'));
         if (d.containsKey('Deposit_Duration_Months__c'))   v.Deposit_Duration_Months__c = toDecimal(d.get('Deposit_Duration_Months__c'));
         if (d.containsKey('Duration_Days__c'))             v.Duration_Days__c = toDecimal(d.get('Duration_Days__c'));
-        if (d.containsKey('Grace_Period_Days__c'))         v.Grace_Period_Days__c = d.get('Grace_Period_Days__c') != null ? String.valueOf(d.get('Grace_Period_Days__c')) : null;
-        if (d.containsKey('Interest_Capitalization__c'))   v.Interest_Capitalization__c = String.valueOf(d.get('Interest_Capitalization__c'));
+        if (d.containsKey('Grace_Period_Days__c'))         v.Grace_Period_Days__c = d.get('Grace_Period_Days__c') != null ? str(d.get('Grace_Period_Days__c')) : null;
+        if (d.containsKey('Interest_Capitalization__c'))   v.Interest_Capitalization__c = str(d.get('Interest_Capitalization__c'));
         if (d.containsKey('Max_Owned_Products_Limit__c'))  v.Max_Owned_Products_Limit__c = toDecimal(d.get('Max_Owned_Products_Limit__c'));
         if (d.containsKey('Maximum_Amount__c'))            v.Maximum_Amount__c = toDecimal(d.get('Maximum_Amount__c'));
         if (d.containsKey('Maximum_Tenure__c'))            v.Maximum_Tenure__c = toDecimal(d.get('Maximum_Tenure__c'));
         if (d.containsKey('Minimal_Amount__c'))            v.Minimal_Amount__c = toDecimal(d.get('Minimal_Amount__c'));
         if (d.containsKey('Nominal_Interest_Rate__c'))     v.Nominal_Interest_Rate__c = toDecimal(d.get('Nominal_Interest_Rate__c'));
-        if (d.containsKey('Offer_Description__c'))         v.Offer_Description__c = String.valueOf(d.get('Offer_Description__c'));
+        if (d.containsKey('Offer_Description__c'))         v.Offer_Description__c = str(d.get('Offer_Description__c'));
         if (d.containsKey('Promotional_Interest_Rate__c')) v.Promotional_Interest_Rate__c = toDecimal(d.get('Promotional_Interest_Rate__c'));
-        if (d.containsKey('Representative_Example__c'))    v.Representative_Example__c = String.valueOf(d.get('Representative_Example__c'));
+        if (d.containsKey('Representative_Example__c'))    v.Representative_Example__c = str(d.get('Representative_Example__c'));
         if (d.containsKey('RRSO__c'))                      v.RRSO__c = toDecimal(d.get('RRSO__c'));
-        if (d.containsKey('Statute_URL__c'))               v.Statute_URL__c = String.valueOf(d.get('Statute_URL__c'));
+        if (d.containsKey('Statute_URL__c'))               v.Statute_URL__c = str(d.get('Statute_URL__c'));
         if (d.containsKey('Maximum_Promotional_Amount__c')) v.Maximum_Promotional_Amount__c = toDecimal(d.get('Maximum_Promotional_Amount__c'));
-        if (d.containsKey('Earlier_Repayment_Fee__c'))     v.Earlier_Repayment_Fee__c = String.valueOf(d.get('Earlier_Repayment_Fee__c'));
-        if (d.containsKey('Interest_Type__c'))             v.Interest_Type__c = String.valueOf(d.get('Interest_Type__c'));
-        if (d.containsKey('Sales_Process__c'))             v.Sales_Process__c = String.valueOf(d.get('Sales_Process__c'));
-        if (d.containsKey('NO_Fees_Conditions_Simplicity__c')) v.NO_Fees_Conditions_Simplicity__c = String.valueOf(d.get('NO_Fees_Conditions_Simplicity__c'));
-        if (d.containsKey('Additional_VAS__c'))            v.Additional_VAS__c = String.valueOf(d.get('Additional_VAS__c'));
-        if (d.containsKey('Own_Input_Percentage__c'))      v.Own_Input_Percentage__c = String.valueOf(d.get('Own_Input_Percentage__c'));
-        if (d.containsKey('Product_Id__c'))                v.Product_Id__c = d.get('Product_Id__c') != null ? String.valueOf(d.get('Product_Id__c')) : null;
-        if (d.containsKey('Product_Family__c'))            v.Product_Family__c = d.get('Product_Family__c') != null ? String.valueOf(d.get('Product_Family__c')) : null;
-        if (d.containsKey('CTA_Intent__c'))                v.CTA_Intent__c = d.get('CTA_Intent__c') != null ? String.valueOf(d.get('CTA_Intent__c')) : null;
-        if (d.containsKey('REG_URL__c'))                   v.REG_URL__c = d.get('REG_URL__c') != null ? String.valueOf(d.get('REG_URL__c')) : null;
+        if (d.containsKey('Earlier_Repayment_Fee__c'))     v.Earlier_Repayment_Fee__c = str(d.get('Earlier_Repayment_Fee__c'));
+        if (d.containsKey('Interest_Type__c'))             v.Interest_Type__c = str(d.get('Interest_Type__c'));
+        if (d.containsKey('Sales_Process__c'))             v.Sales_Process__c = str(d.get('Sales_Process__c'));
+        if (d.containsKey('NO_Fees_Conditions_Simplicity__c')) v.NO_Fees_Conditions_Simplicity__c = str(d.get('NO_Fees_Conditions_Simplicity__c'));
+        if (d.containsKey('Additional_VAS__c'))            v.Additional_VAS__c = str(d.get('Additional_VAS__c'));
+        if (d.containsKey('Own_Input_Percentage__c'))      v.Own_Input_Percentage__c = str(d.get('Own_Input_Percentage__c'));
+        if (d.containsKey('Product_Id__c'))                v.Product_Id__c = d.get('Product_Id__c') != null ? str(d.get('Product_Id__c')) : null;
+        if (d.containsKey('Product_Family__c'))            v.Product_Family__c = d.get('Product_Family__c') != null ? str(d.get('Product_Family__c')) : null;
+        if (d.containsKey('CTA_Intent__c'))                v.CTA_Intent__c = d.get('CTA_Intent__c') != null ? str(d.get('CTA_Intent__c')) : null;
+        if (d.containsKey('REG_URL__c'))                   v.REG_URL__c = d.get('REG_URL__c') != null ? str(d.get('REG_URL__c')) : null;
     }
 
     private static Decimal toDecimal(Object val) {
-        return val != null ? Decimal.valueOf(String.valueOf(val)) : null;
+        String s = str(val);
+        return s != null ? Decimal.valueOf(s.trim()) : null;
     }
 
     /**

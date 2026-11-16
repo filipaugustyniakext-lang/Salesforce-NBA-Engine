@@ -290,7 +290,7 @@ public with sharing class MarketingDictionaryController {
     @AuraEnabled(cacheable=true)
     public static List<Marketing_Dictionary__c> getChannelDictionaryRecords() {
         return [
-            SELECT Id, Name, Channel_Icon__c, Is_Active__c, Main_Channel__c
+            SELECT Id, Name, Channel_Icon__c, Is_Active__c, Main_Channel__c, Use_Templates__c
             FROM Marketing_Dictionary__c
             WHERE RecordType.DeveloperName = 'Channel'
             ORDER BY Name ASC

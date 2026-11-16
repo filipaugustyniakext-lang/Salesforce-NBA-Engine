@@ -47,6 +47,7 @@ const EMPTY_CHANNEL = () => ({
     Name: '',
     Channel_Icon__c: '',
     Main_Channel__c: false,
+    Use_Templates__c: false,
     Is_Active__c: true,
     Communication_Inbound__c: false,
     Communication_Outbound__c: false
@@ -201,8 +202,9 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
                 r => !usedAudienceIds.has(r.Id)
             ).length;
             const weekDays = this._buildWeekDays(ch.Blackout_Day_Rules__r || [], ch.Id);
-            const tabMenuItems = this._buildTabMenuItems(ch, state.activeTab, displayName);
-            const settingsTabs = this._buildSettingsTabs(ch, state.activeTab, displayName);
+            const activeTab = this._resolveVisibleSubTab(ch, state.activeTab);
+            const tabMenuItems = this._buildTabMenuItems(ch, activeTab, displayName);
+            const settingsTabs = this._buildSettingsTabs(ch, activeTab, displayName);
             return {
                 ...ch,
                 displayName,
@@ -220,7 +222,7 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
                     ? 'slds-badge channel-status channel-status_inactive'
                     : 'slds-badge channel-status channel-status_active',
                 sidebarClass: `ch-sidebar__item${isActive ? ' ch-sidebar__item_active' : ''}${ch.Is_Active__c === false ? ' ch-sidebar__item_inactive' : ''}`,
-                activeTab: state.activeTab,
+                activeTab,
                 placementSearch: state.placementSearch,
                 filteredPlacements: filtered.length ? filtered : null,
                 placementCountLabel: this._countLabel(filtered.length, placements.length, state.placementSearch),
@@ -252,13 +254,29 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
         return used;
     }
 
-    _buildSettingsTabs(ch, activeTab, displayName) {
+    _channelUsesTemplates(ch) {
+        return ch?.Use_Templates__c === true;
+    }
+
+    _resolveVisibleSubTab(ch, requested) {
+        const allowed = new Set(this._buildSettingsTabs(ch, requested).map(tab => tab.value));
+        return allowed.has(requested) ? requested : 'cooldown';
+    }
+
+    _settingsTabDefinitions(ch, displayName) {
         const label = displayName || getChannelDisplayName(ch);
         const tabs = [
             { value: 'cooldown', label: 'Cooldown Rules', iconName: 'utility:waits' },
-            { value: 'weekly', label: 'Weekly Restrictions', iconName: 'utility:restriction_policy' },
-            { value: 'templates', label: `${label} Templates`, iconName: 'utility:insert_template' }
+            { value: 'weekly', label: 'Weekly Restrictions', iconName: 'utility:restriction_policy' }
         ];
+        if (this._channelUsesTemplates(ch)) {
+            tabs.push({ value: 'templates', label: `${label} Templates`, iconName: 'utility:insert_template' });
+        }
+        return tabs;
+    }
+
+    _buildSettingsTabs(ch, activeTab, displayName) {
+        const tabs = this._settingsTabDefinitions(ch, displayName);
         if (isBannerChannel(ch)) {
             tabs.push(
                 { value: 'placements', label: 'Placeholders', iconName: 'utility:drag' },

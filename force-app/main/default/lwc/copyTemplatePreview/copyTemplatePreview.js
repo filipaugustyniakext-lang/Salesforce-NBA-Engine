@@ -446,7 +446,7 @@ export function parsePreviewViewsFromShell(shellHtml) {
     };
 }
 
-const SHELL_EDITOR_PATTERN = /<([a-zA-Z0-9:_-]+)\b([^>]*\bdata-editor\s*=\s*(['"])(text|richtext|image|action)\3[^>]*)(?:\/>|>([\s\S]*?)<\/\1>)/gi;
+const SHELL_EDITOR_PATTERN = /<([a-zA-Z0-9:_-]+)\b([^>]*\bdata-editor\s*=\s*(['"])(text|richtext|image|action)\3[^>]*)(?:\/>|>([\s\S]*?)<\/\1\s*>)/gi;
 
 /** single = one shell, no content-block step. Anything else is a multi-block template. */
 export function parseTemplateKind(shellHtml) {
@@ -454,6 +454,24 @@ export function parseTemplateKind(shellHtml) {
     const wrapper = regions.find(region => region.dataAction === 'template-start');
     const kind = parseCcPreviewAttr(wrapper?.attrs || '', 'template-kind').trim().toLowerCase();
     return kind === 'single' ? 'single' : 'multi';
+}
+
+function parseDelimitedOptions(raw) {
+    return String(raw || '')
+        .split(/[|,]/)
+        .map(part => part.trim())
+        .filter(Boolean);
+}
+
+function parseImageModes(attrs) {
+    return parseDelimitedOptions(parseCcPreviewAttr(attrs, 'data-image-modes'))
+        .map(mode => mode.toLowerCase())
+        .filter(mode => mode === 'light' || mode === 'dark');
+}
+
+function placeholderFromHref(attrs) {
+    const hrefMatch = /\bhref\s*=\s*(['"])(.*?)\1/i.exec(String(attrs || ''));
+    return hrefMatch ? firstPlaceholder(hrefMatch[2]) : '';
 }
 
 /** Fields declared with data-editor on the shell, for Copy Center binding. */
@@ -466,11 +484,84 @@ export function parseShellEditorFields(shellHtml) {
         const attrs = match[2] || '';
         const editor = String(match[4] || '').toLowerCase();
         const inner = match[5] || '';
-        const placeholder = editor === 'image'
-            ? firstPlaceholder(attrs) || firstPlaceholder(inner)
-            : firstPlaceholder(inner) || firstPlaceholder(attrs);
-        if (placeholder && !fields.some(field => field.placeholder === placeholder)) {
-            fields.push({ placeholder, editor });
+        const variantName = parseCcPreviewAttr(attrs, 'data-variant').trim();
+        const variantLabel = parseCcPreviewAttr(attrs, 'data-variant-label').trim() || variantName;
+        const bindingTitle = parseCcPreviewAttr(attrs, 'data-binding-title').trim() || variantLabel;
+        const uiComponent = parseCcPreviewAttr(attrs, 'data-ui-component').trim();
+        const labelOptions = parseDelimitedOptions(parseCcPreviewAttr(attrs, 'data-label-options'));
+        const imageModes = parseImageModes(attrs);
+        const placeholderLight = parseCcPreviewAttr(attrs, 'data-placeholder-light').trim()
+            || firstPlaceholder(attrs)
+            || firstPlaceholder(inner);
+        const placeholderDark = parseCcPreviewAttr(attrs, 'data-placeholder-dark').trim()
+            || firstPlaceholder(inner);
+        const innerPlaceholder = firstPlaceholder(inner) || firstPlaceholder(attrs);
+        let bindingKey = parseCcPreviewAttr(attrs, 'data-binding-key').trim();
+        if (!bindingKey) {
+            if (editor === 'action') {
+                bindingKey = parseCcPreviewAttr(attrs, 'data-label-placeholder').trim()
+                    || innerPlaceholder
+                    || variantName;
+            } else if (editor === 'image' && imageModes.length) {
+                bindingKey = placeholderLight || placeholderDark || 'banner-image';
+            } else {
+                bindingKey = innerPlaceholder || (variantName ? `${variantName}-${editor}` : '');
+            }
+        }
+        if (!bindingKey) {
+            match = SHELL_EDITOR_PATTERN.exec(source);
+            continue;
+        }
+        if (fields.some(field => field.bindingKey === bindingKey)) {
+            match = SHELL_EDITOR_PATTERN.exec(source);
+            continue;
+        }
+
+        if (editor === 'image' && imageModes.length) {
+            fields.push({
+                bindingKey,
+                placeholder: placeholderLight || placeholderDark || bindingKey,
+                placeholderLight: placeholderLight || '',
+                placeholderDark: placeholderDark || '',
+                imageModes,
+                editor,
+                variantName,
+                variantLabel,
+                bindingTitle,
+                uiComponent
+            });
+        } else if (editor === 'action') {
+            const labelPlaceholder = parseCcPreviewAttr(attrs, 'data-label-placeholder').trim()
+                || firstPlaceholder(inner)
+                || bindingKey;
+            const urlPlaceholder = parseCcPreviewAttr(attrs, 'data-url-placeholder').trim()
+                || placeholderFromHref(attrs);
+            const labelDefault = parseCcPreviewAttr(attrs, 'data-label-default').trim();
+            fields.push({
+                bindingKey,
+                placeholder: labelPlaceholder,
+                labelPlaceholder,
+                labelDefault,
+                urlPlaceholder,
+                editor,
+                variantName,
+                variantLabel,
+                bindingTitle,
+                uiComponent
+            });
+        } else {
+            const placeholder = innerPlaceholder || bindingKey;
+            fields.push({
+                bindingKey,
+                placeholder,
+                editor,
+                variantName,
+                variantLabel,
+                bindingTitle,
+                uiComponent,
+                labelOptions,
+                labelCustomOption: parseCcPreviewAttr(attrs, 'data-label-custom').trim() || 'Custom Label'
+            });
         }
         match = SHELL_EDITOR_PATTERN.exec(source);
     }
@@ -573,16 +664,45 @@ export function previewFrameHeightPx(device, layout) {
     return config.mobileHeight || PREVIEW_MOBILE_FRAME_HEIGHT_PX;
 }
 
+function escapePreviewHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function escapeRegExp(value) {
+    return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Replace anchor body for data-label-placeholder bindings (supports multiline <a> tags). */
+function applyShellPreviewActionLabels(html, values) {
+    let output = String(html || '');
+    Object.entries(values || {}).forEach(([name, raw]) => {
+        if (!name || raw == null || raw === '') return;
+        const safeName = escapeRegExp(name);
+        const pattern = new RegExp(
+            `(<a\\b[\\s\\S]*?\\bdata-label-placeholder\\s*=\\s*(["'])${safeName}\\2[\\s\\S]*?)>([\\s\\S]*?)<\\/a\\s*>`,
+            'gi'
+        );
+        const escaped = escapePreviewHtml(raw);
+        output = output.replace(pattern, (_match, openTag) => `${openTag}>${escaped}</a>`);
+    });
+    return output;
+}
+
 export function applyShellPreviewValues(html, values) {
     const source = values && typeof values === 'object' ? values : {};
     const normalized = String(html || '')
         .replace(/&#123;&#123;\s*([A-Za-z0-9_.:-]+)\s*&#125;&#125;/g, '{{$1}}')
         .replace(/&lbrace;&lbrace;\s*([A-Za-z0-9_.:-]+)\s*&rbrace;&rbrace;/gi, '{{$1}}');
-    return normalized.replace(/\{\{\s*([A-Za-z0-9_.:-]+)\s*\}\}/g, (token, name) => {
+    const withTokens = normalized.replace(/\{\{\s*([A-Za-z0-9_.:-]+)\s*\}\}/g, (token, name) => {
         if (!Object.prototype.hasOwnProperty.call(source, name)) return token;
         const value = source[name];
-        return value == null || value === '' ? token : String(value);
+        return value == null || value === '' ? token : escapePreviewHtml(value);
     });
+    return applyShellPreviewActionLabels(withTokens, source);
 }
 
 export function bindShellPreviewInteractions(host) {

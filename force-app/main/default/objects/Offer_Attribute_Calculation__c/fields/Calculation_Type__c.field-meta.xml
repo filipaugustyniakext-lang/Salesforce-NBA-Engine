@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Calculation_Type__c</fullName>
+    <description>Formula: the formula result is the strength. Formula with Bands: the formula result is looked up in the band rows. Value Map: each picklist or checkbox value gets its own strength on the family attribute.</description>
+    <label>Calculation Type</label>
+    <required>true</required>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Formula</fullName>
+                <default>true</default>
+                <label>Formula</label>
+            </value>
+            <value>
+                <fullName>Formula with Bands</fullName>
+                <default>false</default>
+                <label>Formula with Bands</label>
+            </value>
+            <value>
+                <fullName>Value Map</fullName>
+                <default>false</default>
+                <label>Value Map</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

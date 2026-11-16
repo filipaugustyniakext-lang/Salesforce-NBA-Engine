@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Segment_Id__c</fullName>
+    <description>Id of the segment</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Id of the segment can be found in the segment URL, starts with 1sgds0...</inlineHelpText>
+    <label>Segment Id</label>
+    <length>20</length>
+    <required>true</required>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

@@ -1,0 +1,110 @@
+<template>
+    <lightning-card title="Catalogue health (assigned vs eligible now)" icon-name="standard:campaign">
+        <div slot="actions">
+            <lightning-button-icon
+                icon-name="utility:refresh"
+                alternative-text="Refresh"
+                title="Refresh"
+                onclick={handleRefresh}>
+            </lightning-button-icon>
+        </div>
+
+        <div class="slds-p-horizontal_medium slds-p-bottom_medium">
+            <template if:true={isLoading}>
+                <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
+            </template>
+
+            <template if:true={errorMessage}>
+                <div class="slds-notify slds-notify_alert slds-theme_error slds-m-bottom_small" role="alert">
+                    <span class="slds-assistive-text">Error</span>
+                    {errorMessage}
+                </div>
+            </template>
+
+            <template if:true={summary}>
+                <template if:true={showGapAlert}>
+                    <div class="slds-notify slds-notify_alert slds-theme_warning slds-m-bottom_small" role="alert">
+                        <span class="slds-assistive-text">Warning</span>
+                        Some assigned offers or copy variants are not eligible at runtime. Customer processing will use only eligible rows.
+                    </div>
+                </template>
+
+                <template if:true={showEmptyState}>
+                    <div class="slds-notify slds-notify_alert slds-theme_info" role="status">
+                        No offers or copy variants are assigned on this campaign yet.
+                    </div>
+                </template>
+
+                <template if:false={showEmptyState}>
+                    <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
+                        Junction rows show marketer assignment; eligibility is re-evaluated from Offer and Copy Cockpit status at runtime.
+                    </p>
+
+                    <section class="slds-m-bottom_medium">
+                        <h3 class="slds-text-heading_small slds-m-bottom_x-small">{summary.offerHeadline}</h3>
+                        <template if:true={summary.offers.length}>
+                            <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_fixed-layout health-table">
+                                <thead>
+                                    <tr class="slds-line-height_reset">
+                                        <th scope="col"><div class="slds-truncate" title="Offer">Offer</div></th>
+                                        <th scope="col"><div class="slds-truncate" title="Status">Offer status</div></th>
+                                        <th scope="col"><div class="slds-truncate" title="Runtime">Runtime</div></th>
+                                        <th scope="col"><div class="slds-truncate" title="Note">Note</div></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template for:each={summary.offers} for:item="row">
+                                        <tr key={row.id} class={row.rowClass}>
+                                            <td>
+                                                <a href={row.recordUrl} class="slds-truncate record-link">{row.name}</a>
+                                            </td>
+                                            <td><div class="slds-truncate">{row.status}</div></td>
+                                            <td><span class={row.statusBadgeClass}>{row.statusBadgeLabel}</span></td>
+                                            <td><div class="slds-truncate" title={row.note}>{row.note}</div></td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </template>
+                        <template if:false={summary.offers.length}>
+                            <p class="slds-text-body_small slds-text-color_weak">No offers assigned.</p>
+                        </template>
+                    </section>
+
+                    <section>
+                        <h3 class="slds-text-heading_small slds-m-bottom_x-small">{summary.copyHeadline}</h3>
+                        <template if:true={summary.copyVariants.length}>
+                            <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_fixed-layout health-table">
+                                <thead>
+                                    <tr class="slds-line-height_reset">
+                                        <th scope="col"><div class="slds-truncate" title="Copy">Copy variant</div></th>
+                                        <th scope="col"><div class="slds-truncate" title="Channel">Channel</div></th>
+                                        <th scope="col"><div class="slds-truncate" title="Status">Copy status</div></th>
+                                        <th scope="col"><div class="slds-truncate" title="Runtime">Runtime</div></th>
+                                        <th scope="col"><div class="slds-truncate" title="Note">Note</div></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template for:each={summary.copyVariants} for:item="row">
+                                        <tr key={row.id} class={row.rowClass}>
+                                            <td>
+                                                <a href={row.recordUrl} class="slds-truncate record-link">{row.name}</a>
+                                            </td>
+                                            <td><div class="slds-truncate">{row.channelType}</div></td>
+                                            <td><div class="slds-truncate">{row.status}</div></td>
+                                            <td><span class={row.statusBadgeClass}>{row.statusBadgeLabel}</span></td>
+                                            <td><div class="slds-truncate" title={row.note}>{row.note}</div></td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </template>
+                        <template if:false={summary.copyVariants.length}>
+                            <p class="slds-text-body_small slds-text-color_weak">No copy variants assigned.</p>
+                        </template>
+                    </section>
+                </template>
+            </template>
+        </div>
+    </lightning-card>
+</template>

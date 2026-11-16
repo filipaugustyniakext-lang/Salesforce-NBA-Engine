@@ -1,0 +1,187 @@
+<template>
+    <div class="slds-p-around_small">
+        <div class="ocm-toolbar slds-m-bottom_small">
+            <div>
+                <h2 class="slds-text-heading_small">
+                    Calculations
+                    <span class="slds-badge slds-badge_lightest slds-m-left_x-small">{calculations.length}</span>
+                </h2>
+                <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">
+                    Reusable templates that turn an offer attribute's value into a strength from 0 to 1.
+                    Write formulas like Excel or Salesforce formulas. &#123;Value&#125; is the value the operator types;
+                    every other &#123;Name&#125; is a placeholder that each family attribute fills with a number, a reference value or another offer attribute.
+                </p>
+            </div>
+            <lightning-button label="+ New Calculation" variant="brand" onclick={handleNew}></lightning-button>
+        </div>
+
+        <template lwc:if={isLoading}>
+            <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
+        </template>
+
+        <template lwc:if={hasCalculations}>
+            <div class="ocm-grid">
+                <template for:each={cards} for:item="c">
+                    <div key={c.id} class="ocm-card">
+                        <div class="ocm-card__header">
+                            <span class="ocm-card__name">{c.name}</span>
+                            <span class="slds-badge slds-badge_lightest">{c.typeLabel}</span>
+                            <span class={c.statusClass}>{c.statusLabel}</span>
+                            <span class="ocm-spacer"></span>
+                            <lightning-button-icon icon-name="utility:edit" variant="bare" size="small"
+                                alternative-text="Edit" title="Edit calculation" data-id={c.id} onclick={handleEdit}>
+                            </lightning-button-icon>
+                            <lightning-button-icon icon-name="utility:delete" variant="bare" size="small"
+                                alternative-text="Delete" title="Delete calculation" data-id={c.id} onclick={handleAskDelete}>
+                            </lightning-button-icon>
+                        </div>
+                        <template lwc:if={c.description}>
+                            <p class="ocm-card__desc">{c.description}</p>
+                        </template>
+                        <template lwc:if={c.hasFormula}>
+                            <div class="ocm-formula">{c.formula}</div>
+                        </template>
+                        <template lwc:if={c.hasPlaceholders}>
+                            <div class="ocm-chips">
+                                <template for:each={c.placeholderTokens} for:item="t">
+                                    <span key={t.key} class="ocm-chip">{t.text}</span>
+                                </template>
+                            </div>
+                        </template>
+                        <template lwc:if={c.hasBands}>
+                            <p class="ocm-card__meta">{c.bandCount} bands</p>
+                        </template>
+                        <p class="ocm-card__meta">
+                            <template lwc:if={c.isUsed}>Used by {c.usedByCount}: {c.usedByText}</template>
+                            <template lwc:else>Not used by any attribute yet</template>
+                        </p>
+                    </div>
+                </template>
+            </div>
+        </template>
+        <template lwc:if={isEmpty}>
+            <p class="slds-text-body_small slds-text-color_weak slds-m-top_small">No calculations yet. Create the first one with + New Calculation.</p>
+        </template>
+    </div>
+
+    <template lwc:if={isModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true" class="slds-modal slds-fade-in-open slds-modal_medium">
+            <div class="slds-modal__container">
+                <div class="slds-modal__header">
+                    <h2 class="slds-text-heading_medium">{modalTitle}</h2>
+                </div>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <template lwc:if={draftUsedBy}>
+                        <p class="ocm-note slds-m-bottom_small">Used by {draftUsedBy}. Changes apply to all of them.</p>
+                    </template>
+                    <div class="slds-grid slds-gutters_small slds-wrap">
+                        <div class="slds-col slds-size_1-of-2">
+                            <lightning-input label="Name" required value={draft.name} data-field="name" onchange={handleField}></lightning-input>
+                        </div>
+                        <div class="slds-col slds-size_1-of-2 ocm-active">
+                            <lightning-input type="toggle" label="Active" checked={draft.isActive} data-field="isActive"
+                                message-toggle-active="Yes" message-toggle-inactive="No" onchange={handleField}></lightning-input>
+                        </div>
+                        <div class="slds-col slds-size_1-of-1 slds-m-top_x-small">
+                            <lightning-textarea label="Description" value={draft.description} data-field="description" onchange={handleField}></lightning-textarea>
+                        </div>
+                        <div class="slds-col slds-size_1-of-1 slds-m-top_x-small">
+                            <lightning-radio-group name="calcType" label="Type" type="button" options={typeOptions}
+                                value={draft.calculationType} data-field="calculationType" onchange={handleField}>
+                            </lightning-radio-group>
+                            <p class="ocm-help">{typeHelp}</p>
+                        </div>
+
+                        <template lwc:if={isFormulaType}>
+                            <div class="slds-col slds-size_1-of-1 slds-m-top_x-small">
+                                <lightning-textarea class="ocm-formula-input" label="Formula" required value={draft.formula}
+                                    data-field="formula" onchange={handleField}>
+                                </lightning-textarea>
+                                <p class="ocm-help">Use + - * / ^, brackets, MIN, MAX, ABS, ROUND, IF(condition, then, else), AND, OR, NOT and comparisons such as &lt;=.</p>
+                                <template lwc:if={formulaError}>
+                                    <p class="ocm-error">{formulaError}</p>
+                                </template>
+                                <template lwc:if={formulaOk}>
+                                    <div class="ocm-chips slds-m-top_xx-small">
+                                        <span class="ocm-help">Placeholders each attribute must fill:</span>
+                                        <template for:each={formulaPlaceholders} for:item="t">
+                                            <span key={t.key} class="ocm-chip">{t.text}</span>
+                                        </template>
+                                    </div>
+                                    <template lwc:if={formulaMissesValue}>
+                                        <p class="ocm-note">This formula does not use &#123;Value&#125;, so every offer gets the same strength.</p>
+                                    </template>
+                                </template>
+                            </div>
+                        </template>
+
+                        <template lwc:if={isBandsType}>
+                            <div class="slds-col slds-size_1-of-1 slds-m-top_small">
+                                <span class="slds-form-element__label">Bands (checked top to bottom, first match wins)</span>
+                                <div class="ocm-band-head">
+                                    <span>From</span><span>Incl.</span><span>To</span><span>Incl.</span><span>Strength</span><span></span>
+                                </div>
+                                <template for:each={bandRows} for:item="b">
+                                    <div key={b._key} class="ocm-band-row">
+                                        <input class="ocm-band-input" type="number" step="any" value={b.lower} placeholder="no limit"
+                                            aria-label="From" data-index={b.index} data-field="lower" onchange={handleBandField} />
+                                        <input type="checkbox" checked={b.lowerInclusive} aria-label="From included"
+                                            data-index={b.index} data-field="lowerInclusive" onchange={handleBandField} />
+                                        <input class="ocm-band-input" type="number" step="any" value={b.upper} placeholder="no limit"
+                                            aria-label="To" data-index={b.index} data-field="upper" onchange={handleBandField} />
+                                        <input type="checkbox" checked={b.upperInclusive} aria-label="To included"
+                                            data-index={b.index} data-field="upperInclusive" onchange={handleBandField} />
+                                        <input class={b.scoreClass} type="number" min="0" max="1" step="0.01" value={b.score} placeholder="0.00"
+                                            aria-label="Strength" data-index={b.index} data-field="score" onchange={handleBandField} />
+                                        <lightning-button-icon icon-name="utility:delete" variant="bare" size="small"
+                                            alternative-text="Remove band" data-index={b.index} onclick={handleRemoveBand}>
+                                        </lightning-button-icon>
+                                    </div>
+                                </template>
+                                <lightning-button class="slds-m-top_x-small" label="Add band" icon-name="utility:add" onclick={handleAddBand}></lightning-button>
+                            </div>
+                        </template>
+
+                        <template lwc:if={hasPreview}>
+                            <div class="slds-col slds-size_1-of-1 slds-m-top_small ocm-preview">
+                                <span class="slds-form-element__label">Try it</span>
+                                <div class="ocm-preview__fields">
+                                    <template for:each={previewFields} for:item="f">
+                                        <lightning-input key={f.name} type="number" step="any" label={f.token}
+                                            value={f.value} data-name={f.name} onchange={handlePreviewVar}>
+                                        </lightning-input>
+                                    </template>
+                                </div>
+                                <p class="ocm-preview__result">{previewText}</p>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+                <div class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={handleClose}></lightning-button>
+                    <lightning-button label="Save" variant="brand" class="slds-m-left_x-small"
+                        disabled={saveDisabled} onclick={handleSave}></lightning-button>
+                </div>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open" role="presentation"></div>
+    </template>
+
+    <template lwc:if={isDeleteOpen}>
+        <section role="alertdialog" tabindex="-1" aria-modal="true" class="slds-modal slds-fade-in-open slds-modal_small">
+            <div class="slds-modal__container">
+                <div class="slds-modal__header">
+                    <h2 class="slds-text-heading_medium">Delete calculation</h2>
+                </div>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <p>Delete <strong>{deleteName}</strong>? This cannot be undone.</p>
+                </div>
+                <div class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={handleCancelDelete}></lightning-button>
+                    <lightning-button label="Delete" variant="destructive" class="slds-m-left_x-small" onclick={handleConfirmDelete}></lightning-button>
+                </div>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open" role="presentation"></div>
+    </template>
+</template>

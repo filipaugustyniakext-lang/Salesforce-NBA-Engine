@@ -3,10 +3,9 @@
     <fullName>gcp_PESEL_Number__c</fullName>
     <externalId>false</externalId>
     <label>PESEL Number</label>
-    <precision>11</precision>
+    <length>11</length>
     <required>false</required>
-    <scale>0</scale>
     <trackFeedHistory>false</trackFeedHistory>
-    <type>Number</type>
+    <type>Text</type>
     <unique>false</unique>
 </CustomField>

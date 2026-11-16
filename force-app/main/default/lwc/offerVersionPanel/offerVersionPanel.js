@@ -46,6 +46,23 @@ function fmtDate(iso) {
     return `${MONTH[m - 1]} ${ordinal(d)} ${y}`;
 }
 
+function dayBefore(iso) {
+    const [y, m, d] = iso.split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    dt.setDate(dt.getDate() - 1);
+    const mm = String(dt.getMonth() + 1).padStart(2, '0');
+    const dd = String(dt.getDate()).padStart(2, '0');
+    return `${dt.getFullYear()}-${mm}-${dd}`;
+}
+
+// Badge text for a schedule. A deactivation shows its last active day at 23:59.
+function scheduleText(status, date) {
+    if (!status) return '';
+    if (!date) return status;
+    if (status === 'Scheduled for Deactivation') return `Deactivates on ${fmtDate(date)} 23:59`;
+    return `${status} · ${fmtDate(date)}`;
+}
+
 // Parse a date-only "YYYY-MM-DD" field into LOCAL midnight (not UTC midnight,
 // which `new Date(iso)` would give). This keeps date comparisons timezone-safe
 // so a same-day offer (Valid_To = today) is never treated as expired.
@@ -166,7 +183,7 @@ export default class OfferVersionPanel extends LightningElement {
             const isScheduledDeact = v.Schedule_Status__c === 'Scheduled for Deactivation';
             // Build the label with date (e.g. "Scheduled for Activation · Sep 1st 2026")
             const scheduleLabel = v.Schedule_Status__c
-                ? (v.Schedule_Date__c ? `${v.Schedule_Status__c} · ${fmtDate(v.Schedule_Date__c)}` : v.Schedule_Status__c)
+                ? scheduleText(v.Schedule_Status__c, v.Schedule_Date__c)
                 : null;
             return {
                 ...v,
@@ -262,9 +279,7 @@ export default class OfferVersionPanel extends LightningElement {
     get displayedScheduleStatusLabel() {
         const v = this.displayedVersion;
         if (!v?.Schedule_Status__c) return '';
-        return v.Schedule_Date__c
-            ? `${v.Schedule_Status__c} · ${fmtDate(v.Schedule_Date__c)}`
-            : v.Schedule_Status__c;
+        return scheduleText(v.Schedule_Status__c, v.Schedule_Date__c);
     }
 
     get displayedValidFrom() { return fmtDate(this.displayedVersion?.Valid_From__c); }
@@ -533,7 +548,7 @@ export default class OfferVersionPanel extends LightningElement {
         const today = localMidnightToday();
         if (newFrom && newFrom > today) {
             return `The validity period of this version overlaps with the currently Active version "${activeVer.Name}". ` +
-                   `If you proceed, the Active version will be automatically scheduled for deactivation on ${fmtDate(newVer.Valid_From__c)}.`;
+                   `If you proceed, the Active version deactivates on ${fmtDate(dayBefore(newVer.Valid_From__c))} 23:59.`;
         }
         return `The validity period of this version overlaps with the currently Active version "${activeVer.Name}". ` +
                `If you proceed, the Active version will be immediately deactivated.`;

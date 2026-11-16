@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Calculation_Inputs__c</fullName>
+    <description>JSON map of the calculation&apos;s placeholders to what fills them for this family: {&quot;Floor&quot;:{&quot;source&quot;:&quot;reference&quot;,&quot;id&quot;:&quot;...&quot;,&quot;name&quot;:&quot;Minimal Amount&quot;},&quot;Step&quot;:{&quot;source&quot;:&quot;number&quot;,&quot;value&quot;:1},&quot;Cap&quot;:{&quot;source&quot;:&quot;attribute&quot;,&quot;field&quot;:&quot;Maximum_Amount__c&quot;,&quot;name&quot;:&quot;Maximum Amount&quot;}}.</description>
+    <label>Calculation Inputs</label>
+    <length>32768</length>
+    <trackTrending>false</trackTrending>
+    <type>LongTextArea</type>
+    <visibleLines>4</visibleLines>
+</CustomField>

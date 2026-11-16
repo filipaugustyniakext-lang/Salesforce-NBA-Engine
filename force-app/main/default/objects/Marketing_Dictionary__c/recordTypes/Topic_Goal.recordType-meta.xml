@@ -3,7 +3,7 @@
     <fullName>Topic_Goal</fullName>
     <active>true</active>
     <label>Topic (Goal)</label>
-<picklistValues>
+    <picklistValues>
         <picklist>Channels__c</picklist>
         <values>
             <fullName>AI Agent - Inbound</fullName>

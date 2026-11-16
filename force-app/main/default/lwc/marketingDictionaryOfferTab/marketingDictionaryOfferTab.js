@@ -8,25 +8,31 @@ import toggleOfferActive from '@salesforce/apex/MarketingDictionaryManagerContro
 import getProductFamilyOptions from '@salesforce/apex/MarketingDictionaryManagerController.getProductFamilyOptions';
 import saveAttributeRule from '@salesforce/apex/MarketingDictionaryManagerController.saveAttributeRule';
 import saveAttributeRulesBulk from '@salesforce/apex/MarketingDictionaryManagerController.saveAttributeRulesBulk';
-import saveScoreBandText from '@salesforce/apex/MarketingDictionaryManagerController.saveScoreBandText';
+import getCalculations from '@salesforce/apex/OfferCalculationController.getCalculations';
+import getRuleCalculations from '@salesforce/apex/OfferCalculationController.getRuleCalculations';
+import checkFamilyCalculations from '@salesforce/apex/OfferCalculationController.checkFamilyCalculations';
+import saveFamilyValueRows from '@salesforce/apex/OfferCalculationController.saveFamilyValueRows';
+import { calculationProblems, isScorableType, NUMERIC_TYPES } from 'c/offerAttributeCalculationEditor';
 
-function formatScoreBands(raw) {
+function valueRowsFromBands(raw) {
     const bands = Array.isArray(raw) ? raw : (raw && raw.records) || [];
-    return bands.map(b => {
-        const score = b.Score__c;
-        if (b.Value_Key__c) return `${b.Value_Key__c}=${score}`;
-        const lo = b.Lower_Bound__c;
-        const hi = b.Upper_Bound__c;
-        if ((lo === null || lo === undefined) && hi !== null && hi !== undefined) {
-            return `${b.Upper_Inclusive__c ? '<=' : '<'}${hi}=${score}`;
-        }
-        if ((hi === null || hi === undefined) && lo !== null && lo !== undefined) {
-            return `${b.Lower_Inclusive__c ? '>=' : '>'}${lo}=${score}`;
-        }
-        const left = b.Lower_Inclusive__c ? '' : '(';
-        const right = b.Upper_Inclusive__c ? '' : ')';
-        return `${left}${lo}..${hi}${right}=${score}`;
-    }).join('\n');
+    return bands
+        .filter(b => b.Value_Key__c)
+        .map(b => ({ _key: Math.random().toString(36).slice(2), key: b.Value_Key__c, score: b.Score__c ?? '' }));
+}
+
+function parseInputsJson(json) {
+    if (!json) return {};
+    try {
+        const parsed = JSON.parse(json);
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch (e) {
+        return {};
+    }
+}
+
+function apiNameFor(name) {
+    return `${String(name || '').replace(/[^a-zA-Z0-9]/g, '_')}__c`;
 }
 import deleteAttributeRule from '@salesforce/apex/MarketingDictionaryManagerController.deleteAttributeRule';
 import getReferenceValues from '@salesforce/apex/MarketingDictionaryManagerController.getReferenceValues';
@@ -96,6 +102,9 @@ const EMPTY_PENDING = () => ({
     Parameter_Help_Text__c: '',
     impactsAttractiveness: false,
     Is_Required__c: false,
+    calculationId: null,
+    calcInputs: {},
+    valueRows: [],
     weight: '',          // stored as integer 0-100 (percent)
     Display_Order__c: null,
     // error flag
@@ -112,7 +121,33 @@ export default class MarketingDictionaryOfferTab extends LightningElement {
     get isAttrTab() { return this._activeVtab === 'attr'; }
     get refVtabClass() { return `vtab-item${this._activeVtab === 'ref' ? ' vtab-item_active' : ''}`; }
     get attrVtabClass() { return `vtab-item${this._activeVtab === 'attr' ? ' vtab-item_active' : ''}`; }
+    get isCalcTab() { return this._activeVtab === 'calc'; }
+    get calcVtabClass() { return `vtab-item${this._activeVtab === 'calc' ? ' vtab-item_active' : ''}`; }
     handleVtabSelect(e) { this._activeVtab = e.currentTarget.dataset.tab; }
+
+    // ─── Calculation templates ────────────────────────────────────────────────
+    @track calculations = [];
+    @track _ruleCalcs = {};   // ruleId → { calculationId, inputs }
+
+    connectedCallback() {
+        this._loadCalculations();
+    }
+
+    async _loadCalculations() {
+        try {
+            const [calcs, ruleCalcs] = await Promise.all([getCalculations(), getRuleCalculations()]);
+            this.calculations = calcs || [];
+            const map = {};
+            (ruleCalcs || []).forEach(rc => { map[rc.ruleId] = { calculationId: rc.calculationId, inputs: rc.inputs }; });
+            this._ruleCalcs = map;
+        } catch (e) {
+            this._showToast('Error', e?.body?.message || 'Failed to load calculations.', 'error');
+        }
+    }
+
+    handleCalculationsChange(e) {
+        this.calculations = e.detail.calculations || [];
+    }
 
     // ─── Shared ───────────────────────────────────────────────────────────────
     @track isSaving = false;
@@ -682,10 +717,15 @@ export default class MarketingDictionaryOfferTab extends LightningElement {
                     weightBadgeLabel: a.rule.Impacts_Attractiveness__c && a.rule.Attractiveness_Weight__c != null
                         ? `★ ${Math.round(Number(a.rule.Attractiveness_Weight__c) * 100)}%` : null,
                     requiredLabel: a.rule.Is_Required__c ? 'Required' : null,
-                    typeBadgeLabel: a.Parameter_Type__c || null
+                    typeBadgeLabel: a.Parameter_Type__c || null,
+                    calcLabel: this._calculationName(this._ruleCalcs[a.rule.Id]?.calculationId)
                 }));
+                const uncalculated = enriched.filter(a => a.rule.Impacts_Attractiveness__c && !a.calcLabel);
                 return {
                     ...grp,
+                    calcWarning: uncalculated.length
+                        ? `No calculation, so these score 0: ${uncalculated.map(a => a.Name).join(', ')}`
+                        : null,
                     attrs: enriched,
                     attractAttrs:  enriched.filter(a => a.rule.Impacts_Attractiveness__c),
                     requiredAttrs: enriched.filter(a => !a.rule.Impacts_Attractiveness__c && a.rule.Is_Required__c),
@@ -694,6 +734,12 @@ export default class MarketingDictionaryOfferTab extends LightningElement {
                     weightSumWarning: this._familyWeightSumWarning(grp.familyId)
                 };
             });
+    }
+
+    _calculationName(calcId) {
+        if (!calcId) return null;
+        const calc = this.calculations.find(c => c.id === calcId);
+        return calc ? calc.name : null;
     }
 
     _isFamilyWeightOk(familyId) {
@@ -808,110 +854,6 @@ export default class MarketingDictionaryOfferTab extends LightningElement {
     @track fmFormVisible = false;
     @track _fmExpandedKeys = new Set(); // keys of expanded row cards — empty = all collapsed by default
 
-    // ── Reference values section (UI-only for now) ──────────────────────────
-    @track isFmRefSectionOpen = false;  // collapsible; collapsed when the modal opens
-    @track fmRefSelections = {};         // { [refValueId]: { use, impacts, value, powers:[{_key,label,power}] } }
-
-    toggleFmRefSection() { this.isFmRefSectionOpen = !this.isFmRefSectionOpen; }
-    get fmRefSectionChevron() { return this.isFmRefSectionOpen ? 'utility:chevrondown' : 'utility:chevronright'; }
-    get fmRefSectionHint() { return this.isFmRefSectionOpen ? '' : 'Use reference values'; }
-
-    // All reference values available for the selected family
-    get fmRefSectionRows() {
-        return this._refRecordsView
-            .filter(r => r.Product_Family__c === this.fmFamilyId && r.Is_Active__c)
-            .map(r => {
-                const sel = this.fmRefSelections[r.Id] || {};
-                const isPicklist = r.Value_Type__c === 'Picklist';
-                const isRange = r._isRange === true;
-                const labels = isPicklist ? this._refLabels(r) : [];
-                const powers = sel.powers || [];
-                const defaultValue = this._refDefaultValue(r);
-                return {
-                    id: r.Id,
-                    name: r.Name,
-                    valueType: r.Value_Type__c,
-                    displayValue: this._formatRefValue(r),
-                    isPicklist,
-                    showValueInput: !isPicklist && !isRange,
-                    value: sel.value != null ? sel.value : defaultValue,
-                    use: !!sel.use,
-                    impacts: !!sel.impacts,
-                    showImpactsToggle: !!sel.use,
-                    showPowers: !!sel.use && !!sel.impacts && isPicklist,
-                    powerRows: labels.map(label => {
-                        const row = powers.find(p => p.label === label) || { _key: label, label, power: '' };
-                        const num = row.power === '' || row.power == null ? null : Number(row.power);
-                        const invalid = num == null || isNaN(num) || num < 0 || num > 1;
-                        return { _key: `${r.Id}::${label}`, label, power: row.power ?? '',
-                                 inputClass: invalid ? 'rv-power-input rv-power-input_warn' : 'rv-power-input' };
-                    }),
-                    cardClass: sel.use ? 'fm-refsec-card fm-refsec-card_active' : 'fm-refsec-card'
-                };
-            });
-    }
-    get fmHasRefSectionRows() { return this.fmRefSectionRows.length > 0; }
-
-    // The value assigned to a reference value (the numeric reference value itself), as a string for the input
-    _refDefaultValue(r) {
-        if (!r || r.Value_Type__c === 'Picklist') return '';
-        return r.Reference_Value__c != null ? String(r.Reference_Value__c) : '';
-    }
-
-    _fmRefSel(refId) {
-        return this.fmRefSelections[refId] || { use: false, impacts: false, powers: [] };
-    }
-    _setFmRefSel(refId, patch) {
-        this.fmRefSelections = { ...this.fmRefSelections, [refId]: { ...this._fmRefSel(refId), ...patch } };
-    }
-
-    handleFmRefUse(e) {
-        const refId = e.currentTarget.dataset.id;
-        const checked = e.target.checked !== undefined ? e.target.checked : e.detail.checked;
-        const patch = { use: checked };
-        if (!checked) { patch.impacts = false; }
-        else {
-            const rec = this._rawRefRecords.find(r => r.Id === refId);
-            const cur = this._fmRefSel(refId).powers || [];
-            if (rec && rec.Value_Type__c === 'Picklist' && !cur.length) {
-                patch.powers = this._refLabels(rec).map(label => ({ _key: label, label, power: '' }));
-            }
-        }
-        this._setFmRefSel(refId, patch);
-    }
-
-    handleFmRefValue(e) {
-        const refId = e.currentTarget.dataset.id;
-        const value = e.detail.value;
-        this._setFmRefSel(refId, { value });
-    }
-
-    handleFmRefImpacts(e) {
-        const refId = e.currentTarget.dataset.id;
-        const checked = e.target.checked !== undefined ? e.target.checked : e.detail.checked;
-        const rec = this._rawRefRecords.find(r => r.Id === refId);
-        const patch = { impacts: checked };
-        if (checked && rec && rec.Value_Type__c === 'Picklist' && !(this._fmRefSel(refId).powers || []).length) {
-            patch.powers = this._refLabels(rec).map(label => ({ _key: label, label, power: '' }));
-        }
-        this._setFmRefSel(refId, patch);
-    }
-
-    handleFmRefPower(e) {
-        const refId = e.currentTarget.dataset.id;
-        const label = e.currentTarget.dataset.label;
-        let value = e.target.value !== undefined ? e.target.value : e.detail.value;
-        if (value !== '' && value != null) {
-            let num = Number(value);
-            if (!isNaN(num)) { if (num > 1) num = 1; if (num < 0) num = 0; value = String(num); }
-        }
-        const powers = (this._fmRefSel(refId).powers || []).map(p =>
-            p.label === label ? { ...p, power: value } : p
-        );
-        if (!powers.some(p => p.label === label)) powers.push({ _key: label, label, power: value });
-        this._setFmRefSel(refId, { powers });
-    }
-
     get fmFamilyName() { return this._productFamilyMap[this.fmFamilyId] || ''; }
     get fmStep1() { return this.fmStep === 1; }
     get fmStep2() { return this.fmStep === 2; }
@@ -933,21 +875,18 @@ export default class MarketingDictionaryOfferTab extends LightningElement {
         this.fmPendingList = [];
         this.fmPendingForm = null;
         this.fmFormVisible = false;
-        this.fmRefSelections = {};
-        this.isFmRefSectionOpen = true;
         this.isFamilyModalOpen = true;
     }
 
     // Opens modal at step 2 pre-populated with existing attributes for a family
-    handleOpenEditFamilyModal(e) {
+    async handleOpenEditFamilyModal(e) {
         const familyId = e.currentTarget.dataset.familyid;
+        await this._loadCalculations();
         this._fmIsEdit = true;
         this.fmStep = 2;
         this.fmFamilyId = familyId;
         this.fmPendingForm = null;
         this.fmFormVisible = false;
-        this.fmRefSelections = {};
-        this.isFmRefSectionOpen = true;
 
         // Reconstruct pending list from saved records
         const pendingList = [];
@@ -956,6 +895,7 @@ export default class MarketingDictionaryOfferTab extends LightningElement {
             if (!rule) return;
             const isRef = attr.Value_Source__c === 'Autopopulate';
             const refRec = rule.Reference_Value__r;
+            const ruleCalc = this._ruleCalcs[rule.Id] || {};
             pendingList.push({
                 _key: Math.random().toString(36).slice(2),
                 _attrId: attr.Id,
@@ -966,7 +906,9 @@ export default class MarketingDictionaryOfferTab extends LightningElement {
                 inheritedType: isRef ? (refRec?.Value_Type__c || '') : '',
                 inheritedValue: isRef ? (refRec?.Reference_Value__c ?? null) : null,
                 inheritedValueType: isRef ? (refRec?.Value_Type__c || '') : '',
-                refPicklistPowers: isRef ? this._buildRefPowers(refRec, rule.Picklist_Power_Values__c) : [],
+                refPicklistPowers: isRef ? this._buildRefPowers(refRec) : [],
+                refPairsJson: isRef ? (refRec?.Reference_Value_Pairs__c || null) : null,
+                _apiName: attr.Parameter_API_Name__c || null,
                 Name: attr.Name,
                 Parameter_Type__c: attr.Parameter_Type__c || '',
                 // MERGE 2026-09-14: read options from dedicated Picklist_Values__c (was hardcoded '').
@@ -981,8 +923,9 @@ export default class MarketingDictionaryOfferTab extends LightningElement {
                 Is_Required__c: rule.Is_Required__c || false,
                 weight: rule.Attractiveness_Weight__c != null
                     ? String(Math.round(Number(rule.Attractiveness_Weight__c) * 100)) : '',
-                scoringMethod: rule.Scoring_Method__c || '',
-                bandText: formatScoreBands(rule.Score_Bands__r),
+                calculationId: ruleCalc.calculationId || null,
+                calcInputs: parseInputsJson(ruleCalc.inputs),
+                valueRows: valueRowsFromBands(rule.Score_Bands__r),
                 Display_Order__c: rule.Display_Order__c ?? null,
                 _label: attr.Name,
                 _fmActive: attr.Is_Active__c,
@@ -1110,53 +1053,32 @@ export default class MarketingDictionaryOfferTab extends LightningElement {
             inheritedValue: refRecord?.Reference_Value__c ?? null,
             inheritedValueType: refRecord?.Value_Type__c || '',
             refPicklistPowers: this._buildRefPowers(refRecord),
+            refPairsJson: refRecord?.Reference_Value_Pairs__c || null,
+            impactsAttractiveness: isScorableType(refRecord?.Value_Type__c) ? this.fmPendingForm.impactsAttractiveness : false,
             displayName: this.fmPendingForm.displayName || refRecord?.Name || ''
         };
     }
 
-    // ── Picklist reference: labels (grayed) + Power of effect ──────────────────
     get fmRefIsPicklist() {
         return this.fmPendingForm?.creationMethod === 'reference'
             && this.fmPendingForm?.inheritedType === 'Picklist';
     }
-    get fmShowRefPowers() {
-        return this.fmRefIsPicklist && this.fmPendingForm?.impactsAttractiveness;
-    }
     get fmRefPowerRows() {
-        return (this.fmPendingForm?.refPicklistPowers || []).map(row => {
-            const num = row.power === '' || row.power == null ? null : Number(row.power);
-            const invalid = this.fmPendingForm?.impactsAttractiveness &&
-                (num == null || isNaN(num) || num < 0 || num > 1);
-            return {
-                ...row,
-                inputClass: invalid ? 'rv-power-input rv-power-input_warn' : 'rv-power-input'
-            };
-        });
+        return this.fmPendingForm?.refPicklistPowers || [];
     }
 
-    handleFmRefPowerInput(e) {
-        const key = e.currentTarget.dataset.key;
-        let value = e.target.value !== undefined ? e.target.value : e.detail.value;
-        if (value !== '' && value != null) {
-            let num = Number(value);
-            if (!isNaN(num)) {
-                if (num > 1) num = 1;
-                if (num < 0) num = 0;
-                value = String(num);
-            }
-        }
-        this.fmPendingForm = {
-            ...this.fmPendingForm,
-            refPicklistPowers: (this.fmPendingForm.refPicklistPowers || []).map(row =>
-                row._key === key ? { ...row, power: value } : row
-            )
-        };
+    get fmFormImpactsDisabled() {
+        const p = this.fmPendingForm;
+        if (!p) return true;
+        return !isScorableType(p.creationMethod === 'reference' ? p.inheritedType : p.Parameter_Type__c);
     }
 
     handleFmFormField(e) {
         const field = e.currentTarget.dataset.field;
         const value = e.detail.value;
-        this.fmPendingForm = { ...this.fmPendingForm, [field]: value };
+        const next = { ...this.fmPendingForm, [field]: value };
+        if (field === 'Parameter_Type__c' && !isScorableType(value)) next.impactsAttractiveness = false;
+        this.fmPendingForm = next;
     }
 
     handleFmFormCheckbox(e) {
@@ -1185,14 +1107,6 @@ export default class MarketingDictionaryOfferTab extends LightningElement {
                 }
             }
         }
-        // Power of effect required for every label (decimal 0–1) when a Picklist reference impacts attractiveness
-        if (this.fmShowRefPowers) {
-            const invalid = (p.refPicklistPowers || []).some(row => {
-                const n = Number(row.power);
-                return row.power === '' || row.power == null || isNaN(n) || n < 0 || n > 1;
-            });
-            if (invalid) { this._showToast('Validation', 'Enter a Power of effect (0–1) for every picklist label.', 'warning'); return; }
-        }
         const label = p.creationMethod === 'reference'
             ? (p.displayName?.trim() || p.refAttrName)
             : p.Name.trim();
@@ -1202,6 +1116,9 @@ export default class MarketingDictionaryOfferTab extends LightningElement {
         }
         const newRow = { ...p, _label: label, weight: '', hasError: false, errorMsg: '' };
         this.fmPendingList = [...this.fmPendingList, newRow];
+        if (newRow.impactsAttractiveness) {
+            this._fmExpandedKeys = new Set([...this._fmExpandedKeys, newRow._key]);
+        }
         this.fmPendingForm = EMPTY_PENDING();
         this.fmFormVisible = false;
     }
@@ -1225,34 +1142,83 @@ export default class MarketingDictionaryOfferTab extends LightningElement {
         );
     }
 
-    get scoringMethodOptions() {
-        return [
-            { label: 'Categorical', value: 'Categorical' },
-            { label: 'Min Max', value: 'Min Max' },
-            { label: 'Loan Rate Gap', value: 'Loan Rate Gap' },
-            { label: 'Deposit Rate Gap', value: 'Deposit Rate Gap' },
-            { label: 'Amount Buckets', value: 'Amount Buckets' }
-        ];
+    // ── Attractiveness calculation per attribute ─────────────────────────────
+    _rowType(r) {
+        return r.creationMethod === 'reference' ? r.inheritedType : r.Parameter_Type__c;
     }
 
-    handleFmScoringMethod(e) {
-        const key = e.target.dataset.key;
-        const value = e.detail.value;
-        this.fmPendingList = this.fmPendingList.map(r => r._key === key ? { ...r, scoringMethod: value } : r);
+    _rowValueLabels(r) {
+        const type = this._rowType(r);
+        if (type === 'Checkbox') return ['true', 'false'];
+        if (type !== 'Picklist') return [];
+        if (r.creationMethod === 'reference') {
+            return this._refLabels({ Value_Type__c: 'Picklist', Reference_Value_Pairs__c: r.refPairsJson })
+                .concat((r.refPicklistPowers || []).map(p => p.label))
+                .filter((v, i, all) => all.indexOf(v) === i);
+        }
+        return String(r.picklistValues || '').split(/\r?\n|;/).map(s => s.trim()).filter(Boolean);
     }
 
-    handleFmBandText(e) {
-        const key = e.target.dataset.key;
-        const value = e.detail.value;
-        this.fmPendingList = this.fmPendingList.map(r => r._key === key ? { ...r, bandText: value } : r);
+    _rowApiName(r) {
+        return r._apiName || apiNameFor(r._label || r.Name);
+    }
+
+    // Reference values of the family that a placeholder can point at
+    get fmCalcReferences() {
+        const out = [];
+        this._refRecordsView
+            .filter(r => r.Product_Family__c === this.fmFamilyId && r.Is_Active__c)
+            .forEach(r => {
+                if (r._isRange) {
+                    if (r._minId) out.push({ id: r._minId, name: `${r.Name} (min)`, value: r._rangeMin });
+                    if (r._maxId) out.push({ id: r._maxId, name: `${r.Name} (max)`, value: r._rangeMax });
+                } else if (r.Reference_Value__c !== null && r.Reference_Value__c !== undefined) {
+                    out.push({ id: r.Id, name: r.Name, value: r.Reference_Value__c });
+                }
+            });
+        return out.sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    _calcAttributeOptions(row) {
+        return this.fmPendingList
+            .filter(r => r._key !== row._key && NUMERIC_TYPES.includes(this._rowType(r)))
+            .map(r => ({ field: this._rowApiName(r), name: r._label || r.Name }));
+    }
+
+    _rowProblems(r) {
+        if (!r.impactsAttractiveness) return [];
+        const calc = this.calculations.find(c => c.id === r.calculationId) || null;
+        return calculationProblems(r._label || r.Name || 'An attribute', this._rowType(r), calc, r.calcInputs, r.valueRows);
+    }
+
+    get fmProblems() {
+        return this.fmPendingList
+            .flatMap(r => this._rowProblems(r))
+            .map((text, i) => ({ key: `p${i}`, text }));
+    }
+
+    get fmHasProblems() { return this.fmProblems.length > 0; }
+
+    handleFmCalcChange(e) {
+        const key = e.currentTarget.dataset.key;
+        const { calculationId, inputs, valueRows } = e.detail;
+        this.fmPendingList = this.fmPendingList.map(r =>
+            r._key === key ? { ...r, calculationId, calcInputs: inputs, valueRows } : r
+        );
     }
 
     handleFmAttractiveness(e) {
         const key = e.currentTarget.dataset.key;
         const checked = e.target.checked !== undefined ? e.target.checked : e.detail.checked;
+        const row = this.fmPendingList.find(r => r._key === key);
+        if (checked && row && !isScorableType(this._rowType(row))) {
+            e.target.checked = false;
+            return;
+        }
         this.fmPendingList = this.fmPendingList.map(r =>
             r._key === key ? { ...r, impactsAttractiveness: checked, Is_Required__c: checked ? true : r.Is_Required__c, weight: checked ? r.weight : '' } : r
         );
+        if (checked) this._fmExpandedKeys = new Set([...this._fmExpandedKeys, key]);
     }
 
     handleFmRequired(e) {
@@ -1274,6 +1240,8 @@ export default class MarketingDictionaryOfferTab extends LightningElement {
             const showPredefined = showValueMode && r.valueMode === 'predefined';
             const isActive = r._fmActive !== false;
             const weightInt = r.weight !== '' && r.weight != null ? parseInt(r.weight, 10) : null;
+            const scorable = isScorableType(type);
+            const calcMissing = this._rowProblems(r).length > 0;
             return {
                 ...r,
                 isReference: isRef,
@@ -1291,13 +1259,19 @@ export default class MarketingDictionaryOfferTab extends LightningElement {
                 _isNew: !r._attrId,
                 isExpanded: this._fmExpandedKeys.has(r._key),
                 chevronIcon: this._fmExpandedKeys.has(r._key) ? 'utility:chevrondown' : 'utility:chevronright',
-                fmRowCardClass: missing ? 'fm-row-card fm-row-card_warn' : 'fm-row-card',
+                fmRowCardClass: missing || calcMissing ? 'fm-row-card fm-row-card_warn' : 'fm-row-card',
+                calcType: type,
+                calcValueLabels: this._rowValueLabels(r),
+                calcAttributeOptions: this._calcAttributeOptions(r),
+                impactsDisabled: !scorable && !r.impactsAttractiveness,
+                impactsTitle: scorable
+                    ? 'Impacts Attractiveness Score'
+                    : `A ${type || 'typeless'} attribute cannot impact attractiveness`,
                 activeSelectValue: isActive ? 'active' : 'inactive',
                 activeSelectClass: isActive ? 'fm-hdr-select fm-hdr-select_active' : 'fm-hdr-select fm-hdr-select_inactive',
                 requiredSelectValue: (r.impactsAttractiveness || r.Is_Required__c) ? 'required' : 'optional',
                 requiredSelectClass: (r.impactsAttractiveness || r.Is_Required__c) ? 'fm-hdr-select fm-hdr-select_required' : 'fm-hdr-select fm-hdr-select_optional',
                 showRequiredSelect: !r.impactsAttractiveness,
-                showBandEditor: r.impactsAttractiveness && r.scoringMethod && r.scoringMethod !== 'Min Max',
                 isRequiredLocked: r.impactsAttractiveness,
                 creationMethod: r.creationMethod,
                 valueMode: r.valueMode
@@ -1354,6 +1328,9 @@ export default class MarketingDictionaryOfferTab extends LightningElement {
                 refAttrName: rec?.Name || '',
                 inheritedType: rec?.Value_Type__c || '',
                 inheritedValue: rec?.Reference_Value__c ?? null,
+                refPicklistPowers: this._buildRefPowers(rec),
+                refPairsJson: rec?.Reference_Value_Pairs__c || null,
+                impactsAttractiveness: isScorableType(rec?.Value_Type__c) ? r.impactsAttractiveness : false,
                 displayName: r.displayName || rec?.Name || ''
             }
         );
@@ -1363,9 +1340,12 @@ export default class MarketingDictionaryOfferTab extends LightningElement {
         const key   = e.currentTarget.dataset.key;
         const field = e.currentTarget.dataset.field;
         const val   = e.detail.value;
-        this.fmPendingList = this.fmPendingList.map(r =>
-            r._key !== key ? r : { ...r, [field]: val, _label: field === 'Name' ? val : (field === 'displayName' ? val || r.refAttrName : r._label) }
-        );
+        this.fmPendingList = this.fmPendingList.map(r => {
+            if (r._key !== key) return r;
+            const next = { ...r, [field]: val, _label: field === 'Name' ? val : (field === 'displayName' ? val || r.refAttrName : r._label) };
+            if (field === 'Parameter_Type__c' && !isScorableType(val)) next.impactsAttractiveness = false;
+            return next;
+        });
     }
 
     handleFmActiveSelect(e) {
@@ -1548,7 +1528,19 @@ export default class MarketingDictionaryOfferTab extends LightningElement {
             const sum = attractRows.reduce((s, r) => s + (parseInt(r.weight, 10) || 0), 0);
             if (sum !== 100) return false;
         }
-        return true;
+        return !this.fmHasProblems;
+    }
+
+    _familyItems(attrIds) {
+        return this.fmPendingList.map((p, i) => ({
+            label: p._label || p.Name,
+            attributeType: this._rowType(p),
+            impacts: !!p.impactsAttractiveness,
+            calculationId: p.impactsAttractiveness ? (p.calculationId || null) : null,
+            inputs: p.calcInputs || {},
+            valueRows: (p.valueRows || []).map(v => ({ key: v.key, score: v.score === '' ? null : v.score })),
+            attributeId: attrIds ? attrIds[i] : (p._attrId || null)
+        }));
     }
 
     get fmSaveDisabled() { return this.isSaving || !this.fmCanSave; }
@@ -1557,7 +1549,13 @@ export default class MarketingDictionaryOfferTab extends LightningElement {
         if (!this.fmCanSave) return;
         this.isSaving = true;
         try {
+            const calcErrors = await checkFamilyCalculations({ itemsJson: JSON.stringify(this._familyItems()) });
+            if (calcErrors && calcErrors.length) {
+                this._showToast('Cannot save', calcErrors.join(' '), 'error');
+                return;
+            }
             const rules = [];
+            const attrIds = [];
             for (const p of this.fmPendingList) {
                 const isPredefined = p.creationMethod !== 'reference' && p.valueMode === 'predefined';
                 const attrRecord = {
@@ -1579,16 +1577,9 @@ export default class MarketingDictionaryOfferTab extends LightningElement {
                     attrRecord.Picklist_Values__c = p.picklistValues || '';
                 }
                 const attrId = await saveOfferRecord({ record: attrRecord });
+                attrIds.push(attrId);
 
-                let powerJson = null;
-                if (p.creationMethod === 'reference' && p.inheritedType === 'Picklist'
-                        && p.impactsAttractiveness && (p.refPicklistPowers || []).length) {
-                    const map = {};
-                    for (const row of p.refPicklistPowers) {
-                        if (row.power !== '' && row.power != null) map[row.label] = Number(row.power);
-                    }
-                    powerJson = JSON.stringify(map);
-                }
+                const scored = p.impactsAttractiveness && p.calculationId;
                 const ruleRecord = {
                     Offer_Attribute__c: attrId,
                     Product_Family__c: this.fmFamilyId,
@@ -1598,19 +1589,16 @@ export default class MarketingDictionaryOfferTab extends LightningElement {
                     Impacts_Attractiveness__c: p.impactsAttractiveness,
                     Attractiveness_Weight__c: p.impactsAttractiveness
                         ? parseFloat((parseInt(p.weight, 10) / 100).toFixed(4)) : null,
-                    Picklist_Power_Values__c: powerJson,
-                    Scoring_Method__c: p.impactsAttractiveness ? (p.scoringMethod || null) : null,
+                    Calculation__c: scored ? p.calculationId : null,
+                    Calculation_Inputs__c: scored && Object.keys(p.calcInputs || {}).length
+                        ? JSON.stringify(p.calcInputs) : null,
                     Display_Order__c: p.Display_Order__c ?? null
                 };
                 if (p._ruleId) ruleRecord.Id = p._ruleId;
                 rules.push(ruleRecord);
             }
             if (rules.length > 0) await saveAttributeRulesBulk({ rules });
-            for (const p of this.fmPendingList) {
-                if (p._ruleId && p.impactsAttractiveness && p.scoringMethod && p.scoringMethod !== 'Min Max') {
-                    await saveScoreBandText({ ruleId: p._ruleId, bandText: p.bandText || '' });
-                }
-            }
+            await saveFamilyValueRows({ familyId: this.fmFamilyId, itemsJson: JSON.stringify(this._familyItems(attrIds)) });
             const newCount = this.fmPendingList.filter(p => !p._attrId).length;
             const updCount = this.fmPendingList.filter(p => p._attrId).length;
             const parts = [];
@@ -1618,7 +1606,7 @@ export default class MarketingDictionaryOfferTab extends LightningElement {
             if (updCount > 0) parts.push(`${updCount} updated`);
             this._showToast('Success', `${parts.join(', ')} for ${this.fmFamilyName}.`, 'success');
             this.isFamilyModalOpen = false;
-            await refreshApex(this._wiredResult);
+            await Promise.all([refreshApex(this._wiredResult), this._loadCalculations()]);
         } catch (err) { this._showToast('Error', err.body?.message || 'Save failed.', 'error'); }
         finally { this.isSaving = false; }
     }

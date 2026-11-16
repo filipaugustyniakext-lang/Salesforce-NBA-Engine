@@ -1,0 +1,37 @@
+<template>
+    <lightning-quick-action-panel header="Update Customer Type">
+        <div class="slds-p-around_medium">
+            <template lwc:if={isLoading}>
+                <lightning-spinner alternative-text="Loading..." size="medium"></lightning-spinner>
+            </template>
+
+            <template lwc:if={hasRecords}>
+                <p class="slds-m-bottom_small slds-text-body_regular">
+                    <lightning-icon icon-name="utility:info" size="xx-small" class="slds-m-right_xx-small"></lightning-icon>
+                    <strong>{recordCountLabel}</strong>
+                </p>
+            </template>
+
+            <template lwc:elseif={noRecordsLoaded}>
+                <p class="slds-m-bottom_small slds-text-color_error">
+                    No products selected. Please select products from the list view first.
+                </p>
+            </template>
+
+            <lightning-dual-listbox
+                label="Customer Type"
+                source-label="Available"
+                selected-label="Selected"
+                options={options}
+                value={selectedValues}
+                onchange={handleChange}
+                class="slds-m-top_small"
+            ></lightning-dual-listbox>
+        </div>
+
+        <div slot="footer">
+            <lightning-button label="Cancel" onclick={handleCancel} class="slds-m-right_x-small"></lightning-button>
+            <lightning-button variant="brand" label="Update" onclick={handleSave} disabled={isLoading}></lightning-button>
+        </div>
+    </lightning-quick-action-panel>
+</template>

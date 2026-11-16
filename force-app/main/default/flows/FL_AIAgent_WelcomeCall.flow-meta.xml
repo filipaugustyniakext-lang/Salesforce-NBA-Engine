@@ -1,0 +1,613 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <actionCalls>
+        <name>Build_Payload_PubSub</name>
+        <label>Build Payload PubSub</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <actionName>AIAgentPayloadBuilder</actionName>
+        <actionType>apex</actionType>
+        <connector>
+            <targetReference>IsSuccess</targetReference>
+        </connector>
+        <flowTransactionModel>CurrentTransaction</flowTransactionModel>
+        <inputParameters>
+            <name>actionCode</name>
+            <value>
+                <elementReference>GetWelcomeMessage.Actions__c</elementReference>
+                <inputConfiguratorMode>Resource</inputConfiguratorMode>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>actionDataTemplate</name>
+            <value>
+                <elementReference>GetWelcomeMessage.Action_Data_JSON__c</elementReference>
+                <inputConfiguratorMode>Resource</inputConfiguratorMode>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>agentId</name>
+            <value>
+                <elementReference>GetWelcomeMessage.Agent_Id__c</elementReference>
+                <inputConfiguratorMode>Resource</inputConfiguratorMode>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>branchId</name>
+            <value>
+                <elementReference>$ActivationData.branch_95reference</elementReference>
+                <inputConfiguratorMode>Resource</inputConfiguratorMode>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>brandId</name>
+            <value>
+                <elementReference>$ActivationData.brand_95reference</elementReference>
+                <inputConfiguratorMode>Resource</inputConfiguratorMode>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>contextTemplate</name>
+            <value>
+                <elementReference>GetWelcomeMessage.Context_Template_JSON__c</elementReference>
+                <inputConfiguratorMode>Resource</inputConfiguratorMode>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>customerId</name>
+            <value>
+                <elementReference>$ActivationData.cstmr_95id</elementReference>
+                <inputConfiguratorMode>Resource</inputConfiguratorMode>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>customerType</name>
+            <value>
+                <inputConfiguratorMode>Resource</inputConfiguratorMode>
+                <stringValue>RETAIL</stringValue>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>displayType</name>
+            <value>
+                <inputConfiguratorMode>Resource</inputConfiguratorMode>
+                <stringValue>DRAWER</stringValue>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>dynamicParamsJson</name>
+            <value>
+                <elementReference>tt_DynamicParams</elementReference>
+                <inputConfiguratorMode>Resource</inputConfiguratorMode>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>provider</name>
+            <value>
+                <elementReference>GetWelcomeMessage.Provider__c</elementReference>
+                <inputConfiguratorMode>Resource</inputConfiguratorMode>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>representativeId</name>
+            <value>
+                <elementReference>$ActivationData.cstmr_95id</elementReference>
+                <inputConfiguratorMode>Resource</inputConfiguratorMode>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>tenantId</name>
+            <value>
+                <elementReference>$ActivationData.tenant_95reference</elementReference>
+                <inputConfiguratorMode>Resource</inputConfiguratorMode>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>welcomeSummary</name>
+            <value>
+                <elementReference>WelcomeMessage_PL_EN</elementReference>
+                <inputConfiguratorMode>Resource</inputConfiguratorMode>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>welcomeTitle</name>
+            <value>
+                <elementReference>Welcome_Title_PL_EN</elementReference>
+                <inputConfiguratorMode>Resource</inputConfiguratorMode>
+            </value>
+        </inputParameters>
+        <nameSegment>AIAgentPayloadBuilder</nameSegment>
+        <offset>0</offset>
+        <storeOutputAutomatically>true</storeOutputAutomatically>
+    </actionCalls>
+    <actionCalls>
+        <name>Pick_random_scenario</name>
+        <label>Pick random scenario</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <actionName>DynamicScenarioPicker</actionName>
+        <actionType>apex</actionType>
+        <connector>
+            <targetReference>PathSelection</targetReference>
+        </connector>
+        <flowTransactionModel>CurrentTransaction</flowTransactionModel>
+        <inputParameters>
+            <name>isEligible1</name>
+            <value>
+                <elementReference>BlikCheck</elementReference>
+                <inputConfiguratorMode>Resource</inputConfiguratorMode>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>isEligible2</name>
+            <value>
+                <elementReference>FxAccount_Check</elementReference>
+                <inputConfiguratorMode>Resource</inputConfiguratorMode>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>isEligible3</name>
+            <value>
+                <elementReference>SalaryCheck</elementReference>
+                <inputConfiguratorMode>Resource</inputConfiguratorMode>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>isEligible4</name>
+            <value>
+                <elementReference>MobileWalletCheck</elementReference>
+                <inputConfiguratorMode>Resource</inputConfiguratorMode>
+            </value>
+        </inputParameters>
+        <nameSegment>DynamicScenarioPicker</nameSegment>
+        <offset>0</offset>
+        <storeOutputAutomatically>true</storeOutputAutomatically>
+    </actionCalls>
+    <apiVersion>67.0</apiVersion>
+    <areMetricsLoggedToDataCloud>true</areMetricsLoggedToDataCloud>
+    <assignments>
+        <name>AssignmentMobileWallet</name>
+        <label>Assignment MobileWallet</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <assignmentItems>
+            <assignToReference>AssignWelcomeScenario</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <stringValue>wallet</stringValue>
+            </value>
+        </assignmentItems>
+        <connector>
+            <targetReference>GetWelcomeMessage</targetReference>
+        </connector>
+    </assignments>
+    <assignments>
+        <name>ScenarioAssignmentBlikDisabled</name>
+        <label>Scenario Assignment Blik Disabled</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <assignmentItems>
+            <assignToReference>AssignWelcomeScenario</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <stringValue>blik_disabled</stringValue>
+            </value>
+        </assignmentItems>
+        <connector>
+            <targetReference>GetWelcomeMessage</targetReference>
+        </connector>
+    </assignments>
+    <assignments>
+        <name>ScenarioAssignmentBlikEnabled</name>
+        <label>Scenario Assignment Blik Enabled</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <assignmentItems>
+            <assignToReference>AssignWelcomeScenario</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <stringValue>blik_enabled</stringValue>
+            </value>
+        </assignmentItems>
+        <connector>
+            <targetReference>GetWelcomeMessage</targetReference>
+        </connector>
+    </assignments>
+    <assignments>
+        <name>ScenarioAssignmentFxAccount</name>
+        <label>Scenario Assignment FxAccount</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <assignmentItems>
+            <assignToReference>AssignWelcomeScenario</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <stringValue>open-fx-account</stringValue>
+            </value>
+        </assignmentItems>
+        <connector>
+            <targetReference>GetWelcomeMessage</targetReference>
+        </connector>
+    </assignments>
+    <assignments>
+        <name>ScenarioAssignmentSalary</name>
+        <label>Scenario Assignment Salary</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <assignmentItems>
+            <assignToReference>AssignWelcomeScenario</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <stringValue>send-salary-mail</stringValue>
+            </value>
+        </assignmentItems>
+        <connector>
+            <targetReference>GetWelcomeMessage</targetReference>
+        </connector>
+    </assignments>
+    <dataSpace>default</dataSpace>
+    <decisions>
+        <name>BlikDisabledEnabled</name>
+        <label>Blik Disabled or Enabled</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <defaultConnectorLabel>Default Outcome</defaultConnectorLabel>
+        <rules>
+            <name>Blik_Disabled</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>$ActivationData.isblikenabled</leftValueReference>
+                <operator>EqualTo</operator>
+                <rightValue>
+                    <booleanValue>false</booleanValue>
+                </rightValue>
+            </conditions>
+            <connector>
+                <targetReference>ScenarioAssignmentBlikDisabled</targetReference>
+            </connector>
+            <label>Blik Disabled</label>
+        </rules>
+        <rules>
+            <name>Blik_Enabled_P2P_Not_Active</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>$ActivationData.blikp2pserviceactive</leftValueReference>
+                <operator>EqualTo</operator>
+                <rightValue>
+                    <booleanValue>false</booleanValue>
+                </rightValue>
+            </conditions>
+            <conditions>
+                <leftValueReference>$ActivationData.isblikenabled</leftValueReference>
+                <operator>EqualTo</operator>
+                <rightValue>
+                    <booleanValue>true</booleanValue>
+                </rightValue>
+            </conditions>
+            <connector>
+                <targetReference>ScenarioAssignmentBlikEnabled</targetReference>
+            </connector>
+            <label>Blik Enabled P2P Not Active</label>
+        </rules>
+    </decisions>
+    <decisions>
+        <name>IsSuccess</name>
+        <label>IsSuccess</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <defaultConnector>
+            <targetReference>Create_records_in_Error_Log</targetReference>
+        </defaultConnector>
+        <defaultConnectorLabel>Failure</defaultConnectorLabel>
+        <rules>
+            <name>Payload_Build_Success</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>Build_Payload_PubSub.isSuccess</leftValueReference>
+                <operator>EqualTo</operator>
+                <rightValue>
+                    <booleanValue>true</booleanValue>
+                </rightValue>
+            </conditions>
+            <connector>
+                <targetReference>CreateRecordsinAIAgentOutboundLog</targetReference>
+            </connector>
+            <label>Payload Build Success</label>
+        </rules>
+    </decisions>
+    <decisions>
+        <name>PathSelection</name>
+        <label>Path Selection</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <defaultConnectorLabel>Default Outcome</defaultConnectorLabel>
+        <rules>
+            <name>Blik</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>Pick_random_scenario</leftValueReference>
+                <operator>EqualTo</operator>
+                <rightValue>
+                    <stringValue>Scenario_1</stringValue>
+                </rightValue>
+            </conditions>
+            <connector>
+                <targetReference>BlikDisabledEnabled</targetReference>
+            </connector>
+            <label>Blik</label>
+        </rules>
+        <rules>
+            <name>FxAccount</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>Pick_random_scenario</leftValueReference>
+                <operator>EqualTo</operator>
+                <rightValue>
+                    <stringValue>Scenario_2</stringValue>
+                </rightValue>
+            </conditions>
+            <connector>
+                <targetReference>ScenarioAssignmentFxAccount</targetReference>
+            </connector>
+            <label>FxAccount</label>
+        </rules>
+        <rules>
+            <name>Salary</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>Pick_random_scenario</leftValueReference>
+                <operator>EqualTo</operator>
+                <rightValue>
+                    <stringValue>Scenario_3</stringValue>
+                </rightValue>
+            </conditions>
+            <connector>
+                <targetReference>ScenarioAssignmentSalary</targetReference>
+            </connector>
+            <label>Salary</label>
+        </rules>
+        <rules>
+            <name>MobileWallet</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>Pick_random_scenario</leftValueReference>
+                <operator>EqualTo</operator>
+                <rightValue>
+                    <stringValue>Scenario_4</stringValue>
+                </rightValue>
+            </conditions>
+            <connector>
+                <targetReference>AssignmentMobileWallet</targetReference>
+            </connector>
+            <label>MobileWallet</label>
+        </rules>
+    </decisions>
+    <environments>Default</environments>
+    <formulas>
+        <name>BlikCheck</name>
+        <dataType>Boolean</dataType>
+        <expression>({!$ActivationData.isblikenabled} = False) || ({!$ActivationData.isblikenabled} = True &amp;&amp; {!$ActivationData.blikp2pserviceactive} = False)</expression>
+    </formulas>
+    <formulas>
+        <name>f_CurrentDateTimeUTC</name>
+        <dataType>String</dataType>
+        <expression>SUBSTITUTE(TEXT(NOW()), &quot; &quot;, &quot;T&quot;)</expression>
+    </formulas>
+    <formulas>
+        <name>f_FxCurrenciesList</name>
+        <dataType>String</dataType>
+        <expression>IF(
+  ISBLANK({!$ActivationData.fx_95available_95currencies_95list}),
+&quot;[]&quot;,
+  &apos;[&quot;&apos; &amp; SUBSTITUTE(SUBSTITUTE(SUBSTITUTE(SUBSTITUTE({!$ActivationData.fx_95available_95currencies_95list}, &quot;(&quot;, &quot;&quot;), &quot;)&quot;, &quot;&quot;), &quot;, &quot;, &quot;,&quot;), &quot;,&quot;, &apos;&quot;,&quot;&apos;) &amp; &apos;&quot;]&apos;
+)</expression>
+    </formulas>
+    <formulas>
+        <name>f_WalletEligibleCardList</name>
+        <dataType>String</dataType>
+        <expression>IF(
+  ISBLANK({!$ActivationData.walleteligiblecard}),
+&quot;[]&quot;,
+  &apos;[&quot;&apos; &amp; SUBSTITUTE(SUBSTITUTE(SUBSTITUTE({!$ActivationData.walleteligiblecard}, &quot;(&quot;, &quot;&quot;), &quot;)&quot;, &quot;&quot;), &quot;,&quot;, &apos;&quot;,&quot;&apos;) &amp; &apos;&quot;]&apos;
+)</expression>
+    </formulas>
+    <formulas>
+        <name>FxAccount_Check</name>
+        <dataType>Boolean</dataType>
+        <expression>{!$ActivationData.fx_95accounts_95number} &lt;= 1</expression>
+    </formulas>
+    <formulas>
+        <name>MobileWalletCheck</name>
+        <dataType>Boolean</dataType>
+        <expression>{!$ActivationData.walletcardhastoken} = False</expression>
+    </formulas>
+    <formulas>
+        <name>SalaryCheck</name>
+        <dataType>Boolean</dataType>
+        <expression>{!$ActivationData.salary_95mail_95sent} = False</expression>
+    </formulas>
+    <formulas>
+        <description>Get Welcome Title based on client&apos;s language</description>
+        <name>Welcome_Title_PL_EN</name>
+        <dataType>String</dataType>
+        <expression>CASE(
+{!$ActivationData.display_95and_95messaging_95language}, &apos;pl&apos;, {!GetWelcomeMessage.Welcome_Title__c}, {!GetWelcomeMessage.Welcome_Title_EN__c})</expression>
+    </formulas>
+    <formulas>
+        <description>Get Welcome Message based on client&apos;s language</description>
+        <name>WelcomeMessage_PL_EN</name>
+        <dataType>String</dataType>
+        <expression>CASE(
+{!$ActivationData.display_95and_95messaging_95language}, &apos;pl&apos;, {!GetWelcomeMessage.Welcome_Message__c}, {!GetWelcomeMessage.Welcome_Message_EN__c})</expression>
+    </formulas>
+    <interviewLabel>FL_AIAgent_WelcomeCall {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>FL_AIAgent_WelcomeCall</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>CanvasMode</name>
+        <value>
+            <stringValue>AUTO_LAYOUT_CANVAS</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>OriginBuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processType>AutoLaunchedFlow</processType>
+    <recordCreates>
+        <name>Create_records_in_Error_Log</name>
+        <label>Create records in Error Log</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <inputAssignments>
+            <field>Error_Message__c</field>
+            <value>
+                <elementReference>Build_Payload_PubSub.errorMessage</elementReference>
+            </value>
+        </inputAssignments>
+        <object>Flow_AIAgent_ErrorLog__c</object>
+        <storeOutputAutomatically>true</storeOutputAutomatically>
+    </recordCreates>
+    <recordCreates>
+        <description>Create Welcome Call outbound log with ACTIVE status</description>
+        <name>CreateRecordsinAIAgentOutboundLog</name>
+        <label>Create Records in AI Agent Outbound Log</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <inputAssignments>
+            <field>ExternalCustomerId__c</field>
+            <value>
+                <elementReference>$ActivationData.cstmr_95id</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Message_Payload__c</field>
+            <value>
+                <elementReference>Build_Payload_PubSub.payload</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Timestamp__c</field>
+            <value>
+                <elementReference>$Flow.CurrentDateTime</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Welcome_Message__c</field>
+            <value>
+                <elementReference>WelcomeMessage_PL_EN</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Welcome_Scenario__c</field>
+            <value>
+                <elementReference>GetWelcomeMessage.Name</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Welcome_Title__c</field>
+            <value>
+                <elementReference>Welcome_Title_PL_EN</elementReference>
+            </value>
+        </inputAssignments>
+        <object>AI_Agent_Outbound_Log__c</object>
+        <storeOutputAutomatically>true</storeOutputAutomatically>
+    </recordCreates>
+    <recordLookups>
+        <description>Get welcome message for selected scenario</description>
+        <name>GetWelcomeMessage</name>
+        <label>Get Welcome Message</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <assignNullValuesIfNoRecordsFound>false</assignNullValuesIfNoRecordsFound>
+        <connector>
+            <targetReference>Build_Payload_PubSub</targetReference>
+        </connector>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>Name</field>
+            <operator>EqualTo</operator>
+            <value>
+                <elementReference>AssignWelcomeScenario</elementReference>
+            </value>
+        </filters>
+        <getFirstRecordOnly>true</getFirstRecordOnly>
+        <object>AI_Agent_Welcome_Message__c</object>
+        <sortField>Name</sortField>
+        <sortOrder>Asc</sortOrder>
+        <storeOutputAutomatically>true</storeOutputAutomatically>
+    </recordLookups>
+    <start>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <activation>85Rds000000FbgnEAC</activation>
+        <connector>
+            <targetReference>Pick_random_scenario</targetReference>
+        </connector>
+        <entryType>Always</entryType>
+        <object>GCP_CUSTOMER_PROFILE_AIAGENT_DMO__dlm</object>
+        <triggerType>Activation</triggerType>
+    </start>
+    <status>Active</status>
+    <textTemplates>
+        <description>parameters used to assign proper values in payload - Context for AI Agent</description>
+        <name>tt_DynamicParams</name>
+        <isViewedAsPlainText>true</isViewedAsPlainText>
+        <text>{
+  &quot;FirstName&quot;: &quot;{!$ActivationData.first_95name}&quot;,
+  &quot;ClientAge&quot;: &quot;{!$ActivationData.age_95range}&quot;,
+  &quot;Gender&quot;: &quot;{!$ActivationData.sex}&quot;,
+  &quot;ClientCitySize&quot;: &quot;{!$ActivationData.city_95size_95range}&quot;,
+  &quot;UnicreditBranchCity&quot;: &quot;{!$ActivationData.brnch_95city}&quot;,
+  &quot;BranchAddress&quot;: &quot;{!$ActivationData.brnch_95address}&quot;,
+  &quot;DistanceToUnicreditBranchKm&quot;: &quot;{!$ActivationData.brnch_95distance_95km}&quot;,
+  &quot;DateCreation&quot;: &quot;{!f_CurrentDateTimeUTC}&quot;,
+  &quot;IsBlikEnabled&quot;: &quot;{!$ActivationData.isblikenabled}&quot;,
+  &quot;BlikP2PServiceActive&quot;: &quot;{!$ActivationData.blikp2pserviceactive}&quot;,
+  &quot;CustomerStatus&quot;: &quot;{!$ActivationData.customer_95status}&quot;,
+  &quot;DisplayLanguage&quot;: &quot;{!$ActivationData.display_95and_95messaging_95language}&quot;,
+  &quot;EmailAddress&quot;: &quot;{!$ActivationData.email_95address}&quot;,
+&quot;EmailHashed&quot;: &quot;{!$ActivationData.hashed_95email}&quot;,
+  &quot;PhoneNumber&quot;: &quot;{!$ActivationData.phone_95number}&quot;,
+  &quot;FxAccountsNumber&quot;: &quot;{!$ActivationData.fx_95accounts_95number}&quot;,
+  &quot;FxAvailableCurrenciesList&quot;: &quot;{!$ActivationData.fx_95available_95currencies_95list}&quot;,
+  &quot;availableCurrencies&quot;: {!f_FxCurrenciesList},
+  &quot;MailCity&quot;: &quot;{!$ActivationData.mail_95city}&quot;,
+  &quot;MailCountry&quot;: &quot;{!$ActivationData.mail_95country}&quot;,
+  &quot;MailPostal&quot;: &quot;{!$ActivationData.mail_95postal}&quot;,
+  &quot;SalaryMailSent&quot;: &quot;{!$ActivationData.salary_95mail_95sent}&quot;,
+  &quot;SavingAccountsBalanceSum&quot;: &quot;{!$ActivationData.saving_95accounts_95balance_95sum}&quot;,
+  &quot;SavingAccountsCount&quot;: &quot;{!$ActivationData.saving_95accounts_95count}&quot;,
+  &quot;TermDepositCapitalSum&quot;: &quot;{!$ActivationData.term_95deposit_95capital_95sum}&quot;,
+  &quot;TermDepositCount&quot;: &quot;{!$ActivationData.term_95deposit_95count}&quot;,
+  &quot;TermDepositOpeningDateLast&quot;: &quot;{!$ActivationData.term_95depostit_95opening_95date_95last}&quot;,
+  &quot;WalletCardHasToken&quot;: &quot;{!$ActivationData.walletcardhastoken}&quot;,
+  &quot;WalletCardType&quot;: &quot;{!$ActivationData.walletcardtype}&quot;,
+  &quot;WalletEligibleCard&quot;: {!f_WalletEligibleCardList},
+  &quot;WalletType&quot;: &quot;{!$ActivationData.wallettype}&quot;,
+&quot;WalletCardNumberHashed&quot;: &quot;{!$ActivationData.walletcardnumberhashed}&quot;
+}</text>
+    </textTemplates>
+    <variables>
+        <name>AssignWelcomeScenario</name>
+        <dataType>String</dataType>
+        <isCollection>false</isCollection>
+        <isInput>true</isInput>
+        <isOutput>true</isOutput>
+    </variables>
+    <variables>
+        <name>RandomTopic</name>
+        <dataType>Number</dataType>
+        <isCollection>false</isCollection>
+        <isInput>true</isInput>
+        <isOutput>true</isOutput>
+        <scale>0</scale>
+    </variables>
+</Flow>

@@ -8,6 +8,7 @@
 
             <header class="custom-modal-header">
                 <h2 class="slds-text-heading_medium">{modalTitle}</h2>
+                <span class="live-score">{attractivenessScoreDisplay}</span>
             </header>
 
             <div class="custom-modal-body">
@@ -115,30 +116,10 @@
                         <!-- STATUS CONTROL STRIP — only on step 1 -->
                         <div class="status-control-strip slds-m-bottom_medium">
                             <div class="status-control-left">
-                                <!-- Lock/Unlock only for existing offers -->
-                                <template lwc:if={isExistingOffer}>
-                                    <button class={lockButtonClass} onclick={handleLockToggle} title={lockToggleTitle}>
-                                        <lightning-icon lwc:if={isStatusLocked} icon-name="utility:lock" size="xx-small" class="lock-icon"></lightning-icon>
-                                        <lightning-icon lwc:if={isStatusUnlocked} icon-name="utility:unlock" size="xx-small" class="unlock-icon"></lightning-icon>
-                                    </button>
-                                    <div class="status-control-divider"></div>
-                                </template>
-
-                                <!-- Version Status -->
+                                <!-- Status changes happen on the offer record, not in the wizard -->
                                 <div class="status-control-field">
                                     <span class="status-control-label">Version Status</span>
-                                    <template lwc:if={canEditVersionStatus}>
-                                        <div class="status-select-wrapper">
-                                            <select class="status-select" value={currentVersionStatus} onchange={handleVersionStatusChange}>
-                                                <template for:each={versionStatusOptions} for:item="opt">
-                                                    <option key={opt.value} value={opt.value} selected={opt.selected}>{opt.label}</option>
-                                                </template>
-                                            </select>
-                                        </div>
-                                    </template>
-                                    <template lwc:else>
-                                        <span class={versionStatusBadgeClass}>{currentVersionStatus}</span>
-                                    </template>
+                                    <span class={versionStatusBadgeClass}>{currentVersionStatus}</span>
                                 </div>
                             </div>
 
@@ -386,10 +367,16 @@
                                                         field-level-help={param.helpText}
                                                         data-field={param.field}
                                                         onchange={handleParamChange}
-                                                        step="0.01"
+                                                        step="any"
                                                         disabled={param.disabled}
                                                         required>
                                                     </lightning-input>
+                                                    <template lwc:if={param.boundHint}>
+                                                        <p class="param-range-hint">{param.boundHint}</p>
+                                                    </template>
+                                                    <template lwc:if={param.outsideBound}>
+                                                        <p class="param-range-note">Outside the reference range. It scores the same as the range edge.</p>
+                                                    </template>
                                                 </template>
                                                 <template lwc:if={param.isPicklist}>
                                                     <lightning-combobox
@@ -497,9 +484,15 @@
                                                                 field-level-help={param.helpText}
                                                                 data-field={param.field}
                                                                 onchange={handleParamChange}
-                                                                step="0.01"
+                                                                step="any"
                                                                 disabled={param.disabled}>
                                                             </lightning-input>
+                                                            <template lwc:if={param.boundHint}>
+                                                                <p class="param-range-hint">{param.boundHint}</p>
+                                                            </template>
+                                                            <template lwc:if={param.outsideBound}>
+                                                                <p class="param-range-note">Outside the reference range. It scores the same as the range edge.</p>
+                                                            </template>
                                                         </template>
                                                         <template lwc:if={param.isPicklist}>
                                                             <lightning-combobox
@@ -688,19 +681,18 @@
                     <template lwc:if={showBackButton}>
                         <button class="pill-action-btn secondary-pill slds-m-right_small" onclick={handlePreviousStep}>Back</button>
                     </template>
-                    <button class="pill-action-btn secondary-pill slds-m-right_small" onclick={handleSaveInPlace}>Save</button>
-                    <template lwc:if={showNextButton}>
-                        <button class="pill-action-btn primary-pill" onclick={handleNextStep}>Next</button>
+                    <template lwc:if={isActiveModifyMode}>
+                        <button class="pill-action-btn primary-pill" onclick={handleSaveActiveModify}>Save</button>
                     </template>
-                    <template lwc:if={isLastStep}>
-                        <template lwc:if={canSaveAsDraft}>
-                            <button class="pill-action-btn secondary-pill slds-m-right_small" onclick={handleSaveDraft}>Save as Draft</button>
+                    <template lwc:else>
+                        <button class="pill-action-btn secondary-pill slds-m-right_small" onclick={handleSaveInPlace}>Save</button>
+                        <template lwc:if={showNextButton}>
+                            <button class="pill-action-btn primary-pill" onclick={handleNextStep}>Next</button>
                         </template>
-                        <template lwc:if={canSaveAsReady}>
-                            <button class="pill-action-btn secondary-pill slds-m-right_small" onclick={handleSaveAsReady}>Save as Ready</button>
-                        </template>
-                        <template lwc:if={canSaveAndActivate}>
-                            <button class="pill-action-btn primary-pill" onclick={handleSaveAndActivate}>Save and Activate</button>
+                        <template lwc:if={isLastStep}>
+                            <template lwc:if={canSaveAndActivate}>
+                                <button class="pill-action-btn primary-pill" onclick={handleSaveAndActivate}>Save &amp; Activate</button>
+                            </template>
                         </template>
                     </template>
                 </div>

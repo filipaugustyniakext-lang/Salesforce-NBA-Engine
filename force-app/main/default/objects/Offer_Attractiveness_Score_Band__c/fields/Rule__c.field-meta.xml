@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Rule__c</fullName>
+    <label>Attribute Rule</label>
+    <referenceTo>Offer_Attribute_Rule__c</referenceTo>
+    <relationshipLabel>Score Bands</relationshipLabel>
+    <relationshipName>Score_Bands</relationshipName>
+    <relationshipOrder>0</relationshipOrder>
+    <reparentableMasterDetail>false</reparentableMasterDetail>
+    <trackTrending>false</trackTrending>
+    <type>MasterDetail</type>
+    <writeRequiresMasterRead>false</writeRequiresMasterRead>
+</CustomField>

@@ -473,14 +473,25 @@
                             </template>
                         </div>
                     </div>
-                    <div class="slds-m-top_medium">
-                        <lightning-input
-                            type="checkbox"
-                            label="Main Channel"
-                            checked={editChannel.Main_Channel__c}
-                            data-field="Main_Channel__c"
-                            onchange={handleChannelFieldChange}>
-                        </lightning-input>
+                    <div class="slds-grid slds-gutters_medium slds-m-top_medium">
+                        <div class="slds-col slds-size_1-of-2">
+                            <lightning-input
+                                type="checkbox"
+                                label="Main Channel"
+                                checked={editChannel.Main_Channel__c}
+                                data-field="Main_Channel__c"
+                                onchange={handleChannelFieldChange}>
+                            </lightning-input>
+                        </div>
+                        <div class="slds-col slds-size_1-of-2">
+                            <lightning-input
+                                type="checkbox"
+                                label="Use Templates"
+                                checked={editChannel.Use_Templates__c}
+                                data-field="Use_Templates__c"
+                                onchange={handleChannelFieldChange}>
+                            </lightning-input>
+                        </div>
                     </div>
                     <section class="channel-modal-comm-card slds-box slds-m-top_medium">
                         <fieldset class="slds-form-element">

@@ -1,0 +1,11 @@
+.panel-root {
+    background: transparent;
+}
+
+.row-ineligible {
+    background-color: var(--slds-g-color-neutral-base-95, #f3f3f3);
+}
+
+.catalog-table a {
+    font-weight: 600;
+}

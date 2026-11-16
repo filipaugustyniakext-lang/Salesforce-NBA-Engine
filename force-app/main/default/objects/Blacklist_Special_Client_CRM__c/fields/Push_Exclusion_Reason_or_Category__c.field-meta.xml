@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Push_Exclusion_Reason_or_Category__c</fullName>
+    <deleteConstraint>Restrict</deleteConstraint>
+    <label>Push Exclusion Reason or Category</label>
+    <referenceTo>Exclusion_Reason_Dictionary__c</referenceTo>
+    <relationshipLabel>Blacklist Special Client CRM (Push Exclusion Reason or Category)</relationshipLabel>
+    <relationshipName>Blacklist_Special_Client_CRM3</relationshipName>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

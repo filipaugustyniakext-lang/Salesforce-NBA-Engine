@@ -79,7 +79,7 @@ public with sharing class UnifiedMessagingBlockoutSync {
 
         Blackout_Day_Rule__c rule = [
             SELECT Id, Day_Of_Week__c, Is_Fully_Blocked__c, Blocked_From_Hour__c, Blocked_To_Hour__c,
-                   UM_Blockout_Record_Id__c, Channel__r.Name, Channel__r.Channel_Type__c
+                   UM_Blockout_Record_Id__c, Channel__r.Name
             FROM Blackout_Day_Rule__c
             WHERE Id = :ruleId
             LIMIT 1
@@ -138,9 +138,8 @@ public with sharing class UnifiedMessagingBlockoutSync {
         if (channel == null) {
             return false;
         }
-        String type = (channel.Channel_Type__c != null ? channel.Channel_Type__c : '').toLowerCase();
         String name = (channel.Name != null ? channel.Name : '').toLowerCase();
-        return type.contains('sms') || type.contains('text') || name.contains('sms');
+        return name.contains('sms') || name.contains('text');
     }
 
     private static String buildBlockoutName(Blackout_Day_Rule__c rule) {

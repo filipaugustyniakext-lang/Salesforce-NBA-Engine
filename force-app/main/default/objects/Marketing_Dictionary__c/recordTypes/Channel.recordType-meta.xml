@@ -3,7 +3,7 @@
     <fullName>Channel</fullName>
     <active>true</active>
     <label>Channel</label>
-<picklistValues>
+    <picklistValues>
         <picklist>Channels__c</picklist>
         <values>
             <fullName>AI Agent - Inbound</fullName>

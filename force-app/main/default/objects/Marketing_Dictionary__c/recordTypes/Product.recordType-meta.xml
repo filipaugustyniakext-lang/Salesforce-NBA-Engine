@@ -4,7 +4,7 @@
     <active>true</active>
     <description>Stores managed lists of Product Families and Families of Needs. Each record is one value in either list, with Product Family rows optionally linked to their parent Family of Needs via the Related Family of Needs lookup.</description>
     <label>Product</label>
-<picklistValues>
+    <picklistValues>
         <picklist>Channels__c</picklist>
         <values>
             <fullName>AI Agent - Inbound</fullName>

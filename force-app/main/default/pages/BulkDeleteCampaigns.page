@@ -1,0 +1,23 @@
+<apex:page standardController="Campaign" recordSetVar="campaigns" extensions="BulkDeleteCampaignsController" lightningStylesheets="true">
+    <apex:form >
+        <apex:pageBlock title="Confirm Bulk Deletion">
+            
+            <apex:pageMessages />
+            
+            <apex:pageBlockButtons location="bottom">
+                <apex:commandButton value="Delete Campaigns" action="{!deleteSelectedRecords}" styleClass="slds-button slds-button_destructive" />
+                <apex:commandButton value="Cancel" action="{!cancel}" immediate="true" />
+            </apex:pageBlockButtons>
+            
+            <apex:pageBlockSection columns="1">
+                <!-- CHANGED: Now using {!selectedCount} instead of {!selected.size} -->
+                <apex:outputText value="You have selected {!selectedCount} campaign(s). Are you sure you want to permanently delete them?" 
+                                 rendered="{!selectedCount > 0}" />
+                
+                <apex:outputText value="No campaigns selected. Please click Cancel and select at least one campaign from the list view." 
+                                 rendered="{!selectedCount == 0}" style="color:red; font-weight:bold;"/>
+            </apex:pageBlockSection>
+            
+        </apex:pageBlock>
+    </apex:form>
+</apex:page>

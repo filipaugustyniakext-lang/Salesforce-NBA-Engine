@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Formula__c</fullName>
+    <description>Formula in Salesforce formula syntax. {Value} is the attribute&apos;s own value; any other {Name} is a placeholder filled per family attribute. Supports + - * / ^, brackets, MIN, MAX, ABS, ROUND and IF with comparisons.</description>
+    <label>Formula</label>
+    <length>4000</length>
+    <trackTrending>false</trackTrending>
+    <type>LongTextArea</type>
+    <visibleLines>4</visibleLines>
+</CustomField>
