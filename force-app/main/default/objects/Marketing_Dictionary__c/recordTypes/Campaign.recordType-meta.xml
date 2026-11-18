@@ -75,6 +75,17 @@
         </values>
     </picklistValues>
     <picklistValues>
+        <picklist>Timing_Evaluation_Type__c</picklist>
+        <values>
+            <fullName>Duration</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Validity</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
         <picklist>Dictionary_Sub_Type__c</picklist>
         <values>
             <fullName>Activation Path</fullName>

@@ -154,10 +154,6 @@
 .pf-col_fon { flex: 1 1 18%; min-width: 6rem; }
 .pf-col_type { flex: 1 1 14%; min-width: 5rem; }
 .pf-col_ct { flex: 1 1 26%; min-width: 7rem; }
-.offering-card-toggle { min-width: 18rem; }
-.offering-card-toggle .slds-checkbox_faux_container {
-    margin-left: 0.5rem;
-}
 .pf-col_actions { flex: 0 0 4.5rem; }
 
 .bulk-edit-scroll {
@@ -183,4 +179,30 @@
 .pf-tagging-only-row {
     margin-top: 0.75rem;
     padding-top: 0.35rem;
+}
+
+.offering-card-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-left: 0.75rem;
+    vertical-align: middle;
+    font-size: 0.8125rem;
+    font-weight: 400;
+}
+.offering-card-toggle__switch {
+    display: inline-flex;
+    margin: 0;
+}
+.offering-card-toggle__label {
+    color: var(--md-color-text, var(--slds-g-color-on-surface-1, #181818));
+    white-space: nowrap;
+}
+.offering-card-toggle__tip {
+    display: inline-flex;
+}
+/* Hide the default Active/Inactive status text of the SLDS toggle. */
+.offering-card-toggle .slds-checkbox_off,
+.offering-card-toggle .slds-checkbox_on {
+    display: none;
 }

@@ -542,7 +542,7 @@ public with sharing class MarketingDictionaryManagerController {
                    Include_In_Emergency__c, Is_Active__c, Distribution_Percent__c,
                    Campaign_Type_Icon__c,
                    Topic_Group_Dict__c, Topic_Group_Dict__r.Name,
-                   Define_Campaign_Groups__c,
+                   Define_Campaign_Groups__c, Timing_Evaluation_Type__c,
                    Campaign_Type_Dict__c, Campaign_Type_Dict__r.Name,
                    Version__c, Model_Id__c, Model_Expiration_Date__c,
                    Scoring_Model_Group_Dict__c, Scoring_Model_Group_Dict__r.Name,
@@ -1106,11 +1106,11 @@ public with sharing class MarketingDictionaryManagerController {
             }
             upsert record;
             if (record.Id != null
-                && subType == 'Topic'
                 && String.isNotBlank(record.Name)
-                && oldName != record.Name) {
+                && oldName != record.Name
+                && (subType == 'Topic' || subType == 'Campaign Type')) {
                 CampaignOfferingLabelSync.onDictionaryRename(
-                    record.Id, oldName, record.Name, 'Topic'
+                    record.Id, oldName, record.Name, subType
                 );
             }
             return record.Id;

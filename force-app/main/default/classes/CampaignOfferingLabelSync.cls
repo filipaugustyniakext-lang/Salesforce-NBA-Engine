@@ -102,6 +102,35 @@ public without sharing class CampaignOfferingLabelSync {
             return;
         }
 
+        if (subType == 'Campaign Type') {
+            List<Campaign> camps;
+            if (String.isBlank(oldName)) {
+                camps = [
+                    SELECT Id, Activation_Type__c, Activation_Type_Dict__c
+                    FROM Campaign
+                    WHERE Activation_Type_Dict__c = :dictId
+                    LIMIT 2000
+                ];
+            } else {
+                camps = [
+                    SELECT Id, Activation_Type__c, Activation_Type_Dict__c
+                    FROM Campaign
+                    WHERE Activation_Type_Dict__c = :dictId
+                       OR (Activation_Type_Dict__c = null AND Activation_Type__c = :oldName)
+                    LIMIT 2000
+                ];
+            }
+            for (Campaign c : camps) {
+                c.Activation_Type_Dict__c = dictId;
+                c.Activation_Type__c = newName;
+            }
+            if (!camps.isEmpty()) {
+                RUNNING_HEAL = true;
+                try { update camps; } finally { RUNNING_HEAL = false; }
+            }
+            return;
+        }
+
         Boolean isPf = subType == 'Product Family';
         Boolean isFon = subType == 'Family of Needs';
         if (!isPf && !isFon) return;

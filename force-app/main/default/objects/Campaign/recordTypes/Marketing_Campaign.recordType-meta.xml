@@ -4,25 +4,6 @@
     <active>true</active>
     <label>Marketing Campaign</label>
     <picklistValues>
-        <picklist>Activation_Type__c</picklist>
-        <values>
-            <fullName>Always-on</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Emergency</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>One-Off</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Triggered</fullName>
-            <default>false</default>
-        </values>
-    </picklistValues>
-    <picklistValues>
         <picklist>Offering_Type__c</picklist>
         <values>
             <fullName>Family of needs</fullName>
