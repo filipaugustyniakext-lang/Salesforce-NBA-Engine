@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Families_of_Needs_Enabled__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>When true, Family of Needs can be chosen in the offering definition component.</description>
+    <label>Families of Needs Enabled</label>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>

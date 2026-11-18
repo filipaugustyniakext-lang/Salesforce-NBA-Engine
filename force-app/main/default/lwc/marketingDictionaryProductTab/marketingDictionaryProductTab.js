@@ -8,6 +8,8 @@ import saveProductRecordsBulkUpdate from '@salesforce/apex/MarketingDictionaryMa
 import deleteDictionaryRecord from '@salesforce/apex/MarketingDictionaryManagerController.deleteDictionaryRecord';
 import getFonCustomerTypes from '@salesforce/apex/MarketingDictionaryManagerController.getFonCustomerTypes';
 import setFonCustomerTypes from '@salesforce/apex/MarketingDictionaryManagerController.setFonCustomerTypes';
+import getOfferingDefinitionSettings from '@salesforce/apex/MarketingDictionaryManagerController.getOfferingDefinitionSettings';
+import saveOfferingDefinitionSetting from '@salesforce/apex/MarketingDictionaryManagerController.saveOfferingDefinitionSetting';
 
 let _keyCounter = 0;
 const newKey = () => String(++_keyCounter);
@@ -40,6 +42,8 @@ const newBulkEditRow = (rec) => ({
 export default class MarketingDictionaryProductTab extends LightningElement {
 
     @track activeSubTab = 'productFamily';
+    @track familiesOfNeedsOfferingEnabled = false;
+    @track productFamiliesOfferingEnabled = true;
 
     get isTab() {
         return {
@@ -62,6 +66,20 @@ export default class MarketingDictionaryProductTab extends LightningElement {
         };
     }
     handleSubTabClick(e) { this.activeSubTab = e.currentTarget.dataset.tab; }
+
+    connectedCallback() {
+        this._loadOfferingCardSettings();
+    }
+
+    async _loadOfferingCardSettings() {
+        try {
+            const settings = await getOfferingDefinitionSettings();
+            this.familiesOfNeedsOfferingEnabled = settings?.familiesOfNeeds === true;
+            this.productFamiliesOfferingEnabled = settings?.productFamilies !== false;
+        } catch (e) {
+            this._showToast('Error', e.body?.message || 'Could not load offering settings.', 'error');
+        }
+    }
 
     // ── Wire ────────────────────────────────────────────────────────────────
 
@@ -511,20 +529,25 @@ export default class MarketingDictionaryProductTab extends LightningElement {
 
     // ── Save ────────────────────────────────────────────────────────────────
 
-    async handleOfferingDefinitionToggle(event) {
-        const recordId = event.target.dataset.id;
+    async handleOfferingCardToggle(event) {
+        const card = event.target.dataset.card;
         const enabled = event.target.checked === true;
-        this._allRecords = this._allRecords.map(rec => (
-            rec.Id === recordId ? { ...rec, Enabled_for_Offering_Definitions__c: enabled } : rec
-        ));
+        const previous = card === 'Family of Needs'
+            ? this.familiesOfNeedsOfferingEnabled
+            : this.productFamiliesOfferingEnabled;
+        if (card === 'Family of Needs') {
+            this.familiesOfNeedsOfferingEnabled = enabled;
+        } else {
+            this.productFamiliesOfferingEnabled = enabled;
+        }
         try {
-            await saveProductRecord({
-                record: { Id: recordId, Enabled_for_Offering_Definitions__c: enabled }
-            });
+            await saveOfferingDefinitionSetting({ card, enabled });
         } catch (e) {
-            this._allRecords = this._allRecords.map(rec => (
-                rec.Id === recordId ? { ...rec, Enabled_for_Offering_Definitions__c: !enabled } : rec
-            ));
+            if (card === 'Family of Needs') {
+                this.familiesOfNeedsOfferingEnabled = previous;
+            } else {
+                this.productFamiliesOfferingEnabled = previous;
+            }
             this._showToast('Error', e.body?.message || 'Could not update offering availability.', 'error');
         }
     }

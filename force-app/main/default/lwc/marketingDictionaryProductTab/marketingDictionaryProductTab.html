@@ -30,7 +30,14 @@
                             Broad categories for product families (similar to campaign groups for campaign types).
                         </p>
                     </div>
-                    <div class="slds-col slds-no-flex">
+                    <div class="slds-col slds-no-flex slds-grid slds-grid_vertical-align-center">
+                        <lightning-input type="toggle" class="offering-card-toggle slds-m-right_medium"
+                            label="Enabled for Offering Definitions"
+                            checked={familiesOfNeedsOfferingEnabled}
+                            data-card="Family of Needs"
+                            field-level-help="When toggled on, this category is included in the offering definition component across campaigns, content, and offers."
+                            onchange={handleOfferingCardToggle}>
+                        </lightning-input>
                         <lightning-button label="Add category" icon-name="utility:add" variant="neutral" size="small"
                             data-subtype="Family of Needs" onclick={handleNewRecord}>
                         </lightning-button>
@@ -48,13 +55,6 @@
                                         </template>
                                     </div>
                                 </div>
-                                <lightning-input type="checkbox" class="offering-flag"
-                                    label="Enabled for Offering Definitions"
-                                    checked={rec.Enabled_for_Offering_Definitions__c}
-                                    data-id={rec.Id}
-                                    field-level-help="When toggled on, this category is included in the offering definition component across campaigns, content, and offers."
-                                    onchange={handleOfferingDefinitionToggle}>
-                                </lightning-input>
                                 <div class="slds-button-group">
                                     <lightning-button-icon icon-name="utility:edit" variant="bare" size="small"
                                         data-id={rec.Id} data-subtype="Family of Needs" onclick={handleEditRecord}>
@@ -80,6 +80,13 @@
                     </h2>
                 </div>
                 <div class="slds-col slds-no-flex slds-grid slds-grid_vertical-align-center">
+                    <lightning-input type="toggle" class="offering-card-toggle slds-m-right_medium"
+                        label="Enabled for Offering Definitions"
+                        checked={productFamiliesOfferingEnabled}
+                        data-card="Product Family"
+                        field-level-help="When toggled on, this category is included in the offering definition component across campaigns, content, and offers."
+                        onchange={handleOfferingCardToggle}>
+                    </lightning-input>
                     <lightning-button label="Bulk edit" variant="neutral" size="small"
                         onclick={handleOpenBulkEdit} disabled={bulkActionsDisabled} class="slds-m-right_x-small">
                     </lightning-button>
@@ -141,10 +148,6 @@
                                 data-sort="productType" onclick={handleSortChange} title={sortByProductTypeTitle}>
                             </lightning-button-icon>
                         </div>
-                        <div class="pf-col pf-col_offering">
-                            Offering
-                            <lightning-helptext content="When toggled on, this category is included in the offering definition component across campaigns, content, and offers."></lightning-helptext>
-                        </div>
                         <div class="pf-col pf-col_ct">
                             Customer Types
                             <lightning-button-icon icon-name={sortByCustomerTypeIcon} variant="bare" size="small"
@@ -174,14 +177,6 @@
                                 <template lwc:if={rec.Related_Product_Type__r}>
                                     <span class="slds-badge badge-product-type">{rec.Related_Product_Type__r.Name}</span>
                                 </template>
-                            </div>
-                            <div class="pf-col pf-col_offering">
-                                <lightning-input type="checkbox" variant="label-hidden"
-                                    label="Enabled for Offering Definitions"
-                                    checked={rec.Enabled_for_Offering_Definitions__c}
-                                    data-id={rec.Id}
-                                    onchange={handleOfferingDefinitionToggle}>
-                                </lightning-input>
                             </div>
                             <div class="pf-col pf-col_ct">
                                 <div class="badge-row">

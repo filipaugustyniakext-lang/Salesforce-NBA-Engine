@@ -18,7 +18,7 @@ public with sharing class MarketingDictionaryManagerController {
             SELECT Id, Name, Dictionary_Sub_Type__c,
                    Related_Family_of_Needs__c, Related_Family_of_Needs__r.Name,
                    Related_Product_Type__c, Related_Product_Type__r.Name,
-                   For_Tagging_Only__c, Enabled_for_Offering_Definitions__c
+                   For_Tagging_Only__c
             FROM Marketing_Dictionary__c
             WHERE RecordType.DeveloperName = 'Product'
             ORDER BY Dictionary_Sub_Type__c ASC, Name ASC
@@ -35,14 +35,41 @@ public with sharing class MarketingDictionaryManagerController {
         return [
             SELECT Id, Name, Dictionary_Sub_Type__c,
                    Related_Family_of_Needs__c, Related_Family_of_Needs__r.Name,
-                   Related_Product_Type__c, Related_Product_Type__r.Name,
-                   Enabled_for_Offering_Definitions__c
+                   Related_Product_Type__c, Related_Product_Type__r.Name
             FROM Marketing_Dictionary__c
             WHERE RecordType.DeveloperName = 'Product'
             AND Dictionary_Sub_Type__c IN ('Product Family', 'Family of Needs')
             ORDER BY Dictionary_Sub_Type__c ASC, Name ASC
             LIMIT 1000
         ];
+    }
+
+    @AuraEnabled
+    public static Map<String, Boolean> getOfferingDefinitionSettings() {
+        Offering_Definition_Setting__c setting = Offering_Definition_Setting__c.getOrgDefaults();
+        return new Map<String, Boolean>{
+            'familiesOfNeeds' => setting != null && setting.Families_of_Needs_Enabled__c == true,
+            'productFamilies' => setting == null || setting.Id == null || setting.Product_Families_Enabled__c == true
+        };
+    }
+
+    @AuraEnabled
+    public static void saveOfferingDefinitionSetting(String card, Boolean enabled) {
+        Offering_Definition_Setting__c setting = Offering_Definition_Setting__c.getOrgDefaults();
+        if (setting == null) {
+            setting = new Offering_Definition_Setting__c();
+        }
+        if (setting.Id == null) {
+            setting.SetupOwnerId = UserInfo.getOrganizationId();
+        }
+        if (card == 'Family of Needs') {
+            setting.Families_of_Needs_Enabled__c = enabled == true;
+        } else if (card == 'Product Family') {
+            setting.Product_Families_Enabled__c = enabled == true;
+        } else {
+            throw new AuraHandledException('Unknown offering dictionary card.');
+        }
+        upsert setting;
     }
 
     /**
