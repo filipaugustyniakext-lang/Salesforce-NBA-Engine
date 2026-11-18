@@ -13,9 +13,9 @@
     --md-color-text: var(--slds-g-color-on-surface-1, #181818);
     --md-color-text-muted: var(--slds-g-color-on-surface-2, #706e6b);
     --md-color-text-default: var(--slds-g-color-on-surface-1, #3e3e3c);
-    --md-color-accent: var(--lwc-brandAccessible, var(--slds-g-color-accent-2, #0176d3));
-    --md-color-accent-strong: var(--lwc-brandAccessibleActive, var(--slds-g-color-accent-1, #032d60));
-    --md-color-accent-container: var(--lwc-brandAccessible, var(--slds-g-color-accent-container-1, #0176d3));
+    --md-color-accent: var(--slds-g-color-accent-2, #007A91);
+    --md-color-accent-strong: var(--slds-g-color-accent-1, #006375);
+    --md-color-accent-container: var(--slds-g-color-accent-container-1, #006375);
     --md-color-on-accent: var(--slds-g-color-on-accent-1, #ffffff);
     --md-color-success-bg: var(--slds-g-color-success-container-1, #daf5e3);
     --md-color-success-text: var(--slds-g-color-on-success-1, #194e31);

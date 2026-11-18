@@ -8,9 +8,9 @@
     --md-color-text: var(--slds-g-color-on-surface-1, #181818);
     --md-color-text-muted: var(--slds-g-color-on-surface-2, #706e6b);
     --md-color-text-default: var(--slds-g-color-on-surface-1, #3e3e3c);
-    --md-color-accent: var(--lwc-brandAccessible, var(--slds-g-color-accent-2, #0176d3));
-    --md-color-accent-strong: var(--lwc-brandAccessibleActive, var(--slds-g-color-accent-1, #032d60));
-    --md-color-accent-container: var(--lwc-brandAccessible, var(--slds-g-color-accent-container-1, #0176d3));
+    --md-color-accent: var(--slds-g-color-accent-2, #007A91);
+    --md-color-accent-strong: var(--slds-g-color-accent-1, #006375);
+    --md-color-accent-container: var(--slds-g-color-accent-container-1, #006375);
     --md-color-on-accent: var(--slds-g-color-on-accent-1, #ffffff);
     --md-color-neutral-bg: var(--slds-g-color-neutral-base-95, #f3f3f3);
     --md-color-error: var(--slds-g-color-error-1, #c23934);
@@ -555,7 +555,7 @@
 }
 
 .activation-btn--selected .activation-btn-label {
-    color: var(--md-color-accent, var(--lwc-brandAccessible, #0176d3));
+    color: var(--md-color-accent, var(--slds-g-color-accent-2, #007A91));
 }
 
 /* 3 x 3 activation picker used by the current wizard markup */
@@ -599,17 +599,17 @@
 }
 
 .activation-type-picker input:focus-visible + .activation-type-figure {
-    box-shadow: 0 0 0 2px var(--md-color-accent, var(--lwc-brandAccessible, #0176d3));
+    box-shadow: 0 0 0 2px var(--md-color-accent, var(--slds-g-color-accent-2, #007A91));
 }
 
 .activation-type-picker input:checked + .activation-type-figure {
     background: var(--md-color-highlight-bg, var(--slds-g-color-info-container-1, #eef4ff));
-    border-color: var(--md-color-accent, var(--lwc-brandAccessible, #0176d3));
-    box-shadow: inset 0 0 0 1px var(--md-color-accent, var(--lwc-brandAccessible, #0176d3));
+    border-color: var(--md-color-accent, var(--slds-g-color-accent-2, #007A91));
+    box-shadow: inset 0 0 0 1px var(--md-color-accent, var(--slds-g-color-accent-2, #007A91));
 }
 
 .activation-type-picker input:checked + .activation-type-figure .activation-btn-label {
-    color: var(--md-color-accent, var(--lwc-brandAccessible, #0176d3));
+    color: var(--md-color-accent, var(--slds-g-color-accent-2, #007A91));
 }
 
 .activation-btn-icon {
