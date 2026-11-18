@@ -363,8 +363,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     @track selectedCampaignGroupId = '';     // Campaign.Campaign_Group_Dict__c (dictionary Id)
     @track selectedCampaignGroupName = '';
 
-    @track selectAllProductFamilies = true;
-    @track selectAllFamilyOfNeeds = true;
 
     // --- TOPIC DROPDOWN STATE ---
     @track allTopicGoals = []; // [{ id, name, label }]
@@ -1182,11 +1180,12 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                     selected.add(byName[token]);
                 }
             });
+            const first = [...selected][0];
             this.productFamilyOptions = this.productFamilyOptions.map(opt => ({
                 ...opt,
-                checked: selected.has(opt.value)
+                checked: opt.value === first
             }));
-            this.selectAllProductFamilies = this.productFamilyOptions.every(opt => opt.checked);
+            this._guideFiltersFromProduct(first);
             this.buildGroupedOptions();
             this.editProductFamilyValues = null;
             applied = true;
@@ -1203,11 +1202,11 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                     selected.add(byName[token]);
                 }
             });
+            const firstFon = [...selected][0];
             this.familyOfNeedsOptions = this.familyOfNeedsOptions.map(opt => ({
                 ...opt,
-                checked: selected.has(opt.value)
+                checked: opt.value === firstFon
             }));
-            this.selectAllFamilyOfNeeds = this.familyOfNeedsOptions.every(opt => opt.checked);
             this.editFamilyOfNeedsValues = null;
             applied = true;
         }
@@ -1548,9 +1547,11 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     updateOptionLists() {
-        if (this.rawProductFamilies && this.rawProductFamilies.length > 0
-            && typeof this.rawProductFamilies[0] === 'object') {
-            this.productFamilyOptions = this.rawProductFamilies.map(rec => {
+        const enabledFamilies = (this.rawProductFamilies || []).filter(
+            rec => rec && rec.Enabled_for_Offering_Definitions__c === true
+        );
+        if (enabledFamilies.length > 0 && typeof enabledFamilies[0] === 'object') {
+            this.productFamilyOptions = enabledFamilies.map(rec => {
                 const name = rec.Name;
                 const existing = this.productFamilyOptions.find(opt => opt.value === rec.Id);
                 let isChecked = false;
@@ -1572,13 +1573,16 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                     customerTypes: this.productFamilyCustomerTypes[name] || []
                 };
             });
-            this.selectAllProductFamilies = this.productFamilyOptions.length > 0
-                && this.productFamilyOptions.every(opt => opt.checked);
+            this._keepSingleChecked(this.productFamilyOptions);
+        } else {
+            this.productFamilyOptions = [];
         }
 
-        if (this.rawFamilyOfNeeds && this.rawFamilyOfNeeds.length > 0
-            && typeof this.rawFamilyOfNeeds[0] === 'object') {
-            this.familyOfNeedsOptions = this.rawFamilyOfNeeds.map(rec => {
+        const enabledNeeds = (this.rawFamilyOfNeeds || []).filter(
+            rec => rec && rec.Enabled_for_Offering_Definitions__c === true
+        );
+        if (enabledNeeds.length > 0 && typeof enabledNeeds[0] === 'object') {
+            this.familyOfNeedsOptions = enabledNeeds.map(rec => {
                 const name = rec.Name;
                 const existing = this.familyOfNeedsOptions.find(opt => opt.value === rec.Id);
                 let isChecked = false;
@@ -1602,11 +1606,44 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                         : 'No related Product Families'
                 };
             });
-            this.selectAllFamilyOfNeeds = this.familyOfNeedsOptions.length > 0
-                && this.familyOfNeedsOptions.every(opt => opt.checked);
+            this._keepSingleChecked(this.familyOfNeedsOptions);
+        } else {
+            this.familyOfNeedsOptions = [];
         }
+        this._syncOfferingTypeAvailability();
         this.buildGroupedOptions();
         this.applyEditOfferingSelections();
+    }
+
+    _keepSingleChecked(options) {
+        const chosen = (options || []).find(opt => opt.checked);
+        (options || []).forEach(opt => { opt.checked = !!chosen && opt.value === chosen.value; });
+    }
+
+    _guideFiltersFromProduct(productId) {
+        const opt = (this.productFamilyOptions || []).find(item => item.value === productId);
+        if (!opt) return;
+        const customerType = (opt.customerTypes || [])[0];
+        if (customerType) {
+            this.pfFilterCustomerTypes = [customerType];
+        }
+        const recordTypes = this.productFamilyByRecordType || {};
+        for (const [recordType, names] of Object.entries(recordTypes)) {
+            if ((names || []).includes(opt.name)) {
+                this.pfFilterRecordTypes = [recordType];
+                break;
+            }
+        }
+    }
+
+    _syncOfferingTypeAvailability() {
+        const productEnabled = (this.productFamilyOptions || []).length > 0;
+        const needsEnabled = (this.familyOfNeedsOptions || []).length > 0;
+        if (this.selectedOfferingType === 'Product Family' && !productEnabled && needsEnabled) {
+            this.selectedOfferingType = 'Family of Needs';
+        } else if (this.selectedOfferingType === 'Family of Needs' && !needsEnabled && productEnabled) {
+            this.selectedOfferingType = 'Product Family';
+        }
     }
 
     buildGroupedOptions() {
@@ -1630,31 +1667,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             groups.push({ recordType: 'Other', items: unassigned });
         }
         this.groupedProductFamilyOptions = groups;
-    }
-
-    // FIXED: Added "Select All" master toggles
-    handleSelectAllProductFamilies(event) {
-        this.selectAllProductFamilies = event.target.checked;
-        this.productFamilyOptions = this.productFamilyOptions.map(opt => ({
-            ...opt,
-            checked: this.selectAllProductFamilies
-        }));
-        this.buildGroupedOptions();
-        this.scheduleFetchOffers();
-        this.loadScoringModels();
-        if (this.scoringConfigurationMethod === 'apriori') {
-            this.loadAprioriContextFromState();
-        }
-    }
-
-    handleSelectAllFamilyOfNeeds(event) {
-        this.selectAllFamilyOfNeeds = event.target.checked;
-        this.familyOfNeedsOptions = this.familyOfNeedsOptions.map(opt => ({
-            ...opt,
-            checked: this.selectAllFamilyOfNeeds
-        }));
-        this.scheduleFetchOffers();
-        this.loadScoringModels();
     }
 
     // --- COMBOBOX INTERACTION HANDLERS ---
@@ -1746,10 +1758,10 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     handleProductFamilyChange(event) {
         const val = event.target.dataset.value;
-        this.productFamilyOptions = this.productFamilyOptions.map(item =>
-            item.value === val ? { ...item, checked: event.target.checked } : item
-        );
-        this.selectAllProductFamilies = this.productFamilyOptions.every(opt => opt.checked);
+        this.productFamilyOptions = this.productFamilyOptions.map(item => ({
+            ...item,
+            checked: item.value === val
+        }));
         this.buildGroupedOptions();
         this.scheduleFetchOffers();
         if (this.scoringConfigurationMethod === 'apriori') {
@@ -1759,20 +1771,23 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     handleCustomerTypeFilter(event) {
         const val = event.currentTarget.dataset.value;
-        if (this.pfFilterCustomerTypes.includes(val)) {
-            this.pfFilterCustomerTypes = this.pfFilterCustomerTypes.filter(v => v !== val);
-        } else {
-            this.pfFilterCustomerTypes = [...this.pfFilterCustomerTypes, val];
-        }
+        this.pfFilterCustomerTypes = [val];
+        this._clearProductFamilySelection();
     }
 
     handleRecordTypeFilterBadge(event) {
         const val = event.currentTarget.dataset.value;
-        if (this.pfFilterRecordTypes.includes(val)) {
-            this.pfFilterRecordTypes = this.pfFilterRecordTypes.filter(v => v !== val);
-        } else {
-            this.pfFilterRecordTypes = [...this.pfFilterRecordTypes, val];
-        }
+        this.pfFilterRecordTypes = [val];
+        this._clearProductFamilySelection();
+    }
+
+    _clearProductFamilySelection() {
+        this.productFamilyOptions = (this.productFamilyOptions || []).map(item => ({
+            ...item,
+            checked: false
+        }));
+        this.buildGroupedOptions();
+        this.scheduleFetchOffers();
     }
 
     handleFonFilter(event) {
@@ -1790,10 +1805,10 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     handleFamilyOfNeedsChange(event) {
         const val = event.target.dataset.value;
-        this.familyOfNeedsOptions = this.familyOfNeedsOptions.map(item =>
-            item.value === val ? { ...item, checked: event.target.checked } : item
-        );
-        this.selectAllFamilyOfNeeds = this.familyOfNeedsOptions.every(opt => opt.checked);
+        this.familyOfNeedsOptions = this.familyOfNeedsOptions.map(item => ({
+            ...item,
+            checked: item.value === val
+        }));
         this.scheduleFetchOffers();
     }
 
@@ -3368,7 +3383,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         return [...types].sort().map(ct => ({
             label: ct,
             value: ct,
-            className: `pf-filter-pill ${this.pfFilterCustomerTypes.includes(ct) ? 'pf-filter-pill-active' : ''}`
+            isSelected: this.pfFilterCustomerTypes[0] === ct,
+            className: `pf-filter-pill ${this.pfFilterCustomerTypes[0] === ct ? 'pf-filter-pill-active' : ''}`
         }));
     }
 
@@ -3376,8 +3392,13 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         return Object.keys(this.productFamilyByRecordType).sort().map(rt => ({
             label: rt,
             value: rt,
-            className: `pf-filter-pill ${this.pfFilterRecordTypes.includes(rt) ? 'pf-filter-pill-active' : ''}`
+            isSelected: this.pfFilterRecordTypes[0] === rt,
+            className: `pf-filter-pill ${this.pfFilterRecordTypes[0] === rt ? 'pf-filter-pill-active' : ''}`
         }));
+    }
+
+    get showProductFamilyGuide() {
+        return this.pfFilterCustomerTypes.length !== 1 || this.pfFilterRecordTypes.length !== 1;
     }
 
     get fonFilterOptions() {
@@ -3387,8 +3408,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get filteredGroupedProductFamilyOptions() {
-        if (!this.pfFilterCustomerTypes.length && !this.pfFilterRecordTypes.length && !this.pfFilterFon) {
-            return this.groupedProductFamilyOptions;
+        if (this.showProductFamilyGuide) {
+            return [];
         }
         const filtered = [];
         for (const group of this.groupedProductFamilyOptions) {
@@ -3582,12 +3603,18 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get offeringTypeOptions() {
-    return this.offeringTypesData.map(o => ({
-        ...o,
-        uniqueId: `offering-radio-${o.value}`,
-        // Add a boolean to control the checked state of the radio input
-        isChecked: this.selectedOfferingType === o.value
-    }));
+        return this.offeringTypesData.map(o => {
+            const enabled = o.value === 'Family of Needs'
+                ? (this.familyOfNeedsOptions || []).length > 0
+                : (this.productFamilyOptions || []).length > 0;
+            return {
+                ...o,
+                uniqueId: `offering-radio-${o.value}`,
+                isChecked: this.selectedOfferingType === o.value,
+                isDisabled: !enabled,
+                buttonClass: `slds-button slds-radio_button${enabled ? '' : ' offering-type-disabled'}`
+            };
+        });
     }
     toCamelCase(str) {
         if (!str) return '';

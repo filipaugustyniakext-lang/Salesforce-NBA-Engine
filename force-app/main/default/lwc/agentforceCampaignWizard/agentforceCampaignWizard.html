@@ -707,13 +707,14 @@
                                                 <div class="slds-form-element__control">
                                                     <div class="slds-radio_button-group">
                                                         <template for:each={offeringTypeOptions} for:item="offering">
-                                                            <span class="slds-button slds-radio_button" key={offering.value}>
+                                                            <span class={offering.buttonClass} key={offering.value}>
                                                                 <input 
                                                                     name="offering-type" 
                                                                     type="radio" 
                                                                     id={offering.uniqueId} 
                                                                     value={offering.value} 
-                                                                    checked={offering.isChecked} 
+                                                                    checked={offering.isChecked}
+                                                                    disabled={offering.isDisabled}
                                                                     onchange={handleOfferingTypeChange} 
                                                                 />
                                                                 <!-- Removed the onclick from the label -->
@@ -729,35 +730,33 @@
                                             <!-- Product Family Section -->
                                             <template lwc:if={isOfferingProductFamily}>
                                                 <div class="slds-m-top_medium animate-fade-in">
-                                                    <label class="slds-form-element__label custom-label-style">Select Target Product Families</label>
-                                                    <div class="slds-box slds-theme_default slds-m-top_xx-small" style="background: #f9f9f9;">
-                                                        <!-- Filter Bar -->
+                                                    <label class="slds-form-element__label custom-label-style">Select Target Product Family</label>
+                                                    <p class="slds-text-body_small slds-text-color_weak">Choose one customer type and one record type, then one product family.</p>
+                                                    <div class="slds-box slds-theme_default slds-m-top_xx-small wizard-offering-panel">
                                                         <div class="pf-filter-bar slds-p-bottom_small" style="border-bottom: 1px solid #dddbda;">
                                                             <div class="slds-grid slds-wrap slds-grid_vertical-align-end slds-gutters_x-small">
                                                                 <div class="slds-col slds-size_1-of-2">
                                                                     <label class="pf-filter-label">Customer Type</label>
-                                                                    <div class="pf-filter-pills">
+                                                                    <div class="pf-filter-pills" role="radiogroup" aria-label="Customer Type">
                                                                         <template for:each={customerTypeFilterOptions} for:item="ctf">
-                                                                            <span key={ctf.value} class={ctf.className} data-value={ctf.value} onclick={handleCustomerTypeFilter}>{ctf.label}</span>
+                                                                            <span key={ctf.value} class={ctf.className} data-value={ctf.value} role="radio" tabindex="0" aria-checked={ctf.isSelected} onclick={handleCustomerTypeFilter}>{ctf.label}</span>
                                                                         </template>
                                                                     </div>
                                                                 </div>
                                                                 <div class="slds-col slds-size_1-of-2">
                                                                     <label class="pf-filter-label">Record Type</label>
-                                                                    <div class="pf-filter-pills">
+                                                                    <div class="pf-filter-pills" role="radiogroup" aria-label="Record Type">
                                                                         <template for:each={recordTypeFilterBadgeOptions} for:item="rtf">
-                                                                            <span key={rtf.value} class={rtf.className} data-value={rtf.value} onclick={handleRecordTypeFilterBadge}>{rtf.label}</span>
+                                                                            <span key={rtf.value} class={rtf.className} data-value={rtf.value} role="radio" tabindex="0" aria-checked={rtf.isSelected} onclick={handleRecordTypeFilterBadge}>{rtf.label}</span>
                                                                         </template>
                                                                     </div>
                                                                 </div>
                                                             </div>
                                                         </div>
 
-                                                        <!-- Master Toggle Row -->
-                                                        <div class="slds-p-vertical_small select-all-row-divider" style="border-bottom: 1px solid #dddbda;">
-                                                            <lightning-input type="checkbox" label="Select All" checked={selectAllProductFamilies} onchange={handleSelectAllProductFamilies} class="custom-master-checkbox"></lightning-input>
-                                                        </div>
-
+                                                        <template lwc:if={showProductFamilyGuide}>
+                                                            <p class="slds-text-body_small slds-text-color_weak slds-p-vertical_small">Select one customer type and one record type to see product families.</p>
+                                                        </template>
                                                         <template for:each={filteredGroupedProductFamilyOptions} for:item="group">
                                                             <div key={group.recordType} class="slds-m-top_medium">
                                                                 <span class="pf-group-header">{group.recordType}</span>
@@ -766,10 +765,10 @@
                                                                         <div key={pf.value} class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-p-vertical_x-small">
                                                                             <div class="slds-form-element">
                                                                                 <div class="slds-form-element__control">
-                                                                                    <div class="slds-checkbox">
-                                                                                        <input type="checkbox" id={pf.inputId} checked={pf.checked} data-value={pf.value} onchange={handleProductFamilyChange} style="position: absolute; opacity: 0; width: 0; height: 0;" />
-                                                                                        <label class="slds-checkbox__label" for={pf.inputId} style="display: inline-flex; align-items: flex-start; width: 100%;">
-                                                                                            <span class="slds-checkbox_faux"></span>
+                                                                                    <div class="slds-radio">
+                                                                                        <input type="radio" name="target-product-family" id={pf.inputId} checked={pf.checked} data-value={pf.value} onchange={handleProductFamilyChange} style="position: absolute; opacity: 0; width: 0; height: 0;" />
+                                                                                        <label class="slds-radio__label" for={pf.inputId} style="display: inline-flex; align-items: flex-start; width: 100%;">
+                                                                                            <span class="slds-radio_faux"></span>
                                                                                             <span class="slds-form-element__label pf-checkbox-label-wrapper" style="padding-top:0;">
                                                                                                 <span class="pf-label-text">{pf.label}</span>
                                                                                                 <span class="pf-badge-group">
@@ -811,20 +810,15 @@
                                                             </div>
                                                         </template>
 
-                                                        <!-- Master Toggle Row -->
-                                                        <div class="slds-p-vertical_small select-all-row-divider" style="border-bottom: 1px solid #dddbda;">
-                                                            <lightning-input type="checkbox" label="Select All" checked={selectAllFamilyOfNeeds} onchange={handleSelectAllFamilyOfNeeds} class="custom-master-checkbox"></lightning-input>
-                                                        </div>
-
                                                         <div class="slds-grid slds-wrap slds-m-top_small">
                                                             <template for:each={filteredFamilyOfNeedsOptions} for:item="fon">
                                                                 <div key={fon.value} class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-p-vertical_x-small">
                                                                     <div class="slds-form-element">
                                                                         <div class="slds-form-element__control">
-                                                                            <div class="slds-checkbox fon-checkbox-wrapper">
-                                                                                <input type="checkbox" id={fon.inputId} checked={fon.checked} data-value={fon.value} onchange={handleFamilyOfNeedsChange} style="position: absolute; opacity: 0; width: 0; height: 0;" />
-                                                                                <label class="slds-checkbox__label" for={fon.inputId} style="display: inline-flex; align-items: flex-start; width: 100%; margin: 0;">
-                                                                                    <span class="slds-checkbox_faux"></span>
+                                                                            <div class="slds-radio fon-checkbox-wrapper">
+                                                                                <input type="radio" name="target-family-of-needs" id={fon.inputId} checked={fon.checked} data-value={fon.value} onchange={handleFamilyOfNeedsChange} style="position: absolute; opacity: 0; width: 0; height: 0;" />
+                                                                                <label class="slds-radio__label" for={fon.inputId} style="display: inline-flex; align-items: flex-start; width: 100%; margin: 0;">
+                                                                                    <span class="slds-radio_faux"></span>
                                                                                     <span class="slds-form-element__label pf-checkbox-label-wrapper" style="padding-top:0;">
                                                                                         <span class="fon-label-line">
                                                                                             <span class="pf-label-text">{fon.label}</span>

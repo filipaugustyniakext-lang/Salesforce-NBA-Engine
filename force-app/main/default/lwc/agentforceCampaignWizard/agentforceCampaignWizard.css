@@ -94,6 +94,11 @@
     color: var(--md-color-text, var(--slds-g-color-on-surface-1, #1b1b1b));
 }
 
+.offering-type-disabled {
+    opacity: 0.45;
+    pointer-events: none;
+}
+
 /* --- EXPANDABLE SECTIONS --- */
 .slds-section__title {
     border: none !important;
