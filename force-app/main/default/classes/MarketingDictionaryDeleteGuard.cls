@@ -281,7 +281,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
         String rtDevName = rec.RecordType != null ? rec.RecordType.DeveloperName : null;
 
         if (subType == 'Campaign Type') {
-            collectCampaignTypeLabelImpact(oldName, reasons);
+            collectCampaignTypeLabelImpact(rec.Id, oldName, reasons);
         } else if (rtDevName == 'Channel') {
             collectChannelLabelImpact(rec, oldName, reasons);
         }
@@ -290,11 +290,14 @@ public with sharing class MarketingDictionaryDeleteGuard {
             return new RenameImpact(false, null);
         }
         String detail = String.join(reasons, ' ');
-        String message =
-            'Some NBA processes store this dictionary label directly (not the record Id). '
-            + 'Renaming "' + oldName + '" to "' + newName + '" may change how those processes match this value. '
-            + detail
-            + ' Continue with the rename?';
+        String message = subType == 'Campaign Type'
+            ? 'Renaming "' + oldName + '" to "' + newName + '" keeps the dictionary Id on existing campaigns. '
+                + detail
+                + ' Tier definitions that store the old label still need a review. Continue with the rename?'
+            : 'Some NBA processes store this dictionary label directly (not the record Id). '
+                + 'Renaming "' + oldName + '" to "' + newName + '" may change how those processes match this value. '
+                + detail
+                + ' Continue with the rename?';
         return new RenameImpact(true, message);
     }
 
@@ -459,17 +462,37 @@ public with sharing class MarketingDictionaryDeleteGuard {
         String typeName,
         DependencyCollector dependencies
     ) {
-        if (String.isNotBlank(typeName)) {
-            for (Campaign camp : [
-                SELECT Name
-                FROM Campaign
-                WHERE Activation_Type__c = :typeName
-                ORDER BY Name ASC
-                LIMIT :MAX_DEPENDENCY_LABELS
-            ]) {
+        if (recordId != null || String.isNotBlank(typeName)) {
+            Set<Id> seenCampaigns = new Set<Id>();
+            List<Campaign> linkedCampaigns;
+            if (String.isNotBlank(typeName)) {
+                linkedCampaigns = [
+                    SELECT Id, Name
+                    FROM Campaign
+                    WHERE Activation_Type_Dict__c = :recordId
+                       OR Activation_Type__c = :typeName
+                    ORDER BY Name ASC
+                    LIMIT :MAX_DEPENDENCY_LABELS
+                ];
+            } else {
+                linkedCampaigns = [
+                    SELECT Id, Name
+                    FROM Campaign
+                    WHERE Activation_Type_Dict__c = :recordId
+                    ORDER BY Name ASC
+                    LIMIT :MAX_DEPENDENCY_LABELS
+                ];
+            }
+            for (Campaign camp : linkedCampaigns) {
+                if (seenCampaigns.contains(camp.Id)) {
+                    continue;
+                }
+                seenCampaigns.add(camp.Id);
                 addDependency(dependencies, 'Campaign (Activation Type)', camp.Name);
             }
-            collectTierSupportedTypeReferences(typeName, dependencies);
+            if (String.isNotBlank(typeName)) {
+                collectTierSupportedTypeReferences(typeName, dependencies);
+            }
         }
         for (Marketing_Dictionary__c grp : [
             SELECT Name
@@ -658,15 +681,16 @@ public with sharing class MarketingDictionaryDeleteGuard {
 
     // ─── Rename label impact (not Id-based) ──────────────────────────────────
 
-    private static void collectCampaignTypeLabelImpact(String oldName, List<String> reasons) {
+    private static void collectCampaignTypeLabelImpact(Id typeId, String oldName, List<String> reasons) {
         Integer campCount = [
             SELECT COUNT()
             FROM Campaign
-            WHERE Activation_Type__c = :oldName
+            WHERE Activation_Type_Dict__c = :typeId
+               OR (Activation_Type_Dict__c = null AND Activation_Type__c = :oldName)
         ];
         if (campCount > 0) {
             reasons.add(
-                campCount + ' campaign(s) store Activation Type "' + oldName + '".'
+                campCount + ' campaign(s) stay linked to this Activation Type by its dictionary Id and will show the new name.'
             );
         }
         Integer tierHits = 0;

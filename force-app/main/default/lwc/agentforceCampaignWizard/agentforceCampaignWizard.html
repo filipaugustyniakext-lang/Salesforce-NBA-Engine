@@ -53,23 +53,25 @@
                                                 <abbr class="slds-required" title="required">*</abbr>
                                             </label>
                                             <template lwc:if={hasActivationTypeOptions}>
-                                                <div class="slds-button-group activation-type-group slds-m-top_xx-small" role="group" aria-label="Activation Type">
+                                                <div class="activation-type-grid slds-m-top_xx-small" role="radiogroup" aria-label="Activation Type">
                                                     <template for:each={activationOptions} for:item="option">
-                                                        <button key={option.value}
-                                                                class={option.btnClass}
-                                                                data-value={option.value}
-                                                                onclick={handleSelectActivation}
-                                                                title={option.label}
-                                                                type="button">
-                                                            <lightning-icon icon-name={option.icon} size="small" class={option.iconClass}></lightning-icon>
-                                                            <span class="activation-btn-label">{option.label}</span>
-                                                        </button>
+                                                        <label key={option.value} class={option.pickerClass}>
+                                                            <input type="radio"
+                                                                   name="campaign-activation-type"
+                                                                   value={option.value}
+                                                                   checked={option.isSelected}
+                                                                   onchange={handleSelectActivation} />
+                                                            <span class="activation-type-figure" title={option.label}>
+                                                                <lightning-icon icon-name={option.icon} size="small" class={option.iconClass}></lightning-icon>
+                                                                <span class="activation-btn-label">{option.label}</span>
+                                                            </span>
+                                                        </label>
                                                     </template>
                                                 </div>
                                             </template>
                                             <template lwc:else>
                                                 <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">
-                                                    No active campaign types in Marketing Dictionary. Add types under Campaigns → Campaign Types.
+                                                    No active activation types in Marketing Dictionary. Add them under Campaigns → Campaign Activation Types.
                                                 </p>
                                             </template>
                                         </div>
@@ -88,7 +90,7 @@
                                         </template>
                                     </div>
 
-                                    <!-- Campaign Group (required when the campaign type defines groups) -->
+                                    <!-- Campaign Group (required only when this activation type has groups) -->
                                     <template lwc:if={showCampaignGroup}>
                                         <div class="slds-m-top_medium">
                                             <lightning-combobox
@@ -131,17 +133,32 @@
                                         </div>
                                     </div>
 
-                                    <template lwc:if={isAlwaysOnActivation}>
+                                    <template lwc:if={showDurationDays}>
                                         <div class="slds-m-top_medium">
                                             <lightning-input
                                                 type="number"
-                                                label="Campaign Duration (Days)"
+                                                label="Duration (Days)"
                                                 value={campaignDurationDays}
                                                 onchange={handleCampaignDurationChange}
                                                 min="1"
                                                 step="1"
                                                 required
                                                 field-level-help="How long a customer should keep receiving communication from this campaign before being eligible for another."
+                                                class="custom-form-input">
+                                            </lightning-input>
+                                        </div>
+                                    </template>
+                                    <template lwc:if={showValidityDays}>
+                                        <div class="slds-m-top_medium">
+                                            <lightning-input
+                                                type="number"
+                                                label="Validity (Days)"
+                                                value={campaignValidityDays}
+                                                onchange={handleCampaignValidityChange}
+                                                min="1"
+                                                step="1"
+                                                required
+                                                field-level-help="How many days the campaign action stays valid for a customer."
                                                 class="custom-form-input">
                                             </lightning-input>
                                         </div>
@@ -1219,7 +1236,7 @@
                                         <template lwc:if={showCampaignGroup}>
                                             <div class="summary-row">
                                                 <span class="summary-label">Campaign Group</span>
-                                                <span class="summary-value">{selectedCampaignGroupName}</span>
+                                                <span class="summary-value">{displayCampaignGroupName}</span>
                                             </div>
                                         </template>
                                         <div class="summary-row">
@@ -1230,10 +1247,16 @@
                                             <span class="summary-label">Active To</span>
                                             <span class="summary-value">{summaryActiveTo}</span>
                                         </div>
-                                        <template lwc:if={isAlwaysOnActivation}>
+                                        <template lwc:if={showDurationDays}>
                                             <div class="summary-row">
-                                                <span class="summary-label">Campaign Duration (Days)</span>
+                                                <span class="summary-label">Duration (Days)</span>
                                                 <span class="summary-value">{summaryCampaignDuration}</span>
+                                            </div>
+                                        </template>
+                                        <template lwc:if={showValidityDays}>
+                                            <div class="summary-row">
+                                                <span class="summary-label">Validity (Days)</span>
+                                                <span class="summary-value">{summaryCampaignValidity}</span>
                                             </div>
                                         </template>
                                         <div class="summary-row">

@@ -358,7 +358,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     @track editRecordLoaded = false;
 
     // --- ACTIVATION TYPE + CAMPAIGN GROUP STATE ---
-    @track parentActivationType = '';        // the campaign's own Activation_Type__c
+    @track parentActivationType = '';        // live dictionary label
+    @track selectedActivationTypeId = '';    // Campaign.Activation_Type_Dict__c
     @track selectedCampaignGroupId = '';     // Campaign.Campaign_Group_Dict__c (dictionary Id)
     @track selectedCampaignGroupName = '';
 
@@ -377,6 +378,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     @track activeFrom = '';
     @track activeTo = '';
     @track campaignDurationDays = '';
+    @track campaignValidityDays = '';
     @track selectedOfferingType = 'Product Family';
     @track selectedPriorityTier = '';
     // --- EMERGENCY STATE CONTROL ---
@@ -535,7 +537,10 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     loadCampaignTypes() {
         getCampaignTypes()
-            .then(data => { this._allCampaignTypes = data || []; })
+            .then(data => {
+                this._allCampaignTypes = data || [];
+                this._resolveActivationTypeId();
+            })
             .catch(err => console.error('Error loading campaign types:', err));
     }
 
@@ -1082,7 +1087,11 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     populateFromRecord(campaign) {
-        this.parentActivationType = campaign.Activation_Type__c || '';
+        this.selectedActivationTypeId = campaign.Activation_Type_Dict__c || '';
+        this.parentActivationType = campaign.Activation_Type_Dict__r?.Name
+            || campaign.Activation_Type__c
+            || '';
+        this._resolveActivationTypeId();
         this.selectedCampaignGroupId = campaign.Campaign_Group_Dict__c || '';
         this.selectedCampaignGroupName = campaign.Campaign_Group_Dict__r ? campaign.Campaign_Group_Dict__r.Name : '';
 
@@ -1100,6 +1109,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         this.activeTo = campaign.Active_To__c || '';
         this.campaignDurationDays = campaign.Duration_Days__c != null
             ? String(campaign.Duration_Days__c)
+            : '';
+        this.campaignValidityDays = campaign.Validity_Days__c != null
+            ? String(campaign.Validity_Days__c)
             : '';
 
         this.selectedTopicId = campaign.Topic_Dict__c || '';
@@ -1229,32 +1241,97 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     // --- CAMPAIGN TYPE / GROUP DERIVATION ---
+    _activationTypeKey(value) {
+        return (value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    }
+
+    _resolveActivationTypeId() {
+        if (this.selectedActivationTypeId) {
+            const byId = (this._allCampaignTypes || []).find(ct => ct.Id === this.selectedActivationTypeId);
+            if (byId) {
+                this.parentActivationType = byId.Name || this.parentActivationType;
+                return;
+            }
+        }
+        const key = this._activationTypeKey(this.parentActivationType);
+        if (!key) return;
+        const byName = (this._allCampaignTypes || []).find(ct => this._activationTypeKey(ct.Name) === key);
+        if (byName) {
+            this.selectedActivationTypeId = byName.Id;
+            this.parentActivationType = byName.Name || this.parentActivationType;
+        }
+    }
+
     get matchedCampaignType() {
-        const key = (this.parentActivationType || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (this.selectedActivationTypeId) {
+            const byId = (this._allCampaignTypes || []).find(ct => ct.Id === this.selectedActivationTypeId);
+            if (byId) return byId;
+        }
+        const key = this._activationTypeKey(this.parentActivationType);
         if (!key) return null;
-        return this._allCampaignTypes.find(ct =>
-            (ct.Name || '').toLowerCase().replace(/[^a-z0-9]/g, '') === key
-        ) || null;
+        return (this._allCampaignTypes || []).find(ct => this._activationTypeKey(ct.Name) === key) || null;
     }
 
     get showCampaignGroup() {
-        const ct = this.matchedCampaignType;
-        return !!(ct && ct.Define_Campaign_Groups__c);
+        return this.campaignGroupOptions.length > 0;
     }
 
     get campaignGroupOptions() {
         const ct = this.matchedCampaignType;
-        if (!ct || !ct.Campaign_Groups_by_Type__r) return [];
-        return ct.Campaign_Groups_by_Type__r.map(g => ({ label: g.Name, value: g.Id }));
+        const groups = ct?.Campaign_Groups_by_Type__r || [];
+        return groups.map(g => ({
+            label: g.Name,
+            value: g.Id,
+            timing: g.Timing_Evaluation_Type__c || ''
+        }));
+    }
+
+    get selectedCampaignGroup() {
+        return this.campaignGroupOptions.find(g => g.value === this.selectedCampaignGroupId) || null;
+    }
+
+    get timingEvaluationType() {
+        const selectedTiming = this.selectedCampaignGroup?.timing;
+        if (selectedTiming) {
+            return selectedTiming;
+        }
+        const configured = [...new Set(
+            this.campaignGroupOptions.map(group => group.timing).filter(Boolean)
+        )];
+        if (!this.selectedCampaignGroup && configured.length === 1) {
+            return configured[0];
+        }
+        // Groups created before Timing Evaluation Type still follow the previous Always-on rule.
+        const isLegacyAlwaysOn = this._activationTypeKey(this.parentActivationType) === 'alwayson';
+        if (isLegacyAlwaysOn && (this.selectedCampaignGroup || !this.showCampaignGroup)) {
+            return 'Duration';
+        }
+        return '';
+    }
+
+    get showDurationDays() {
+        return this.timingEvaluationType === 'Duration';
+    }
+
+    get showValidityDays() {
+        return this.timingEvaluationType === 'Validity';
+    }
+
+    get displayCampaignGroupName() {
+        return this.selectedCampaignGroup?.label || this.selectedCampaignGroupName || '—';
     }
 
     handleSelectActivation(event) {
-        const value = event.currentTarget.dataset.value;
-        if (value === this.parentActivationType) return;
-        this.parentActivationType = value;
+        const id = event.target.value;
+        if (!id || id === this.selectedActivationTypeId) return;
+        const ct = (this._allCampaignTypes || []).find(t => t.Id === id);
+        this.selectedActivationTypeId = id;
+        this.parentActivationType = ct?.Name || '';
         this.selectedCampaignGroupId = '';
         this.selectedCampaignGroupName = '';
-        if (!this.matchedCampaignType?.Include_In_Emergency__c) {
+        this.campaignDurationDays = '';
+        this.campaignValidityDays = '';
+        if (!ct?.Include_In_Emergency__c) {
             this.isEmergency = false;
         }
         this.selectedPriorityTier = this.isEmergency ? this.tierLabelForNumber(1) : '';
@@ -1264,6 +1341,13 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         this.selectedCampaignGroupId = event.detail.value;
         const opt = this.campaignGroupOptions.find(o => o.value === this.selectedCampaignGroupId);
         this.selectedCampaignGroupName = opt ? opt.label : '';
+        const timing = this.timingEvaluationType;
+        if (timing !== 'Duration') {
+            this.campaignDurationDays = '';
+        }
+        if (timing !== 'Validity') {
+            this.campaignValidityDays = '';
+        }
     }
 
     @wire(getChannelDictionaryRecords)
@@ -1648,6 +1732,10 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     handleCampaignDurationChange(event) {
         this.campaignDurationDays = event.target.value;
+    }
+
+    handleCampaignValidityChange(event) {
+        this.campaignValidityDays = event.target.value;
     }
         
     handleOfferingTypeChange(event) {
@@ -2947,11 +3035,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         return Number.isInteger(val) && val >= 0 && val <= 1000;
     }
 
-    get isAlwaysOnActivation() {
-        const key = (this.parentActivationType || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-        return key === 'alwayson';
-    }
-
     get hasValidActiveWindow() {
         if (!this.activeFrom || !this.activeTo) {
             return false;
@@ -2985,14 +3068,20 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         if (this.activeFrom && this.activeTo && !this.hasValidActiveWindow) {
             issues.push(this._issue('active-window', 'Active To must be on or after Active From.'));
         }
-        if (this.isAlwaysOnActivation) {
-            const days = Number(this.campaignDurationDays);
-            if (!this.campaignDurationDays || !Number.isInteger(days) || days < 1) {
-                issues.push(this._issue('duration', 'Enter Campaign Duration (Days) for Always-on campaigns.'));
-            }
-        }
         if (this.showCampaignGroup && !this.selectedCampaignGroupId) {
             issues.push(this._issue('campaign-group', 'Select a campaign group.'));
+        }
+        if (this.showDurationDays) {
+            const days = Number(this.campaignDurationDays);
+            if (!this.campaignDurationDays || !Number.isInteger(days) || days < 1) {
+                issues.push(this._issue('duration', 'Enter Duration (Days).'));
+            }
+        }
+        if (this.showValidityDays) {
+            const days = Number(this.campaignValidityDays);
+            if (!this.campaignValidityDays || !Number.isInteger(days) || days < 1) {
+                issues.push(this._issue('validity', 'Enter Validity (Days).'));
+            }
         }
         return issues;
     }
@@ -3441,15 +3530,15 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     get activationOptions() {
         return (this._allCampaignTypes || []).map(ct => {
             const label = ct.Name || '';
-            const value = ct.Name || '';
-            const typeKey = value.toLowerCase().replace(/[^a-z0-9]/g, '') || 'type';
-            const selected = this.parentActivationType === value;
+            const typeKey = this._activationTypeKey(label) || 'type';
+            const selected = this.selectedActivationTypeId === ct.Id;
             const icon = (ct.Campaign_Type_Icon__c || 'utility:campaign').trim();
             return {
                 label,
-                value,
+                value: ct.Id,
                 icon,
-                btnClass: `slds-button activation-btn activation-btn--${typeKey}${selected ? ' activation-btn--selected' : ''}`,
+                isSelected: selected,
+                pickerClass: `activation-type-picker${selected ? ' activation-type-picker--selected' : ''}`,
                 iconClass: `activation-btn-icon activation-btn-icon--${typeKey}`
             };
         });
@@ -3924,10 +4013,17 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get summaryCampaignDuration() {
-        if (!this.isAlwaysOnActivation) {
+        if (!this.showDurationDays) {
             return '—';
         }
         return this.campaignDurationDays || '—';
+    }
+
+    get summaryCampaignValidity() {
+        if (!this.showValidityDays) {
+            return '—';
+        }
+        return this.campaignValidityDays || '—';
     }
 
     formatSummaryDateTime(value) {
@@ -3989,12 +4085,12 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         fields['Topic_Dict__c'] = this.selectedTopicId || null;
         fields['Topic_Name__c'] = this.topicName || null;
         fields['Priority_Tier__c'] = this.selectedPriorityTier || null;
+        fields['Activation_Type_Dict__c'] = this.selectedActivationTypeId || null;
         fields['Activation_Type__c'] = this.parentActivationType || null;
         fields['Active_From__c'] = this.activeFrom || null;
         fields['Active_To__c'] = this.activeTo || null;
-        fields['Duration_Days__c'] = this.isAlwaysOnActivation
-            ? num(this.campaignDurationDays)
-            : null;
+        fields['Duration_Days__c'] = this.showDurationDays ? num(this.campaignDurationDays) : null;
+        fields['Validity_Days__c'] = this.showValidityDays ? num(this.campaignValidityDays) : null;
         this._applyExclusionsToSaveFields(fields);
         fields['Offering_Type__c'] = this.selectedOfferingType || null;
         if (this.isScoringStepRequired) {

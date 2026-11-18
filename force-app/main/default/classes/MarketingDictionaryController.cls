@@ -45,7 +45,7 @@ public with sharing class MarketingDictionaryController {
         List<String> fields = new List<String>{
             'Id', 'Name', 'StartDate', 'EndDate', 'Campaign_Group_Dict__c', 'Campaign_Group_Dict__r.Name',
             'Type', 'Topic_Name__c', 'Topic_Dict__c', 'Topic_Dict__r.Name',
-            'Priority_Tier__c', 'Activation_Type__c',
+            'Priority_Tier__c', 'Activation_Type__c', 'Activation_Type_Dict__c', 'Activation_Type_Dict__r.Name',
             'Timing_From__c', 'Timing_To__c', 'Active_From__c', 'Active_To__c',
             'Validity_Days__c', 'Duration_Days__c',
             'Scoring_Method__c', 'Offering_Type__c', 'Status', 'IsActive',
@@ -271,7 +271,7 @@ public with sharing class MarketingDictionaryController {
     public static List<Marketing_Dictionary__c> getCampaignTypes() {
         return [
             SELECT Id, Name, Campaign_Type_Icon__c, Include_In_Emergency__c, Define_Campaign_Groups__c,
-                   (SELECT Id, Name
+                   (SELECT Id, Name, Timing_Evaluation_Type__c
                     FROM Campaign_Groups_by_Type__r
                     WHERE Dictionary_Sub_Type__c = 'Campaign Group'
                     AND Is_Active__c = true

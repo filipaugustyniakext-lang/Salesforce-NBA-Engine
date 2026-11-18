@@ -26,7 +26,7 @@
     min-height: 400px;
 }
 .vtab-sidebar {
-    flex: 0 0 200px;
+    flex: 0 0 220px;
     border-right: 1px solid var(--md-color-border, var(--slds-g-color-border-base-1, #e0e5ee));
     display: flex;
     flex-direction: column;
@@ -48,6 +48,8 @@
     text-align: left;
     width: 100%;
     font-size: 0.8125rem;
+    line-height: 1.25;
+    white-space: normal;
     color: var(--md-color-text-default, var(--slds-g-color-on-surface-1, #3e3e3c));
     transition: background 0.1s;
 }
@@ -81,6 +83,7 @@
     flex-wrap: wrap;
 }
 .cd-col-flag { width: 10rem; }
+.cd-col-icon { width: 2.5rem; }
 .cd-col-ct-name { width: 12rem; max-width: 16rem; }
 .cd-col-groups { min-width: 14rem; }
 .cd-col-desc { max-width: 260px; }

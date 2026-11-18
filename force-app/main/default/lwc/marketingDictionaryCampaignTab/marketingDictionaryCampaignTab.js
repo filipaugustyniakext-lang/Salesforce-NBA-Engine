@@ -31,12 +31,21 @@ const EMPTY_CAMPAIGN_TYPE    = () => ({
     Name: '',
     Dictionary_Sub_Type__c: 'Campaign Type',
     Include_In_Emergency__c: false,
-    Define_Campaign_Groups__c: false,
     Campaign_Type_Icon__c: ''
 });
 
-let _campaignTypeGroupKeySeq = 0;
-const EMPTY_CAMPAIGN_GROUP   = () => ({ Name: '', Dictionary_Sub_Type__c: 'Campaign Group', Campaign_Type_Dict__c: null });
+const EMPTY_CAMPAIGN_GROUP   = () => ({
+    Name: '',
+    Dictionary_Sub_Type__c: 'Campaign Group',
+    Campaign_Type_Dict__c: null,
+    Timing_Evaluation_Type__c: '',
+    Is_Active__c: true
+});
+
+const TIMING_EVALUATION_OPTIONS = [
+    { label: 'Duration (Days)', value: 'Duration' },
+    { label: 'Validity (Days)', value: 'Validity' }
+];
 const EMPTY_TOPIC_GROUP      = () => ({ Name: '', Dictionary_Sub_Type__c: 'Topic Group' });
 const EMPTY_TOPIC            = () => ({ Name: '', Dictionary_Sub_Type__c: 'Topic', Topic_Group_Dict__c: null, Topic_Description__c: '' });
 const EMPTY_PATH             = () => ({ Name: '', Dictionary_Sub_Type__c: 'Activation Path', Is_Active__c: true, Distribution_Percent__c: 0 });
@@ -97,8 +106,6 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
     @track isDeleteModalOpen = false;
 
     @track editCampaignType = EMPTY_CAMPAIGN_TYPE();
-    /** Draft rows for campaign groups edited inside the campaign type modal: { key, id, name }. */
-    @track campaignTypeGroupDraft = [];
     @track editCampaignGroup = EMPTY_CAMPAIGN_GROUP();
     @track editScoring = EMPTY_SCORING();
     @track editModelGroup = EMPTY_MODEL_GROUP();
@@ -331,6 +338,7 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
     get isTab() {
         return {
             campaignTypes: this.activeSubTab === 'campaignTypes',
+            campaignGroups: this.activeSubTab === 'campaignGroups',
             scorings: false,
             tiers: this.activeSubTab === 'tiers',
             topics: this.activeSubTab === 'topics',
@@ -345,6 +353,7 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
         const active = `${base} vtab-item_active`;
         return {
             campaignTypes: this.activeSubTab === 'campaignTypes' ? active : base,
+            campaignGroups: this.activeSubTab === 'campaignGroups' ? active : base,
             scorings: this.activeSubTab === 'scorings' ? active : base,
             tiers: this.activeSubTab === 'tiers' ? active : base,
             topics: this.activeSubTab === 'topics' ? active : base,
@@ -357,6 +366,7 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
     get vtabSelected() {
         return {
             campaignTypes: this.activeSubTab === 'campaignTypes',
+            campaignGroups: this.activeSubTab === 'campaignGroups',
             scorings: this.activeSubTab === 'scorings',
             tiers: this.activeSubTab === 'tiers',
             topics: this.activeSubTab === 'topics',
@@ -398,37 +408,21 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
     }
 
     get campaignTypes() {
-        const groups = this.allCampaignGroups;
         return this._allRecords
             .filter(r => r.Dictionary_Sub_Type__c === 'Campaign Type')
             .map(ct => {
-                const own = groups.filter(g => g.Campaign_Type_Dict__c === ct.Id);
+                const iconName = String(ct.Campaign_Type_Icon__c || '').trim();
                 return {
                     ...ct,
-                    definesGroups: !!ct.Define_Campaign_Groups__c,
-                    groups: own,
-                    hasGroups: own.length > 0
+                    iconName,
+                    hasIcon: SLDS_ICON_PATTERN.test(iconName)
                 };
             });
     }
     get hasCampaignTypes() { return this.campaignTypes.length > 0; }
     get campaignTypeCount() { return this.campaignTypes.length; }
-    get campaignTypeModalTitle() { return this.editCampaignType.Id ? 'Edit Campaign Type' : 'Add Campaign Type'; }
-
-    get showCampaignTypeGroupsEditor() {
-        return !!this.editCampaignType.Define_Campaign_Groups__c;
-    }
-
-    get campaignTypeGroupEditorRows() {
-        return (this.campaignTypeGroupDraft || []).map((row, index) => ({
-            ...row,
-            index,
-            inputId: `ct-group-name-${row.key}`
-        }));
-    }
-
-    get hasCampaignTypeGroupDraftRows() {
-        return this.campaignTypeGroupEditorRows.length > 0;
+    get campaignTypeModalTitle() {
+        return this.editCampaignType.Id ? 'Edit Campaign Activation Type' : 'Add Campaign Activation Type';
     }
 
     get campaignTypeIconInput() {
@@ -449,20 +443,32 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
 
     get allCampaignGroups() { return this._allRecords.filter(r => r.Dictionary_Sub_Type__c === 'Campaign Group'); }
 
+    get campaignGroupRows() {
+        const typeNameById = {};
+        this.campaignTypes.forEach(ct => { typeNameById[ct.Id] = ct.Name; });
+        return this.allCampaignGroups
+            .map(g => {
+                const timing = g.Timing_Evaluation_Type__c;
+                return {
+                    ...g,
+                    activationTypeName: g.Campaign_Type_Dict__r?.Name || typeNameById[g.Campaign_Type_Dict__c] || '—',
+                    timingLabel: timing === 'Duration'
+                        ? 'Duration (Days)'
+                        : timing === 'Validity'
+                            ? 'Validity (Days)'
+                            : '—'
+                };
+            })
+            .sort((a, b) => String(a.Name || '').localeCompare(String(b.Name || '')));
+    }
+    get hasCampaignGroups() { return this.campaignGroupRows.length > 0; }
+    get campaignGroupCount() { return this.campaignGroupRows.length; }
+    get timingEvaluationOptions() { return TIMING_EVALUATION_OPTIONS; }
+
     get campaignTypeOptions() {
         return this.campaignTypes.map(ct => ({ label: ct.Name, value: ct.Id }));
     }
     get campaignGroupModalTitle() { return this.editCampaignGroup.Id ? 'Edit Campaign Group' : 'Add Campaign Group'; }
-    get campaignGroupParentName() {
-        const typeId = this.editCampaignGroup?.Campaign_Type_Dict__c;
-        if (!typeId) return '';
-        const ct = this._allRecords.find(r => r.Id === typeId);
-        return ct?.Name || '';
-    }
-    get isCampaignGroupTypeLocked() {
-        // Type is set from the Campaign Type row — do not re-pick in the modal.
-        return !!this.editCampaignGroup?.Campaign_Type_Dict__c;
-    }
 
     get scoringModelGroups() {
         return this._allRecords.filter(r => r.Dictionary_Sub_Type__c === 'Scoring Model Group');
@@ -1059,18 +1065,15 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
 
     handleNewCampaignType() {
         this.editCampaignType = EMPTY_CAMPAIGN_TYPE();
-        this._initCampaignTypeGroupDraft(null);
         this.isCampaignTypeModalOpen = true;
     }
     closeCampaignTypeModal() {
         this.isCampaignTypeModalOpen = false;
-        this.campaignTypeGroupDraft = [];
     }
     handleEditCampaignType(e) {
         const rec = this._allRecords.find(r => r.Id === e.currentTarget.dataset.id);
         if (rec) {
             this.editCampaignType = { ...rec };
-            this._initCampaignTypeGroupDraft(rec.Id);
             this.isCampaignTypeModalOpen = true;
         }
     }
@@ -1079,120 +1082,29 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
     }
     handleCampaignTypeCheckboxChange(e) {
         const field = e.target.dataset.field;
-        const checked = e.target.checked;
-        this.editCampaignType = { ...this.editCampaignType, [field]: checked };
-        if (field === 'Define_Campaign_Groups__c' && checked && !this.campaignTypeGroupDraft.length) {
-            this._appendCampaignTypeGroupDraftRow();
-        }
-    }
-    handleAddCampaignTypeGroupRow() {
-        this._appendCampaignTypeGroupDraftRow();
-    }
-    handleCampaignTypeGroupNameChange(e) {
-        const index = Number(e.target.dataset.index);
-        if (!Number.isFinite(index)) return;
-        const value = e.detail?.value ?? e.target.value ?? '';
-        this.campaignTypeGroupDraft = this.campaignTypeGroupDraft.map((row, i) => (
-            i === index ? { ...row, name: value } : row
-        ));
-    }
-    handleRemoveCampaignTypeGroupRow(e) {
-        const index = Number(e.currentTarget.dataset.index);
-        if (!Number.isFinite(index)) return;
-        this.campaignTypeGroupDraft = this.campaignTypeGroupDraft.filter((_, i) => i !== index);
+        this.editCampaignType = { ...this.editCampaignType, [field]: e.target.checked };
     }
     async handleSaveCampaignType() {
         if (!this.editCampaignType.Name?.trim()) {
             this._showToast('Validation', 'Name is required.', 'warning');
             return;
         }
-        const definesGroups = !!this.editCampaignType.Define_Campaign_Groups__c;
-        const groupNames = (this.campaignTypeGroupDraft || [])
-            .map(row => String(row.name || '').trim())
-            .filter(Boolean);
-        if (definesGroups && !groupNames.length) {
-            this._showToast('Validation', 'Add at least one campaign group name.', 'warning');
+        const icon = String(this.editCampaignType.Campaign_Type_Icon__c || '').trim();
+        if (icon && !SLDS_ICON_PATTERN.test(icon)) {
+            this._showToast('Validation', 'Icon must look like utility:campaign.', 'warning');
             return;
         }
-        const lowered = groupNames.map(n => n.toLowerCase());
-        if (new Set(lowered).size !== lowered.length) {
-            this._showToast('Validation', 'Campaign group names must be unique.', 'warning');
-            return;
-        }
-
-        this.isSaving = true;
-        try {
-            const typeId = await saveCampaignRecord({ record: { ...this.editCampaignType } });
-            await this._syncCampaignTypeGroups(typeId, definesGroups);
-            this._showToast('Success', 'Saved.', 'success');
-            this.isCampaignTypeModalOpen = false;
-            this.campaignTypeGroupDraft = [];
-            await refreshApex(this._wiredCampaignResult);
-        } catch (e) {
-            this._showToast('Error', e.body?.message || 'Save failed.', 'error');
-        } finally {
-            this.isSaving = false;
-        }
-    }
-
-    _initCampaignTypeGroupDraft(campaignTypeId) {
-        if (!campaignTypeId) {
-            this.campaignTypeGroupDraft = [];
-            return;
-        }
-        const groups = this._allRecords
-            .filter(r => r.Dictionary_Sub_Type__c === 'Campaign Group' && r.Campaign_Type_Dict__c === campaignTypeId)
-            .sort((a, b) => String(a.Name || '').localeCompare(String(b.Name || '')));
-        this.campaignTypeGroupDraft = groups.map(g => ({
-            key: g.Id,
-            id: g.Id,
-            name: g.Name || ''
-        }));
-    }
-
-    _appendCampaignTypeGroupDraftRow() {
-        _campaignTypeGroupKeySeq += 1;
-        this.campaignTypeGroupDraft = [
-            ...this.campaignTypeGroupDraft,
-            { key: `draft-${_campaignTypeGroupKeySeq}`, id: null, name: '' }
-        ];
-    }
-
-    async _syncCampaignTypeGroups(campaignTypeId, definesGroups) {
-        if (!campaignTypeId) return;
-        const existing = this._allRecords.filter(
-            r => r.Dictionary_Sub_Type__c === 'Campaign Group' && r.Campaign_Type_Dict__c === campaignTypeId
-        );
-        if (!definesGroups) {
-            await Promise.all(existing.map(g => deleteDictionaryRecord({ recordId: g.Id })));
-            return;
-        }
-
-        const desired = (this.campaignTypeGroupDraft || [])
-            .map(row => ({
-                id: row.id || null,
-                name: String(row.name || '').trim()
-            }))
-            .filter(row => row.name);
-
-        const desiredIds = new Set(desired.filter(row => row.id).map(row => row.id));
-        const deletes = existing.filter(g => !desiredIds.has(g.Id));
-        await Promise.all(deletes.map(g => deleteDictionaryRecord({ recordId: g.Id })));
-
-        await Promise.all(desired.map(row => saveCampaignRecord({
-            record: {
-                ...(row.id ? { Id: row.id } : {}),
-                Name: row.name,
-                Dictionary_Sub_Type__c: 'Campaign Group',
-                Campaign_Type_Dict__c: campaignTypeId
-            }
-        })));
+        const record = {
+            ...this.editCampaignType,
+            Name: this.editCampaignType.Name.trim(),
+            Campaign_Type_Icon__c: icon
+        };
+        await this._saveCampaignRecord(record, () => { this.isCampaignTypeModalOpen = false; });
     }
     handleDeleteCampaignType(e) { this._openDeleteModal(e.currentTarget.dataset.id, e.currentTarget.dataset.name, 'campaignRecord'); }
 
-    handleNewCampaignGroup(e) {
-        const typeId = e.currentTarget.dataset.typeId;
-        this.editCampaignGroup = { ...EMPTY_CAMPAIGN_GROUP(), Campaign_Type_Dict__c: typeId || null };
+    handleNewCampaignGroup() {
+        this.editCampaignGroup = EMPTY_CAMPAIGN_GROUP();
         this.isCampaignGroupModalOpen = true;
     }
     closeCampaignGroupModal() { this.isCampaignGroupModalOpen = false; }
@@ -1208,10 +1120,29 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
         this.editCampaignGroup = { ...this.editCampaignGroup, [e.target.dataset.field]: e.detail?.value ?? e.target.value };
     }
     async handleSaveCampaignGroup() {
-        if (!this.editCampaignGroup.Name?.trim()) { this._showToast('Validation', 'Name is required.', 'warning'); return; }
-        if (!this.editCampaignGroup.Campaign_Type_Dict__c) { this._showToast('Validation', 'Campaign Type is required.', 'warning'); return; }
-        const record = { ...this.editCampaignGroup, Campaign_Type_Dict__c: this.editCampaignGroup.Campaign_Type_Dict__c || null };
+        if (!this.editCampaignGroup.Name?.trim()) {
+            this._showToast('Validation', 'Name is required.', 'warning');
+            return;
+        }
+        if (!this.editCampaignGroup.Campaign_Type_Dict__c) {
+            this._showToast('Validation', 'Activation Type is required. A group belongs to one activation type.', 'warning');
+            return;
+        }
+        if (!this.editCampaignGroup.Timing_Evaluation_Type__c) {
+            this._showToast('Validation', 'Timing Evaluation Type is required.', 'warning');
+            return;
+        }
+        const record = {
+            ...this.editCampaignGroup,
+            Name: this.editCampaignGroup.Name.trim(),
+            Campaign_Type_Dict__c: this.editCampaignGroup.Campaign_Type_Dict__c,
+            Timing_Evaluation_Type__c: this.editCampaignGroup.Timing_Evaluation_Type__c,
+            Is_Active__c: this.editCampaignGroup.Is_Active__c !== false
+        };
         await this._saveCampaignRecord(record, () => { this.isCampaignGroupModalOpen = false; });
+    }
+    handleDeleteCampaignGroup(e) {
+        this._openDeleteModal(e.currentTarget.dataset.id, e.currentTarget.dataset.name, 'campaignRecord');
     }
 
     handleNewModelGroup() {
