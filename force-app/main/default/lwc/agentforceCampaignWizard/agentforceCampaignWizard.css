@@ -94,6 +94,15 @@
     padding-bottom: 2px;
 }
 
+.emergency-below-grid {
+    justify-content: flex-start;
+}
+
+.emergency-below-grid__label {
+    font-weight: 500;
+    color: var(--md-color-text, var(--slds-g-color-on-surface-1, #1b1b1b));
+}
+
 /* --- EXPANDABLE SECTIONS --- */
 .slds-section__title {
     border: none !important;
