@@ -31,13 +31,19 @@
                         </p>
                     </div>
                     <div class="slds-col slds-no-flex slds-grid slds-grid_vertical-align-center">
-                        <lightning-input type="toggle" class="offering-card-toggle slds-m-right_medium"
-                            label="Enabled for Offering Definitions"
-                            checked={familiesOfNeedsOfferingEnabled}
-                            data-card="Family of Needs"
-                            field-level-help="When toggled on, this category is included in the offering definition component across campaigns, content, and offers."
-                            onchange={handleOfferingCardToggle}>
-                        </lightning-input>
+                        <div class="offering-card-toggle slds-grid slds-grid_vertical-align-center slds-m-right_medium">
+                            <span class="slds-form-element__label slds-m-bottom_none">Enabled for Offering Definitions</span>
+                            <lightning-helptext class="slds-m-left_xx-small slds-m-right_x-small"
+                                content="When toggled on, this category is included in the offering definition component across campaigns, content, and offers.">
+                            </lightning-helptext>
+                            <label class="slds-checkbox_toggle slds-grid">
+                                <span class="slds-assistive-text">Enabled for Offering Definitions</span>
+                                <input type="checkbox" data-card="Family of Needs" checked={familiesOfNeedsOfferingEnabled} onchange={handleOfferingCardToggle} />
+                                <span class="slds-checkbox_faux_container">
+                                    <span class="slds-checkbox_faux"></span>
+                                </span>
+                            </label>
+                        </div>
                         <lightning-button label="Add category" icon-name="utility:add" variant="neutral" size="small"
                             data-subtype="Family of Needs" onclick={handleNewRecord}>
                         </lightning-button>
@@ -80,13 +86,19 @@
                     </h2>
                 </div>
                 <div class="slds-col slds-no-flex slds-grid slds-grid_vertical-align-center">
-                    <lightning-input type="toggle" class="offering-card-toggle slds-m-right_medium"
-                        label="Enabled for Offering Definitions"
-                        checked={productFamiliesOfferingEnabled}
-                        data-card="Product Family"
-                        field-level-help="When toggled on, this category is included in the offering definition component across campaigns, content, and offers."
-                        onchange={handleOfferingCardToggle}>
-                    </lightning-input>
+                    <div class="offering-card-toggle slds-grid slds-grid_vertical-align-center slds-m-right_medium">
+                        <span class="slds-form-element__label slds-m-bottom_none">Enabled for Offering Definitions</span>
+                        <lightning-helptext class="slds-m-left_xx-small slds-m-right_x-small"
+                            content="When toggled on, this category is included in the offering definition component across campaigns, content, and offers.">
+                        </lightning-helptext>
+                        <label class="slds-checkbox_toggle slds-grid">
+                            <span class="slds-assistive-text">Enabled for Offering Definitions</span>
+                            <input type="checkbox" data-card="Product Family" checked={productFamiliesOfferingEnabled} onchange={handleOfferingCardToggle} />
+                            <span class="slds-checkbox_faux_container">
+                                <span class="slds-checkbox_faux"></span>
+                            </span>
+                        </label>
+                    </div>
                     <lightning-button label="Bulk edit" variant="neutral" size="small"
                         onclick={handleOpenBulkEdit} disabled={bulkActionsDisabled} class="slds-m-right_x-small">
                     </lightning-button>

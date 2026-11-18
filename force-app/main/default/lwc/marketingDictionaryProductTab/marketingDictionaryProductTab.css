@@ -154,7 +154,10 @@
 .pf-col_fon { flex: 1 1 18%; min-width: 6rem; }
 .pf-col_type { flex: 1 1 14%; min-width: 5rem; }
 .pf-col_ct { flex: 1 1 26%; min-width: 7rem; }
-.offering-card-toggle { min-width: 16rem; }
+.offering-card-toggle { min-width: 18rem; }
+.offering-card-toggle .slds-checkbox_faux_container {
+    margin-left: 0.5rem;
+}
 .pf-col_actions { flex: 0 0 4.5rem; }
 
 .bulk-edit-scroll {
