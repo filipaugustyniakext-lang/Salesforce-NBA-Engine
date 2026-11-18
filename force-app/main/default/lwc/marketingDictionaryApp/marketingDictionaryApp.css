@@ -16,7 +16,7 @@
     --md-color-accent: var(--lwc-brandAccessible, var(--slds-g-color-accent-2, #0176d3));
     --md-color-accent-strong: var(--lwc-brandAccessibleActive, var(--slds-g-color-accent-1, #032d60));
     --md-color-accent-container: var(--lwc-brandAccessible, var(--slds-g-color-accent-container-1, #0176d3));
-    --md-color-on-accent: var(--lwc-colorTextBrandPrimary, var(--slds-g-color-on-accent-1, #ffffff));
+    --md-color-on-accent: var(--slds-g-color-on-accent-1, #ffffff);
     --md-color-success-bg: var(--slds-g-color-success-container-1, #daf5e3);
     --md-color-success-text: var(--slds-g-color-on-success-1, #194e31);
     --md-color-neutral-bg: var(--slds-g-color-neutral-base-95, #f3f3f3);
