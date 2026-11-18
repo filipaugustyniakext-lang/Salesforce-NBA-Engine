@@ -48,6 +48,13 @@
                                         </template>
                                     </div>
                                 </div>
+                                <lightning-input type="checkbox" class="offering-flag"
+                                    label="Enabled for Offering Definitions"
+                                    checked={rec.Enabled_for_Offering_Definitions__c}
+                                    data-id={rec.Id}
+                                    field-level-help="When toggled on, this category is included in the offering definition component across campaigns, content, and offers."
+                                    onchange={handleOfferingDefinitionToggle}>
+                                </lightning-input>
                                 <div class="slds-button-group">
                                     <lightning-button-icon icon-name="utility:edit" variant="bare" size="small"
                                         data-id={rec.Id} data-subtype="Family of Needs" onclick={handleEditRecord}>
@@ -134,6 +141,10 @@
                                 data-sort="productType" onclick={handleSortChange} title={sortByProductTypeTitle}>
                             </lightning-button-icon>
                         </div>
+                        <div class="pf-col pf-col_offering">
+                            Offering
+                            <lightning-helptext content="When toggled on, this category is included in the offering definition component across campaigns, content, and offers."></lightning-helptext>
+                        </div>
                         <div class="pf-col pf-col_ct">
                             Customer Types
                             <lightning-button-icon icon-name={sortByCustomerTypeIcon} variant="bare" size="small"
@@ -163,6 +174,14 @@
                                 <template lwc:if={rec.Related_Product_Type__r}>
                                     <span class="slds-badge badge-product-type">{rec.Related_Product_Type__r.Name}</span>
                                 </template>
+                            </div>
+                            <div class="pf-col pf-col_offering">
+                                <lightning-input type="checkbox" variant="label-hidden"
+                                    label="Enabled for Offering Definitions"
+                                    checked={rec.Enabled_for_Offering_Definitions__c}
+                                    data-id={rec.Id}
+                                    onchange={handleOfferingDefinitionToggle}>
+                                </lightning-input>
                             </div>
                             <div class="pf-col pf-col_ct">
                                 <div class="badge-row">

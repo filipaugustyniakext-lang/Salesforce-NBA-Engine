@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Enabled_for_Offering_Definitions__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>When true, this Family of Needs or Product Family is available in the offering definition component on campaigns, content, and offers.</description>
+    <inlineHelpText>When toggled on, this category is included in the offering definition component across campaigns, content, and offers.</inlineHelpText>
+    <label>Enabled for Offering Definitions</label>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>

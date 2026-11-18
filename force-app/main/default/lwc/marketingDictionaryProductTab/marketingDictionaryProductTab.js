@@ -511,6 +511,24 @@ export default class MarketingDictionaryProductTab extends LightningElement {
 
     // ── Save ────────────────────────────────────────────────────────────────
 
+    async handleOfferingDefinitionToggle(event) {
+        const recordId = event.target.dataset.id;
+        const enabled = event.target.checked === true;
+        this._allRecords = this._allRecords.map(rec => (
+            rec.Id === recordId ? { ...rec, Enabled_for_Offering_Definitions__c: enabled } : rec
+        ));
+        try {
+            await saveProductRecord({
+                record: { Id: recordId, Enabled_for_Offering_Definitions__c: enabled }
+            });
+        } catch (e) {
+            this._allRecords = this._allRecords.map(rec => (
+                rec.Id === recordId ? { ...rec, Enabled_for_Offering_Definitions__c: !enabled } : rec
+            ));
+            this._showToast('Error', e.body?.message || 'Could not update offering availability.', 'error');
+        }
+    }
+
     async handleSave() {
         if (this._isEditMode) { await this._saveEdit(); }
         else { await this._saveBulk(); }

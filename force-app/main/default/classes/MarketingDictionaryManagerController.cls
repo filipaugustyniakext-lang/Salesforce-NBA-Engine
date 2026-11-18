@@ -18,7 +18,7 @@ public with sharing class MarketingDictionaryManagerController {
             SELECT Id, Name, Dictionary_Sub_Type__c,
                    Related_Family_of_Needs__c, Related_Family_of_Needs__r.Name,
                    Related_Product_Type__c, Related_Product_Type__r.Name,
-                   For_Tagging_Only__c
+                   For_Tagging_Only__c, Enabled_for_Offering_Definitions__c
             FROM Marketing_Dictionary__c
             WHERE RecordType.DeveloperName = 'Product'
             ORDER BY Dictionary_Sub_Type__c ASC, Name ASC
@@ -35,7 +35,8 @@ public with sharing class MarketingDictionaryManagerController {
         return [
             SELECT Id, Name, Dictionary_Sub_Type__c,
                    Related_Family_of_Needs__c, Related_Family_of_Needs__r.Name,
-                   Related_Product_Type__c, Related_Product_Type__r.Name
+                   Related_Product_Type__c, Related_Product_Type__r.Name,
+                   Enabled_for_Offering_Definitions__c
             FROM Marketing_Dictionary__c
             WHERE RecordType.DeveloperName = 'Product'
             AND Dictionary_Sub_Type__c IN ('Product Family', 'Family of Needs')

@@ -1050,6 +1050,11 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
+        <field>Marketing_Dictionary__c.Enabled_for_Offering_Definitions__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
         <field>Marketing_Dictionary__c.Family_of_Needs__c</field>
         <readable>true</readable>
     </fieldPermissions>
