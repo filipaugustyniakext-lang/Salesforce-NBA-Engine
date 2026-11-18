@@ -381,11 +381,11 @@
 }
 
 .activation-btn-icon {
-    --slds-c-icon-color-foreground-default: var(--md-color-accent, var(--slds-g-color-accent-2, #0176d3));
+    --slds-c-icon-color-foreground-default: var(--md-color-accent, var(--lwc-brandAccessible, #0176d3));
 }
 
 .activation-btn-icon--alwayson {
-    --slds-c-icon-color-foreground-default: var(--md-color-accent, var(--slds-g-color-accent-2, #0176d3));
+    --slds-c-icon-color-foreground-default: var(--md-color-accent, var(--lwc-brandAccessible, #0176d3));
 }
 
 .activation-btn-icon--oneoff {
