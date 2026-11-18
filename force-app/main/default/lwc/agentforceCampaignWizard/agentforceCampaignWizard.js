@@ -13,6 +13,7 @@ import getProductFamilyByRecordType from '@salesforce/apex/MarketingDictionaryCo
 import getProductFamilyCustomerTypes from '@salesforce/apex/MarketingDictionaryController.getProductFamilyCustomerTypes';
 import getFamilyOfNeedsCustomerTypes from '@salesforce/apex/MarketingDictionaryController.getFamilyOfNeedsCustomerTypes';
 import getProductOfferingCatalogue from '@salesforce/apex/MarketingDictionaryManagerController.getProductOfferingCatalogue';
+import getOfferingDefinitionSettings from '@salesforce/apex/MarketingDictionaryManagerController.getOfferingDefinitionSettings';
 import getCampaignById from '@salesforce/apex/MarketingDictionaryController.getCampaignById';
 import healCampaignOfferingLabels from '@salesforce/apex/MarketingDictionaryController.healCampaignOfferingLabels';
 import getMatchingOffers from '@salesforce/apex/MarketingDictionaryController.getMatchingOffers';
@@ -378,6 +379,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     @track campaignDurationDays = '';
     @track campaignValidityDays = '';
     @track selectedOfferingType = 'Product Family';
+    @track productFamiliesOfferingEnabled = true;
+    @track familiesOfNeedsOfferingEnabled = false;
     @track selectedPriorityTier = '';
     // --- EMERGENCY STATE CONTROL ---
     @track isEmergency = false;
@@ -500,6 +503,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         this.loadScoringModels();
         this.loadTopicDictionary();
         this.loadProductOfferingCatalogue();
+        this.loadOfferingDefinitionSettings();
         document.addEventListener('click', this.handleOutsideClickBound = this.handleOutsideClick.bind(this));
         if (this.recordId && !this._campaignLoadStarted) {
             this.isEditMode = true;
@@ -1546,10 +1550,18 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         }
     }
 
+    loadOfferingDefinitionSettings() {
+        getOfferingDefinitionSettings()
+            .then(settings => {
+                this.productFamiliesOfferingEnabled = settings?.productFamilies !== false;
+                this.familiesOfNeedsOfferingEnabled = settings?.familiesOfNeeds === true;
+                this._syncOfferingTypeAvailability();
+            })
+            .catch(err => console.error('Error loading offering definition settings:', err));
+    }
+
     updateOptionLists() {
-        const enabledFamilies = (this.rawProductFamilies || []).filter(
-            rec => rec && rec.Enabled_for_Offering_Definitions__c === true
-        );
+        const enabledFamilies = this.rawProductFamilies || [];
         if (enabledFamilies.length > 0 && typeof enabledFamilies[0] === 'object') {
             this.productFamilyOptions = enabledFamilies.map(rec => {
                 const name = rec.Name;
@@ -1578,9 +1590,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             this.productFamilyOptions = [];
         }
 
-        const enabledNeeds = (this.rawFamilyOfNeeds || []).filter(
-            rec => rec && rec.Enabled_for_Offering_Definitions__c === true
-        );
+        const enabledNeeds = this.rawFamilyOfNeeds || [];
         if (enabledNeeds.length > 0 && typeof enabledNeeds[0] === 'object') {
             this.familyOfNeedsOptions = enabledNeeds.map(rec => {
                 const name = rec.Name;
@@ -1637,8 +1647,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     _syncOfferingTypeAvailability() {
-        const productEnabled = (this.productFamilyOptions || []).length > 0;
-        const needsEnabled = (this.familyOfNeedsOptions || []).length > 0;
+        const productEnabled = this.productFamiliesOfferingEnabled !== false;
+        const needsEnabled = this.familiesOfNeedsOfferingEnabled === true;
         if (this.selectedOfferingType === 'Product Family' && !productEnabled && needsEnabled) {
             this.selectedOfferingType = 'Family of Needs';
         } else if (this.selectedOfferingType === 'Family of Needs' && !needsEnabled && productEnabled) {
@@ -3605,8 +3615,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     get offeringTypeOptions() {
         return this.offeringTypesData.map(o => {
             const enabled = o.value === 'Family of Needs'
-                ? (this.familyOfNeedsOptions || []).length > 0
-                : (this.productFamilyOptions || []).length > 0;
+                ? this.familiesOfNeedsOfferingEnabled === true
+                : this.productFamiliesOfferingEnabled !== false;
             return {
                 ...o,
                 uniqueId: `offering-radio-${o.value}`,
