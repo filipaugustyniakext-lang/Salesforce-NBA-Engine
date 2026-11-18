@@ -100,8 +100,22 @@
                                         </div>
                                     </template>
 
-                                    <div class="slds-m-top_medium">
-                                        <lightning-input type="text" label="Campaign Name" placeholder="eg. cashloan" value={campaignName} onchange={handleNameChange} required class="custom-form-input"></lightning-input>
+                                    <div class="slds-grid slds-gutters_x-small slds-m-top_medium">
+                                        <div class="slds-col slds-size_1-of-5">
+                                            <lightning-combobox
+                                                name="campaignLocale"
+                                                label="Locale"
+                                                placeholder="Select..."
+                                                value={selectedLocaleId}
+                                                options={localeOptions}
+                                                onchange={handleLocaleChange}
+                                                required
+                                                class="custom-form-input">
+                                            </lightning-combobox>
+                                        </div>
+                                        <div class="slds-col slds-size_4-of-5">
+                                            <lightning-input type="text" label="Campaign Name" placeholder="eg. cashloan" value={campaignName} onchange={handleNameChange} required class="custom-form-input"></lightning-input>
+                                        </div>
                                     </div>
 
                                     <div class="slds-grid slds-gutters slds-m-top_medium">
@@ -1315,6 +1329,10 @@
                                         <div class="summary-row">
                                             <span class="summary-label">Campaign Name</span>
                                             <span class="summary-value">{modalTitle}</span>
+                                        </div>
+                                        <div class="summary-row">
+                                            <span class="summary-label">Locale</span>
+                                            <span class="summary-value">{summaryLocale}</span>
                                         </div>
                                         <template lwc:if={showCampaignGroup}>
                                             <div class="summary-row">

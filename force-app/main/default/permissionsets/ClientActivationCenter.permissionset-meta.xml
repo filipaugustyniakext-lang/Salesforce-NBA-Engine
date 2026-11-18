@@ -545,6 +545,11 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
+        <field>Campaign.Locale_Dict__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
         <field>Campaign.Active_From__c</field>
         <readable>true</readable>
     </fieldPermissions>
@@ -1071,6 +1076,11 @@
     <fieldPermissions>
         <editable>true</editable>
         <field>Marketing_Dictionary__c.Include_In_Emergency__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Marketing_Dictionary__c.Is_Default__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>

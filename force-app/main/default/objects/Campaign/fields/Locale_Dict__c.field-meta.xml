@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Locale_Dict__c</fullName>
+    <deleteConstraint>Restrict</deleteConstraint>
+    <description>Locale dictionary record used in the campaign name (CMP_{Locale}_{ActivationType}_{CampaignGroup}_{CampaignName}).</description>
+    <inlineHelpText>Locale from Marketing Dictionary. The link is the dictionary record Id.</inlineHelpText>
+    <label>Locale (Dictionary)</label>
+    <lookupFilter>
+        <active>true</active>
+        <errorMessage>Only Locale dictionary entries are allowed.</errorMessage>
+        <filterItems>
+            <field>Marketing_Dictionary__c.Dictionary_Sub_Type__c</field>
+            <operation>equals</operation>
+            <value>Locale</value>
+        </filterItems>
+        <isOptional>false</isOptional>
+    </lookupFilter>
+    <referenceTo>Marketing_Dictionary__c</referenceTo>
+    <relationshipLabel>Campaigns by Locale</relationshipLabel>
+    <relationshipName>Campaigns_by_Locale</relationshipName>
+    <required>false</required>
+    <type>Lookup</type>
+</CustomField>

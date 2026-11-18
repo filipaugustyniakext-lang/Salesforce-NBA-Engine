@@ -178,6 +178,8 @@ public with sharing class MarketingDictionaryDeleteGuard {
             collectCampaignTypeDependencies(recordId, dictionaryRecord.Name, dependencies);
         } else if (subType == 'Campaign Group') {
             collectCampaignGroupDependencies(recordId, dependencies);
+        } else if (subType == 'Locale') {
+            collectLocaleDependencies(recordId, dependencies);
         } else if (subType == 'Topic') {
             collectTopicDependencies(recordId, dependencies);
         } else if (subType == 'Topic Group') {
@@ -503,6 +505,18 @@ public with sharing class MarketingDictionaryDeleteGuard {
             LIMIT :MAX_DEPENDENCY_LABELS
         ]) {
             addDependency(dependencies, 'Campaign Group dictionary', grp.Name);
+        }
+    }
+
+    private static void collectLocaleDependencies(Id recordId, DependencyCollector dependencies) {
+        for (Campaign camp : [
+            SELECT Name
+            FROM Campaign
+            WHERE Locale_Dict__c = :recordId
+            ORDER BY Name ASC
+            LIMIT :MAX_DEPENDENCY_LABELS
+        ]) {
+            addDependency(dependencies, 'Campaign (Locale)', camp.Name);
         }
     }
 

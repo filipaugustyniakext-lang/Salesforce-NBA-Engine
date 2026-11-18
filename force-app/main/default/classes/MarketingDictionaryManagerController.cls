@@ -539,7 +539,7 @@ public with sharing class MarketingDictionaryManagerController {
     public static List<Marketing_Dictionary__c> getCampaignRecords() {
         return [
             SELECT Id, Name, Dictionary_Sub_Type__c, Topic_Description__c,
-                   Include_In_Emergency__c, Is_Active__c, Distribution_Percent__c,
+                   Include_In_Emergency__c, Is_Active__c, Is_Default__c, Distribution_Percent__c,
                    Campaign_Type_Icon__c,
                    Topic_Group_Dict__c, Topic_Group_Dict__r.Name,
                    Define_Campaign_Groups__c, Timing_Evaluation_Type__c,
@@ -1089,22 +1089,56 @@ public with sharing class MarketingDictionaryManagerController {
             }
             String oldName = null;
             String subType = record.Dictionary_Sub_Type__c;
+            Boolean wasDefault = false;
             if (record.Id != null) {
                 List<Marketing_Dictionary__c> existing = [
-                    SELECT Id, Name, Dictionary_Sub_Type__c
+                    SELECT Id, Name, Dictionary_Sub_Type__c, Is_Default__c
                     FROM Marketing_Dictionary__c
                     WHERE Id = :record.Id
                     LIMIT 1
                 ];
                 if (!existing.isEmpty()) {
                     oldName = existing[0].Name;
+                    wasDefault = existing[0].Is_Default__c == true;
                     if (String.isBlank(subType)) {
                         subType = existing[0].Dictionary_Sub_Type__c;
                         record.Dictionary_Sub_Type__c = subType;
                     }
                 }
             }
+            Boolean makeDefault = false;
+            if (subType == 'Locale') {
+                // Unset checkboxes read as false, so only fields the caller actually sent count.
+                Boolean defaultSent = record.isSet('Is_Default__c');
+                makeDefault = defaultSent && record.Is_Default__c == true;
+                if (makeDefault) {
+                    record.Is_Active__c = true;
+                } else if (record.isSet('Is_Active__c') && record.Is_Active__c == false) {
+                    Boolean staysDefault = defaultSent ? record.Is_Default__c == true : wasDefault;
+                    if (staysDefault) {
+                        throw new AuraHandledException(
+                            'This is the default locale. Make another locale the default before deactivating it.'
+                        );
+                    }
+                }
+            }
             upsert record;
+            if (makeDefault) {
+                List<Marketing_Dictionary__c> others = [
+                    SELECT Id
+                    FROM Marketing_Dictionary__c
+                    WHERE RecordType.DeveloperName = 'Campaign'
+                    AND Dictionary_Sub_Type__c = 'Locale'
+                    AND Is_Default__c = true
+                    AND Id != :record.Id
+                ];
+                for (Marketing_Dictionary__c other : others) {
+                    other.Is_Default__c = false;
+                }
+                if (!others.isEmpty()) {
+                    update others;
+                }
+            }
             if (record.Id != null
                 && String.isNotBlank(record.Name)
                 && oldName != record.Name

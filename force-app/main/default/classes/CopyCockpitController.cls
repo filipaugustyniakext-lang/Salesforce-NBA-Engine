@@ -187,7 +187,7 @@ public with sharing class CopyCockpitController {
     @AuraEnabled(cacheable=true)
     public static List<Marketing_Dictionary__c> getMarketingLocales() {
         return [
-            SELECT Id, Name, Topic_Description__c, Is_Active__c
+            SELECT Id, Name, Topic_Description__c, Is_Active__c, Is_Default__c
             FROM Marketing_Dictionary__c
             WHERE RecordType.DeveloperName = 'Campaign'
               AND Dictionary_Sub_Type__c = 'Locale'

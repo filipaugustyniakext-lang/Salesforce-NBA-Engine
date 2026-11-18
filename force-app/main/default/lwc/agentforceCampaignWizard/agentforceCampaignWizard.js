@@ -28,6 +28,7 @@ import publishAprioriScores from '@salesforce/apex/CampaignScoringAprioriControl
 import { parseFullName } from 'c/copyMessageNaming';
 import getCampaignTiers from '@salesforce/apex/MarketingDictionaryController.getCampaignTiers';
 import getCampaignTypes from '@salesforce/apex/MarketingDictionaryController.getCampaignTypes';
+import getActiveLocales from '@salesforce/apex/MarketingDictionaryController.getActiveLocales';
 import getCampaignRecords from '@salesforce/apex/MarketingDictionaryManagerController.getCampaignRecords';
 import getExclusionOptions from '@salesforce/apex/CampaignExclusionController.getExclusionOptions';
 import searchDataCloudExclusionObjects from '@salesforce/apex/CampaignExclusionController.searchDataCloudExclusionObjects';
@@ -63,6 +64,36 @@ function campaignGroupsForType(typeRecord) {
 }
 
 const BATCH_EVENTS_GROUP_KEY = 'batchevents';
+
+const ACTIVATION_TYPE_TOKENS = {
+    alwayson: 'AO',
+    triggered: 'TR',
+    oneoff: 'OO',
+    emergency: 'EM'
+};
+
+/** Name segment from a dictionary label: words joined in PascalCase, letters, digits and hyphens only. */
+function campaignNameToken(value) {
+    return String(value || '')
+        .trim()
+        .split(/[\s_]+/)
+        .filter(Boolean)
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join('')
+        .replace(/[^A-Za-z0-9-]/g, '');
+}
+
+/** Short activation type segment: known abbreviations, else the initials of the type name. */
+function activationTypeToken(typeName) {
+    const key = String(typeName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (!key) return '';
+    if (ACTIVATION_TYPE_TOKENS[key]) return ACTIVATION_TYPE_TOKENS[key];
+    const words = String(typeName)
+        .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+        .split(/[^A-Za-z0-9]+/)
+        .filter(Boolean);
+    return words.map(w => w.charAt(0).toUpperCase()).join('');
+}
 
 const EXCLUSION_SOURCE_OPTIONS = [
     { label: 'Salesforce Campaign', shortLabel: 'Campaigns', value: 'campaign', icon: 'standard:campaign' },
@@ -385,6 +416,10 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     // --- STANDARD COMPONENT STATE ---
     @track campaignName = '';
+    @track selectedLocaleId = '';       // Campaign.Locale_Dict__c
+    @track selectedLocaleName = '';
+    @track _activeLocales = [];
+    _localesLoaded = false;
     @track activeFrom = '';
     @track activeTo = '';
     @track campaignDurationDays = '';
@@ -516,6 +551,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     connectedCallback() {
         this.loadTiers();
         this.loadCampaignTypes();
+        this.loadLocales();
         this.loadScoringModels();
         this.loadTopicDictionary();
         this.loadProductOfferingCatalogue();
@@ -553,6 +589,56 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 this._tiersLoaded = true;
             })
             .catch(err => console.error('Error loading tiers:', err));
+    }
+
+    loadLocales() {
+        getActiveLocales()
+            .then(rows => {
+                this._activeLocales = rows || [];
+                this._localesLoaded = true;
+                this._applyDefaultLocale();
+            })
+            .catch(err => console.error('Error loading locales:', err));
+    }
+
+    /** Prefill the dictionary default locale when the campaign has none. */
+    _applyDefaultLocale() {
+        if (!this._localesLoaded) return;
+        if (this.isEditMode && !this.editRecordLoaded) return;
+        if (this.selectedLocaleId) {
+            const match = this._activeLocales.find(l => l.Id === this.selectedLocaleId);
+            if (match) this.selectedLocaleName = match.Name;
+            return;
+        }
+        const preferred = this._activeLocales.find(l => l.Is_Default__c === true);
+        if (preferred) {
+            this.selectedLocaleId = preferred.Id;
+            this.selectedLocaleName = preferred.Name;
+        }
+    }
+
+    get localeOptions() {
+        const options = (this._activeLocales || []).map(l => ({
+            label: l.Is_Default__c ? `${l.Name} (default)` : l.Name,
+            value: l.Id
+        }));
+        if (this.selectedLocaleId && !options.some(o => o.value === this.selectedLocaleId)) {
+            options.unshift({
+                label: `${this.selectedLocaleName || 'Current locale'} (inactive)`,
+                value: this.selectedLocaleId
+            });
+        }
+        return options;
+    }
+
+    handleLocaleChange(event) {
+        this.selectedLocaleId = event.detail.value || '';
+        const match = (this._activeLocales || []).find(l => l.Id === this.selectedLocaleId);
+        this.selectedLocaleName = match ? match.Name : '';
+    }
+
+    get summaryLocale() {
+        return this.selectedLocaleName || '—';
     }
 
     loadCampaignTypes() {
@@ -1118,6 +1204,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 try {
                     this.populateFromRecord(campaign);
                     this.editRecordLoaded = true;
+                    this._applyDefaultLocale();
                     // Defer non-critical heal so it cannot compete with the edit load on the server.
                     healCampaignOfferingLabels().catch(() => {});
                 } catch (err) {
@@ -1149,15 +1236,14 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         this.selectedCampaignGroupId = campaign.Campaign_Group_Dict__c || '';
         this.selectedCampaignGroupName = campaign.Campaign_Group_Dict__r ? campaign.Campaign_Group_Dict__r.Name : '';
 
-        const fullName = campaign.Name || '';
-        const prefixes = ['CMP_AO_', 'CMP_TR_', 'CMP_OO_', 'CMP_EM_', 'CMP_'];
-        let baseName = fullName;
-        for (const pfx of prefixes) {
-            if (fullName.startsWith(pfx)) {
-                baseName = fullName.substring(pfx.length);
-                break;
-            }
-        }
+        this.selectedLocaleId = campaign.Locale_Dict__c || '';
+        this.selectedLocaleName = campaign.Locale_Dict__r ? campaign.Locale_Dict__r.Name : '';
+        const baseName = this._extractCampaignBaseName(
+            campaign.Name || '',
+            this.selectedLocaleName,
+            campaign.Activation_Type_Dict__r?.Name || campaign.Activation_Type__c || '',
+            this.selectedCampaignGroupName
+        );
         this.campaignName = baseName;
         this.activeFrom = campaign.Active_From__c || '';
         this.activeTo = campaign.Active_To__c || '';
@@ -3255,6 +3341,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         if (!this.parentActivationType) {
             issues.push(this._issue('activation-type', 'Select an activation type.'));
         }
+        if (!this.selectedLocaleId) {
+            issues.push(this._issue('locale', 'Select a locale.'));
+        }
         if (!this.campaignName || this.campaignName.trim() === '') {
             issues.push(this._issue('campaign-name', 'Enter a campaign name.'));
         }
@@ -3842,22 +3931,42 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         ).join('');
     }
 
-    get activationPrefix() {
-        const typeKey = (this.parentActivationType || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-        switch (typeKey) {
-            case 'alwayson':   return 'CMP_AO_';
-            case 'triggered':  return 'CMP_TR_';
-            case 'oneoff':     return 'CMP_OO_';
-            case 'emergency':  return 'CMP_EM_';
-            default:           return 'CMP_';
+    /** CMP_{Locale}_{ActivationType}_{CampaignGroup}_{CampaignName}; empty segments are skipped. */
+    _composeCampaignName(baseName) {
+        const groupLabel = this.showCampaignGroup ? this._selectedCampaignGroupLabel() : '';
+        return [
+            'CMP',
+            this.selectedLocaleName,
+            activationTypeToken(this.parentActivationType),
+            campaignNameToken(groupLabel),
+            baseName
+        ].filter(Boolean).join('_');
+    }
+
+    /** Reverse of _composeCampaignName for saved records; also accepts the older CMP_AO_Name format. */
+    _extractCampaignBaseName(fullName, localeName, typeName, groupName) {
+        const localePrefix = localeName ? `CMP_${localeName}_` : '';
+        if (localePrefix && fullName.startsWith(localePrefix)) {
+            const tokens = fullName.substring(localePrefix.length).split('_');
+            const typeToken = activationTypeToken(typeName);
+            if (typeToken && tokens.length > 1 && tokens[0] === typeToken) tokens.shift();
+            const groupToken = campaignNameToken(groupName);
+            if (groupToken && tokens.length > 1 && tokens[0] === groupToken) tokens.shift();
+            return tokens.join('_');
         }
+        const legacyPrefixes = ['CMP_AO_', 'CMP_TR_', 'CMP_OO_', 'CMP_EM_', 'CMP_'];
+        for (const pfx of legacyPrefixes) {
+            if (fullName.startsWith(pfx)) {
+                return fullName.substring(pfx.length);
+            }
+        }
+        return fullName;
     }
 
     get modalTitle() {
-        const prefix = this.activationPrefix;
         const camelName = this.toCamelCase(this.campaignName);
-        if (camelName) return `${prefix}${camelName}`;
-        return this.isEditMode ? 'Edit Campaign' : `${prefix}{YourCampaignName}`;
+        if (camelName) return this._composeCampaignName(camelName);
+        return this.isEditMode ? 'Edit Campaign' : this._composeCampaignName('{YourCampaignName}');
     }
 
 
@@ -4327,7 +4436,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         const num = (v) => v === '' || v === null || v === undefined ? null : Number(v);
 
         const baseName = this._resolveCampaignBaseNameForSave();
-        fields['Name'] = `${this.activationPrefix}${this.toCamelCase(baseName)}`;
+        fields['Name'] = this._composeCampaignName(this.toCamelCase(baseName));
+        fields['Locale_Dict__c'] = this.selectedLocaleId || null;
         fields['Type'] = 'Standard';
         // Org picklist uses Planned for draft campaigns (no separate Draft value).
         fields['Status'] = activate ? 'Active' : 'Planned';
@@ -4456,7 +4566,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         if (!this.isValidScoreValue(this.aprioriScore)) {
             return Promise.resolve();
         }
-        const campaignName = `${this.activationPrefix}${this.toCamelCase(this._resolveCampaignBaseNameForSave())}`;
+        const campaignName = this._composeCampaignName(this.toCamelCase(this._resolveCampaignBaseNameForSave()));
         return publishAprioriScores({
             topicId: this.selectedTopicId,
             productFamilyIds: this.aprioriProductFamilyIds,

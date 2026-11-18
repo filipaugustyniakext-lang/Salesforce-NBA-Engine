@@ -1,0 +1,27 @@
+:host {
+    display: block;
+}
+
+.locale-tab {
+    padding: 0.75rem;
+    border: 1px solid var(--md-color-border, var(--slds-g-color-border-base-1, #e0e5ee));
+    border-radius: 0.25rem;
+    background: var(--md-color-surface, var(--slds-g-color-surface-container-1, #ffffff));
+}
+
+.locale-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.locale-col-toggle {
+    width: 7rem;
+}
+
+.locale-col-actions {
+    width: 5rem;
+    white-space: nowrap;
+}

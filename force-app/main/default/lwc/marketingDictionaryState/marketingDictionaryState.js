@@ -11,7 +11,8 @@ export const MAIN_TAB_VALUES = [
     'campaign',
     'scoring',
     'channel',
-    'blackout'
+    'blackout',
+    'locale'
 ];
 
 export const CHANNEL_SUB_TAB_VALUES = [

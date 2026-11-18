@@ -61,8 +61,23 @@ export default class CopyCockpitAddModal extends LightningElement {
     @wire(getPlaceholders)
     _wiredPlaceholders;
 
-    @wire(getMarketingLocales)
     _wiredLocales;
+
+    @wire(getMarketingLocales)
+    wiredLocales(result) {
+        this._wiredLocales = result;
+        if (result.data && !this.localeToken && !this.isExistingMaster) {
+            const preferred = result.data.find(row => row.Is_Default__c === true);
+            if (preferred) {
+                this.localeToken = preferred.Name;
+                const parsed = parseLocale(preferred.Name);
+                if (parsed.language) {
+                    this.language = parsed.language;
+                }
+                this._onNamePartChanged();
+            }
+        }
+    }
 
     @wire(getSelectableTemplates, { channelName: '$channelName', channelType: '$channelType' })
     _wiredTemplates;
@@ -91,12 +106,15 @@ export default class CopyCockpitAddModal extends LightningElement {
     }
 
     get localeOptions() {
-        return (this._wiredLocales?.data || []).map(row => ({
-            value: row.Name,
-            label: row.Topic_Description__c
+        return (this._wiredLocales?.data || []).map(row => {
+            const base = row.Topic_Description__c
                 ? `${row.Name} — ${row.Topic_Description__c}`
-                : row.Name
-        }));
+                : row.Name;
+            return {
+                value: row.Name,
+                label: row.Is_Default__c ? `${base} (default)` : base
+            };
+        });
     }
 
     get localesLoading() {
@@ -221,7 +239,7 @@ export default class CopyCockpitAddModal extends LightningElement {
             return 'Locked to the existing master locale. Change it from the master row.';
         }
         if (!this.hasLocaleOptions && !this.localesLoading) {
-            return 'Add locales under Marketing Dictionary → Campaigns → Locales.';
+            return 'Add locales under Marketing Dictionary → Locales.';
         }
         return 'Country and language combination (e.g. pl-PL).';
     }

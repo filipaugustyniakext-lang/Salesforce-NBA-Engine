@@ -46,6 +46,7 @@ public with sharing class MarketingDictionaryController {
             'Id', 'Name', 'StartDate', 'EndDate', 'Campaign_Group_Dict__c', 'Campaign_Group_Dict__r.Name',
             'Type', 'Topic_Name__c', 'Topic_Dict__c', 'Topic_Dict__r.Name',
             'Priority_Tier__c', 'Activation_Type__c', 'Activation_Type_Dict__c', 'Activation_Type_Dict__r.Name',
+            'Locale_Dict__c', 'Locale_Dict__r.Name',
             'Timing_From__c', 'Timing_To__c', 'Active_From__c', 'Active_To__c',
             'Validity_Days__c', 'Duration_Days__c',
             'Scoring_Method__c', 'Offering_Type__c', 'Status', 'IsActive',
@@ -284,6 +285,20 @@ public with sharing class MarketingDictionaryController {
             AND Is_Active__c = true
             ORDER BY Name ASC
             LIMIT 50
+        ];
+    }
+
+    /** Active locales for name generation; the default locale is listed first. */
+    @AuraEnabled
+    public static List<Marketing_Dictionary__c> getActiveLocales() {
+        return [
+            SELECT Id, Name, Topic_Description__c, Is_Default__c
+            FROM Marketing_Dictionary__c
+            WHERE RecordType.DeveloperName = 'Campaign'
+            AND Dictionary_Sub_Type__c = 'Locale'
+            AND Is_Active__c = true
+            ORDER BY Is_Default__c DESC, Name ASC
+            LIMIT 200
         ];
     }
 
