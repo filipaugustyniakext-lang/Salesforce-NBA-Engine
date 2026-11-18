@@ -45,47 +45,41 @@
                                 <div class="slds-box wizard-section-box wizard-step1-tile">
                                     <span class="module-header-title">Basic Properties</span>
 
-                                    <!-- Activation Type + Emergency Toggle Row -->
-                                    <div class="slds-grid slds-grid_vertical-align-end slds-gutters slds-m-top_medium">
-                                        <div class="slds-col">
-                                            <label class="slds-form-element__label custom-label-style">
-                                                Activation Type
-                                                <abbr class="slds-required" title="required">*</abbr>
-                                            </label>
-                                            <template lwc:if={hasActivationTypeOptions}>
-                                                <div class="activation-type-grid slds-m-top_xx-small" role="radiogroup" aria-label="Activation Type">
-                                                    <template for:each={activationOptions} for:item="option">
-                                                        <label key={option.value} class={option.pickerClass}>
-                                                            <input type="radio"
-                                                                   name="campaign-activation-type"
-                                                                   value={option.value}
-                                                                   checked={option.isSelected}
-                                                                   onchange={handleSelectActivation} />
-                                                            <span class="activation-type-figure" title={option.label}>
-                                                                <lightning-icon icon-name={option.icon} size="small" class={option.iconClass}></lightning-icon>
-                                                                <span class="activation-btn-label">{option.label}</span>
-                                                            </span>
-                                                        </label>
-                                                    </template>
-                                                </div>
-                                            </template>
-                                            <template lwc:else>
-                                                <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">
-                                                    No active activation types in Marketing Dictionary. Add them under Campaigns → Campaign Activation Types.
-                                                </p>
-                                            </template>
-                                        </div>
-
+                                    <div class="slds-m-top_medium">
+                                        <label class="slds-form-element__label custom-label-style">
+                                            Activation Type
+                                            <abbr class="slds-required" title="required">*</abbr>
+                                        </label>
+                                        <template lwc:if={hasActivationTypeOptions}>
+                                            <div class="activation-type-grid slds-m-top_xx-small" role="radiogroup" aria-label="Activation Type">
+                                                <template for:each={activationOptions} for:item="option">
+                                                    <label key={option.value} class={option.pickerClass}>
+                                                        <input type="radio"
+                                                               name="campaign-activation-type"
+                                                               value={option.value}
+                                                               checked={option.isSelected}
+                                                               onchange={handleSelectActivation} />
+                                                        <span class="activation-type-figure" title={option.label}>
+                                                            <lightning-icon icon-name={option.icon} size="small" class={option.iconClass}></lightning-icon>
+                                                            <span class="activation-btn-label">{option.label}</span>
+                                                        </span>
+                                                    </label>
+                                                </template>
+                                            </div>
+                                        </template>
+                                        <template lwc:else>
+                                            <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">
+                                                No active activation types in Marketing Dictionary. Add them under Campaigns → Campaign Activation Types.
+                                            </p>
+                                        </template>
                                         <template lwc:if={showEmergencyToggle}>
-                                            <div class="slds-col slds-size_1-of-4 slds-p-bottom_xx-small">
-                                                <div class="slds-grid slds-grid_vertical-align-center emergency-inline-toggle">
-                                                    <button class={emergencyButtonClass}
-                                                            onclick={handleEmergencyToggle}
-                                                            title="Toggle Emergency Status">
-                                                        <lightning-icon icon-name="utility:warning" size="small" variant={emergencyIconVariant}></lightning-icon>
-                                                    </button>
-                                                    <span class="slds-m-left_small" style="font-weight: 500; color: #1b1b1b;">Is Emergency</span>
-                                                </div>
+                                            <div class="slds-grid slds-grid_vertical-align-center emergency-below-grid slds-m-top_small">
+                                                <button class={emergencyButtonClass}
+                                                        onclick={handleEmergencyToggle}
+                                                        title="Toggle Emergency Status">
+                                                    <lightning-icon icon-name="utility:warning" size="small" variant={emergencyIconVariant}></lightning-icon>
+                                                </button>
+                                                <span class="slds-m-left_small emergency-below-grid__label">Is Emergency</span>
                                             </div>
                                         </template>
                                     </div>
