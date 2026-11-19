@@ -50,14 +50,8 @@
                             <td class="locale-col-toggle">
                                 <label class="slds-checkbox_toggle">
                                     <span class="slds-assistive-text">Default</span>
-                                    <template lwc:if={loc.isDefault}>
-                                        <input type="checkbox" role="switch" data-id={loc.Id}
-                                            checked disabled={loc.defaultDisabled} onchange={handleDefaultToggle} />
-                                    </template>
-                                    <template lwc:else>
-                                        <input type="checkbox" role="switch" data-id={loc.Id}
-                                            disabled={loc.defaultDisabled} onchange={handleDefaultToggle} />
-                                    </template>
+                                    <input type="checkbox" role="switch" data-id={loc.Id}
+                                        checked={loc.isDefault} disabled={loc.defaultDisabled} onchange={handleDefaultToggle} />
                                     <span class="slds-checkbox_faux_container">
                                         <span class="slds-checkbox_faux"></span>
                                     </span>

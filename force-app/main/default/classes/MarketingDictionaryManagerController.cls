@@ -1155,6 +1155,31 @@ public with sharing class MarketingDictionaryManagerController {
         }
     }
 
+    /**
+     * Locale list for the Locales tab. Not cacheable so a save is always followed by fresh rows.
+     */
+    @AuraEnabled
+    public static List<Marketing_Dictionary__c> getLocales() {
+        return [
+            SELECT Id, Name, Topic_Description__c, Is_Active__c, Is_Default__c
+            FROM Marketing_Dictionary__c
+            WHERE RecordType.DeveloperName = 'Campaign'
+            AND Dictionary_Sub_Type__c = 'Locale'
+            ORDER BY Name ASC
+            LIMIT 500
+        ];
+    }
+
+    /**
+     * Saves a Locale and returns the refreshed locale list in the same call.
+     */
+    @AuraEnabled
+    public static List<Marketing_Dictionary__c> saveLocale(Marketing_Dictionary__c record) {
+        record.Dictionary_Sub_Type__c = 'Locale';
+        saveCampaignRecord(record);
+        return getLocales();
+    }
+
     @AuraEnabled
     public static void saveCampaignRecordsBulk(List<Marketing_Dictionary__c> records) {
         try {

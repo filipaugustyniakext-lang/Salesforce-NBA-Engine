@@ -1,9 +1,8 @@
-import { LightningElement, track, wire } from 'lwc';
+import { LightningElement, track } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
-import { refreshApex } from '@salesforce/apex';
 import LightningConfirm from 'lightning/confirm';
-import getCampaignRecords from '@salesforce/apex/MarketingDictionaryManagerController.getCampaignRecords';
-import saveCampaignRecord from '@salesforce/apex/MarketingDictionaryManagerController.saveCampaignRecord';
+import getLocales from '@salesforce/apex/MarketingDictionaryManagerController.getLocales';
+import saveLocale from '@salesforce/apex/MarketingDictionaryManagerController.saveLocale';
 import deleteDictionaryRecord from '@salesforce/apex/MarketingDictionaryManagerController.deleteDictionaryRecord';
 import { formatLocaleToken, parseLocale } from 'c/copyMessageNaming';
 
@@ -23,17 +22,19 @@ export default class MarketingDictionaryLocaleTab extends LightningElement {
     @track editCountryCode = '';
     @track editLanguageCode = '';
 
-    _wiredResult;
     _records = [];
 
-    @wire(getCampaignRecords)
-    wiredRecords(result) {
-        this._wiredResult = result;
-        this.isLoading = false;
-        if (result.data) {
-            this._records = result.data.filter(r => r.Dictionary_Sub_Type__c === 'Locale');
-        } else if (result.error) {
-            this._toast('Error', 'Failed to load locales.', 'error');
+    connectedCallback() {
+        this._load();
+    }
+
+    async _load() {
+        try {
+            this._records = await getLocales();
+        } catch (err) {
+            this._toast('Error', err.body?.message || 'Failed to load locales.', 'error');
+        } finally {
+            this.isLoading = false;
         }
     }
 
@@ -135,6 +136,7 @@ export default class MarketingDictionaryLocaleTab extends LightningElement {
         );
         if (!ok) {
             this._records = snapshot;
+            e.target.checked = !checked;
         }
     }
 
@@ -150,7 +152,7 @@ export default class MarketingDictionaryLocaleTab extends LightningElement {
         try {
             await deleteDictionaryRecord({ recordId: id });
             this._toast('Success', 'Deleted.', 'success');
-            await refreshApex(this._wiredResult);
+            this._records = await getLocales();
         } catch (err) {
             const message = err.body?.message || err.message || 'Delete failed.';
             const blocked = message.includes('dependencies');
@@ -163,9 +165,8 @@ export default class MarketingDictionaryLocaleTab extends LightningElement {
     async _save(record, successMessage) {
         this.isSaving = true;
         try {
-            await saveCampaignRecord({ record });
+            this._records = await saveLocale({ record });
             this._toast('Success', successMessage, 'success');
-            await refreshApex(this._wiredResult);
             return true;
         } catch (err) {
             this._toast('Error', err.body?.message || 'Save failed.', 'error');
