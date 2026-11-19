@@ -34,3 +34,12 @@ thead th {
     width: 5rem;
     white-space: nowrap;
 }
+
+.locale-code {
+    font-family: monospace;
+    color: var(--md-color-text-muted, var(--slds-g-color-on-surface-2, #706e6b));
+}
+
+.locale-legacy-note {
+    color: var(--md-color-error, var(--slds-g-color-error-1, #c23934));
+}

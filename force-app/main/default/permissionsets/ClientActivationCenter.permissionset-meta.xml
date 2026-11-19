@@ -545,6 +545,11 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
+        <field>Campaign.Locale_Code__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
         <field>Campaign.Locale_Dict__c</field>
         <readable>true</readable>
     </fieldPermissions>

@@ -5,6 +5,8 @@ import getPlaceholders from '@salesforce/apex/CopyCockpitController.getPlacehold
 import getStemVariantInfo from '@salesforce/apex/CopyCockpitController.getStemVariantInfo';
 import getMarketingLocales from '@salesforce/apex/CopyCockpitController.getMarketingLocales';
 import getSelectableTemplates from '@salesforce/apex/ChannelTemplateController.getSelectableTemplates';
+import getSalesforceLocales from '@salesforce/apex/SalesforceLocaleController.getSalesforceLocales';
+import { buildLocaleLabelMap, copyLocaleToken, localeDisplay } from 'c/salesforceLocaleUtils';
 import {
     channelPrefixForType,
     composeFullNameFromLocale,
@@ -62,6 +64,14 @@ export default class CopyCockpitAddModal extends LightningElement {
     _wiredPlaceholders;
 
     _wiredLocales;
+    _localeLabels = new Map();
+
+    @wire(getSalesforceLocales)
+    wiredSalesforceLocales({ data }) {
+        if (data) {
+            this._localeLabels = buildLocaleLabelMap(data);
+        }
+    }
 
     @wire(getMarketingLocales)
     wiredLocales(result) {
@@ -69,8 +79,8 @@ export default class CopyCockpitAddModal extends LightningElement {
         if (result.data && !this.localeToken && !this.isExistingMaster) {
             const preferred = result.data.find(row => row.Is_Default__c === true);
             if (preferred) {
-                this.localeToken = preferred.Name;
-                const parsed = parseLocale(preferred.Name);
+                this.localeToken = copyLocaleToken(preferred.Name);
+                const parsed = parseLocale(this.localeToken);
                 if (parsed.language) {
                     this.language = parsed.language;
                 }
@@ -107,11 +117,9 @@ export default class CopyCockpitAddModal extends LightningElement {
 
     get localeOptions() {
         return (this._wiredLocales?.data || []).map(row => {
-            const base = row.Topic_Description__c
-                ? `${row.Name} — ${row.Topic_Description__c}`
-                : row.Name;
+            const base = localeDisplay(row.Name, this._localeLabels);
             return {
-                value: row.Name,
+                value: copyLocaleToken(row.Name),
                 label: row.Is_Default__c ? `${base} (default)` : base
             };
         });

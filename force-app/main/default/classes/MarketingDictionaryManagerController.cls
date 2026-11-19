@@ -1223,8 +1223,33 @@ public with sharing class MarketingDictionaryManagerController {
     @AuraEnabled
     public static List<Marketing_Dictionary__c> saveLocale(Marketing_Dictionary__c record) {
         record.Dictionary_Sub_Type__c = 'Locale';
+        if (record.isSet('Name')) {
+            String code = record.Name == null ? null : record.Name.trim();
+            if (!SalesforceLocaleController.isSupportedLocale(code)) {
+                throwLocaleError('"' + code + '" is not a Salesforce locale. Pick one from the list (e.g. pl_PL).');
+            }
+            Id currentId = record.Id;
+            Integer duplicates = [
+                SELECT COUNT()
+                FROM Marketing_Dictionary__c
+                WHERE RecordType.DeveloperName = 'Campaign'
+                AND Dictionary_Sub_Type__c = 'Locale'
+                AND Name = :code
+                AND Id != :currentId
+            ];
+            if (duplicates > 0) {
+                throwLocaleError('Locale ' + code + ' already exists.');
+            }
+            record.Name = code;
+        }
         saveCampaignRecord(record);
         return getLocales();
+    }
+
+    private static void throwLocaleError(String message) {
+        AuraHandledException ex = new AuraHandledException(message);
+        ex.setMessage(message);
+        throw ex;
     }
 
     @AuraEnabled

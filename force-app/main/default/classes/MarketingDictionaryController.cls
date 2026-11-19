@@ -56,6 +56,7 @@ public with sharing class MarketingDictionaryController {
             'Product_Family__c', 'Product_Family_Ids__c',
             'Family_of_Needs__c', 'Family_of_Needs_Ids__c'
         };
+        addCampaignSelectField(fields, fieldMap, 'Locale_Code__c');
         addCampaignSelectField(fields, fieldMap, 'Exclude_Onboarding__c');
         addCampaignSelectField(fields, fieldMap, 'Exclude_Other_Marketing_Activations__c');
         addCampaignSelectField(fields, fieldMap, 'Exclude_Campaign_Groups__c');

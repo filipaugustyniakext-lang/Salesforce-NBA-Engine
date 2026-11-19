@@ -1,11 +1,12 @@
-import { LightningElement, track } from 'lwc';
+import { LightningElement, track, wire } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import LightningConfirm from 'lightning/confirm';
 import getLocales from '@salesforce/apex/MarketingDictionaryManagerController.getLocales';
 import saveLocale from '@salesforce/apex/MarketingDictionaryManagerController.saveLocale';
 import setDefaultLocale from '@salesforce/apex/MarketingDictionaryManagerController.setDefaultLocale';
 import deleteDictionaryRecord from '@salesforce/apex/MarketingDictionaryManagerController.deleteDictionaryRecord';
-import { formatLocaleToken, parseLocale } from 'c/copyMessageNaming';
+import getSalesforceLocales from '@salesforce/apex/SalesforceLocaleController.getSalesforceLocales';
+import { buildLocaleLabelMap, isSalesforceLocaleCode, localeLabelFor } from 'c/salesforceLocaleUtils';
 import {
     runDictionaryDeleteWithDependencyCheck,
     isDependencyBlockedMessage,
@@ -26,11 +27,23 @@ export default class MarketingDictionaryLocaleTab extends LightningElement {
     @track isSaving = false;
     @track isModalOpen = false;
     @track editLocale = EMPTY_LOCALE();
-    @track editCountryCode = '';
-    @track editLanguageCode = '';
+    @track editLocaleCode = '';
+    @track editLocaleLabel = '';
     @track dependencyReport = null;
 
     _records = [];
+    _localeLabels = new Map();
+    _localeLabelsError;
+
+    @wire(getSalesforceLocales)
+    wiredSalesforceLocales({ data, error }) {
+        if (data) {
+            this._localeLabels = buildLocaleLabelMap(data);
+            this._localeLabelsError = undefined;
+        } else if (error) {
+            this._localeLabelsError = error.body?.message || 'Salesforce locale labels could not be loaded.';
+        }
+    }
 
     connectedCallback() {
         this._load();
@@ -54,6 +67,8 @@ export default class MarketingDictionaryLocaleTab extends LightningElement {
             })
             .map(rec => ({
                 ...rec,
+                localeLabel: localeLabelFor(rec.Name, this._localeLabels),
+                isLegacyCode: !isSalesforceLocaleCode(rec.Name),
                 isActive: rec.Is_Active__c === true,
                 isDefault: rec.Is_Default__c === true,
                 defaultDisabled: rec.Is_Active__c !== true || this.isSaving
@@ -62,14 +77,22 @@ export default class MarketingDictionaryLocaleTab extends LightningElement {
     get hasLocales() { return this.locales.length > 0; }
     get localeCount() { return this.locales.length; }
     get modalTitle() { return this.editLocale.Id ? 'Edit Locale' : 'Add Locale'; }
-    get editPreview() {
-        return formatLocaleToken(this.editCountryCode, this.editLanguageCode) || '—';
+    get localeLabelsError() { return this._localeLabelsError; }
+    get editPreviewCode() { return this.editLocaleCode || '—'; }
+    get editPreviewLabel() {
+        return this.editLocaleLabel || localeLabelFor(this.editLocaleCode, this._localeLabels) || '—';
+    }
+    get editLegacyNote() {
+        const name = this.editLocale.Id ? this.editLocale.Name : '';
+        return name && !isSalesforceLocaleCode(name)
+            ? `"${name}" is not a Salesforce locale code. Pick the matching Salesforce locale to replace it.`
+            : '';
     }
 
     handleNew() {
         this.editLocale = EMPTY_LOCALE();
-        this.editCountryCode = '';
-        this.editLanguageCode = '';
+        this.editLocaleCode = '';
+        this.editLocaleLabel = '';
         this.isModalOpen = true;
     }
 
@@ -77,29 +100,30 @@ export default class MarketingDictionaryLocaleTab extends LightningElement {
         const rec = this._records.find(r => r.Id === e.currentTarget.dataset.id);
         if (!rec) return;
         this.editLocale = { ...rec };
-        const parsed = parseLocale(rec.Name);
-        this.editCountryCode = parsed.countryCode ? parsed.countryCode.toLowerCase() : '';
-        this.editLanguageCode = parsed.language || '';
+        this.editLocaleCode = isSalesforceLocaleCode(rec.Name) ? rec.Name : '';
+        this.editLocaleLabel = localeLabelFor(this.editLocaleCode, this._localeLabels);
         this.isModalOpen = true;
     }
 
     closeModal() { this.isModalOpen = false; }
 
-    handleCountryChange(e) { this.editCountryCode = e.target.value; }
-    handleLanguageChange(e) { this.editLanguageCode = e.target.value; }
+    handleLocaleCodeChange(e) {
+        this.editLocaleCode = e.detail.value || '';
+        this.editLocaleLabel = e.detail.label || '';
+    }
     handleDescriptionChange(e) {
         this.editLocale = { ...this.editLocale, Topic_Description__c: e.target.value };
     }
 
     async handleSave() {
-        const token = formatLocaleToken(this.editCountryCode, this.editLanguageCode);
-        if (!token || token.indexOf('-') < 0) {
-            this._toast('Validation', 'Country code and language code are required.', 'warning');
+        const code = this.editLocaleCode;
+        if (!isSalesforceLocaleCode(code)) {
+            this._toast('Validation', 'Select a Salesforce locale.', 'warning');
             return;
         }
         const record = {
             Id: this.editLocale.Id,
-            Name: token,
+            Name: code,
             Dictionary_Sub_Type__c: 'Locale',
             Topic_Description__c: this.editLocale.Topic_Description__c,
             Is_Active__c: this.editLocale.Id ? this.editLocale.Is_Active__c === true : true,
