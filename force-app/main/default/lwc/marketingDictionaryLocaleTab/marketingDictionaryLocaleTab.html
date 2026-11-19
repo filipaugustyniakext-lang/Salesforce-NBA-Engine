@@ -22,12 +22,18 @@
                     <tr class="slds-line-height_reset">
                         <th><span class="slds-truncate">Locale</span></th>
                         <th><span class="slds-truncate">Description</span></th>
-                        <th class="locale-col-toggle"><span class="slds-truncate">Active</span></th>
                         <th class="locale-col-toggle">
-                            <span class="slds-truncate">Default</span>
-                            <lightning-helptext class="slds-m-left_xx-small"
-                                content="Prefilled when campaign and Copy Center message names are generated. Only one locale can be the default.">
-                            </lightning-helptext>
+                            <div class="locale-th-inline">
+                                <span class="slds-truncate">Active</span>
+                            </div>
+                        </th>
+                        <th class="locale-col-toggle">
+                            <div class="locale-th-inline">
+                                <span class="slds-truncate">Default</span>
+                                <lightning-helptext class="slds-m-left_xx-small"
+                                    content="Prefilled when campaign and Copy Center message names are generated. Only one locale can be the default.">
+                                </lightning-helptext>
+                            </div>
                         </th>
                         <th class="locale-col-actions"></th>
                     </tr>
@@ -50,7 +56,7 @@
                             <td class="locale-col-toggle">
                                 <label class="slds-checkbox_toggle">
                                     <span class="slds-assistive-text">Default</span>
-                                    <input type="checkbox" role="switch" data-id={loc.Id}
+                                    <input type="checkbox" role="switch" class="locale-default-cb" data-id={loc.Id}
                                         checked={loc.isDefault} disabled={loc.defaultDisabled} onchange={handleDefaultToggle} />
                                     <span class="slds-checkbox_faux_container">
                                         <span class="slds-checkbox_faux"></span>

@@ -93,7 +93,7 @@
 thead th {
     vertical-align: middle;
 }
-th.topic-col-flag {
+.topic-th-inline {
     display: flex;
     align-items: center;
 }
