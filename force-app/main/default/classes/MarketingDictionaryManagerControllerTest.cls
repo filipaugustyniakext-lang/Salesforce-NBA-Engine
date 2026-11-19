@@ -95,6 +95,99 @@ private class MarketingDictionaryManagerControllerTest {
         System.assertEquals(true, saved.get(polish.Id).Is_Active__c);
     }
 
+    private static List<Marketing_Dictionary__c> insertLocales() {
+        Id campaignRt = Schema.SObjectType.Marketing_Dictionary__c
+            .getRecordTypeInfosByDeveloperName().get('Campaign').getRecordTypeId();
+        List<Marketing_Dictionary__c> rows = new List<Marketing_Dictionary__c>{
+            new Marketing_Dictionary__c(Name = 'pl-EN', RecordTypeId = campaignRt,
+                Dictionary_Sub_Type__c = 'Locale', Is_Active__c = true, Is_Default__c = true),
+            new Marketing_Dictionary__c(Name = 'pl-PL', RecordTypeId = campaignRt,
+                Dictionary_Sub_Type__c = 'Locale', Is_Active__c = true, Is_Default__c = false),
+            new Marketing_Dictionary__c(Name = 'de-DE', RecordTypeId = campaignRt,
+                Dictionary_Sub_Type__c = 'Locale', Is_Active__c = true, Is_Default__c = false)
+        };
+        insert rows;
+        return rows;
+    }
+
+    private static Set<String> defaultNames(List<Marketing_Dictionary__c> rows) {
+        Set<String> names = new Set<String>();
+        for (Marketing_Dictionary__c r : rows) {
+            if (r.Is_Default__c == true) {
+                names.add(r.Name);
+            }
+        }
+        return names;
+    }
+
+    @IsTest
+    static void setDefaultLocaleOnMakesOnlyThatRowDefault() {
+        List<Marketing_Dictionary__c> rows = insertLocales();
+
+        Test.startTest();
+        List<Marketing_Dictionary__c> saved = MarketingDictionaryManagerController.setDefaultLocale(rows[2].Id, true);
+        Test.stopTest();
+
+        System.assertEquals(new Set<String>{ 'de-DE' }, defaultNames(saved));
+        System.assertEquals(
+            new Set<String>{ 'de-DE' },
+            defaultNames([SELECT Name, Is_Default__c FROM Marketing_Dictionary__c WHERE Dictionary_Sub_Type__c = 'Locale'])
+        );
+    }
+
+    @IsTest
+    static void setDefaultLocaleOffClearsEveryDefault() {
+        List<Marketing_Dictionary__c> rows = insertLocales();
+
+        Test.startTest();
+        List<Marketing_Dictionary__c> saved = MarketingDictionaryManagerController.setDefaultLocale(rows[0].Id, false);
+        Test.stopTest();
+
+        System.assertEquals(0, defaultNames(saved).size(), 'No locale should remain the default.');
+        System.assertEquals(
+            0,
+            [SELECT COUNT() FROM Marketing_Dictionary__c WHERE Dictionary_Sub_Type__c = 'Locale' AND Is_Default__c = true]
+        );
+    }
+
+    @IsTest
+    static void setDefaultLocaleActivatesAnInactiveLocale() {
+        List<Marketing_Dictionary__c> rows = insertLocales();
+        rows[1].Is_Active__c = false;
+        update rows[1];
+
+        Test.startTest();
+        MarketingDictionaryManagerController.setDefaultLocale(rows[1].Id, true);
+        Test.stopTest();
+
+        Marketing_Dictionary__c saved = [
+            SELECT Is_Default__c, Is_Active__c FROM Marketing_Dictionary__c WHERE Id = :rows[1].Id
+        ];
+        System.assertEquals(true, saved.Is_Default__c);
+        System.assertEquals(true, saved.Is_Active__c);
+    }
+
+    @IsTest
+    static void setDefaultLocaleRejectsAnUnknownLocaleAndKeepsTheCurrentDefault() {
+        List<Marketing_Dictionary__c> rows = insertLocales();
+        Id notALocale = UserInfo.getUserId();
+
+        String message;
+        Test.startTest();
+        try {
+            MarketingDictionaryManagerController.setDefaultLocale(notALocale, true);
+        } catch (AuraHandledException e) {
+            message = e.getMessage();
+        }
+        Test.stopTest();
+
+        System.assertNotEquals(null, message, 'An unknown locale must raise an error.');
+        System.assertEquals(
+            new Set<String>{ 'pl-EN' },
+            defaultNames([SELECT Name, Is_Default__c FROM Marketing_Dictionary__c WHERE Dictionary_Sub_Type__c = 'Locale'])
+        );
+    }
+
     @IsTest
     static void saveLocaleReturnsTheRefreshedListWithOneDefault() {
         Id campaignRt = Schema.SObjectType.Marketing_Dictionary__c

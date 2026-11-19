@@ -540,7 +540,7 @@ public with sharing class MarketingDictionaryManagerController {
         return [
             SELECT Id, Name, Dictionary_Sub_Type__c, Topic_Description__c,
                    Include_In_Emergency__c, Is_Active__c, Is_Default__c, Distribution_Percent__c,
-                   Campaign_Type_Icon__c,
+                   Impact_Campaign_Score_Logic__c, Campaign_Type_Icon__c,
                    Topic_Group_Dict__c, Topic_Group_Dict__r.Name,
                    Define_Campaign_Groups__c, Timing_Evaluation_Type__c,
                    Campaign_Type_Dict__c, Campaign_Type_Dict__r.Name,
@@ -1168,6 +1168,53 @@ public with sharing class MarketingDictionaryManagerController {
             ORDER BY Name ASC
             LIMIT 500
         ];
+    }
+
+    /**
+     * Toggling a Default switch. Every locale row is first set to not default, then (only when
+     * makeDefault is true) the chosen row is set to default and activated. Returns the saved list.
+     */
+    @AuraEnabled
+    public static List<Marketing_Dictionary__c> setDefaultLocale(Id recordId, Boolean makeDefault) {
+        try {
+            List<Marketing_Dictionary__c> locales = [
+                SELECT Id, Is_Default__c, Is_Active__c
+                FROM Marketing_Dictionary__c
+                WHERE RecordType.DeveloperName = 'Campaign'
+                AND Dictionary_Sub_Type__c = 'Locale'
+                FOR UPDATE
+            ];
+            Boolean found = false;
+            List<Marketing_Dictionary__c> changed = new List<Marketing_Dictionary__c>();
+            for (Marketing_Dictionary__c loc : locales) {
+                Boolean target = makeDefault == true && loc.Id == recordId;
+                if (target) {
+                    found = true;
+                }
+                Boolean needsActivation = target && loc.Is_Active__c != true;
+                if ((loc.Is_Default__c == true) != target || needsActivation) {
+                    loc.Is_Default__c = target;
+                    if (needsActivation) {
+                        loc.Is_Active__c = true;
+                    }
+                    changed.add(loc);
+                }
+            }
+            if (makeDefault == true && !found) {
+                throw new AuraHandledException('Locale was not found.');
+            }
+            if (!changed.isEmpty()) {
+                update changed;
+            }
+            return getLocales();
+        } catch (AuraHandledException ahe) {
+            ahe.setMessage(ahe.getMessage());
+            throw ahe;
+        } catch (Exception e) {
+            AuraHandledException ex = new AuraHandledException(e.getMessage());
+            ex.setMessage(e.getMessage());
+            throw ex;
+        }
     }
 
     /**

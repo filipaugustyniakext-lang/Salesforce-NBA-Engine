@@ -21,6 +21,15 @@
     width: 7rem;
 }
 
+thead th {
+    vertical-align: middle;
+}
+
+.locale-th-inline {
+    display: flex;
+    align-items: center;
+}
+
 .locale-col-actions {
     width: 5rem;
     white-space: nowrap;

@@ -88,6 +88,18 @@
 .cd-col-groups { min-width: 14rem; }
 .cd-col-desc { max-width: 260px; }
 .action-col  { width: 5rem; white-space: nowrap; }
+.topic-col-check { width: 2.5rem; }
+.topic-col-flag { width: 9rem; white-space: nowrap; }
+thead th {
+    vertical-align: middle;
+}
+.topic-th-inline {
+    display: flex;
+    align-items: center;
+}
+.topic-row_selected > td { background: var(--md-color-surface-hover, var(--slds-g-color-surface-container-2, #eaf0f8)); }
+.topic-bulk-actions { display: flex; align-items: center; }
+.topic-flag-field { display: flex; align-items: center; gap: 0.25rem; }
 .cd-check-icon { color: var(--md-color-success, var(--slds-g-color-success-1, #2e844a)); }
 .cd-search-input { min-width: 180px; }
 .cd-warn-text { color: var(--md-color-error, var(--slds-g-color-error-1, #c23934)); font-size: 0.75rem; }

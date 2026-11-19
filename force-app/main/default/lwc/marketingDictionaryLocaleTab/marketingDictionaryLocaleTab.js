@@ -3,8 +3,15 @@ import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import LightningConfirm from 'lightning/confirm';
 import getLocales from '@salesforce/apex/MarketingDictionaryManagerController.getLocales';
 import saveLocale from '@salesforce/apex/MarketingDictionaryManagerController.saveLocale';
+import setDefaultLocale from '@salesforce/apex/MarketingDictionaryManagerController.setDefaultLocale';
 import deleteDictionaryRecord from '@salesforce/apex/MarketingDictionaryManagerController.deleteDictionaryRecord';
 import { formatLocaleToken, parseLocale } from 'c/copyMessageNaming';
+import {
+    runDictionaryDeleteWithDependencyCheck,
+    isDependencyBlockedMessage,
+    fetchDictionaryDeleteReport,
+    reportHasDependencies
+} from 'c/marketingDictionaryDeleteHelper';
 
 const EMPTY_LOCALE = () => ({
     Name: '',
@@ -21,6 +28,7 @@ export default class MarketingDictionaryLocaleTab extends LightningElement {
     @track editLocale = EMPTY_LOCALE();
     @track editCountryCode = '';
     @track editLanguageCode = '';
+    @track dependencyReport = null;
 
     _records = [];
 
@@ -112,32 +120,37 @@ export default class MarketingDictionaryLocaleTab extends LightningElement {
     }
 
     async handleDefaultToggle(e) {
-        const id = e.target.dataset.id;
-        const checked = e.target.checked === true;
-        const snapshot = this._records.map(rec => ({ ...rec }));
-        // Only one locale is the default. Turning one on clears every other row immediately.
-        this._records = this._records.map(rec => {
-            if (rec.Id === id) {
-                return {
-                    ...rec,
-                    Is_Default__c: checked,
-                    Is_Active__c: checked ? true : rec.Is_Active__c
-                };
+        const input = e.target;
+        const id = input.dataset.id;
+        const checked = input.checked === true;
+        // Keep showing the saved state until the backend confirms the change.
+        input.checked = !checked;
+        if (this.isSaving) {
+            return;
+        }
+        this.isSaving = true;
+        try {
+            this._records = await setDefaultLocale({ recordId: id, makeDefault: checked });
+            this._toast(
+                'Success',
+                checked ? 'Default locale updated.' : 'Default locale cleared.',
+                'success'
+            );
+        } catch (err) {
+            this._toast('Error', err.body?.message || err.message || 'Default locale could not be saved.', 'error');
+        } finally {
+            this.isSaving = false;
+        }
+    }
+
+    renderedCallback() {
+        // Native checkboxes keep their own checked state, so the Default column is re-synced from the saved rows.
+        this.template.querySelectorAll('input.locale-default-cb').forEach(el => {
+            const rec = this._records.find(r => r.Id === el.dataset.id);
+            if (rec) {
+                el.checked = rec.Is_Default__c === true;
             }
-            return checked ? { ...rec, Is_Default__c: false } : rec;
         });
-        const record = { Id: id, Is_Default__c: checked };
-        if (checked) {
-            record.Is_Active__c = true;
-        }
-        const ok = await this._save(
-            record,
-            checked ? 'Default locale updated.' : 'Default locale cleared.'
-        );
-        if (!ok) {
-            this._records = snapshot;
-            e.target.checked = !checked;
-        }
     }
 
     async handleDelete(e) {
@@ -150,16 +163,37 @@ export default class MarketingDictionaryLocaleTab extends LightningElement {
         if (!confirmed) return;
         this.isSaving = true;
         try {
-            await deleteDictionaryRecord({ recordId: id });
+            const deleted = await runDictionaryDeleteWithDependencyCheck({
+                recordId: id,
+                deleteFn: () => deleteDictionaryRecord({ recordId: id }),
+                onBlocked: (report) => { this.dependencyReport = report; }
+            });
+            if (!deleted) {
+                return;
+            }
             this._toast('Success', 'Deleted.', 'success');
             this._records = await getLocales();
         } catch (err) {
             const message = err.body?.message || err.message || 'Delete failed.';
-            const blocked = message.includes('dependencies');
-            this._toast(blocked ? 'Cannot delete' : 'Error', message, blocked ? 'warning' : 'error');
+            if (isDependencyBlockedMessage(message)) {
+                const report = await fetchDictionaryDeleteReport(id);
+                if (reportHasDependencies(report)) {
+                    this.dependencyReport = report;
+                    return;
+                }
+            }
+            this._toast('Error', message, 'error');
         } finally {
             this.isSaving = false;
         }
+    }
+
+    handleCloseDependencyDialog() {
+        this.dependencyReport = null;
+    }
+
+    get isDependencyDialogOpen() {
+        return reportHasDependencies(this.dependencyReport);
     }
 
     async _save(record, successMessage) {

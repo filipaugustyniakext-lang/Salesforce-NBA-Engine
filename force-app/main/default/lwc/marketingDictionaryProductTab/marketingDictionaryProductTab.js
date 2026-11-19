@@ -10,6 +10,14 @@ import getFonCustomerTypes from '@salesforce/apex/MarketingDictionaryManagerCont
 import setFonCustomerTypes from '@salesforce/apex/MarketingDictionaryManagerController.setFonCustomerTypes';
 import getOfferingDefinitionSettings from '@salesforce/apex/MarketingDictionaryManagerController.getOfferingDefinitionSettings';
 import saveOfferingDefinitionSetting from '@salesforce/apex/MarketingDictionaryManagerController.saveOfferingDefinitionSetting';
+import {
+    runDictionaryDeleteWithDependencyCheck,
+    runBulkDictionaryDeleteWithDependencyCheck,
+    combineBlockedReports,
+    isDependencyBlockedMessage,
+    fetchDictionaryDeleteReport,
+    reportHasDependencies
+} from 'c/marketingDictionaryDeleteHelper';
 
 let _keyCounter = 0;
 const newKey = () => String(++_keyCounter);
@@ -317,6 +325,7 @@ export default class MarketingDictionaryProductTab extends LightningElement {
     @track bulkEditRows = [];
     @track isBulkEditModalOpen = false;
     @track _bulkDeleteMode = false;
+    @track dependencyReport = null;
 
     // CT selection state for the FON edit modal: Set<ctId>
     _editModalCtSet = new Set();
@@ -638,24 +647,21 @@ export default class MarketingDictionaryProductTab extends LightningElement {
             this.isDeleteModalOpen = false;
             this._bulkDeleteMode = false;
             this._pendingDeleteName = '';
-            let deleted = 0;
-            let blocked = 0;
-            for (const id of ids) {
-                try {
-                    // eslint-disable-next-line no-await-in-loop
-                    await deleteDictionaryRecord({ recordId: id });
-                    deleted += 1;
-                } catch (e) {
-                    blocked += 1;
-                }
-            }
+            const { deletedIds, blockedReports, failures } = await runBulkDictionaryDeleteWithDependencyCheck({
+                recordIds: ids,
+                deleteFn: (recordId) => deleteDictionaryRecord({ recordId })
+            });
             this._clearPfSelection();
             await refreshApex(this._wiredResult);
-            if (deleted) {
-                this._showToast('Deleted', `${deleted} record(s) removed.`, 'success');
+            if (deletedIds.length) {
+                this._showToast('Deleted', `${deletedIds.length} record(s) removed.`, 'success');
             }
-            if (blocked) {
-                this._showToast('Some deletes blocked', `${blocked} record(s) still have dependencies.`, 'warning');
+            if (failures.length) {
+                this._showToast('Error', failures.map(f => f.message).join(' '), 'error');
+            }
+            const combined = combineBlockedReports(blockedReports);
+            if (combined) {
+                this.dependencyReport = combined;
             }
             return;
         }
@@ -664,19 +670,35 @@ export default class MarketingDictionaryProductTab extends LightningElement {
         this._pendingDeleteId = null;
         this._pendingDeleteName = '';
         try {
-            await deleteDictionaryRecord({ recordId: id });
+            const deleted = await runDictionaryDeleteWithDependencyCheck({
+                recordId: id,
+                deleteFn: () => deleteDictionaryRecord({ recordId: id }),
+                onBlocked: (report) => { this.dependencyReport = report; }
+            });
+            if (!deleted) {
+                return;
+            }
             this._showToast('Success', 'Record deleted', 'success');
             await refreshApex(this._wiredResult);
         } catch (e) {
             const message = e.body?.message || e.message || 'Delete failed.';
-            const blockedByDependency = message.includes('must be removed before it can be deleted')
-                || message.includes('Please remove dependencies first');
-            this._showToast(
-                blockedByDependency ? 'Cannot delete' : 'Error',
-                message,
-                blockedByDependency ? 'warning' : 'error'
-            );
+            if (isDependencyBlockedMessage(message) && id) {
+                const report = await fetchDictionaryDeleteReport(id);
+                if (reportHasDependencies(report)) {
+                    this.dependencyReport = report;
+                    return;
+                }
+            }
+            this._showToast('Error', message, 'error');
         }
+    }
+
+    handleCloseDependencyDialog() {
+        this.dependencyReport = null;
+    }
+
+    get isDependencyDialogOpen() {
+        return reportHasDependencies(this.dependencyReport);
     }
 
     handleCloseModal() { this.isModalOpen = false; }

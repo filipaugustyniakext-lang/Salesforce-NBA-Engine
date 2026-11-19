@@ -25,6 +25,12 @@
     background: var(--slds-g-color-neutral-base-95, var(--md-color-neutral-bg, var(--slds-g-color-neutral-base-95, #f3f3f3)));
 }
 
+.dependency-dialog__section + .dependency-dialog__section {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--md-color-border);
+}
+
 .dependency-dialog__link {
     color: var(--slds-c-link-text-color, var(--md-color-accent, var(--slds-g-color-accent-2, #0176d3)));
     text-decoration: none;
