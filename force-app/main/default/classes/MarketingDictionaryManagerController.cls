@@ -540,7 +540,7 @@ public with sharing class MarketingDictionaryManagerController {
         return [
             SELECT Id, Name, Dictionary_Sub_Type__c, Topic_Description__c,
                    Include_In_Emergency__c, Is_Active__c, Is_Default__c, Distribution_Percent__c,
-                   Campaign_Type_Icon__c,
+                   Impact_Campaign_Score_Logic__c, Campaign_Type_Icon__c,
                    Topic_Group_Dict__c, Topic_Group_Dict__r.Name,
                    Define_Campaign_Groups__c, Timing_Evaluation_Type__c,
                    Campaign_Type_Dict__c, Campaign_Type_Dict__r.Name,

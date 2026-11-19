@@ -17,6 +17,16 @@ import getProductOfferingCatalogue from '@salesforce/apex/MarketingDictionaryMan
 import getData360DmoOptions from '@salesforce/apex/MarketingDictionaryManagerController.getData360DmoOptions';
 import healCampaignOfferingLabels from '@salesforce/apex/MarketingDictionaryController.healCampaignOfferingLabels';
 import {
+    runDictionaryDeleteWithDependencyCheck,
+    runBulkDictionaryDeleteWithDependencyCheck,
+    runCampaignTierDeleteWithDependencyCheck,
+    combineBlockedReports,
+    isDependencyBlockedMessage,
+    fetchDictionaryDeleteReport,
+    fetchCampaignTierDeleteReport,
+    reportHasDependencies
+} from 'c/marketingDictionaryDeleteHelper';
+import {
     TIER_ATTR_FIELDS,
     TIER_EXCL_FIELDS,
     buildTierAttrRows,
@@ -46,7 +56,16 @@ const TIMING_EVALUATION_OPTIONS = [
     { label: 'Validity (Days)', value: 'Validity' }
 ];
 const EMPTY_TOPIC_GROUP      = () => ({ Name: '', Dictionary_Sub_Type__c: 'Topic Group' });
-const EMPTY_TOPIC            = () => ({ Name: '', Dictionary_Sub_Type__c: 'Topic', Topic_Group_Dict__c: null, Topic_Description__c: '' });
+const EMPTY_TOPIC            = () => ({
+    Name: '',
+    Dictionary_Sub_Type__c: 'Topic',
+    Topic_Group_Dict__c: null,
+    Topic_Description__c: '',
+    Impact_Campaign_Score_Logic__c: false
+});
+const IMPACT_SCORE_LOGIC_HELP =
+    'All Campaigns Associated with Topics marked with this flag will be considered for Customer Propensity Recount Logic in Data360 Transformation';
+const BULK_KEEP_GROUP = '__keep__';
 const EMPTY_PATH             = () => ({ Name: '', Dictionary_Sub_Type__c: 'Activation Path', Is_Active__c: true, Distribution_Percent__c: 0 });
 const EMPTY_SALES_PROCESS    = () => ({ Name: '', Dictionary_Sub_Type__c: 'Sales Process Type', Topic_Description__c: '' });
 const EMPTY_MODEL_GROUP      = () => ({ Name: '', Dictionary_Sub_Type__c: 'Scoring Model Group' });
@@ -137,6 +156,12 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
     fonCustomerTypes = {};
 
     @track topicSearch = '';
+    @track selectedTopicIds = [];
+    @track isTopicBulkModalOpen = false;
+    @track bulkTopicGroup = BULK_KEEP_GROUP;
+    @track bulkTopicImpact = false;
+    @track dependencyReport = null;
+    _bulkTopicImpactTouched = false;
     @track scoringSearch = '';
     @track activeSubTab = 'campaignTypes';
     @track _localPaths = [];
@@ -1008,10 +1033,49 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
                 (t.Topic_Group_Dict__r?.Name || '').toLowerCase().includes(q) ||
                 (t.Topic_Description__c || '').toLowerCase().includes(q))
             : this.allTopics;
-        return topics.map(topic => ({
-            ...topic,
-            topicGroupName: topic.Topic_Group_Dict__r?.Name || ''
-        }));
+        return topics.map(topic => {
+            const isSelected = this.selectedTopicIds.includes(topic.Id);
+            return {
+                ...topic,
+                topicGroupName: topic.Topic_Group_Dict__r?.Name || '',
+                isSelected,
+                checkboxId: `topic-cb-${topic.Id}`,
+                rowClass: isSelected ? 'topic-row_selected' : ''
+            };
+        });
+    }
+    get impactScoreLogicHelp() { return IMPACT_SCORE_LOGIC_HELP; }
+    get topicSelectedCount() { return this.selectedTopicIds.length; }
+    get hasTopicSelection() { return this.selectedTopicIds.length > 0; }
+    get isAllVisibleTopicsSelected() {
+        const ids = this.filteredTopics.map(t => t.Id);
+        return ids.length > 0 && ids.every(id => this.selectedTopicIds.includes(id));
+    }
+    get isSomeVisibleTopicsSelected() {
+        const ids = this.filteredTopics.map(t => t.Id);
+        const n = ids.filter(id => this.selectedTopicIds.includes(id)).length;
+        return n > 0 && n < ids.length;
+    }
+    get selectedTopics() {
+        const ids = new Set(this.selectedTopicIds);
+        return this.allTopics.filter(t => ids.has(t.Id));
+    }
+    get topicBulkModalTitle() {
+        const n = this.selectedTopicIds.length;
+        return `Edit ${n} topic${n !== 1 ? 's' : ''}`;
+    }
+    get bulkTopicGroupOptions() {
+        const groups = this.topicGroups.map(g => ({ label: g.Name, value: g.Id }));
+        return [
+            { label: '— Keep current group —', value: BULK_KEEP_GROUP },
+            { label: '— None —', value: '' },
+            ...groups
+        ];
+    }
+    get showBulkImpactMixedNote() {
+        if (this._bulkTopicImpactTouched) return false;
+        const values = new Set(this.selectedTopics.map(t => t.Impact_Campaign_Score_Logic__c === true));
+        return values.size > 1;
     }
     get topicCountLabel() {
         const f = this.filteredTopics.length; const t = this.topicCount;
@@ -1251,6 +1315,11 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
             const master = this.scoringMasterRows.find(m => m.key === name);
             el.indeterminate = !!(master && master.isIndeterminate);
         });
+        const topicSelectAll = this.template.querySelector('input.topic-select-all-cb');
+        if (topicSelectAll) {
+            topicSelectAll.indeterminate = this.isSomeVisibleTopicsSelected;
+            topicSelectAll.checked = this.isAllVisibleTopicsSelected;
+        }
         const selectAll = this.template.querySelector('input.scoring-select-all-cb');
         if (selectAll) {
             selectAll.indeterminate = this.isSomeVisibleScoringsSelected;
@@ -1563,9 +1632,88 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
     handleTopicFieldChange(e) {
         this.editTopic = { ...this.editTopic, [e.target.dataset.field]: e.detail?.value ?? e.target.value };
     }
+    handleTopicImpactChange(e) {
+        this.editTopic = { ...this.editTopic, Impact_Campaign_Score_Logic__c: e.target.checked === true };
+    }
+
+    handleTopicRowCheckbox(e) {
+        const id = e.target.dataset.id;
+        if (e.target.checked) {
+            if (!this.selectedTopicIds.includes(id)) {
+                this.selectedTopicIds = [...this.selectedTopicIds, id];
+            }
+        } else {
+            this.selectedTopicIds = this.selectedTopicIds.filter(x => x !== id);
+        }
+    }
+    handleTopicSelectAll(e) {
+        const visible = this.filteredTopics.map(t => t.Id);
+        if (e.target.checked) {
+            this.selectedTopicIds = [...new Set([...this.selectedTopicIds, ...visible])];
+        } else {
+            const drop = new Set(visible);
+            this.selectedTopicIds = this.selectedTopicIds.filter(id => !drop.has(id));
+        }
+    }
+    handleClearTopicSelection() { this.selectedTopicIds = []; }
+
+    handleBulkEditTopics() {
+        const topics = this.selectedTopics;
+        if (!topics.length) return;
+        const groups = new Set(topics.map(t => t.Topic_Group_Dict__c || ''));
+        this.bulkTopicGroup = groups.size === 1 ? [...groups][0] : BULK_KEEP_GROUP;
+        this.bulkTopicImpact = topics.every(t => t.Impact_Campaign_Score_Logic__c === true);
+        this._bulkTopicImpactTouched = false;
+        this.isTopicBulkModalOpen = true;
+    }
+    closeTopicBulkModal() { this.isTopicBulkModalOpen = false; }
+    handleBulkTopicGroupChange(e) { this.bulkTopicGroup = e.detail.value; }
+    handleBulkTopicImpactChange(e) {
+        this.bulkTopicImpact = e.target.checked === true;
+        this._bulkTopicImpactTouched = true;
+    }
+    async handleSaveBulkTopics() {
+        const changeGroup = this.bulkTopicGroup !== BULK_KEEP_GROUP;
+        const changeImpact = this._bulkTopicImpactTouched;
+        if (!changeGroup && !changeImpact) {
+            this.isTopicBulkModalOpen = false;
+            return;
+        }
+        const records = this.selectedTopics.map(t => {
+            const rec = { Id: t.Id, Dictionary_Sub_Type__c: 'Topic' };
+            if (changeGroup) rec.Topic_Group_Dict__c = this.bulkTopicGroup || null;
+            if (changeImpact) rec.Impact_Campaign_Score_Logic__c = this.bulkTopicImpact;
+            return rec;
+        });
+        this.isSaving = true;
+        try {
+            await saveCampaignRecordsBulk({ records });
+            this._showToast('Success', `${records.length} topic${records.length !== 1 ? 's' : ''} updated.`, 'success');
+            this.isTopicBulkModalOpen = false;
+            await refreshApex(this._wiredCampaignResult);
+        } catch (e) {
+            this._showToast('Error', e.body?.message || 'Save failed.', 'error');
+        } finally {
+            this.isSaving = false;
+        }
+    }
+
+    handleBulkDeleteTopics() {
+        const n = this.selectedTopicIds.length;
+        if (!n) return;
+        this._deleteIds = [...this.selectedTopicIds];
+        this._deleteId = null;
+        this._deleteType = 'topicBulk';
+        this.deleteTargetName = `${n} topic${n !== 1 ? 's' : ''}`;
+        this.isDeleteModalOpen = true;
+    }
     async handleSaveTopic() {
         if (!this.editTopic.Name?.trim()) { this._showToast('Validation', 'Topic Name is required.', 'warning'); return; }
-        const record = { ...this.editTopic, Topic_Group_Dict__c: this.editTopic.Topic_Group_Dict__c || null };
+        const record = {
+            ...this.editTopic,
+            Topic_Group_Dict__c: this.editTopic.Topic_Group_Dict__c || null,
+            Impact_Campaign_Score_Logic__c: this.editTopic.Impact_Campaign_Score_Logic__c === true
+        };
         await this._saveCampaignRecord(record, () => { this.isTopicModalOpen = false; });
     }
 
@@ -1662,33 +1810,74 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
     async handleConfirmDelete() {
         this.isDeleteModalOpen = false;
         this.isSaving = true;
+        const deleteId = this._deleteId;
+        const deleteType = this._deleteType;
+        const showBlocked = (report) => { this.dependencyReport = report; };
         try {
-            if (this._deleteType === 'tier') {
-                await deleteCampaignTier({ recordId: this._deleteId });
+            if (deleteType === 'tier') {
+                const deleted = await runCampaignTierDeleteWithDependencyCheck({
+                    recordId: deleteId,
+                    deleteFn: () => deleteCampaignTier({ recordId: deleteId }),
+                    onBlocked: showBlocked
+                });
+                if (!deleted) return;
                 await refreshApex(this._wiredTiersResult);
-            } else if (this._deleteType === 'scoringBulk' && this._deleteIds?.length) {
-                for (const recordId of this._deleteIds) {
-                    await deleteDictionaryRecord({ recordId });
-                }
-                this.selectedScoringIds = [];
+                this._showToast('Success', 'Deleted.', 'success');
+            } else if ((deleteType === 'scoringBulk' || deleteType === 'topicBulk') && this._deleteIds?.length) {
+                const ids = [...this._deleteIds];
                 this._deleteIds = null;
-                await refreshApex(this._wiredCampaignResult);
+                const { deletedIds, blockedReports, failures } = await runBulkDictionaryDeleteWithDependencyCheck({
+                    recordIds: ids,
+                    deleteFn: (recordId) => deleteDictionaryRecord({ recordId })
+                });
+                const removed = new Set(deletedIds);
+                this.selectedScoringIds = this.selectedScoringIds.filter(id => !removed.has(id));
+                this.selectedTopicIds = this.selectedTopicIds.filter(id => !removed.has(id));
+                if (deletedIds.length) {
+                    await refreshApex(this._wiredCampaignResult);
+                    this._showToast('Success', `${deletedIds.length} deleted.`, 'success');
+                }
+                if (failures.length) {
+                    this._showToast('Error', failures.map(f => f.message).join(' '), 'error');
+                }
+                const combined = combineBlockedReports(blockedReports);
+                if (combined) {
+                    this.dependencyReport = combined;
+                }
             } else {
-                await deleteDictionaryRecord({ recordId: this._deleteId });
-                this.selectedScoringIds = this.selectedScoringIds.filter(id => id !== this._deleteId);
+                const deleted = await runDictionaryDeleteWithDependencyCheck({
+                    recordId: deleteId,
+                    deleteFn: () => deleteDictionaryRecord({ recordId: deleteId }),
+                    onBlocked: showBlocked
+                });
+                if (!deleted) return;
+                this.selectedScoringIds = this.selectedScoringIds.filter(id => id !== deleteId);
+                this.selectedTopicIds = this.selectedTopicIds.filter(id => id !== deleteId);
                 await refreshApex(this._wiredCampaignResult);
+                this._showToast('Success', 'Deleted.', 'success');
             }
-            this._showToast('Success', 'Deleted.', 'success');
         } catch (e) {
             const message = e.body?.message || e.message || 'Delete failed.';
-            const blockedByDependency = message.includes('Please remove dependencies first');
-            this._showToast(
-                blockedByDependency ? 'Cannot delete' : 'Error',
-                message,
-                blockedByDependency ? 'warning' : 'error'
-            );
+            if (isDependencyBlockedMessage(message) && deleteId) {
+                const report = deleteType === 'tier'
+                    ? await fetchCampaignTierDeleteReport(deleteId)
+                    : await fetchDictionaryDeleteReport(deleteId);
+                if (reportHasDependencies(report)) {
+                    this.dependencyReport = report;
+                    return;
+                }
+            }
+            this._showToast('Error', message, 'error');
         }
         finally { this.isSaving = false; }
+    }
+
+    handleCloseDependencyDialog() {
+        this.dependencyReport = null;
+    }
+
+    get isDependencyDialogOpen() {
+        return reportHasDependencies(this.dependencyReport);
     }
 
     async _saveCampaignRecord(record, onSuccess) {

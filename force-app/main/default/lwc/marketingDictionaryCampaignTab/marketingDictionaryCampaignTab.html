@@ -285,13 +285,27 @@
                         Topics
                         <span class="slds-badge slds-badge_lightest slds-m-left_x-small">{topicCount}</span>
                     </h3>
-                    <div class="slds-grid slds-gutters_x-small">
+                    <div class="slds-grid slds-gutters_x-small slds-grid_vertical-align-center">
                         <div class="slds-col slds-no-flex">
                             <lightning-input type="search" label="Filter" variant="label-hidden"
                                 placeholder="Search topics..." value={topicSearch}
                                 onchange={handleTopicSearch} class="cd-search-input">
                             </lightning-input>
                         </div>
+                        <template lwc:if={hasTopicSelection}>
+                            <div class="slds-col slds-no-flex topic-bulk-actions">
+                                <span class="slds-text-body_small slds-m-right_x-small">{topicSelectedCount} selected</span>
+                                <lightning-button label="Edit selected" icon-name="utility:edit" variant="neutral"
+                                    onclick={handleBulkEditTopics} class="slds-m-right_xx-small">
+                                </lightning-button>
+                                <lightning-button label="Delete selected" icon-name="utility:delete"
+                                    variant="destructive-text" onclick={handleBulkDeleteTopics}
+                                    class="slds-m-right_xx-small">
+                                </lightning-button>
+                                <lightning-button label="Clear" variant="neutral" onclick={handleClearTopicSelection}>
+                                </lightning-button>
+                            </div>
+                        </template>
                         <div class="slds-col slds-no-flex">
                             <lightning-button label="Add Topic" icon-name="utility:add" variant="brand"
                                 onclick={handleNewTopic}>
@@ -304,15 +318,42 @@
                     <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_striped">
                         <thead>
                             <tr class="slds-line-height_reset">
-                                <th style="width:28%"><span class="slds-truncate">Topic Name</span></th>
+                                <th class="topic-col-check" scope="col">
+                                    <div class="slds-checkbox">
+                                        <input type="checkbox" id="topic-select-all" class="topic-select-all-cb"
+                                            title="Select all topics" checked={isAllVisibleTopicsSelected}
+                                            onchange={handleTopicSelectAll} />
+                                        <label class="slds-checkbox__label" for="topic-select-all">
+                                            <span class="slds-checkbox_faux"></span>
+                                            <span class="slds-form-element__label slds-assistive-text">Select all topics</span>
+                                        </label>
+                                    </div>
+                                </th>
+                                <th style="width:24%"><span class="slds-truncate">Topic Name</span></th>
                                 <th style="width:18%"><span class="slds-truncate">Group</span></th>
                                 <th><span class="slds-truncate">Description</span></th>
+                                <th class="topic-col-flag">
+                                    <span class="slds-truncate" title="Impact Campaign Score Logic">Score Logic</span>
+                                    <lightning-helptext class="slds-m-left_xx-small" content={impactScoreLogicHelp}>
+                                    </lightning-helptext>
+                                </th>
                                 <th class="action-col"></th>
                             </tr>
                         </thead>
                         <tbody>
                             <template for:each={filteredTopics} for:item="tp">
-                                <tr key={tp.Id}>
+                                <tr key={tp.Id} class={tp.rowClass}>
+                                    <td class="topic-col-check">
+                                        <div class="slds-checkbox">
+                                            <input type="checkbox" id={tp.checkboxId} class="topic-row-cb"
+                                                data-id={tp.Id} checked={tp.isSelected}
+                                                onchange={handleTopicRowCheckbox} />
+                                            <label class="slds-checkbox__label" for={tp.checkboxId}>
+                                                <span class="slds-checkbox_faux"></span>
+                                                <span class="slds-form-element__label slds-assistive-text">Select {tp.Name}</span>
+                                            </label>
+                                        </div>
+                                    </td>
                                     <td class="slds-truncate">{tp.Name}</td>
                                     <td>
                                         <template lwc:if={tp.topicGroupName}>
@@ -320,6 +361,13 @@
                                         </template>
                                     </td>
                                     <td class="cd-col-desc slds-truncate">{tp.Topic_Description__c}</td>
+                                    <td class="topic-col-flag">
+                                        <template lwc:if={tp.Impact_Campaign_Score_Logic__c}>
+                                            <lightning-icon icon-name="utility:check" size="xx-small"
+                                                alternative-text="Yes" title="Impacts campaign score logic" class="cd-check-icon">
+                                            </lightning-icon>
+                                        </template>
+                                    </td>
                                     <td class="action-col">
                                         <lightning-button-icon icon-name="utility:edit" variant="border-filled"
                                             size="x-small" alternative-text="Edit" title="Edit"
@@ -752,11 +800,62 @@
                         data-field="Topic_Description__c" onchange={handleTopicFieldChange}
                         class="slds-m-top_small" max-length="1000">
                     </lightning-textarea>
+                    <div class="topic-flag-field slds-m-top_small">
+                        <lightning-input type="checkbox" label="Impact Campaign Score Logic"
+                            checked={editTopic.Impact_Campaign_Score_Logic__c}
+                            onchange={handleTopicImpactChange}>
+                        </lightning-input>
+                        <lightning-helptext content={impactScoreLogicHelp}></lightning-helptext>
+                    </div>
                 </div>
                 <div class="slds-modal__footer">
                     <lightning-button label="Cancel" onclick={closeTopicModal}></lightning-button>
                     <lightning-button label="Save" variant="brand" class="slds-m-left_x-small"
                         onclick={handleSaveTopic} disabled={isSaving}>
+                    </lightning-button>
+                </div>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+    <!-- ══════════════════════════════════════════════════════════
+         TOPIC BULK EDIT MODAL
+    ══════════════════════════════════════════════════════════ -->
+    <template lwc:if={isTopicBulkModalOpen}>
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="tp-bulk-modal-title"
+            class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <div class="slds-modal__header">
+                    <h2 id="tp-bulk-modal-title" class="slds-modal__title">{topicBulkModalTitle}</h2>
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse"
+                        onclick={closeTopicBulkModal} title="Close">
+                        <lightning-icon icon-name="utility:close" size="small" alternative-text="Close"></lightning-icon>
+                    </button>
+                </div>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
+                        Changes apply to every selected topic. Fields you leave untouched keep each topic's current value.
+                    </p>
+                    <lightning-combobox label="Topic Group" value={bulkTopicGroup}
+                        options={bulkTopicGroupOptions} onchange={handleBulkTopicGroupChange}>
+                    </lightning-combobox>
+                    <div class="topic-flag-field slds-m-top_small">
+                        <lightning-input type="checkbox" label="Impact Campaign Score Logic"
+                            checked={bulkTopicImpact} onchange={handleBulkTopicImpactChange}>
+                        </lightning-input>
+                        <lightning-helptext content={impactScoreLogicHelp}></lightning-helptext>
+                    </div>
+                    <template lwc:if={showBulkImpactMixedNote}>
+                        <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">
+                            The selected topics have mixed values. Leave it untouched to keep them as they are.
+                        </p>
+                    </template>
+                </div>
+                <div class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={closeTopicBulkModal}></lightning-button>
+                    <lightning-button label="Save" variant="brand" class="slds-m-left_x-small"
+                        onclick={handleSaveBulkTopics} disabled={isSaving}>
                     </lightning-button>
                 </div>
             </div>
@@ -857,4 +956,10 @@
         <div class="slds-backdrop slds-backdrop_open"></div>
     </template>
 
+    <template lwc:if={isDependencyDialogOpen}>
+        <c-marketing-dictionary-dependency-dialog
+            report={dependencyReport}
+            onclose={handleCloseDependencyDialog}>
+        </c-marketing-dictionary-dependency-dialog>
+    </template>
 </template>
