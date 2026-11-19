@@ -47,7 +47,7 @@ export default class MarketingDictionaryLocaleTab extends LightningElement {
                 ...rec,
                 isActive: rec.Is_Active__c === true,
                 isDefault: rec.Is_Default__c === true,
-                defaultDisabled: rec.Is_Active__c !== true
+                defaultDisabled: rec.Is_Active__c !== true || this.isSaving
             }));
     }
     get hasLocales() { return this.locales.length > 0; }
@@ -113,12 +113,28 @@ export default class MarketingDictionaryLocaleTab extends LightningElement {
     async handleDefaultToggle(e) {
         const id = e.target.dataset.id;
         const checked = e.target.checked === true;
+        const snapshot = this._records.map(rec => ({ ...rec }));
+        // Only one locale is the default. Turning one on clears every other row immediately.
+        this._records = this._records.map(rec => {
+            if (rec.Id === id) {
+                return {
+                    ...rec,
+                    Is_Default__c: checked,
+                    Is_Active__c: checked ? true : rec.Is_Active__c
+                };
+            }
+            return checked ? { ...rec, Is_Default__c: false } : rec;
+        });
+        const record = { Id: id, Is_Default__c: checked };
+        if (checked) {
+            record.Is_Active__c = true;
+        }
         const ok = await this._save(
-            { Id: id, Is_Default__c: checked },
+            record,
             checked ? 'Default locale updated.' : 'Default locale cleared.'
         );
         if (!ok) {
-            e.target.checked = !checked;
+            this._records = snapshot;
         }
     }
 
