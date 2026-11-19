@@ -1,30 +1,71 @@
 <template>
-    <div class="locale-picker">
-        <lightning-input type="search" label="Search locales" variant="label-hidden"
-            placeholder="Search by language, country or code (e.g. Polish, Poland, pl_PL)"
-            value={searchTerm} onchange={handleSearch} disabled={isComboboxDisabled}
-            class="locale-picker__search">
-        </lightning-input>
-        <div class="locale-picker__field slds-m-top_x-small">
-            <lightning-combobox
-                label={label}
-                placeholder={placeholder}
-                value={value}
-                options={comboboxOptions}
-                required={required}
-                disabled={isComboboxDisabled}
-                field-level-help={fieldLevelHelp}
-                onchange={handleChange}>
-            </lightning-combobox>
-            <template lwc:if={isLoading}>
-                <lightning-spinner alternative-text="Loading locales" size="small"></lightning-spinner>
+    <div class={formElementClass}>
+        <label class="slds-form-element__label" for="locale-combobox-input">
+            <template lwc:if={required}>
+                <abbr class="slds-required" title="required">*</abbr>
             </template>
-        </div>
-        <template lwc:if={hasError}>
-            <p class="slds-text-color_error slds-text-body_small slds-m-top_xx-small" role="alert">{errorMessage}</p>
+            {label}
+        </label>
+        <template lwc:if={fieldLevelHelp}>
+            <lightning-helptext content={fieldLevelHelp} class="slds-m-left_xx-small"></lightning-helptext>
         </template>
-        <template lwc:if={showMatchCount}>
-            <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">{matchCountLabel}</p>
+        <div class="slds-form-element__control">
+            <div class="slds-combobox_container">
+                <div class={comboboxClass}>
+                    <div class="slds-combobox__form-element slds-input-has-icon slds-input-has-icon_right" role="none">
+                        <input type="text" id="locale-combobox-input"
+                            class="slds-input slds-combobox__input"
+                            role="combobox"
+                            aria-autocomplete="list"
+                            aria-expanded={_isOpen}
+                            aria-controls="locale-combobox-listbox"
+                            autocomplete="off"
+                            placeholder={placeholder}
+                            value={inputValue}
+                            disabled={isDisabled}
+                            onfocus={handleFocus}
+                            oninput={handleInput}
+                            onkeydown={handleKeydown}
+                            onblur={handleBlur} />
+                        <span class="slds-icon_container slds-input__icon slds-input__icon_right locale-picker__chevron">
+                            <lightning-icon icon-name="utility:down" size="xx-small" alternative-text=""></lightning-icon>
+                        </span>
+                    </div>
+                    <template lwc:if={_isOpen}>
+                        <div id="locale-combobox-listbox"
+                            class="slds-dropdown slds-dropdown_length-7 slds-dropdown_fluid" role="listbox">
+                            <ul class="slds-listbox slds-listbox_vertical" role="presentation">
+                                <template lwc:if={hasVisibleOptions}>
+                                    <template for:each={visibleOptions} for:item="option">
+                                        <li key={option.value} role="presentation" class="slds-listbox__item">
+                                            <div class={option.optionClass} role="option"
+                                                data-value={option.value}
+                                                onmousedown={handleOptionMouseDown}>
+                                                <span class="slds-media__body">
+                                                    <span class="slds-truncate" title={option.text}>{option.text}</span>
+                                                </span>
+                                            </div>
+                                        </li>
+                                    </template>
+                                </template>
+                                <template lwc:else>
+                                    <li role="presentation" class="slds-listbox__item">
+                                        <div class="slds-media slds-listbox__option slds-listbox__option_plain slds-media_small" role="option">
+                                            <span class="slds-media__body slds-text-color_weak">No matching locales</span>
+                                        </div>
+                                    </li>
+                                </template>
+                            </ul>
+                            <template lwc:if={dropdownNote}>
+                                <p class="locale-picker__note">{dropdownNote}</p>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+        <template lwc:if={showError}>
+            <div class="slds-form-element__help" role="alert">{errorMessage}</div>
         </template>
     </div>
 </template>

@@ -7,16 +7,24 @@ export default class SalesforceLocalePicker extends LightningElement {
     @api label = 'Locale';
     @api
     get value() { return this._value; }
-    set value(v) { this._value = v || ''; }
+    set value(next) {
+        this._value = next || '';
+        if (!this._isOpen) {
+            this._query = '';
+        }
+    }
     @api required = false;
     @api disabled = false;
     @api fieldLevelHelp;
 
-    searchTerm = '';
     _value = '';
+    _query = '';
     _options = [];
     _loaded = false;
     _error;
+    _isOpen = false;
+    _activeIndex = 0;
+    _validityMessage = '';
 
     @wire(getSalesforceLocales)
     wiredLocales({ data, error }) {
@@ -33,62 +41,122 @@ export default class SalesforceLocalePicker extends LightningElement {
 
     get isLoading() { return !this._loaded; }
     get hasError() { return !!this._error; }
-    get errorMessage() { return this._error; }
+    get errorMessage() { return this._validityMessage || this._error; }
+    get showError() { return !!this.errorMessage; }
+    get isDisabled() { return this.disabled || this.isLoading || this.hasError; }
 
     get selectedOption() {
-        return this._options.find(o => o.value === this._value);
+        return this._options.find(option => option.value === this._value);
     }
 
-    get selectedLabel() {
-        return this.selectedOption ? this.selectedOption.label : '';
-    }
-
-    get comboboxOptions() {
-        const q = (this.searchTerm || '').trim().toLowerCase();
-        const matches = q
-            ? this._options.filter(o =>
-                o.label.toLowerCase().includes(q) || o.value.toLowerCase().includes(q))
-            : this._options;
-        const visible = matches.slice(0, MAX_VISIBLE_OPTIONS).map(o => ({
-            label: `${o.label} (${o.value})`,
-            value: o.value
-        }));
-        const selected = this.selectedOption;
-        if (selected && !visible.some(o => o.value === selected.value)) {
-            visible.unshift({ label: `${selected.label} (${selected.value})`, value: selected.value });
+    get inputValue() {
+        if (this._isOpen) {
+            return this._query;
         }
-        return visible;
-    }
-
-    get matchCountLabel() {
-        const q = (this.searchTerm || '').trim().toLowerCase();
-        if (!q) return `${this._options.length} Salesforce locales. Type to narrow the list.`;
-        const n = this._options.filter(o =>
-            o.label.toLowerCase().includes(q) || o.value.toLowerCase().includes(q)).length;
-        if (n > MAX_VISIBLE_OPTIONS) return `${n} matches, showing the first ${MAX_VISIBLE_OPTIONS}.`;
-        return `${n} match${n === 1 ? '' : 'es'}.`;
+        const selected = this.selectedOption;
+        return selected ? this._optionText(selected) : this._value;
     }
 
     get placeholder() {
-        return this.isLoading ? 'Loading locales…' : 'Select a locale…';
+        if (this.isLoading) return 'Loading locales…';
+        return 'Type a language, country or code, e.g. Polish or pl_PL';
     }
 
-    get showMatchCount() {
-        return !this.isLoading && !this.hasError;
+    get comboboxClass() {
+        return `slds-combobox slds-dropdown-trigger slds-dropdown-trigger_click${this._isOpen ? ' slds-is-open' : ''}`;
     }
 
-    get isComboboxDisabled() {
-        return this.disabled || this.isLoading || this.hasError;
+    get formElementClass() {
+        return `slds-form-element${this.showError ? ' slds-has-error' : ''}`;
     }
 
-    handleSearch(event) {
-        this.searchTerm = event.target.value || '';
+    get visibleOptions() {
+        const query = (this._isOpen ? this._query : '').trim().toLowerCase();
+        const matches = query
+            ? this._options.filter(option => this._matches(option, query))
+            : this._options;
+        return matches.slice(0, MAX_VISIBLE_OPTIONS).map((option, index) => ({
+            value: option.value,
+            text: this._optionText(option),
+            optionClass: index === this._activeIndex
+                ? 'slds-media slds-listbox__option slds-listbox__option_plain slds-media_small slds-has-focus'
+                : 'slds-media slds-listbox__option slds-listbox__option_plain slds-media_small'
+        }));
     }
 
-    handleChange(event) {
-        const value = event.detail.value || '';
-        const option = this._options.find(o => o.value === value);
+    get hasVisibleOptions() { return this.visibleOptions.length > 0; }
+
+    get dropdownNote() {
+        const query = (this._query || '').trim().toLowerCase();
+        const total = query
+            ? this._options.filter(option => this._matches(option, query)).length
+            : this._options.length;
+        if (total > this.visibleOptions.length) {
+            return `Showing ${this.visibleOptions.length} of ${total}. Keep typing to narrow the list.`;
+        }
+        return '';
+    }
+
+    _optionText(option) {
+        return `${option.label} (${option.value})`;
+    }
+
+    _matches(option, query) {
+        return option.label.toLowerCase().includes(query) || option.value.toLowerCase().includes(query);
+    }
+
+    handleFocus() {
+        if (this.isDisabled) return;
+        this._isOpen = true;
+        this._query = '';
+        this._activeIndex = 0;
+        this._validityMessage = '';
+    }
+
+    handleInput(event) {
+        this._query = event.target.value || '';
+        this._isOpen = true;
+        this._activeIndex = 0;
+    }
+
+    handleKeydown(event) {
+        if (this.isDisabled) return;
+        const options = this.visibleOptions;
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            this._isOpen = true;
+            this._activeIndex = Math.min(this._activeIndex + 1, Math.max(options.length - 1, 0));
+        } else if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            this._activeIndex = Math.max(this._activeIndex - 1, 0);
+        } else if (event.key === 'Enter') {
+            event.preventDefault();
+            const option = options[this._activeIndex];
+            if (this._isOpen && option) {
+                this._select(option.value);
+            }
+        } else if (event.key === 'Escape') {
+            this._isOpen = false;
+            this._query = '';
+        }
+    }
+
+    handleOptionMouseDown(event) {
+        event.preventDefault();
+        this._select(event.currentTarget.dataset.value);
+    }
+
+    handleBlur() {
+        this._isOpen = false;
+        this._query = '';
+    }
+
+    _select(value) {
+        const option = this._options.find(row => row.value === value);
         this._value = value;
+        this._query = '';
+        this._isOpen = false;
+        this._validityMessage = '';
         this.dispatchEvent(new CustomEvent('change', {
             detail: { value, label: option ? option.label : '' }
         }));
@@ -96,7 +164,11 @@ export default class SalesforceLocalePicker extends LightningElement {
 
     @api
     reportValidity() {
-        const combobox = this.template.querySelector('lightning-combobox');
-        return combobox ? combobox.reportValidity() : true;
+        if (this.required && !this._value) {
+            this._validityMessage = 'Select a locale.';
+            return false;
+        }
+        this._validityMessage = '';
+        return !this.hasError;
     }
 }

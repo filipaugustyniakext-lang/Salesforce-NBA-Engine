@@ -2,6 +2,22 @@
     display: block;
 }
 
-.locale-picker__field {
-    position: relative;
+.slds-combobox_container,
+.slds-combobox {
+    width: 100%;
+}
+
+.slds-dropdown {
+    z-index: 9000;
+}
+
+.locale-picker__chevron {
+    pointer-events: none;
+}
+
+.locale-picker__note {
+    margin: 0;
+    padding: 0.25rem 0.75rem 0.5rem;
+    font-size: 0.75rem;
+    color: var(--slds-g-color-on-surface-2, #706e6b);
 }

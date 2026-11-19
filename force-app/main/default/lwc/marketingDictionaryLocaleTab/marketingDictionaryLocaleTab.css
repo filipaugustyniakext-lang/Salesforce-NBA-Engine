@@ -40,6 +40,10 @@ thead th {
     color: var(--md-color-text-muted, var(--slds-g-color-on-surface-2, #706e6b));
 }
 
+.locale-modal-content {
+    overflow: visible;
+}
+
 .locale-legacy-note {
     color: var(--md-color-error, var(--slds-g-color-error-1, #c23934));
 }
