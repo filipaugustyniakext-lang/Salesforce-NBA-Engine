@@ -90,6 +90,13 @@
 .action-col  { width: 5rem; white-space: nowrap; }
 .topic-col-check { width: 2.5rem; }
 .topic-col-flag { width: 9rem; white-space: nowrap; }
+thead th {
+    vertical-align: middle;
+}
+th.topic-col-flag {
+    display: flex;
+    align-items: center;
+}
 .topic-row_selected > td { background: var(--md-color-surface-hover, var(--slds-g-color-surface-container-2, #eaf0f8)); }
 .topic-bulk-actions { display: flex; align-items: center; }
 .topic-flag-field { display: flex; align-items: center; gap: 0.25rem; }
