@@ -7,6 +7,8 @@ import saveScoringModel from '@salesforce/apex/MarketingDictionaryManagerControl
 import deleteDictionaryRecord from '@salesforce/apex/MarketingDictionaryManagerController.deleteDictionaryRecord';
 import {
     runDictionaryDeleteWithDependencyCheck,
+    runBulkDictionaryDeleteWithDependencyCheck,
+    combineBlockedReports,
     isDependencyBlockedMessage,
     fetchDictionaryDeleteReport,
     reportHasDependencies
@@ -1112,19 +1114,26 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
                 await deleteScoringModelSetting({ recordId: deleteId });
                 await refreshApex(this._wiredSettingsResult);
             } else if (this._deleteType === 'scoringBulk' && this._deleteIds?.length) {
-                for (const recordId of this._deleteIds) {
-                    const deleted = await runDictionaryDeleteWithDependencyCheck({
-                        recordId,
-                        deleteFn: () => deleteDictionaryRecord({ recordId }),
-                        onBlocked: (report) => { this.dependencyReport = report; }
-                    });
-                    if (!deleted) {
-                        return;
-                    }
-                }
-                this.selectedScoringIds = [];
+                const ids = [...this._deleteIds];
                 this._deleteIds = null;
-                await refreshApex(this._wiredCampaignResult);
+                const { deletedIds, blockedReports, failures } = await runBulkDictionaryDeleteWithDependencyCheck({
+                    recordIds: ids,
+                    deleteFn: (recordId) => deleteDictionaryRecord({ recordId })
+                });
+                const removed = new Set(deletedIds);
+                this.selectedScoringIds = this.selectedScoringIds.filter(id => !removed.has(id));
+                if (deletedIds.length) {
+                    await refreshApex(this._wiredCampaignResult);
+                    this._showToast('Success', `${deletedIds.length} deleted.`, 'success');
+                }
+                if (failures.length) {
+                    this._showToast('Error', failures.map(f => f.message).join(' '), 'error');
+                }
+                const combined = combineBlockedReports(blockedReports);
+                if (combined) {
+                    this.dependencyReport = combined;
+                }
+                return;
             } else {
                 const deleted = await runDictionaryDeleteWithDependencyCheck({
                     recordId: deleteId,

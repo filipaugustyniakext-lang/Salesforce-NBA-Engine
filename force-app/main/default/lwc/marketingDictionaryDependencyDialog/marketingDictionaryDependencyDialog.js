@@ -9,11 +9,35 @@ export default class MarketingDictionaryDependencyDialog extends LightningElemen
         return this.report?.recordName || 'this value';
     }
 
-    get groups() {
-        return (this.report?.groups || []).map((group, index) => {
-            const entries = this._entriesForGroup(group);
+    get isMulti() {
+        return Array.isArray(this.report?.reports) && this.report.reports.length > 1;
+    }
+
+    get isSingle() {
+        return !this.isMulti;
+    }
+
+    get introText() {
+        return this.isMulti
+            ? 'NBA components still reference the values below, so they were not deleted. Remove or reassign their dependencies first.'
+            : 'NBA components still reference this dictionary value. Remove or reassign the dependencies below before deleting';
+    }
+
+    get sections() {
+        const reports = this.isMulti ? this.report.reports : [this.report || {}];
+        return reports.map((rep, rIdx) => ({
+            key: `${rep.recordId || rep.recordName || 'value'}-${rIdx}`,
+            recordName: rep.recordName || 'Value',
+            groups: this._groupsFor(rep, rIdx)
+        }));
+    }
+
+    _groupsFor(report, rIdx) {
+        return (report?.groups || []).map((group, index) => {
+            const prefix = `${rIdx}-${group.category}-${index}`;
+            const entries = this._entriesForGroup(group, prefix);
             return {
-                key: `${group.category}-${index}`,
+                key: prefix,
                 category: group.category,
                 entries,
                 count: entries.length
@@ -21,13 +45,13 @@ export default class MarketingDictionaryDependencyDialog extends LightningElemen
         });
     }
 
-    _entriesForGroup(group) {
+    _entriesForGroup(group, prefix) {
         const refs = group.references || [];
         if (refs.length) {
-            return refs.map((ref, idx) => this._mapReference(ref, `${group.category}-${idx}`));
+            return refs.map((ref, idx) => this._mapReference(ref, `${prefix}-${idx}`));
         }
         return (group.recordNames || []).map((name, idx) => ({
-            key: `${group.category}-${idx}`,
+            key: `${prefix}-${idx}`,
             label: name,
             isLink: false,
             url: null

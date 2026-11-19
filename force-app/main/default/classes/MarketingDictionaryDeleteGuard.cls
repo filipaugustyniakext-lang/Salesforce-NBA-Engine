@@ -217,7 +217,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
                 ORDER BY Name ASC
                 LIMIT :MAX_DEPENDENCY_LABELS
             ]) {
-                addDependency(dependencies, 'Campaign (Priority Tier)', camp.Name);
+                addDependency(dependencies, 'Campaign (Priority Tier)', camp);
             }
         }
         return dependencies.toReport(tier.Name);
@@ -236,13 +236,13 @@ public with sharing class MarketingDictionaryDeleteGuard {
         ];
         DependencyCollector dependencies = new DependencyCollector();
         for (Offer_Attribute_Rule__c rule : [
-            SELECT Offer_Attribute__r.Name
+            SELECT Id, Offer_Attribute__r.Name
             FROM Offer_Attribute_Rule__c
             WHERE Reference_Value__c = :referenceValueId
             ORDER BY Offer_Attribute__r.Name ASC
             LIMIT :MAX_DEPENDENCY_LABELS
         ]) {
-            addDependency(dependencies, 'Offer attribute rule', rule.Offer_Attribute__r?.Name);
+            addDependency(dependencies, 'Offer attribute rule', rule.Offer_Attribute__r?.Name, rule.Id, 'Offer_Attribute_Rule__c');
         }
         return dependencies.toReport(refVal.Name);
     }
@@ -307,31 +307,31 @@ public with sharing class MarketingDictionaryDeleteGuard {
 
     private static void collectCustomerTypeDependencies(Id recordId, DependencyCollector dependencies) {
         for (Product_Customer_Type__c link : [
-            SELECT Product__r.Name
+            SELECT Product__c, Product__r.Name
             FROM Product_Customer_Type__c
             WHERE Customer_Type__c = :recordId
             ORDER BY Product__r.Name ASC
             LIMIT :MAX_DEPENDENCY_LABELS
         ]) {
-            addDependency(dependencies, 'Product', link.Product__r?.Name);
+            addDependency(dependencies, 'Product', link.Product__r?.Name, link.Product__c, 'Product2');
         }
         for (FamilyOfNeeds_CustomerType__c link : [
-            SELECT Family_of_Needs__r.Name
+            SELECT Family_of_Needs__c, Family_of_Needs__r.Name
             FROM FamilyOfNeeds_CustomerType__c
             WHERE Customer_Type__c = :recordId
             ORDER BY Family_of_Needs__r.Name ASC
             LIMIT :MAX_DEPENDENCY_LABELS
         ]) {
-            addDependency(dependencies, 'Family of Needs dictionary', link.Family_of_Needs__r?.Name);
+            addDependency(dependencies, 'Family of Needs dictionary', link.Family_of_Needs__r?.Name, link.Family_of_Needs__c, 'Marketing_Dictionary__c');
         }
         for (Offer_Version_Customer_Type__c link : [
-            SELECT Offer_Version__r.Name
+            SELECT Offer_Version__c, Offer_Version__r.Name
             FROM Offer_Version_Customer_Type__c
             WHERE Customer_Type__c = :recordId
             ORDER BY Offer_Version__r.Name ASC
             LIMIT :MAX_DEPENDENCY_LABELS
         ]) {
-            addDependency(dependencies, 'Offer Version', link.Offer_Version__r?.Name);
+            addDependency(dependencies, 'Offer Version', link.Offer_Version__r?.Name, link.Offer_Version__c, 'Offer_Version__c');
         }
     }
 
@@ -347,7 +347,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
             String label = String.isNotBlank(channelName)
                 ? 'Channel cooldown (' + channelName + ')'
                 : 'Channel cooldown rule';
-            addDependency(dependencies, label, cooldown.Name);
+            addDependency(dependencies, label, cooldown);
         }
     }
 
@@ -359,7 +359,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
             ORDER BY Name ASC
             LIMIT :MAX_DEPENDENCY_LABELS
         ]) {
-            addDependency(dependencies, 'Product', product.Name);
+            addDependency(dependencies, 'Product', product);
         }
         collectCampaignIdListReferences(
             recordId,
@@ -374,16 +374,16 @@ public with sharing class MarketingDictionaryDeleteGuard {
             ORDER BY Name ASC
             LIMIT :MAX_DEPENDENCY_LABELS
         ]) {
-            addDependency(dependencies, 'Apriori scoring state', state.Name);
+            addDependency(dependencies, 'Apriori scoring state', state);
         }
         for (Offer_Attribute_Rule__c rule : [
-            SELECT Offer_Attribute__r.Name
+            SELECT Id, Offer_Attribute__r.Name
             FROM Offer_Attribute_Rule__c
             WHERE Product_Family__c = :recordId
             ORDER BY Offer_Attribute__r.Name ASC
             LIMIT :MAX_DEPENDENCY_LABELS
         ]) {
-            addDependency(dependencies, 'Offer attribute rule', rule.Offer_Attribute__r?.Name);
+            addDependency(dependencies, 'Offer attribute rule', rule.Offer_Attribute__r?.Name, rule.Id, 'Offer_Attribute_Rule__c');
         }
         for (Offer_Reference_Value__c refVal : [
             SELECT Name
@@ -392,7 +392,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
             ORDER BY Name ASC
             LIMIT :MAX_DEPENDENCY_LABELS
         ]) {
-            addDependency(dependencies, 'Offer reference value', refVal.Name);
+            addDependency(dependencies, 'Offer reference value', refVal);
         }
         for (CC_Message_Metadata__c variant : [
             SELECT Name
@@ -401,7 +401,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
             ORDER BY Name ASC
             LIMIT :MAX_DEPENDENCY_LABELS
         ]) {
-            addDependency(dependencies, 'Copy variant', variant.Name);
+            addDependency(dependencies, 'Copy variant', variant);
         }
         collectScoringModelOfferingTokens(recordId, 'Product Family', dependencies);
     }
@@ -414,7 +414,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
             ORDER BY Name ASC
             LIMIT :MAX_DEPENDENCY_LABELS
         ]) {
-            addDependency(dependencies, 'Product', product.Name);
+            addDependency(dependencies, 'Product', product);
         }
         collectCampaignIdListReferences(
             recordId,
@@ -430,7 +430,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
             ORDER BY Name ASC
             LIMIT :MAX_DEPENDENCY_LABELS
         ]) {
-            addDependency(dependencies, 'Product Family dictionary', pf.Name);
+            addDependency(dependencies, 'Product Family dictionary', pf);
         }
         collectScoringModelOfferingTokens(recordId, 'Family of Needs', dependencies);
     }
@@ -443,7 +443,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
             ORDER BY Name ASC
             LIMIT :MAX_DEPENDENCY_LABELS
         ]) {
-            addDependency(dependencies, 'Product', product.Name);
+            addDependency(dependencies, 'Product', product);
         }
         for (Marketing_Dictionary__c pf : [
             SELECT Name
@@ -453,7 +453,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
             ORDER BY Name ASC
             LIMIT :MAX_DEPENDENCY_LABELS
         ]) {
-            addDependency(dependencies, 'Product Family dictionary', pf.Name);
+            addDependency(dependencies, 'Product Family dictionary', pf);
         }
     }
 
@@ -490,7 +490,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
                     continue;
                 }
                 seenCampaigns.add(camp.Id);
-                addDependency(dependencies, 'Campaign (Activation Type)', camp.Name);
+                addDependency(dependencies, 'Campaign (Activation Type)', camp);
             }
             if (String.isNotBlank(typeName)) {
                 collectTierSupportedTypeReferences(typeName, dependencies);
@@ -504,7 +504,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
             ORDER BY Name ASC
             LIMIT :MAX_DEPENDENCY_LABELS
         ]) {
-            addDependency(dependencies, 'Campaign Group dictionary', grp.Name);
+            addDependency(dependencies, 'Campaign Group dictionary', grp);
         }
     }
 
@@ -516,7 +516,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
             ORDER BY Name ASC
             LIMIT :MAX_DEPENDENCY_LABELS
         ]) {
-            addDependency(dependencies, 'Campaign (Locale)', camp.Name);
+            addDependency(dependencies, 'Campaign (Locale)', camp);
         }
     }
 
@@ -528,7 +528,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
             ORDER BY Name ASC
             LIMIT :MAX_DEPENDENCY_LABELS
         ]) {
-            addDependency(dependencies, 'Campaign', camp.Name);
+            addDependency(dependencies, 'Campaign', camp);
         }
     }
 
@@ -540,7 +540,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
             ORDER BY Name ASC
             LIMIT :MAX_DEPENDENCY_LABELS
         ]) {
-            addDependency(dependencies, 'Campaign (Topic)', camp.Name);
+            addDependency(dependencies, 'Campaign (Topic)', camp);
         }
         for (Marketing_Dictionary__c model : [
             SELECT Name
@@ -550,7 +550,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
             ORDER BY Name ASC
             LIMIT :MAX_DEPENDENCY_LABELS
         ]) {
-            addDependency(dependencies, 'Scoring Model', model.Name);
+            addDependency(dependencies, 'Scoring Model', model);
         }
         for (Campaign_Scoring_Apriori_State__c state : [
             SELECT Name
@@ -559,7 +559,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
             ORDER BY Name ASC
             LIMIT :MAX_DEPENDENCY_LABELS
         ]) {
-            addDependency(dependencies, 'Apriori scoring state', state.Name);
+            addDependency(dependencies, 'Apriori scoring state', state);
         }
         for (Campaign_Scoring_Apriori_History__c hist : [
             SELECT Name
@@ -568,7 +568,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
             ORDER BY Name ASC
             LIMIT :MAX_DEPENDENCY_LABELS
         ]) {
-            addDependency(dependencies, 'Apriori scoring history', hist.Name);
+            addDependency(dependencies, 'Apriori scoring history', hist);
         }
         collectCopyTopicTextReferences(recordId, dependencies);
     }
@@ -582,7 +582,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
             ORDER BY Name ASC
             LIMIT :MAX_DEPENDENCY_LABELS
         ]) {
-            addDependency(dependencies, 'Topic dictionary', topic.Name);
+            addDependency(dependencies, 'Topic dictionary', topic);
         }
     }
 
@@ -594,7 +594,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
             ORDER BY Name ASC
             LIMIT :MAX_DEPENDENCY_LABELS
         ]) {
-            addDependency(dependencies, 'Campaign (Scoring Model)', camp.Name);
+            addDependency(dependencies, 'Campaign (Scoring Model)', camp);
         }
         for (Scoring_Model_Setting__c setting : [
             SELECT Name
@@ -603,7 +603,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
             ORDER BY Name ASC
             LIMIT :MAX_DEPENDENCY_LABELS
         ]) {
-            addDependency(dependencies, 'Scoring Model setting', setting.Name);
+            addDependency(dependencies, 'Scoring Model setting', setting);
         }
     }
 
@@ -616,7 +616,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
             ORDER BY Name ASC
             LIMIT :MAX_DEPENDENCY_LABELS
         ]) {
-            addDependency(dependencies, 'Scoring Model', model.Name);
+            addDependency(dependencies, 'Scoring Model', model);
         }
     }
 
@@ -628,13 +628,13 @@ public with sharing class MarketingDictionaryDeleteGuard {
     ) {
         Id recordId = attribute.Id;
         for (Offer_Attribute_Rule__c rule : [
-            SELECT Product_Family__r.Name
+            SELECT Id, Product_Family__r.Name
             FROM Offer_Attribute_Rule__c
             WHERE Offer_Attribute__c = :recordId
             ORDER BY Product_Family__r.Name ASC
             LIMIT :MAX_DEPENDENCY_LABELS
         ]) {
-            addDependency(dependencies, 'Offer attribute rule', rule.Product_Family__r?.Name);
+            addDependency(dependencies, 'Offer attribute rule', rule.Product_Family__r?.Name, rule.Id, 'Offer_Attribute_Rule__c');
         }
         collectOfferVersionFieldPopulation(attribute, dependencies);
     }
@@ -652,12 +652,12 @@ public with sharing class MarketingDictionaryDeleteGuard {
             return;
         }
         String query =
-            'SELECT Offer_Lookup__r.Name FROM Offer_Version__c WHERE '
+            'SELECT Offer_Lookup__c, Offer_Lookup__r.Name FROM Offer_Version__c WHERE '
             + apiName
             + ' != null ORDER BY Offer_Lookup__r.Name ASC LIMIT '
             + MAX_DEPENDENCY_LABELS;
         for (Offer_Version__c ver : (List<Offer_Version__c>) Database.query(query)) {
-            addDependency(dependencies, 'Offer', ver.Offer_Lookup__r?.Name);
+            addDependency(dependencies, 'Offer', ver.Offer_Lookup__r?.Name, ver.Offer_Lookup__c, 'Offer__c');
         }
     }
 
@@ -680,7 +680,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
             ORDER BY Name ASC
             LIMIT :MAX_DEPENDENCY_LABELS
         ]) {
-            addDependency(dependencies, 'Channel cooldown rule', cooldown.Name);
+            addDependency(dependencies, 'Channel cooldown rule', cooldown);
         }
         for (Channel_Template__c tmpl : [
             SELECT Name
@@ -689,7 +689,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
             ORDER BY Name ASC
             LIMIT :MAX_DEPENDENCY_LABELS
         ]) {
-            addDependency(dependencies, 'Channel template', tmpl.Name);
+            addDependency(dependencies, 'Channel template', tmpl);
         }
     }
 
@@ -792,7 +792,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
         for (Campaign campaign : (List<Campaign>) Database.query(query)) {
             String raw = (String) campaign.get(campaignFieldApi);
             if (containsDictionaryId(raw, dictionaryId)) {
-                addDependency(dependencies, dependencyPrefix, campaign.Name);
+                addDependency(dependencies, dependencyPrefix, campaign);
             }
         }
     }
@@ -816,7 +816,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
                 continue;
             }
             if (containsDictionaryId(raw, dictionaryId)) {
-                addDependency(dependencies, 'Scoring Model', model.Name);
+                addDependency(dependencies, 'Scoring Model', model);
             }
         }
     }
@@ -832,7 +832,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
             LIMIT 500
         ]) {
             if (supportedTypesContain(tier.Supported_Campaign_Types__c, typeName)) {
-                addDependency(dependencies, 'Tier definition', tier.Name);
+                addDependency(dependencies, 'Tier definition', tier);
             }
         }
     }
@@ -850,7 +850,7 @@ public with sharing class MarketingDictionaryDeleteGuard {
             ORDER BY Name ASC
             LIMIT :MAX_DEPENDENCY_LABELS
         ]) {
-            addDependency(dependencies, 'Copy variant (Topic)', row.Name);
+            addDependency(dependencies, 'Copy variant (Topic)', row);
         }
     }
 
@@ -1124,6 +1124,19 @@ public with sharing class MarketingDictionaryDeleteGuard {
 
     private static void addDependency(DependencyCollector dependencies, String category, String recordName) {
         addDependency(dependencies, category, recordName, null, null);
+    }
+
+    private static void addDependency(DependencyCollector dependencies, String category, SObject rec) {
+        if (rec == null) {
+            return;
+        }
+        addDependency(
+            dependencies,
+            category,
+            (String) rec.get('Name'),
+            rec.Id,
+            rec.getSObjectType().getDescribe().getName()
+        );
     }
 
     private static void addDependency(

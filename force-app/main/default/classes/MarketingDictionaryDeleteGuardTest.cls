@@ -46,6 +46,36 @@ private class MarketingDictionaryDeleteGuardTest {
     }
 
     @IsTest
+    static void topicDependenciesLinkToTheReferencingRecords() {
+        Marketing_Dictionary__c topic = new Marketing_Dictionary__c(
+            Name = 'Retention',
+            RecordTypeId = campaignDictRt(),
+            Dictionary_Sub_Type__c = 'Topic',
+            Impact_Campaign_Score_Logic__c = true
+        );
+        insert topic;
+        Campaign camp = new Campaign(
+            Name = 'Retention Camp',
+            Status = 'Planned',
+            IsActive = false,
+            Topic_Dict__c = topic.Id
+        );
+        insert camp;
+
+        Test.startTest();
+        MarketingDictionaryDeleteGuard.DependencyReport report =
+            MarketingDictionaryDeleteGuard.getDictionaryDeleteDependencies(topic.Id);
+        Test.stopTest();
+
+        System.assert(report.hasDependencies(), 'Topic used by a campaign must be blocked');
+        MarketingDictionaryDeleteGuard.DependencyReference ref = report.groups[0].references[0];
+        System.assertEquals('Campaign (Topic)', report.groups[0].category);
+        System.assertEquals('Retention Camp', ref.label);
+        System.assertEquals(camp.Id, ref.recordId, 'Dependency must link to the campaign');
+        System.assertEquals('Campaign', ref.objectApiName);
+    }
+
+    @IsTest
     static void campaignTierDeleteBlockedByCampaignPriorityTier() {
         Campaign_Tier__c tier = new Campaign_Tier__c(Tier_Number__c = 2);
         insert tier;

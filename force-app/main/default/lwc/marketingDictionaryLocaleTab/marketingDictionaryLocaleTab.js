@@ -5,6 +5,12 @@ import getLocales from '@salesforce/apex/MarketingDictionaryManagerController.ge
 import saveLocale from '@salesforce/apex/MarketingDictionaryManagerController.saveLocale';
 import deleteDictionaryRecord from '@salesforce/apex/MarketingDictionaryManagerController.deleteDictionaryRecord';
 import { formatLocaleToken, parseLocale } from 'c/copyMessageNaming';
+import {
+    runDictionaryDeleteWithDependencyCheck,
+    isDependencyBlockedMessage,
+    fetchDictionaryDeleteReport,
+    reportHasDependencies
+} from 'c/marketingDictionaryDeleteHelper';
 
 const EMPTY_LOCALE = () => ({
     Name: '',
@@ -21,6 +27,7 @@ export default class MarketingDictionaryLocaleTab extends LightningElement {
     @track editLocale = EMPTY_LOCALE();
     @track editCountryCode = '';
     @track editLanguageCode = '';
+    @track dependencyReport = null;
 
     _records = [];
 
@@ -150,16 +157,37 @@ export default class MarketingDictionaryLocaleTab extends LightningElement {
         if (!confirmed) return;
         this.isSaving = true;
         try {
-            await deleteDictionaryRecord({ recordId: id });
+            const deleted = await runDictionaryDeleteWithDependencyCheck({
+                recordId: id,
+                deleteFn: () => deleteDictionaryRecord({ recordId: id }),
+                onBlocked: (report) => { this.dependencyReport = report; }
+            });
+            if (!deleted) {
+                return;
+            }
             this._toast('Success', 'Deleted.', 'success');
             this._records = await getLocales();
         } catch (err) {
             const message = err.body?.message || err.message || 'Delete failed.';
-            const blocked = message.includes('dependencies');
-            this._toast(blocked ? 'Cannot delete' : 'Error', message, blocked ? 'warning' : 'error');
+            if (isDependencyBlockedMessage(message)) {
+                const report = await fetchDictionaryDeleteReport(id);
+                if (reportHasDependencies(report)) {
+                    this.dependencyReport = report;
+                    return;
+                }
+            }
+            this._toast('Error', message, 'error');
         } finally {
             this.isSaving = false;
         }
+    }
+
+    handleCloseDependencyDialog() {
+        this.dependencyReport = null;
+    }
+
+    get isDependencyDialogOpen() {
+        return reportHasDependencies(this.dependencyReport);
     }
 
     async _save(record, successMessage) {
