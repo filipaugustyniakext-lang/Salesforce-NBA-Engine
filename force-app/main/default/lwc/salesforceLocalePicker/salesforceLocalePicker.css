@@ -15,6 +15,25 @@
     pointer-events: none;
 }
 
+.locale-option_taken {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.locale-option__check {
+    width: 1rem;
+    display: inline-flex;
+    align-items: center;
+}
+
+.locale-picker__badges {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
 .locale-picker__note {
     margin: 0;
     padding: 0.25rem 0.75rem 0.5rem;

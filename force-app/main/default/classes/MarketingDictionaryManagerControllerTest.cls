@@ -225,6 +225,65 @@ private class MarketingDictionaryManagerControllerTest {
     }
 
     @IsTest
+    static void saveLocalesCreatesEachCodeOnceAndOneDefault() {
+        Test.startTest();
+        List<Marketing_Dictionary__c> saved = MarketingDictionaryManagerController.saveLocales(
+            new List<String>{ 'de_CH', 'fr_CH', 'it_CH' },
+            'Switzerland'
+        );
+        Test.stopTest();
+
+        System.assertEquals(3, saved.size());
+        Integer defaults = 0;
+        for (Marketing_Dictionary__c row : saved) {
+            System.assertEquals('Switzerland', row.Topic_Description__c);
+            if (row.Is_Default__c == true) {
+                defaults++;
+            }
+        }
+        System.assertEquals(1, defaults);
+    }
+
+    @IsTest
+    static void saveLocalesRejectsConfiguredAndUnknownCodes() {
+        MarketingDictionaryManagerController.saveLocales(new List<String>{ 'pl_PL' }, null);
+        String duplicateMessage;
+        String invalidMessage;
+        try {
+            MarketingDictionaryManagerController.saveLocales(new List<String>{ 'pl_PL', 'en_GB' }, null);
+        } catch (AuraHandledException e) {
+            duplicateMessage = e.getMessage();
+        }
+        try {
+            MarketingDictionaryManagerController.saveLocales(new List<String>{ 'not_A_Locale' }, null);
+        } catch (AuraHandledException e) {
+            invalidMessage = e.getMessage();
+        }
+
+        System.assert(duplicateMessage != null && duplicateMessage.contains('already exists'), duplicateMessage);
+        System.assert(invalidMessage != null && invalidMessage.contains('not a Salesforce locale'), invalidMessage);
+        System.assertEquals(1, [SELECT COUNT() FROM Marketing_Dictionary__c WHERE Name = 'pl_PL']);
+        System.assertEquals(0, [SELECT COUNT() FROM Marketing_Dictionary__c WHERE Name = 'en_GB']);
+    }
+
+    @IsTest
+    static void updateLocaleDescriptionsLeavesTheCodeUnchanged() {
+        List<Marketing_Dictionary__c> created = MarketingDictionaryManagerController.saveLocales(
+            new List<String>{ 'it_IT' },
+            'old'
+        );
+        Test.startTest();
+        List<Marketing_Dictionary__c> saved = MarketingDictionaryManagerController.updateLocaleDescriptions(
+            new List<Id>{ created[0].Id },
+            'new description'
+        );
+        Test.stopTest();
+
+        System.assertEquals('it_IT', saved[0].Name);
+        System.assertEquals('new description', saved[0].Topic_Description__c);
+    }
+
+    @IsTest
     static void saveLocaleReturnsTheRefreshedListWithOneDefault() {
         Id campaignRt = Schema.SObjectType.Marketing_Dictionary__c
             .getRecordTypeInfosByDeveloperName().get('Campaign').getRecordTypeId();

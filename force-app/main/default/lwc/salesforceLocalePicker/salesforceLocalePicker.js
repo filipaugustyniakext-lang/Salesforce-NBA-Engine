@@ -4,20 +4,17 @@ import getSalesforceLocales from '@salesforce/apex/SalesforceLocaleController.ge
 const MAX_VISIBLE_OPTIONS = 60;
 
 export default class SalesforceLocalePicker extends LightningElement {
-    @api label = 'Locale';
-    @api
-    get value() { return this._value; }
-    set value(next) {
-        this._value = next || '';
-        if (!this._isOpen) {
-            this._query = '';
-        }
-    }
+    @api label = 'Locales';
     @api required = false;
     @api disabled = false;
     @api fieldLevelHelp;
+    /** Locale codes that already exist and cannot be selected again. */
+    @api
+    get takenValues() { return [...this._taken]; }
+    set takenValues(values) { this._taken = new Set(values || []); }
 
-    _value = '';
+    _taken = new Set();
+    _selected = [];
     _query = '';
     _options = [];
     _loaded = false;
@@ -26,10 +23,24 @@ export default class SalesforceLocalePicker extends LightningElement {
     _activeIndex = 0;
     _validityMessage = '';
 
+    @api
+    get values() { return this._selected.map(row => row.value); }
+    set values(next) {
+        const codes = Array.isArray(next) ? next : [];
+        this._selected = codes.map(code => {
+            const known = this._options.find(option => option.value === code);
+            return { value: code, label: known ? known.label : code };
+        });
+    }
+
     @wire(getSalesforceLocales)
     wiredLocales({ data, error }) {
         if (data) {
             this._options = data;
+            this._selected = this._selected.map(row => {
+                const known = data.find(option => option.value === row.value);
+                return known ? { value: known.value, label: known.label } : row;
+            });
             this._loaded = true;
             this._error = undefined;
         } else if (error) {
@@ -44,22 +55,19 @@ export default class SalesforceLocalePicker extends LightningElement {
     get errorMessage() { return this._validityMessage || this._error; }
     get showError() { return !!this.errorMessage; }
     get isDisabled() { return this.disabled || this.isLoading || this.hasError; }
-
-    get selectedOption() {
-        return this._options.find(option => option.value === this._value);
-    }
-
-    get inputValue() {
-        if (this._isOpen) {
-            return this._query;
-        }
-        const selected = this.selectedOption;
-        return selected ? this._optionText(selected) : this._value;
+    get hasSelection() { return this._selected.length > 0; }
+    get selectedBadges() {
+        return this._selected.map(row => ({
+            value: row.value,
+            text: row.label && row.label !== row.value ? `${row.label} (${row.value})` : row.value
+        }));
     }
 
     get placeholder() {
         if (this.isLoading) return 'Loading locales…';
-        return 'Type a language, country or code, e.g. Polish or pl_PL';
+        return this.hasSelection
+            ? 'Add another language, country or code'
+            : 'Type a language, country or code, e.g. Switzerland or de_CH';
     }
 
     get comboboxClass() {
@@ -70,18 +78,30 @@ export default class SalesforceLocalePicker extends LightningElement {
         return `slds-form-element${this.showError ? ' slds-has-error' : ''}`;
     }
 
+    get inputValue() {
+        return this._isOpen ? this._query : '';
+    }
+
     get visibleOptions() {
         const query = (this._isOpen ? this._query : '').trim().toLowerCase();
         const matches = query
             ? this._options.filter(option => this._matches(option, query))
             : this._options;
-        return matches.slice(0, MAX_VISIBLE_OPTIONS).map((option, index) => ({
-            value: option.value,
-            text: this._optionText(option),
-            optionClass: index === this._activeIndex
-                ? 'slds-media slds-listbox__option slds-listbox__option_plain slds-media_small slds-has-focus'
-                : 'slds-media slds-listbox__option slds-listbox__option_plain slds-media_small'
-        }));
+        const selected = new Set(this._selected.map(row => row.value));
+        return matches.slice(0, MAX_VISIBLE_OPTIONS).map((option, index) => {
+            const isTaken = this._taken.has(option.value);
+            const isSelected = selected.has(option.value);
+            let optionClass = 'slds-media slds-listbox__option slds-listbox__option_plain slds-media_small';
+            if (isTaken) optionClass += ' locale-option_taken';
+            if (index === this._activeIndex) optionClass += ' slds-has-focus';
+            return {
+                value: option.value,
+                text: `${option.label} (${option.value})`,
+                isTaken,
+                isSelected,
+                optionClass
+            };
+        });
     }
 
     get hasVisibleOptions() { return this.visibleOptions.length > 0; }
@@ -97,10 +117,6 @@ export default class SalesforceLocalePicker extends LightningElement {
         return '';
     }
 
-    _optionText(option) {
-        return `${option.label} (${option.value})`;
-    }
-
     _matches(option, query) {
         return option.label.toLowerCase().includes(query) || option.value.toLowerCase().includes(query);
     }
@@ -108,7 +124,6 @@ export default class SalesforceLocalePicker extends LightningElement {
     handleFocus() {
         if (this.isDisabled) return;
         this._isOpen = true;
-        this._query = '';
         this._activeIndex = 0;
         this._validityMessage = '';
     }
@@ -133,7 +148,7 @@ export default class SalesforceLocalePicker extends LightningElement {
             event.preventDefault();
             const option = options[this._activeIndex];
             if (this._isOpen && option) {
-                this._select(option.value);
+                this._toggle(option.value);
             }
         } else if (event.key === 'Escape') {
             this._isOpen = false;
@@ -143,7 +158,12 @@ export default class SalesforceLocalePicker extends LightningElement {
 
     handleOptionMouseDown(event) {
         event.preventDefault();
-        this._select(event.currentTarget.dataset.value);
+        this._toggle(event.currentTarget.dataset.value);
+    }
+
+    handleRemoveBadge(event) {
+        event.preventDefault();
+        this._toggle(event.currentTarget.dataset.value);
     }
 
     handleBlur() {
@@ -151,21 +171,26 @@ export default class SalesforceLocalePicker extends LightningElement {
         this._query = '';
     }
 
-    _select(value) {
+    _toggle(value) {
+        if (this._taken.has(value)) {
+            return;
+        }
         const option = this._options.find(row => row.value === value);
-        this._value = value;
-        this._query = '';
-        this._isOpen = false;
+        if (!option) return;
+        const exists = this._selected.some(row => row.value === value);
+        this._selected = exists
+            ? this._selected.filter(row => row.value !== value)
+            : [...this._selected, { value: option.value, label: option.label }];
         this._validityMessage = '';
         this.dispatchEvent(new CustomEvent('change', {
-            detail: { value, label: option ? option.label : '' }
+            detail: { values: this._selected.map(row => ({ value: row.value, label: row.label })) }
         }));
     }
 
     @api
     reportValidity() {
-        if (this.required && !this._value) {
-            this._validityMessage = 'Select a locale.';
+        if (this.required && !this._selected.length) {
+            this._validityMessage = 'Select at least one locale.';
             return false;
         }
         this._validityMessage = '';

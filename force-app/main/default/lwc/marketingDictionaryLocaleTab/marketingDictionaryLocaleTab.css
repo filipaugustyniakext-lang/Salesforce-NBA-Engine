@@ -17,6 +17,21 @@
     flex-wrap: wrap;
 }
 
+.locale-toolbar-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.locale-col-check {
+    width: 2.5rem;
+}
+
+.locale-row_selected > td {
+    background: var(--md-color-surface-hover, var(--slds-g-color-surface-container-2, #eaf0f8));
+}
+
 .locale-col-toggle {
     width: 7rem;
 }
