@@ -1,0 +1,30 @@
+<template>
+    <div class="locale-picker">
+        <lightning-input type="search" label="Search locales" variant="label-hidden"
+            placeholder="Search by language, country or code (e.g. Polish, Poland, pl_PL)"
+            value={searchTerm} onchange={handleSearch} disabled={isComboboxDisabled}
+            class="locale-picker__search">
+        </lightning-input>
+        <div class="locale-picker__field slds-m-top_x-small">
+            <lightning-combobox
+                label={label}
+                placeholder={placeholder}
+                value={value}
+                options={comboboxOptions}
+                required={required}
+                disabled={isComboboxDisabled}
+                field-level-help={fieldLevelHelp}
+                onchange={handleChange}>
+            </lightning-combobox>
+            <template lwc:if={isLoading}>
+                <lightning-spinner alternative-text="Loading locales" size="small"></lightning-spinner>
+            </template>
+        </div>
+        <template lwc:if={hasError}>
+            <p class="slds-text-color_error slds-text-body_small slds-m-top_xx-small" role="alert">{errorMessage}</p>
+        </template>
+        <template lwc:if={showMatchCount}>
+            <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">{matchCountLabel}</p>
+        </template>
+    </div>
+</template>
