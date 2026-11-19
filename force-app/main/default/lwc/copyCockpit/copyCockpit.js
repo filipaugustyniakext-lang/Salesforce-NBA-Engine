@@ -22,6 +22,8 @@ import updateMessageSourceTemplates from '@salesforce/apex/CopyCockpitController
 import saveVariantDisplayWeight from '@salesforce/apex/CopyCockpitController.saveVariantDisplayWeight';
 import getSelectableTemplates from '@salesforce/apex/ChannelTemplateController.getSelectableTemplates';
 import getMarketingLocales from '@salesforce/apex/CopyCockpitController.getMarketingLocales';
+import getSalesforceLocales from '@salesforce/apex/SalesforceLocaleController.getSalesforceLocales';
+import { buildLocaleLabelMap, copyLocaleToken, localeDisplay } from 'c/salesforceLocaleUtils';
 import updateMessageStatus from '@salesforce/apex/CopyCockpitController.updateMessageStatus';
 import syncWithMCE from '@salesforce/apex/MarketingCloudCopySync.syncWithMCE';
 import syncVariantsWithMCE from '@salesforce/apex/MarketingCloudCopySync.syncVariantsWithMCE';
@@ -591,6 +593,15 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     @wire(getMarketingLocales)
     _wiredMarketingLocales;
 
+    _localeLabels = new Map();
+
+    @wire(getSalesforceLocales)
+    wiredSalesforceLocales({ data }) {
+        if (data) {
+            this._localeLabels = buildLocaleLabelMap(data);
+        }
+    }
+
     // ── channel state ──────────────────────────────────────────────────────
 
     get isLoading() {
@@ -903,10 +914,8 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
     get masterEditOfferOptions()  { return this._masterEditModal?.offers  || []; }
     get masterEditLocaleOptions() {
         return (this._wiredMarketingLocales?.data || []).map(row => ({
-            value: row.Name,
-            label: row.Topic_Description__c
-                ? `${row.Name} — ${row.Topic_Description__c}`
-                : row.Name
+            value: copyLocaleToken(row.Name),
+            label: localeDisplay(row.Name, this._localeLabels)
         }));
     }
 

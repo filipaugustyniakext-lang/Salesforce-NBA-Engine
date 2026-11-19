@@ -1223,8 +1223,118 @@ public with sharing class MarketingDictionaryManagerController {
     @AuraEnabled
     public static List<Marketing_Dictionary__c> saveLocale(Marketing_Dictionary__c record) {
         record.Dictionary_Sub_Type__c = 'Locale';
+        if (record.isSet('Name')) {
+            String code = record.Name == null ? null : record.Name.trim();
+            if (!SalesforceLocaleController.isSupportedLocale(code)) {
+                throwLocaleError('"' + code + '" is not a Salesforce locale. Pick one from the list (e.g. pl_PL).');
+            }
+            Id currentId = record.Id;
+            Integer duplicates = [
+                SELECT COUNT()
+                FROM Marketing_Dictionary__c
+                WHERE RecordType.DeveloperName = 'Campaign'
+                AND Dictionary_Sub_Type__c = 'Locale'
+                AND Name = :code
+                AND Id != :currentId
+            ];
+            if (duplicates > 0) {
+                throwLocaleError('Locale ' + code + ' already exists.');
+            }
+            record.Name = code;
+        }
         saveCampaignRecord(record);
         return getLocales();
+    }
+
+    /**
+     * Creates one Locale dictionary row per Salesforce locale code. The description is shared.
+     * The first row becomes the default only when no default exists yet.
+     */
+    @AuraEnabled
+    public static List<Marketing_Dictionary__c> saveLocales(List<String> localeCodes, String description) {
+        try {
+            if (localeCodes == null || localeCodes.isEmpty()) {
+                throwLocaleError('Select at least one locale.');
+            }
+            List<String> codes = new List<String>();
+            Set<String> seen = new Set<String>();
+            for (String raw : localeCodes) {
+                String code = raw == null ? null : raw.trim();
+                if (!SalesforceLocaleController.isSupportedLocale(code)) {
+                    throwLocaleError('"' + code + '" is not a Salesforce locale. Pick one from the list (e.g. pl_PL).');
+                }
+                if (!seen.add(code)) {
+                    throwLocaleError('Locale ' + code + ' was selected more than once.');
+                }
+                codes.add(code);
+            }
+            List<Marketing_Dictionary__c> existing = [
+                SELECT Name
+                FROM Marketing_Dictionary__c
+                WHERE RecordType.DeveloperName = 'Campaign'
+                AND Dictionary_Sub_Type__c = 'Locale'
+                AND Name IN :seen
+            ];
+            if (!existing.isEmpty()) {
+                throwLocaleError('Locale ' + existing[0].Name + ' already exists.');
+            }
+            Boolean hasDefault = [
+                SELECT COUNT()
+                FROM Marketing_Dictionary__c
+                WHERE RecordType.DeveloperName = 'Campaign'
+                AND Dictionary_Sub_Type__c = 'Locale'
+                AND Is_Default__c = true
+            ] > 0;
+            Id campaignRecordTypeId = getRecordTypeId('Campaign');
+            List<Marketing_Dictionary__c> rows = new List<Marketing_Dictionary__c>();
+            for (Integer i = 0; i < codes.size(); i++) {
+                rows.add(new Marketing_Dictionary__c(
+                    Name = codes[i],
+                    RecordTypeId = campaignRecordTypeId,
+                    Dictionary_Sub_Type__c = 'Locale',
+                    Topic_Description__c = description,
+                    Is_Active__c = true,
+                    Is_Default__c = !hasDefault && i == 0
+                ));
+            }
+            insert rows;
+            return getLocales();
+        } catch (AuraHandledException ahe) {
+            ahe.setMessage(ahe.getMessage());
+            throw ahe;
+        } catch (Exception e) {
+            throwLocaleError(e.getMessage());
+            return null;
+        }
+    }
+
+    /** Updates descriptions only. Locale codes are left unchanged. */
+    @AuraEnabled
+    public static List<Marketing_Dictionary__c> updateLocaleDescriptions(List<Id> recordIds, String description) {
+        try {
+            List<Marketing_Dictionary__c> rows = [
+                SELECT Id
+                FROM Marketing_Dictionary__c
+                WHERE Id IN :recordIds
+                AND Dictionary_Sub_Type__c = 'Locale'
+            ];
+            for (Marketing_Dictionary__c row : rows) {
+                row.Topic_Description__c = description;
+            }
+            if (!rows.isEmpty()) {
+                update rows;
+            }
+            return getLocales();
+        } catch (Exception e) {
+            throwLocaleError(e.getMessage());
+            return null;
+        }
+    }
+
+    private static void throwLocaleError(String message) {
+        AuraHandledException ex = new AuraHandledException(message);
+        ex.setMessage(message);
+        throw ex;
     }
 
     @AuraEnabled

@@ -29,6 +29,13 @@ import { parseFullName } from 'c/copyMessageNaming';
 import getCampaignTiers from '@salesforce/apex/MarketingDictionaryController.getCampaignTiers';
 import getCampaignTypes from '@salesforce/apex/MarketingDictionaryController.getCampaignTypes';
 import getActiveLocales from '@salesforce/apex/MarketingDictionaryController.getActiveLocales';
+import getSalesforceLocales from '@salesforce/apex/SalesforceLocaleController.getSalesforceLocales';
+import {
+    buildLocaleLabelMap,
+    isSalesforceLocaleCode,
+    legacyCampaignLocaleTokens,
+    localeDisplay
+} from 'c/salesforceLocaleUtils';
 import getCampaignRecords from '@salesforce/apex/MarketingDictionaryManagerController.getCampaignRecords';
 import getExclusionOptions from '@salesforce/apex/CampaignExclusionController.getExclusionOptions';
 import searchDataCloudExclusionObjects from '@salesforce/apex/CampaignExclusionController.searchDataCloudExclusionObjects';
@@ -420,6 +427,16 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     @track selectedLocaleName = '';
     @track _activeLocales = [];
     _localesLoaded = false;
+    _localeLabels = new Map();
+
+    @wire(getSalesforceLocales)
+    wiredSalesforceLocales({ data, error }) {
+        if (data) {
+            this._localeLabels = buildLocaleLabelMap(data);
+        } else if (error) {
+            console.error('Error loading Salesforce locales:', error);
+        }
+    }
     @track activeFrom = '';
     @track activeTo = '';
     @track campaignDurationDays = '';
@@ -618,13 +635,16 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get localeOptions() {
-        const options = (this._activeLocales || []).map(l => ({
-            label: l.Is_Default__c ? `${l.Name} (default)` : l.Name,
-            value: l.Id
-        }));
+        const options = (this._activeLocales || []).map(l => {
+            const text = localeDisplay(l.Name, this._localeLabels);
+            return {
+                label: l.Is_Default__c ? `${text} (default)` : text,
+                value: l.Id
+            };
+        });
         if (this.selectedLocaleId && !options.some(o => o.value === this.selectedLocaleId)) {
             options.unshift({
-                label: `${this.selectedLocaleName || 'Current locale'} (inactive)`,
+                label: `${localeDisplay(this.selectedLocaleName, this._localeLabels) || 'Current locale'} (inactive)`,
                 value: this.selectedLocaleId
             });
         }
@@ -638,7 +658,11 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get summaryLocale() {
-        return this.selectedLocaleName || '—';
+        return localeDisplay(this.selectedLocaleName, this._localeLabels) || '—';
+    }
+
+    get selectedLocaleHelp() {
+        return this.selectedLocaleName ? localeDisplay(this.selectedLocaleName, this._localeLabels) : '';
     }
 
     loadCampaignTypes() {
@@ -3945,8 +3969,10 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     /** Reverse of _composeCampaignName for saved records; also accepts the older CMP_AO_Name format. */
     _extractCampaignBaseName(fullName, localeName, typeName, groupName) {
-        const localePrefix = localeName ? `CMP_${localeName}_` : '';
-        if (localePrefix && fullName.startsWith(localePrefix)) {
+        const localePrefix = legacyCampaignLocaleTokens(localeName)
+            .map(token => `CMP_${token}_`)
+            .find(prefix => fullName.startsWith(prefix));
+        if (localePrefix) {
             const tokens = fullName.substring(localePrefix.length).split('_');
             const typeToken = activationTypeToken(typeName);
             if (typeToken && tokens.length > 1 && tokens[0] === typeToken) tokens.shift();
@@ -4438,6 +4464,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         const baseName = this._resolveCampaignBaseNameForSave();
         fields['Name'] = this._composeCampaignName(this.toCamelCase(baseName));
         fields['Locale_Dict__c'] = this.selectedLocaleId || null;
+        fields['Locale_Code__c'] = isSalesforceLocaleCode(this.selectedLocaleName) ? this.selectedLocaleName : null;
         fields['Type'] = 'Standard';
         // Org picklist uses Planned for draft campaigns (no separate Draft value).
         fields['Status'] = activate ? 'Active' : 'Planned';

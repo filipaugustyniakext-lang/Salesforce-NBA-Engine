@@ -5,13 +5,30 @@
                 Locales
                 <span class="slds-badge slds-badge_lightest slds-m-left_x-small">{localeCount}</span>
             </h2>
-            <lightning-button label="Add Locale" icon-name="utility:add" variant="brand" onclick={handleNew}>
-            </lightning-button>
+            <div class="locale-toolbar-actions">
+                <template lwc:if={hasLocaleSelection}>
+                    <span class="slds-text-body_small">{localeSelectedCount} selected</span>
+                    <lightning-button label="Edit selected" icon-name="utility:edit" variant="neutral"
+                        onclick={handleBulkEdit}>
+                    </lightning-button>
+                    <lightning-button label="Delete selected" icon-name="utility:delete" variant="destructive-text"
+                        onclick={handleBulkDelete}>
+                    </lightning-button>
+                    <lightning-button label="Clear" variant="neutral" onclick={handleClearLocaleSelection}>
+                    </lightning-button>
+                </template>
+                <lightning-button label="Add Locales" icon-name="utility:add" variant="brand" onclick={handleNew}>
+                </lightning-button>
+            </div>
         </div>
         <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
-            Locales combine a country code and language code (e.g. <code>pl-PL</code>). Every campaign and Copy Center
-            message name includes a locale. The default locale is prefilled and can be changed per item.
+            Locales come from Salesforce's supported locales and use the standard <code>language_COUNTRY</code> code
+            (e.g. <code>pl_PL</code> for Polish - Poland). Every campaign and Copy Center message name includes a locale.
+            The default locale is prefilled and can be changed per item.
         </p>
+        <template lwc:if={localeLabelsError}>
+            <p class="slds-text-color_error slds-text-body_small slds-m-bottom_small" role="alert">{localeLabelsError}</p>
+        </template>
 
         <template lwc:if={isLoading}>
             <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
@@ -20,6 +37,17 @@
             <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_striped">
                 <thead>
                     <tr class="slds-line-height_reset">
+                        <th class="locale-col-check" scope="col">
+                            <div class="slds-checkbox">
+                                <input type="checkbox" id="locale-select-all" class="locale-select-all-cb"
+                                    title="Select all locales" checked={isAllLocalesSelected}
+                                    disabled={isSaving} onchange={handleLocaleSelectAll} />
+                                <label class="slds-checkbox__label" for="locale-select-all">
+                                    <span class="slds-checkbox_faux"></span>
+                                    <span class="slds-form-element__label slds-assistive-text">Select all locales</span>
+                                </label>
+                            </div>
+                        </th>
                         <th><span class="slds-truncate">Locale</span></th>
                         <th><span class="slds-truncate">Description</span></th>
                         <th class="locale-col-toggle">
@@ -40,8 +68,27 @@
                 </thead>
                 <tbody>
                     <template for:each={locales} for:item="loc">
-                        <tr key={loc.Id}>
-                            <td><span class="slds-text-title_bold">{loc.Name}</span></td>
+                        <tr key={loc.Id} class={loc.rowClass}>
+                            <td class="locale-col-check">
+                                <div class="slds-checkbox">
+                                    <input type="checkbox" id={loc.checkboxId} class="locale-row-cb"
+                                        data-id={loc.Id} checked={loc.isSelected}
+                                        disabled={isSaving} onchange={handleLocaleRowCheckbox} />
+                                    <label class="slds-checkbox__label" for={loc.checkboxId}>
+                                        <span class="slds-checkbox_faux"></span>
+                                        <span class="slds-form-element__label slds-assistive-text">Select {loc.Name}</span>
+                                    </label>
+                                </div>
+                            </td>
+                            <td>
+                                <template lwc:if={loc.localeLabel}>
+                                    <span class="slds-text-title_bold">{loc.localeLabel}</span>
+                                    <span class="locale-code slds-m-left_x-small">{loc.Name}</span>
+                                </template>
+                                <template lwc:else>
+                                    <span class="slds-text-title_bold">{loc.Name}</span>
+                                </template>
+                            </td>
                             <td>{loc.Topic_Description__c}</td>
                             <td class="locale-col-toggle">
                                 <label class="slds-checkbox_toggle">
@@ -94,25 +141,25 @@
                         <lightning-icon icon-name="utility:close" size="small" alternative-text="Close"></lightning-icon>
                     </button>
                 </div>
-                <div class="slds-modal__content slds-p-around_medium">
-                    <div class="slds-grid slds-gutters slds-wrap">
-                        <div class="slds-col slds-size_1-of-2">
-                            <lightning-input label="Country Code" required placeholder="pl"
-                                value={editCountryCode} onchange={handleCountryChange}>
-                            </lightning-input>
-                        </div>
-                        <div class="slds-col slds-size_1-of-2">
-                            <lightning-input label="Language Code" required placeholder="PL"
-                                value={editLanguageCode} onchange={handleLanguageChange}>
-                            </lightning-input>
-                        </div>
-                    </div>
-                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_small">
-                        Locale token: <strong>{editPreview}</strong>
-                    </p>
-                    <lightning-textarea label="Description (optional)" value={editLocale.Topic_Description__c}
-                        onchange={handleDescriptionChange} class="slds-m-top_small">
-                    </lightning-textarea>
+                <div class="slds-modal__content slds-p-around_medium locale-modal-content">
+                    <template lwc:if={isCreating}>
+                        <c-salesforce-locale-picker label="Locales" required
+                            taken-values={configuredLocaleCodes}
+                            onchange={handleLocaleSelection}>
+                        </c-salesforce-locale-picker>
+                        <lightning-textarea label="Description (optional, applied to every locale you add)"
+                            value={editLocale.Topic_Description__c}
+                            onchange={handleDescriptionChange} class="slds-m-top_small">
+                        </lightning-textarea>
+                    </template>
+                    <template lwc:if={isEditing}>
+                        <p class="slds-form-element__label">Locale</p>
+                        <p class="slds-text-title_bold">{editLocaleDisplay}</p>
+                        <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">{editDescriptionNote}</p>
+                        <lightning-textarea label="Description (optional)" value={editLocale.Topic_Description__c}
+                            onchange={handleDescriptionChange}>
+                        </lightning-textarea>
+                    </template>
                 </div>
                 <div class="slds-modal__footer">
                     <lightning-button label="Cancel" onclick={closeModal}></lightning-button>

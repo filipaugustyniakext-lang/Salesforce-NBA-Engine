@@ -1,0 +1,95 @@
+<template>
+    <div class={formElementClass}>
+        <label class="slds-form-element__label" for="locale-combobox-input">
+            <template lwc:if={required}>
+                <abbr class="slds-required" title="required">*</abbr>
+            </template>
+            {label}
+        </label>
+        <template lwc:if={fieldLevelHelp}>
+            <lightning-helptext content={fieldLevelHelp} class="slds-m-left_xx-small"></lightning-helptext>
+        </template>
+        <div class="slds-form-element__control">
+            <div class="slds-combobox_container">
+                <div class={comboboxClass}>
+                    <div class="slds-combobox__form-element slds-input-has-icon slds-input-has-icon_right" role="none">
+                        <input type="text" id="locale-combobox-input"
+                            class="slds-input slds-combobox__input"
+                            role="combobox"
+                            aria-autocomplete="list"
+                            aria-expanded={_isOpen}
+                            aria-controls="locale-combobox-listbox"
+                            autocomplete="off"
+                            placeholder={placeholder}
+                            value={inputValue}
+                            disabled={isDisabled}
+                            onfocus={handleFocus}
+                            oninput={handleInput}
+                            onkeydown={handleKeydown}
+                            onblur={handleBlur} />
+                        <span class="slds-icon_container slds-input__icon slds-input__icon_right locale-picker__chevron">
+                            <lightning-icon icon-name="utility:down" size="xx-small" alternative-text=""></lightning-icon>
+                        </span>
+                    </div>
+                    <template lwc:if={_isOpen}>
+                        <div id="locale-combobox-listbox"
+                            class="slds-dropdown slds-dropdown_length-7 slds-dropdown_fluid" role="listbox">
+                            <ul class="slds-listbox slds-listbox_vertical" role="presentation">
+                                <template lwc:if={hasVisibleOptions}>
+                                    <template for:each={visibleOptions} for:item="option">
+                                        <li key={option.value} role="presentation" class="slds-listbox__item">
+                                            <div class={option.optionClass} role="option"
+                                                aria-disabled={option.isTaken}
+                                                aria-selected={option.isSelected}
+                                                data-value={option.value}
+                                                onmousedown={handleOptionMouseDown}>
+                                                <span class="slds-media__figure locale-option__check">
+                                                    <template lwc:if={option.isSelected}>
+                                                        <lightning-icon icon-name="utility:check" size="x-small"
+                                                            alternative-text="Selected"></lightning-icon>
+                                                    </template>
+                                                </span>
+                                                <span class="slds-media__body">
+                                                    <span class="slds-truncate" title={option.text}>{option.text}</span>
+                                                    <template lwc:if={option.isTaken}>
+                                                        <span class="slds-text-color_weak"> · Already configured</span>
+                                                    </template>
+                                                </span>
+                                            </div>
+                                        </li>
+                                    </template>
+                                </template>
+                                <template lwc:else>
+                                    <li role="presentation" class="slds-listbox__item">
+                                        <div class="slds-media slds-listbox__option slds-listbox__option_plain slds-media_small" role="option">
+                                            <span class="slds-media__body slds-text-color_weak">No matching locales</span>
+                                        </div>
+                                    </li>
+                                </template>
+                            </ul>
+                            <template lwc:if={dropdownNote}>
+                                <p class="locale-picker__note">{dropdownNote}</p>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+        <template lwc:if={hasSelection}>
+            <div class="locale-picker__badges">
+                <template for:each={selectedBadges} for:item="badge">
+                    <span key={badge.value} class="slds-badge slds-badge_lightest">
+                        {badge.text}
+                        <lightning-button-icon icon-name="utility:close" variant="bare" size="xx-small"
+                            alternative-text="Remove" title="Remove"
+                            data-value={badge.value} onclick={handleRemoveBadge}>
+                        </lightning-button-icon>
+                    </span>
+                </template>
+            </div>
+        </template>
+        <template lwc:if={showError}>
+            <div class="slds-form-element__help" role="alert">{errorMessage}</div>
+        </template>
+    </div>
+</template>

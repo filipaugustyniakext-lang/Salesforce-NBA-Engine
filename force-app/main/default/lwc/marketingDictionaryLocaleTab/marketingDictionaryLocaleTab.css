@@ -17,6 +17,21 @@
     flex-wrap: wrap;
 }
 
+.locale-toolbar-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.locale-col-check {
+    width: 2.5rem;
+}
+
+.locale-row_selected > td {
+    background: var(--md-color-surface-hover, var(--slds-g-color-surface-container-2, #eaf0f8));
+}
+
 .locale-col-toggle {
     width: 7rem;
 }
@@ -33,4 +48,17 @@ thead th {
 .locale-col-actions {
     width: 5rem;
     white-space: nowrap;
+}
+
+.locale-code {
+    font-family: monospace;
+    color: var(--md-color-text-muted, var(--slds-g-color-on-surface-2, #706e6b));
+}
+
+.locale-modal-content {
+    overflow: visible;
+}
+
+.locale-legacy-note {
+    color: var(--md-color-error, var(--slds-g-color-error-1, #c23934));
 }
