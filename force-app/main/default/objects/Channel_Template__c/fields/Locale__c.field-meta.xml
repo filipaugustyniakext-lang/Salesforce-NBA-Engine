@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Locale__c</fullName>
+    <description>Marketing Dictionary locale of this template.</description>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <label>Locale</label>
+    <referenceTo>Marketing_Dictionary__c</referenceTo>
+    <relationshipLabel>Locale Channel Templates</relationshipLabel>
+    <relationshipName>Locale_Channel_Templates</relationshipName>
+    <required>false</required>
+    <type>Lookup</type>
+</CustomField>

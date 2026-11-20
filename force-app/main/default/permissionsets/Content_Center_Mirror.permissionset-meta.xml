@@ -15,6 +15,16 @@
     <hasActivationRequired>false</hasActivationRequired>
     <label>Content Center Mirror</label>
     <license>Salesforce Integration</license>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>CC_Message_Blocks_All__c.CC_External_Key__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>CC_Staging_Changes__c.CC_External_Key__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
     <objectPermissions>
         <allowCreate>true</allowCreate>
         <allowDelete>true</allowDelete>

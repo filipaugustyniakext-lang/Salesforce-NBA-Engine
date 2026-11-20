@@ -17,6 +17,11 @@
                 <label>Draft</label>
             </value>
             <value>
+                <fullName>Ready</fullName>
+                <default>false</default>
+                <label>Ready</label>
+            </value>
+            <value>
                 <fullName>Active</fullName>
                 <default>false</default>
                 <label>Active</label>
