@@ -149,7 +149,7 @@ public with sharing class ChannelTemplateController {
                 SELECT Source_Template__c templateId, COUNT(Id) publishedCount
                 FROM CC_Message_Metadata__c
                 WHERE Source_Template__c IN :byId.keySet()
-                  AND Status__c = 'Published'
+                  AND Status__c IN ('Live', 'Published')
                 GROUP BY Source_Template__c
             ]) {
                 Id templateId = (Id) row.get('templateId');
@@ -301,7 +301,7 @@ public with sharing class ChannelTemplateController {
             SELECT COUNT()
             FROM CC_Message_Metadata__c
             WHERE Source_Template__c = :templateId
-              AND Status__c = 'Published'
+              AND Status__c IN ('Live', 'Published')
         ];
     }
 

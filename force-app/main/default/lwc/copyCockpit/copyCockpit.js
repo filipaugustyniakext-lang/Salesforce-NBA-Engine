@@ -29,6 +29,10 @@ import syncWithMCE from '@salesforce/apex/MarketingCloudCopySync.syncWithMCE';
 import syncVariantsWithMCE from '@salesforce/apex/MarketingCloudCopySync.syncVariantsWithMCE';
 import deleteMessageVariants from '@salesforce/apex/CopyCockpitController.deleteMessageVariants';
 import deleteMasterMessageGroup from '@salesforce/apex/CopyCockpitController.deleteMasterMessageGroup';
+import createVariantVersion from '@salesforce/apex/CcMessageLifecycleService.createVariantVersion';
+import activateVariantVersion from '@salesforce/apex/CcMessageLifecycleService.activateVariantVersion';
+import discardVariantVersion from '@salesforce/apex/CcMessageLifecycleService.discardVariantVersion';
+import CcScheduleModal from 'c/ccScheduleModal';
 import refreshStreamViaFlow from '@salesforce/apex/FlowInit_TriggerDataSourceObjectRefresh.refreshStreamViaFlow';
 import {
     channelPrefixForType,
@@ -91,6 +95,7 @@ const COL_ACTIONS_PX = 112;
 const STATUS_BADGE_CLASS = {
     draft:     'slds-badge slds-theme_lightest',
     ready:     'slds-badge slds-theme_info',
+    live:      'slds-badge slds-theme_success',
     published: 'slds-badge slds-theme_success',
     inactive:  'slds-badge slds-theme_warning',
     archived:  'slds-badge slds-theme_shade',
@@ -99,23 +104,26 @@ const STATUS_BADGE_CLASS = {
 const VARIANT_STATUS_OPTIONS = [
     { value: 'Draft', label: 'Draft' },
     { value: 'Ready', label: 'Ready' },
-    { value: 'Published', label: 'Published' },
+    { value: 'Live', label: 'Live' },
     { value: 'Inactive', label: 'Inactive' },
     { value: 'Archived', label: 'Archived' },
 ];
 
 function allowedTargetStatuses(fromStatus) {
     const from = (fromStatus || 'Draft').toLowerCase();
-    if (from === 'published') {
-        return ['Published', 'Inactive', 'Archived'];
+    if (from === 'live') {
+        return ['Live', 'Inactive'];
     }
     if (from === 'inactive') {
-        return ['Inactive', 'Draft', 'Ready', 'Published'];
+        return ['Inactive', 'Draft', 'Ready', 'Live', 'Archived'];
     }
     if (from === 'archived') {
-        return ['Archived', 'Published'];
+        return ['Archived'];
     }
-    return VARIANT_STATUS_OPTIONS.map(o => o.value);
+    if (from === 'ready') {
+        return ['Ready', 'Draft', 'Live', 'Archived'];
+    }
+    return ['Draft', 'Ready', 'Archived'];
 }
 
 function isStatusTransitionAllowed(fromStatus, toStatus) {
@@ -128,13 +136,13 @@ function statusChangeNeedsConfirm(fromStatus, toStatus) {
     if (from === to) {
         return false;
     }
-    return to === 'published' || to === 'archived' || (from === 'published' && to === 'inactive');
+    return to === 'live' || to === 'archived' || (from === 'live' && to === 'inactive');
 }
 
 function buildStatusConfirmCopy(fromStatus, toStatus, variantName) {
     const to = (toStatus || '').toLowerCase();
     const label = variantName || 'this variant';
-    if (to === 'published') {
+    if (to === 'live') {
         return {
             title: 'Publish message variant?',
             message:
@@ -178,7 +186,7 @@ const STATUS_FILTERS = [
     { value: 'All',       label: 'All' },
     { value: 'Draft',     label: 'Draft' },
     { value: 'Ready',     label: 'Ready' },
-    { value: 'Published', label: 'Published' },
+    { value: 'Live', label: 'Live' },
     { value: 'Inactive',  label: 'Inactive' },
     { value: 'Archived',  label: 'Archived' },
 ];
@@ -215,7 +223,7 @@ function statusBadgeClass(status) {
 
 function statusPickerClass(status) {
     const key = (status || 'draft').toLowerCase();
-    const allowed = ['draft', 'ready', 'published', 'inactive', 'archived'];
+    const allowed = ['draft', 'ready', 'live', 'inactive', 'archived'];
     const suffix = allowed.includes(key) ? key : 'draft';
     return `cockpit-status-picker cockpit-status-picker--${suffix}`;
 }
@@ -228,10 +236,10 @@ function buildMasterStatusSummary(variants) {
             masterStatusSummaryClass: 'slds-badge slds-theme_warning',
         };
     }
-    const publishedCount = variants.filter(v => (v.Status__c || '').toLowerCase() === 'published').length;
+    const publishedCount = variants.filter(v => (v.Status__c || '').toLowerCase() === 'live').length;
     if (publishedCount > 0) {
         return {
-            masterStatusSummary: publishedCount === 1 ? '1 Published' : `${publishedCount} Published`,
+            masterStatusSummary: publishedCount === 1 ? '1 Live' : `${publishedCount} Live`,
             masterStatusSummaryClass: 'slds-badge slds-theme_success',
         };
     }
@@ -289,7 +297,7 @@ function buildScheduleBadge(record) {
     if (!action || status === 'executed' || status === 'cancelled') return null;
 
     const at = fmtDate(record.Scheduled_At__c) || '?';
-    if (action === 'publish' || toStatus === 'published') {
+    if (action === 'publish' || toStatus === 'live') {
         return {
             label:     'Scheduled: Activate',
             tone:      'activate',
@@ -317,7 +325,7 @@ function buildScheduleBadge(record) {
 }
 
 function buildVariantQuickActions(v, isSyncingMCE = false) {
-    const isPublished = (v.Status__c || '').toLowerCase() === 'published';
+    const isPublished = (v.Status__c || '').toLowerCase() === 'live';
     const items = [
         { key: 'edit', title: 'Edit', icon: 'utility:edit' },
         { key: 'clone', title: 'Clone as new Variant', icon: 'utility:copy' },
@@ -326,7 +334,7 @@ function buildVariantQuickActions(v, isSyncingMCE = false) {
             key: 'template',
             title: 'Change Source Template',
             icon: 'utility:insert_template',
-            isDisabled: (v.Status__c || '').toLowerCase() === 'published',
+            isDisabled: (v.Status__c || '').toLowerCase() === 'live',
         },
         {
             key: 'sync',
@@ -334,9 +342,21 @@ function buildVariantQuickActions(v, isSyncingMCE = false) {
             icon: 'utility:sync',
             isDisabled: isSyncingMCE || !v.canSyncFromMCE,
         },
-        isPublished
-            ? { key: 'schedule-unpublish', title: 'Schedule Unpublishing', icon: 'utility:date_input' }
-            : { key: 'schedule-publish', title: 'Schedule Publication', icon: 'utility:date_input' },
+        {
+            key: 'new-version',
+            title: v.Draft_Version_Id__c ? 'Edit Draft Version' : 'Create New Variant Version',
+            icon: 'utility:new',
+            isDisabled: (v.Status__c || '').toLowerCase() === 'archived',
+        },
+        ...(v.Draft_Version_Id__c ? [
+            { key: 'publish-version', title: 'Publish Draft Version', icon: 'utility:upload' },
+            { key: 'discard-version', title: 'Discard Draft Version', icon: 'utility:undo' },
+        ] : []),
+        {
+            key: 'schedule',
+            title: v.Scheduled_Change_Id__c ? 'Scheduled Change…' : (isPublished ? 'Schedule Unpublishing' : 'Schedule Publication'),
+            icon: 'utility:date_input',
+        },
         {
             key: 'delete',
             title: 'Delete',
@@ -380,7 +400,7 @@ function buildGroups(
 
         const parsed = parseFullName(variants[0]?.MessageName__c || variants[0]?.Name || stem);
         const totalVariants  = variants.length;
-        const publishedCount = variants.filter(v => (v.Status__c || '').toLowerCase() === 'published').length;
+        const publishedCount = variants.filter(v => (v.Status__c || '').toLowerCase() === 'live').length;
         const hasPublished   = publishedCount > 0;
         const hasReady       = variants.some(v => (v.Status__c || '').toLowerCase() === 'ready');
         const hasDraft       = variants.some(v => (v.Status__c || '').toLowerCase() === 'draft');
@@ -434,11 +454,11 @@ function buildGroups(
                     activeVariantMenu?.variantId === v.Id ? ' cockpit-variant-row_menu-overlay' : ''
                 }`,
                 sourceTemplateBadge: v.Source_Template__r?.Name || null,
-                canChangeSourceTemplate: (v.Status__c || '').toLowerCase() !== 'published',
-                sourceTemplateButtonDisabled: (v.Status__c || '').toLowerCase() === 'published',
+                canChangeSourceTemplate: (v.Status__c || '').toLowerCase() !== 'live',
+                sourceTemplateButtonDisabled: (v.Status__c || '').toLowerCase() === 'live',
                 sourceTemplateButtonTitle:
-                    (v.Status__c || '').toLowerCase() === 'published'
-                        ? 'Published variants must be set to Inactive before changing the source template'
+                    (v.Status__c || '').toLowerCase() === 'live'
+                        ? 'Live variants must be set to Inactive before changing the source template'
                         : 'Change Source Template',
             };
         });
@@ -845,7 +865,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         if (this._statusFilter !== 'All') {
             const f = this._statusFilter.toLowerCase();
             groups = groups.filter(g => {
-                if (f === 'published') return g.hasPublished;
+                if (f === 'live') return g.hasPublished;
                 if (f === 'ready')     return g.hasReady;
                 if (f === 'draft')     return g.hasDraft;
                 if (f === 'archived')  return g.hasArchived;
@@ -1315,7 +1335,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
                 newStatus,
                 title: copy.title,
                 message: copy.message,
-                proceedLabel: newStatus === 'Published' ? 'Publish' : 'Archive',
+                proceedLabel: newStatus === 'Live' ? 'Publish' : 'Archive',
             };
             return;
         }
@@ -1338,11 +1358,11 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
 
     _statusTransitionHint(fromStatus) {
         const from = (fromStatus || '').toLowerCase();
-        if (from === 'published') {
-            return 'Published messages can only be moved to Inactive or Archived.';
+        if (from === 'live') {
+            return 'Live messages can only be moved to Inactive.';
         }
         if (from === 'archived') {
-            return 'Archived messages can only be restored to Published.';
+            return 'Archived messages cannot be reactivated. Clone them as a new variant instead.';
         }
         return 'That status change is not allowed for this variant.';
     }
@@ -1511,7 +1531,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         const publishedLabels = [];
         (variantIds || []).forEach(id => {
             const row = this._messageRecordById(id);
-            if ((row?.Status__c || '').toLowerCase() === 'published') {
+            if ((row?.Status__c || '').toLowerCase() === 'live') {
                 publishedLabels.push(this._messageVariantLabel(row));
             } else if (id) {
                 eligible.push(id);
@@ -1525,7 +1545,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
         const suffix = publishedLabels.length > 3 ? ` (+${publishedLabels.length - 3} more)` : '';
         this._showToast(
             'Cannot change source template',
-            `Published variants must be set to Inactive first: ${sample}${suffix}`,
+            `Live variants must be set to Inactive first: ${sample}${suffix}`,
             'error'
         );
     }
@@ -1577,7 +1597,7 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             return;
         }
         const row = this._messageRecordById(recordId);
-        if ((row?.Status__c || '').toLowerCase() === 'published') {
+        if ((row?.Status__c || '').toLowerCase() === 'live') {
             this._toastPublishedTemplateBlock([this._messageVariantLabel(row)]);
             return;
         }
@@ -1739,11 +1759,17 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
                 this.isCloneMessageModalOpen = true;
                 break;
             }
-            case 'schedule-unpublish':
-                this._openEditor(recordId, 'unpublishing');
+            case 'new-version':
+                this._runLifecycle(() => createVariantVersion({ messageId: recordId }), null, () => this._openEditor(recordId));
                 break;
-            case 'schedule-publish':
-                this._openEditor(recordId, 'publication');
+            case 'publish-version':
+                this._runLifecycle(() => activateVariantVersion({ messageId: recordId }), 'The draft version is now the current version.');
+                break;
+            case 'discard-version':
+                this._runLifecycle(() => discardVariantVersion({ messageId: recordId }), 'The draft version was discarded.');
+                break;
+            case 'schedule':
+                this._openScheduleModal(recordId);
                 break;
             case 'delete':
                 this.handleDeletePrompt({
@@ -1754,6 +1780,35 @@ export default class CopyCockpit extends NavigationMixin(LightningElement) {
             default:
                 break;
         }
+    }
+
+    _runLifecycle(call, successMessage, onSuccess) {
+        call()
+            .then(() => {
+                if (successMessage) this._showToast('Copy Center', successMessage, 'success');
+                if (onSuccess) onSuccess();
+                else this._reloadActiveChannelMessages();
+            })
+            .catch(err => {
+                this._showToast('Copy Center', err?.body?.message || 'The action failed.', 'error');
+            });
+    }
+
+    async _openScheduleModal(recordId) {
+        const row = this._messageRecordById(recordId);
+        if (!row) return;
+        const result = await CcScheduleModal.open({
+            size: 'small',
+            label: 'Schedule publication',
+            messageId: recordId,
+            messageName: row.Name,
+            status: row.Status__c,
+            hasDraftVersion: !!row.Draft_Version_Id__c,
+            hasPendingSchedule: !!row.Scheduled_Change_Id__c
+        });
+        if (result === 'scheduled') this._showToast('Copy Center', 'The change was scheduled.', 'success');
+        if (result === 'cancelled') this._showToast('Copy Center', 'The scheduled change was cancelled.', 'success');
+        if (result) this._reloadActiveChannelMessages();
     }
 
     // ── handlers: channel header ──────────────────────────────────────────

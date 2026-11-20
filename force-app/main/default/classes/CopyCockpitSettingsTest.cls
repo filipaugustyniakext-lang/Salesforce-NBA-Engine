@@ -118,18 +118,21 @@ private class CopyCockpitSettingsTest {
 
         CC_Message_Metadata__c publishedMatch = new CC_Message_Metadata__c(
             Name = 'EMA_PL_Wiz_1',
+            Channel_Type__c = 'Email',
             Status__c = 'Published',
             Product_Family__c = family.Id,
             Offer__c = offer.Id
         );
         CC_Message_Metadata__c draftSame = new CC_Message_Metadata__c(
             Name = 'EMA_PL_Wiz_2',
+            Channel_Type__c = 'Email',
             Status__c = 'Draft',
             Product_Family__c = family.Id,
             Offer__c = offer.Id
         );
         CC_Message_Metadata__c publishedOtherChannel = new CC_Message_Metadata__c(
             Name = 'SMS_PL_Wiz_1',
+            Channel_Type__c = 'SMS',
             Status__c = 'Published',
             Product_Family__c = family.Id,
             Offer__c = offer.Id
@@ -174,10 +177,10 @@ private class CopyCockpitSettingsTest {
         );
         insert row;
 
-        CopyCockpitController.updateMessageStatus(row.Id, 'Published');
+        CopyCockpitController.updateMessageStatus(row.Id, 'Ready');
 
         row = [SELECT Status__c FROM CC_Message_Metadata__c WHERE Id = :row.Id];
-        System.assertEquals('Published', row.Status__c);
+        System.assertEquals('Ready', row.Status__c);
     }
 
     @IsTest
@@ -243,12 +246,14 @@ private class CopyCockpitSettingsTest {
         CC_Message_Metadata__c first = new CC_Message_Metadata__c(
             Name = 'EMA_PL_MasterDel_1',
             MessageName__c = 'EMA_PL_MasterDel',
+            Channel_Type__c = 'Email',
             MessageVariant__c = 1,
             Version__c = 1
         );
         CC_Message_Metadata__c second = new CC_Message_Metadata__c(
             Name = 'EMA_PL_MasterDel_2',
             MessageName__c = 'EMA_PL_MasterDel',
+            Channel_Type__c = 'Email',
             MessageVariant__c = 2,
             Version__c = 2
         );

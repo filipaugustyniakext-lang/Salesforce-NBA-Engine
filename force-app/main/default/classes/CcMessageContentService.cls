@@ -136,10 +136,12 @@ public with sharing class CcMessageContentService {
             if (!stale.isEmpty()) delete stale;
             if (!rows.isEmpty()) upsert rows MessageBlockId__c;
             if (!editingDraft) metadataUpdate.Block_Count__c = rows.size();
+            if (!editingDraft && message.Status__c == 'Ready') metadataUpdate.Status__c = 'Draft';
             if (messageSettingsJson != null) metadataUpdate.Message_Settings_JSON__c = messageSettingsJson;
             metadataUpdate.LastModifiedBy__c = UserInfo.getName();
             metadataUpdate.LastModifiedAt__c = Datetime.now();
             CopyCockpitModificationService.updateMetadata(metadataUpdate);
+            if (!editingDraft) CcMessageLifecycleService.syncAuthoringToMirror(new Set<Id>{ message.Id });
         } catch (DmlException e) {
             Database.rollback(sp);
             throw error(e.getDmlMessage(0));

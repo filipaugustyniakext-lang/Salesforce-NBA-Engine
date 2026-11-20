@@ -751,7 +751,7 @@ public with sharing class MarketingDictionaryController {
                 SELECT Id
                 FROM CC_Message_Metadata__c
                 WHERE Id IN :uniqueIds
-                AND Status__c = 'Published'
+                AND Status__c IN ('Live', 'Published')
             ]) {
                 publishedIds.add(msg.Id);
             }

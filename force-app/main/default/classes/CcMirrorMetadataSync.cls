@@ -202,6 +202,7 @@ public with sharing class CcMirrorMetadataSync {
     putText(rec, 'Current_Message_Variant_Version_Id__c', row.get('currentmessagevariantversionid'), 255);
     putText(rec, 'LastModifiedBy__c', row.get('lastmodifiedby'), 255);
     putText(rec, 'MCE_Last_Modified_By__c', row.get('lastmodifiedby'), 255);
+    putText(rec, 'Message_Settings_JSON__c', row.get('messagepropertiesjson'), 32768);
     putText(rec, 'MessagePropertiesJSON__c', row.get('messagepropertiesjson'), 131072);
     putText(rec, 'Message_Properties_JSON__c', row.get('messagepropertiesjson'), 131072);
     putText(rec, 'MessagePropertiesJSON2__c', row.get('messagepropertiesjson2'), 131072);

@@ -45,6 +45,6 @@ private class MarketingCloudCopySyncUpdateTest {
         System.assertEquals('EMA_PL_CashLoan', saved.Name);
         System.assertEquals('Hello', saved.Subject__c);
         System.assertEquals('variant-1', saved.Message_Variant_Id__c);
-        System.assertEquals('Published', saved.Status__c);
+        System.assertEquals('Live', saved.Status__c, 'MCE Published is stored as Live.');
     }
 }

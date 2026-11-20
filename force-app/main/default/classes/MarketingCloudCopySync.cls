@@ -682,6 +682,7 @@ public with sharing class MarketingCloudCopySync {
         putText(rec, 'Current_Message_Variant_Version_Id__c', row.get('currentmessagevariantversionid'), 255);
         putText(rec, 'LastModifiedBy__c', row.get('lastmodifiedby'), 255);
         putText(rec, 'MCE_Last_Modified_By__c', row.get('lastmodifiedby'), 255);
+        putText(rec, 'Message_Settings_JSON__c', row.get('messagepropertiesjson'), 32768);
         putText(rec, 'MessagePropertiesJSON__c', row.get('messagepropertiesjson'), 131072);
         putText(rec, 'Message_Properties_JSON__c', row.get('messagepropertiesjson'), 131072);
         putText(rec, 'MessagePropertiesJSON2__c', row.get('messagepropertiesjson2'), 131072);
@@ -1084,6 +1085,11 @@ public with sharing class MarketingCloudCopySync {
         } finally {
             inboundSyncActive = false;
         }
+        Set<String> syncedVariants = new Set<String>();
+        for (CC_Message_Blocks_All__c rec : incoming.values()) {
+            if (String.isNotBlank(rec.MessageVariantId__c)) syncedVariants.add(rec.MessageVariantId__c);
+        }
+        CcMessageLifecycleService.refreshLegacyAuthoring(syncedVariants);
     }
 
     private static Map<String, Id> findExistingBlockIds(Set<String> keys) {
@@ -1272,7 +1278,7 @@ public with sharing class MarketingCloudCopySync {
                        Message_Type__c, Channel_Type__c, Subject__c, Status__c, Language__c,
                        Display_Probability_Manual__c, Block_Count__c, MessageVariant__c, Version__c,
                        MCE_Last_Modified_By__c, MCE_Updated_At__c, LastModifiedAt__c, UpdatedAt__c,
-                       Canvas_Blocks_JSON__c
+                       Canvas_Blocks_JSON__c, Message_Settings_JSON__c, IsActive__c, CurrentMessageVariantVersionId__c
                 FROM CC_Message_Metadata__c
                 WHERE Id IN :metadataIds
             ];
@@ -1424,9 +1430,13 @@ public with sharing class MarketingCloudCopySync {
         if (variantNum != null) {
             item.put('MessageVariant', variantNum.intValue());
         }
-        if (String.isNotBlank(row.Canvas_Blocks_JSON__c)) {
+        if (String.isNotBlank(row.Message_Settings_JSON__c)) {
+            putPushText(item, 'MessagePropertiesJSON', row.Message_Settings_JSON__c);
+        } else if (String.isNotBlank(row.Canvas_Blocks_JSON__c)) {
             putPushText(item, 'MessagePropertiesJSON', row.Canvas_Blocks_JSON__c);
         }
+        item.put('IsActive', row.IsActive__c == true);
+        putPushText(item, 'CurrentMessageVariantVersionId', row.CurrentMessageVariantVersionId__c);
         return item;
     }
 
