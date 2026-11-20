@@ -1,0 +1,152 @@
+{
+  "schemaVersion": "1.0",
+  "channel": "Email",
+  "locale": "pl_PL",
+  "message": {
+    "messageName": "EM-pl-PL-SpringSavings",
+    "messageVariantId": "6c1d0f0e-2c1b-4c3e-9f51-0a7f5f2a1b11",
+    "messageVariantNumber": 1,
+    "messageVariantVersionId": "b0f3a1d2-6e1c-4b71-8f0d-0f6e7a1c2d33",
+    "messageVariantVersionNumber": 1,
+    "settings": {}
+  },
+  "masterTemplate": {
+    "definitionId": "a0X000000000001AAA",
+    "definitionName": "TEMP_PL_Master_Commercial",
+    "templateMode": "multi",
+    "mceAssetId": "123456",
+    "mceAssetPath": "Content Builder/Copy Center/Templates/Master",
+    "mcnAssetId": null,
+    "mcnAssetPath": null
+  },
+  "blocks": [
+    {
+      "messageBlockId": "2f7e8c1a-1b2c-4d5e-8f90-112233445566",
+      "blockTemplateDefinitionId": "a0Y000000000001AAA",
+      "blockTemplateDefinitionName": "TextImage",
+      "contentTypes": ["richText", "image", "bulletList", "divider", "button"],
+      "mceBlockAssetId": "654321",
+      "mceBlockAssetPath": "Content Builder/Copy Center/Blocks/TextImage",
+      "mcnBlockAssetId": null,
+      "mcnBlockAssetPath": null,
+      "blockOrderNumber": 1,
+      "blockConfig": {
+        "sectionId": "block",
+        "blockSettings": {
+          "padding": {
+            "desktop": { "top": 24, "right": 24, "bottom": 24, "left": 24, "chained": true },
+            "mobile": { "inheritFromDesktop": true, "top": 16, "right": 16, "bottom": 16, "left": 16, "chained": true }
+          },
+          "margin": {
+            "desktop": { "top": 0, "right": 0, "bottom": 0, "left": 0, "chained": true },
+            "mobile": { "inheritFromDesktop": true, "top": 0, "right": 0, "bottom": 0, "left": 0, "chained": true }
+          },
+          "background": {
+            "mode": "gradient",
+            "color": null,
+            "colorPresetId": null,
+            "gradientPresetId": "brand-sunrise",
+            "gradient": { "css": "linear-gradient(90deg, #e2001a 0%, #ff7a00 100%)", "fallbackColor": "#e2001a" },
+            "image": {
+              "desktop": { "source": "url", "url": null, "contentId": null, "size": "cover", "repeat": "no-repeat", "position": "center" },
+              "mobile": { "inheritFromDesktop": true, "source": "url", "url": null, "contentId": null, "size": "cover", "repeat": "no-repeat", "position": "center" },
+              "fallbackColor": "#ffffff"
+            }
+          },
+          "visibility": { "hideDesktop": false, "hideMobile": false }
+        },
+        "rows": [
+          {
+            "sectionId": "row-1",
+            "rowSettings": {
+              "padding": null,
+              "margin": null,
+              "background": null,
+              "visibility": { "hideDesktop": false, "hideMobile": false },
+              "columnDirection": { "desktop": "ltr", "mobile": "stack" }
+            },
+            "columns": [
+              {
+                "sectionId": "row-1-col-1",
+                "columnSettings": {
+                  "padding": null,
+                  "margin": null,
+                  "background": null,
+                  "visibility": { "hideDesktop": false, "hideMobile": false }
+                },
+                "content": [
+                  {
+                    "contentId": "c-1",
+                    "type": "richText",
+                    "bindingKey": "marketingNote",
+                    "complexity": "standard",
+                    "html": "<p>Spring savings are here.</p>"
+                  },
+                  {
+                    "contentId": "c-2",
+                    "type": "divider",
+                    "bindingKey": "divider",
+                    "paddingTop": 12,
+                    "paddingBottom": 12,
+                    "showLine": true,
+                    "lineColor": "#dddbda",
+                    "lineWidth": 1
+                  },
+                  {
+                    "contentId": "c-3",
+                    "type": "bulletList",
+                    "bindingKey": "benefits",
+                    "complexity": "basic",
+                    "useIcons": true,
+                    "iconPresetId": "check-red",
+                    "items": [
+                      { "itemId": "i-1", "html": "No fees for 12 months" },
+                      { "itemId": "i-2", "html": "Instant mobile access" }
+                    ]
+                  }
+                ]
+              },
+              {
+                "sectionId": "row-1-col-2",
+                "columnSettings": {
+                  "padding": null,
+                  "margin": null,
+                  "background": null,
+                  "visibility": { "hideDesktop": false, "hideMobile": true }
+                },
+                "content": [
+                  {
+                    "contentId": "c-4",
+                    "type": "image",
+                    "bindingKey": "heroImage",
+                    "altText": "Spring savings",
+                    "desktop": {
+                      "light": { "source": "url", "url": "https://example.com/hero.png", "contentId": null, "width": 600, "height": 300 },
+                      "dark": { "inheritFromLight": true, "source": "url", "url": null, "contentId": null, "width": null, "height": null }
+                    },
+                    "mobile": {
+                      "inheritFromDesktop": true,
+                      "light": { "source": "url", "url": null, "contentId": null, "width": null, "height": null },
+                      "dark": { "inheritFromLight": true, "source": "url", "url": null, "contentId": null, "width": null, "height": null }
+                    }
+                  },
+                  {
+                    "contentId": "c-5",
+                    "type": "button",
+                    "bindingKey": "primaryCta",
+                    "visible": true,
+                    "label": "Open account",
+                    "targetType": "WebURL",
+                    "url": "https://example.com/open",
+                    "behavior": "newTab",
+                    "alias": "spring_cta"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
