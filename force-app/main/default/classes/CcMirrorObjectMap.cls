@@ -40,7 +40,6 @@ public with sharing class CcMirrorObjectMap {
         'MessageName',
         'MessageVariant',
         'MessagePropertiesJSON',
-        'MessagePropertiesJSON2',
         'VariantStatus',
         'IsActive',
         'BlockCount',
@@ -149,11 +148,19 @@ public with sharing class CcMirrorObjectMap {
     return BY_DE.keySet();
   }
 
+  /** DE columns whose Core field has a different name. */
+  private static final Map<String, String> FIELD_OVERRIDES = new Map<String, String>{
+    'MessagePropertiesJSON' => 'Message_Settings_JSON__c'
+  };
+
   public static String toFieldApi(String deFieldName) {
     if (String.isBlank(deFieldName)) {
       return null;
     }
     String trimmed = deFieldName.trim();
+    if (FIELD_OVERRIDES.containsKey(trimmed)) {
+      return FIELD_OVERRIDES.get(trimmed);
+    }
     if (trimmed.endsWith('__c')) {
       return trimmed;
     }

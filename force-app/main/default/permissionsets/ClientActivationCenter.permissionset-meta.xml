@@ -647,16 +647,6 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
-        <field>CC_Message_Metadata__c.MessagePropertiesJSON2__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>CC_Message_Metadata__c.MessagePropertiesJSON__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
         <field>CC_Message_Metadata__c.MessageType__c</field>
         <readable>true</readable>
     </fieldPermissions>
@@ -668,16 +658,6 @@
     <fieldPermissions>
         <editable>true</editable>
         <field>CC_Message_Metadata__c.MessageVariant__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>CC_Message_Metadata__c.Message_Properties_JSON2__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>CC_Message_Metadata__c.Message_Properties_JSON__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>

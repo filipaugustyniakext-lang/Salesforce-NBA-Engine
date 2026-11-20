@@ -683,10 +683,6 @@ public with sharing class MarketingCloudCopySync {
         putText(rec, 'LastModifiedBy__c', row.get('lastmodifiedby'), 255);
         putText(rec, 'MCE_Last_Modified_By__c', row.get('lastmodifiedby'), 255);
         putText(rec, 'Message_Settings_JSON__c', row.get('messagepropertiesjson'), 32768);
-        putText(rec, 'MessagePropertiesJSON__c', row.get('messagepropertiesjson'), 131072);
-        putText(rec, 'Message_Properties_JSON__c', row.get('messagepropertiesjson'), 131072);
-        putText(rec, 'MessagePropertiesJSON2__c', row.get('messagepropertiesjson2'), 131072);
-        putText(rec, 'Message_Properties_JSON2__c', row.get('messagepropertiesjson2'), 131072);
         putText(rec, 'Message_Variant__c', row.get('messagevariant'), 255);
         putText(rec, 'ScheduledAction__c', row.get('scheduledaction'), 255);
         putText(rec, 'Scheduled_Action__c', row.get('scheduledaction'), 100);
