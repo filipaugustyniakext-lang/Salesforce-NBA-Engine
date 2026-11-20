@@ -1,3 +1,6 @@
+import { normalizeCcPreviewType } from 'c/copyTemplatePreview';
+import { parseHtml, upgradeLegacyHtml, hasLegacyMarkers } from 'c/ccTemplateParser';
+
 export const COUNTRY_OPTIONS = [
     { label: 'Poland (PL)', value: 'PL' },
     { label: 'Romania (RO)', value: 'RO' },
@@ -21,18 +24,9 @@ export const WIZARD_STEPS = [
     { value: 'summary', label: 'Validate and Activate', number: 'IV' }
 ];
 
-const CC_PREVIEW_REGION_PATTERN = /<cc-preview\b[^>]*\bregion\s*=\s*(['"])([^'"]+)\1/gi;
-const CC_PREVIEW_TYPE_PATTERN = /<cc-preview\b[^>]*\btype\s*=\s*(['"])([^'"]+)\1/gi;
-
 const CANONICAL_REGION_ORDER = ['fixed-read', 'fixed-edit', 'blocks'];
 
-export function normalizePreviewType(rawType) {
-    const value = String(rawType || '').trim().toLowerCase();
-    if (value === 'fixed' || value === 'fixed-read' || value === 'preview-fixed') return 'fixed-read';
-    if (value === 'fixed-edit' || value === 'preview-edit') return 'fixed-edit';
-    if (value === 'blocks') return 'blocks';
-    return '';
-}
+export const normalizePreviewType = normalizeCcPreviewType;
 
 export function normalizeSlug(value) {
     return String(value || '')
@@ -51,19 +45,12 @@ export function composeRecordName(countryCode, slug, classification) {
 }
 
 export function scanCcPreviewRegions(html) {
-    const found = new Set();
-    const source = String(html || '');
-    const collect = (pattern) => {
-        pattern.lastIndex = 0;
-        let match = pattern.exec(source);
-        while (match) {
-            const canonical = normalizePreviewType(match[2]);
-            if (canonical) found.add(canonical);
-            match = pattern.exec(source);
-        }
-    };
-    collect(CC_PREVIEW_REGION_PATTERN);
-    collect(CC_PREVIEW_TYPE_PATTERN);
+    const source = hasLegacyMarkers(html) ? upgradeLegacyHtml(html) : String(html || '');
+    if (!source.trim()) return [];
+    const { doc } = parseHtml(source);
+    const found = new Set(
+        Array.from(doc.querySelectorAll('[data-cc-region]')).map(element => element.getAttribute('data-cc-region'))
+    );
     return CANONICAL_REGION_ORDER.filter(type => found.has(type));
 }
 

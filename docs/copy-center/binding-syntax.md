@@ -43,7 +43,7 @@ How each type renders:
 
 - **richText**: the element's inner HTML is replaced with the editor output. A block may contain several rich text elements with different keys.
 - **image**: an `<img>` element. `src`, `alt`, `width` and `height` are set. The mobile image falls back to the desktop image, and dark falls back to light.
-- **bulletList**: a container element holding one child with `data-cc-loop="item"`. Inside the item, `data-cc-slot="icon"` (an `<img>`) and `data-cc-slot="text"` mark the bullet parts. The item is cloned for each list item, and the icon is removed when `useIcons` is false.
+- **bulletList**: a container element holding one child with `data-cc-loop="item"`. Inside the item, `data-cc-slot="icon"` (an `<img>`) and `data-cc-slot="text"` mark the bullet parts. The item is cloned for each list item, and the icon is removed when `useIcons` is false. Wrap the icon in `data-cc-slot="icon-cell"` (for example its `<td>`) to remove the whole cell.
 - **divider**: an element whose top and bottom padding are set. A child with `data-cc-slot="line"` is removed when `showLine` is false.
 - **button**: an `<a>` element. Label, `href`, `target` and `data-alias` are set, and the element is removed when `visible` is false. App URLs are written as given (deep link).
 

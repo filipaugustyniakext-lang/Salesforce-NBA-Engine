@@ -1,4 +1,6 @@
 import { applyBlockTemplate } from 'c/contentBindingModel';
+import { renderMessage } from 'c/ccTemplateRenderer';
+import { SCHEMA_VERSION } from 'c/ccTemplateSchema';
 
 const CC_PREVIEW_OPEN = /<cc-preview\b([^>]*)>/gi;
 const CC_PREVIEW_CLOSE = /<\/cc-preview\s*>/gi;
@@ -19,7 +21,23 @@ export function normalizeCcPreviewType(rawType) {
     return '';
 }
 
-export function renderTemplatePreview(source, blocks, device) {
+/**
+ * Schema v1 sources ({ schemaVersion: '1.0', shellHtml, shellDefinition, shellContent, blockDefinitions })
+ * render through c/ccTemplateRenderer; `blocks` are v1 message blocks. Other sources use the legacy renderer.
+ */
+export function renderTemplatePreview(source, blocks, device, theme = 'light') {
+    if (source?.schemaVersion === SCHEMA_VERSION) {
+        const definitions = source.blockDefinitions || {};
+        return renderMessage({
+            shell: { html: source.shellHtml, definition: source.shellDefinition },
+            shellContent: source.shellContent || null,
+            blocks: (blocks || [])
+                .filter(block => definitions[block.blockTemplateDefinitionId])
+                .map(block => ({ ...definitions[block.blockTemplateDefinitionId], block })),
+            device,
+            theme
+        });
+    }
     const shell = unwrapTemplateStartWrapper(String(source?.shellHtml || ''));
     if (!shell) return '';
     const definitions = new Map((source.blocks || []).map(block => [block.type, block]));
