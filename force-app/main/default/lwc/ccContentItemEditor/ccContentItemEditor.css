@@ -1,0 +1,31 @@
+.cc-item-editor {
+    display: grid;
+    gap: 0.5rem;
+}
+
+.cc-item-editor__row,
+.cc-item-editor__size {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+    gap: 0.5rem;
+    align-items: end;
+}
+
+.cc-item-editor__image {
+    display: grid;
+    gap: 0.5rem;
+}
+
+.cc-item-editor__list-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.5rem;
+    align-items: start;
+}
+
+.cc-item-editor__list-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding-top: 1.5rem;
+}

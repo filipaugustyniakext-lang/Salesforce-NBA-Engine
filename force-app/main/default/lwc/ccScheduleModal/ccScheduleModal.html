@@ -1,0 +1,32 @@
+<template>
+    <lightning-modal-header label="Schedule publication" tagline={messageName}></lightning-modal-header>
+    <lightning-modal-body>
+        <template lwc:if={hasPendingSchedule}>
+            <div class="slds-notify slds-notify_alert slds-alert_warning slds-m-bottom_small cc-schedule__alert" role="status">
+                This message already has a pending scheduled change. Cancel it to schedule a different one.
+            </div>
+        </template>
+        <template lwc:elseif={canSchedule}>
+            <div class="slds-grid slds-grid_vertical slds-gutters_y-small">
+                <lightning-combobox label="Action" required options={actionOptions} value={action} onchange={handleAction}></lightning-combobox>
+                <lightning-input type="datetime" label="Run at" required min={minDate} value={runAt} onchange={handleRunAt}></lightning-input>
+                <lightning-textarea label="Note" max-length="255" value={note} onchange={handleNote}></lightning-textarea>
+            </div>
+        </template>
+        <template lwc:else>
+            <p>{unavailableMessage}</p>
+        </template>
+        <template lwc:if={errorMessage}>
+            <p class="slds-text-color_error slds-m-top_small">{errorMessage}</p>
+        </template>
+    </lightning-modal-body>
+    <lightning-modal-footer>
+        <lightning-button label="Close" onclick={handleClose}></lightning-button>
+        <template lwc:if={hasPendingSchedule}>
+            <lightning-button class="slds-m-left_x-small" label="Cancel scheduled change" variant="destructive" disabled={saving} onclick={handleCancelSchedule}></lightning-button>
+        </template>
+        <template lwc:elseif={canSchedule}>
+            <lightning-button class="slds-m-left_x-small" label="Schedule" variant="brand" disabled={saveDisabled} onclick={handleSchedule}></lightning-button>
+        </template>
+    </lightning-modal-footer>
+</template>

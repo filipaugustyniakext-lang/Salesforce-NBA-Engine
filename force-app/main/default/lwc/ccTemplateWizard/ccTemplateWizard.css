@@ -1,0 +1,135 @@
+.cc-wizard {
+    background: #ffffff;
+}
+
+.cc-wizard__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.cc-wizard__header .slds-badge {
+    margin-top: 0.25rem;
+}
+
+.cc-wizard__steps {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+
+.cc-wizard__step {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border: 1px solid #dddbda;
+    border-radius: 1rem;
+    background: #ffffff;
+    cursor: pointer;
+}
+
+.cc-wizard__step_active {
+    border-color: #0176d3;
+    background: #e5f1fb;
+    font-weight: 700;
+}
+
+.cc-wizard__step-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 50%;
+    background: #0176d3;
+    color: #ffffff;
+    font-size: 0.75rem;
+}
+
+.cc-wizard__loading {
+    min-height: 10rem;
+}
+
+.cc-wizard__form {
+    display: grid;
+    gap: 0.75rem;
+    max-width: 40rem;
+}
+
+.cc-wizard__form_inline {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-width: none;
+    margin-bottom: 0.75rem;
+}
+
+.cc-wizard__assets {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.cc-wizard__block-editor {
+    margin-top: 1rem;
+    padding: 1rem;
+    border: 1px solid #dddbda;
+    border-radius: 0.25rem;
+}
+
+.cc-wizard__block-row_selected {
+    background: #e5f1fb;
+}
+
+.cc-wizard__row-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.cc-wizard__actions,
+.cc-wizard__footer-right {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+}
+
+.cc-wizard__footer {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid #dddbda;
+}
+
+.cc-wizard__footer-right {
+    margin-left: auto;
+}
+
+.cc-wizard__summary {
+    display: grid;
+    grid-template-columns: 10rem minmax(0, 1fr);
+    gap: 0.25rem 1rem;
+}
+
+.cc-wizard__summary dt {
+    color: #706e6b;
+}
+
+.cc-wizard__alert {
+    justify-content: flex-start;
+    border-radius: 0.25rem;
+    margin-bottom: 0.75rem;
+}
+
+.cc-wizard__alert_success {
+    background: #2e844a;
+    color: #ffffff;
+}
+
+.cc-wizard__preview-choice {
+    max-width: 24rem;
+}

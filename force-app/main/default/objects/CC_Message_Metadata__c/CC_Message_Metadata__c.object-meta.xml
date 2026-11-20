@@ -168,8 +168,6 @@
         <searchResultsAdditionalFields>MessageType__c</searchResultsAdditionalFields>
         <searchResultsAdditionalFields>MessageName__c</searchResultsAdditionalFields>
         <searchResultsAdditionalFields>MessageVariant__c</searchResultsAdditionalFields>
-        <searchResultsAdditionalFields>MessagePropertiesJSON__c</searchResultsAdditionalFields>
-        <searchResultsAdditionalFields>MessagePropertiesJSON2__c</searchResultsAdditionalFields>
         <searchResultsAdditionalFields>VariantStatus__c</searchResultsAdditionalFields>
         <searchResultsAdditionalFields>IsActive__c</searchResultsAdditionalFields>
     </searchLayouts>

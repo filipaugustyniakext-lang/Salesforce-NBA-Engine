@@ -9,7 +9,8 @@
 public with sharing class CampaignRuntimeCatalogService {
 
     public static final String OFFER_STATUS_ACTIVE = 'Active';
-    public static final String COPY_STATUS_PUBLISHED = 'Published';
+    public static final String COPY_STATUS_PUBLISHED = 'Live';
+    private static final Set<String> COPY_LIVE_STATUSES = new Set<String>{ 'Live', 'Published' };
 
     /**
      * Offers linked on the campaign that are usable right now: Active header plus
@@ -130,7 +131,7 @@ public with sharing class CampaignRuntimeCatalogService {
             AND Message_Variant__c != null
             ORDER BY Message_Variant__r.Name ASC
         ]) {
-            Boolean published = junction.Message_Variant__r.Status__c == COPY_STATUS_PUBLISHED;
+            Boolean published = COPY_LIVE_STATUSES.contains(junction.Message_Variant__r.Status__c);
             if (published) {
                 eligibleCopy++;
             }
@@ -173,7 +174,7 @@ public with sharing class CampaignRuntimeCatalogService {
             FROM Campaign_Copy_Variant__c
             WHERE Campaign__c = :campaignId
             AND Message_Variant__c != null
-            AND Message_Variant__r.Status__c = :COPY_STATUS_PUBLISHED
+            AND Message_Variant__r.Status__c IN :COPY_LIVE_STATUSES
         ]) {
             results.add(new Map<String, String>{
                 'id' => row.Message_Variant__c,

@@ -60,7 +60,7 @@ private class MarketingCloudCopySyncTest {
         CC_Message_Metadata__c saved = [
             SELECT Name, MessageVariantId__c, Message_Variant_Id__c, Channel_Type__c,
                    Subject__c, Is_Active__c, Block_Count__c, Language__c, LastModifiedAt__c,
-                   Message_Properties_JSON__c
+                   Message_Settings_JSON__c
             FROM CC_Message_Metadata__c
             WHERE MessageVariantId__c = 'variant-1'
         ];
@@ -72,7 +72,7 @@ private class MarketingCloudCopySyncTest {
         System.assertEquals(3, saved.Block_Count__c);
         System.assertEquals('PL', saved.Language__c);
         System.assertEquals(Datetime.newInstanceGmt(2026, 9, 15, 16, 24, 44), saved.LastModifiedAt__c);
-        System.assertEquals('blocks', saved.Message_Properties_JSON__c);
+        System.assertEquals('blocks', saved.Message_Settings_JSON__c);
         System.assert(endpoints.size() >= 2, 'DE lookup and metadata rowset');
         System.assert(endpoints[0].startsWith(MarketingCloudApi.REST + '/'), endpoints[0]);
         System.assert(endpoints[0].contains('$search=CC_Message_Metadata'));

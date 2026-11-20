@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+<types>
+<members>CC_Message_Metadata__c.MessagePropertiesJSON__c</members>
+<members>CC_Message_Metadata__c.MessagePropertiesJSON2__c</members>
+<members>CC_Message_Metadata__c.Message_Properties_JSON__c</members>
+<members>CC_Message_Metadata__c.Message_Properties_JSON2__c</members>
+<name>CustomField</name>
+</types>
+<types><members>CC_Message_VersionHistoryLog__c</members><name>CustomTab</name></types>
+<types><members>CC_Message_VersionHistoryLog__c</members><name>CustomObject</name></types>
+<types><members>masterTemplateStudio</members><name>LightningComponentBundle</name></types>
+<version>62.0</version></Package>

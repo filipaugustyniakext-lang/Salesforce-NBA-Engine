@@ -1,0 +1,57 @@
+<template>
+    <div class="cc-content-binding">
+        <h3 class="slds-text-heading_small">{heading}</h3>
+        <template lwc:if={regionNote}>
+            <p class="slds-text-body_small slds-text-color_weak">{regionNote}</p>
+        </template>
+        <div class="cc-content-binding__grid slds-m-top_x-small">
+            <lightning-input label="Label shown to marketers" value={binding.label} data-field="label" disabled={disabled} onchange={handleField}></lightning-input>
+            <template lwc:if={usesComplexity}>
+                <lightning-combobox label="Rich text editor level" options={complexityOptions} value={binding.complexity} data-field="complexity" disabled={disabled} onchange={handleField}></lightning-combobox>
+            </template>
+        </div>
+
+        <template lwc:if={isImage}>
+            <div class="cc-content-binding__grid slds-m-top_x-small">
+                <lightning-input type="number" min="0" label="Default width (px)" value={binding.defaults.width} data-field="width" data-kind="number" disabled={disabled} onchange={handleDefault}></lightning-input>
+                <lightning-input type="number" min="0" label="Default height (px)" value={binding.defaults.height} data-field="height" data-kind="number" disabled={disabled} onchange={handleDefault}></lightning-input>
+            </div>
+        </template>
+
+        <template lwc:if={isDivider}>
+            <div class="cc-content-binding__grid slds-m-top_x-small">
+                <lightning-input type="number" min="0" label="Top padding (px)" value={binding.defaults.paddingTop} data-field="paddingTop" data-kind="number" disabled={disabled} onchange={handleDefault}></lightning-input>
+                <lightning-input type="number" min="0" label="Bottom padding (px)" value={binding.defaults.paddingBottom} data-field="paddingBottom" data-kind="number" disabled={disabled} onchange={handleDefault}></lightning-input>
+                <lightning-input type="color" label="Line color" value={binding.defaults.lineColor} data-field="lineColor" disabled={disabled} onchange={handleDefault}></lightning-input>
+                <lightning-input type="checkbox" label="Show horizontal line" checked={dividerShowLine} data-field="showLine" data-kind="checkbox" disabled={disabled} onchange={handleDefault}></lightning-input>
+            </div>
+        </template>
+
+        <template lwc:if={isButton}>
+            <div class="cc-content-binding__grid slds-m-top_x-small">
+                <lightning-input label="Default label" value={binding.defaults.label} data-field="label" disabled={disabled} onchange={handleDefault}></lightning-input>
+                <lightning-input type="checkbox" label="Shown by default" checked={buttonVisible} data-field="visible" data-kind="checkbox" disabled={disabled} onchange={handleDefault}></lightning-input>
+            </div>
+        </template>
+
+        <template lwc:if={isBulletList}>
+            <div class="slds-m-top_small">
+                <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center">
+                    <span class="slds-text-title_bold">Bullet icon presets</span>
+                    <lightning-button label="Add icon" icon-name="utility:add" variant="base" disabled={disabled} onclick={handleAddIcon}></lightning-button>
+                </div>
+                <template for:each={icons} for:item="icon">
+                    <div key={icon.key} class="cc-content-binding__icon">
+                        <lightning-input label="Icon label" value={icon.label} data-index={icon.index} disabled={disabled} onchange={handleIconLabel}></lightning-input>
+                        <c-cc-image-source-input label="Icon image" value={icon} data-index={icon.index} disabled={disabled} onchange={handleIconImage}></c-cc-image-source-input>
+                        <lightning-button-icon icon-name="utility:delete" variant="bare" alternative-text="Remove icon" title="Remove icon" data-index={icon.index} disabled={disabled} onclick={handleRemoveIcon}></lightning-button-icon>
+                    </div>
+                </template>
+                <lightning-input class="slds-m-top_x-small" type="checkbox" label="Allow lists without icons" checked={allowNoIcon} disabled={disabled} onchange={handleAllowNoIcon}></lightning-input>
+                <template lwc:if={iconError}>
+                    <div class="slds-text-color_error slds-text-body_small">{iconError}</div>
+                </template>
+            </div>
+        </template>
+    </div>
+</template>

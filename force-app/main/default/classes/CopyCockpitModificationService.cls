@@ -18,6 +18,13 @@ public with sharing class CopyCockpitModificationService {
             record.MessageVariantId__c = record.Message_Variant_Id__c.trim();
             return;
         }
+        // Partial updates (only some fields set) must not get a new MCE key.
+        if (record.Id != null) {
+            Map<String, Object> populated = record.getPopulatedFieldsAsMap();
+            if (!populated.containsKey('MessageVariantId__c') && !populated.containsKey('Message_Variant_Id__c')) {
+                return;
+            }
+        }
         String guid = newMessageVariantGuid();
         record.MessageVariantId__c = guid;
         record.Message_Variant_Id__c = guid;

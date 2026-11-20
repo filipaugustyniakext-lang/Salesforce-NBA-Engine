@@ -1,0 +1,50 @@
+.cc-preview-panel {
+    border: 1px solid #e0e5ee;
+    border-radius: 0.25rem;
+    background: #ffffff;
+    overflow: hidden;
+}
+
+.cc-preview-panel__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #e0e5ee;
+}
+
+.cc-preview-panel__toggles {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.cc-preview-panel__stage {
+    display: flex;
+    justify-content: center;
+    padding: 1.25rem;
+    background: #f3f3f3;
+    max-height: 48rem;
+    overflow: auto;
+}
+
+.cc-preview-frame {
+    background: #ffffff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+    border-radius: 0.25rem;
+    overflow: hidden;
+}
+
+.cc-preview-frame_desktop {
+    width: 100%;
+    max-width: 640px;
+}
+
+.cc-preview-frame_mobile {
+    width: 375px;
+}
+
+.cc-preview-frame_dark {
+    background: #262626;
+}

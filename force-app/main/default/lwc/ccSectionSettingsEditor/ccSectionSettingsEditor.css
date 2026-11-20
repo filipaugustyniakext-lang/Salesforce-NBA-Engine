@@ -1,0 +1,17 @@
+.cc-section-editor__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+    gap: 1rem;
+}
+
+.cc-section-editor__preset-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 8rem auto;
+    gap: 0.5rem;
+    align-items: end;
+    margin-top: 0.25rem;
+}
+
+.cc-section-editor__preset-row_gradient {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) 8rem auto;
+}

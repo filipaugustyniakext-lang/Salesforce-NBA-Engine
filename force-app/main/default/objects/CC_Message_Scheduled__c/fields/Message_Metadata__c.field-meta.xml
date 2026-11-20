@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Message_Metadata__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <label>Message Variant</label>
+    <referenceTo>CC_Message_Metadata__c</referenceTo>
+    <relationshipLabel>Scheduled Changes</relationshipLabel>
+    <relationshipName>Scheduled_Changes</relationshipName>
+    <required>false</required>
+    <type>Lookup</type>
+</CustomField>

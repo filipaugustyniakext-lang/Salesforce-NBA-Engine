@@ -1,0 +1,79 @@
+<template>
+    <div class="cc-template-manager">
+        <template lwc:if={wizardOpen}>
+            <c-cc-template-wizard
+                channel-id={channelId}
+                channel-name={channelName}
+                template-id={wizardTemplateId}
+                onclose={handleWizardClose}
+                onsaved={handleWizardSaved}>
+            </c-cc-template-wizard>
+        </template>
+        <template lwc:else>
+            <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-m-bottom_small">
+                <div>
+                    <h2 class="slds-text-heading_small">Templates</h2>
+                    <p class="slds-text-body_small slds-text-color_weak">Master templates and content blocks marketers use in Copy Center for this channel.</p>
+                </div>
+                <div class="slds-grid slds-gutters_x-small">
+                    <lightning-button-icon icon-name="utility:refresh" alternative-text="Refresh" title="Refresh" onclick={load}></lightning-button-icon>
+                    <lightning-button class="slds-m-left_x-small" label="New template" icon-name="utility:add" variant="brand" onclick={handleNew}></lightning-button>
+                </div>
+            </div>
+            <template lwc:if={errorMessage}>
+                <div class="slds-text-color_error slds-m-bottom_small">{errorMessage}</div>
+            </template>
+            <div class="slds-is-relative">
+                <template lwc:if={loading}>
+                    <lightning-spinner size="small" alternative-text="Loading templates"></lightning-spinner>
+                </template>
+                <template lwc:if={hasRows}>
+                    <table class="slds-table slds-table_bordered slds-table_cell-buffer">
+                        <thead>
+                            <tr>
+                                <th scope="col">Template</th>
+                                <th scope="col">Locale</th>
+                                <th scope="col">Classification</th>
+                                <th scope="col">Type</th>
+                                <th scope="col">Blocks</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Validation</th>
+                                <th scope="col">Messages</th>
+                                <th scope="col">Format</th>
+                                <th scope="col"><span class="slds-assistive-text">Actions</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template for:each={rows} for:item="row">
+                                <tr key={row.id}>
+                                    <td class="slds-truncate" title={row.name}>{row.name}</td>
+                                    <td>{row.localeCode}</td>
+                                    <td>{row.classification}</td>
+                                    <td>{row.modeLabel}</td>
+                                    <td>{row.blocksLabel}</td>
+                                    <td><span class={row.statusClass}>{row.status}</span></td>
+                                    <td class={row.validationClass}>{row.validationStatus}</td>
+                                    <td>{row.messageCount} ({row.liveMessageCount} live)</td>
+                                    <td>{row.formatLabel}</td>
+                                    <td class="cc-template-manager__actions">
+                                        <lightning-button label={row.openLabel} variant="base" data-id={row.id} onclick={handleOpen}></lightning-button>
+                                        <template lwc:if={row.canArchive}>
+                                            <lightning-button label="Archive" variant="base" data-id={row.id} onclick={handleArchive}></lightning-button>
+                                        </template>
+                                        <template lwc:if={row.canDelete}>
+                                            <lightning-button-icon icon-name="utility:delete" variant="bare" alternative-text="Delete template" title="Delete" data-id={row.id} onclick={handleDelete}></lightning-button-icon>
+                                        </template>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </template>
+                <template lwc:elseif={loading}></template>
+                <template lwc:else>
+                    <p class="slds-text-color_weak">No templates yet for this channel.</p>
+                </template>
+            </div>
+        </template>
+    </div>
+</template>

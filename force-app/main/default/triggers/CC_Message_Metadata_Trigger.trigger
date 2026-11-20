@@ -1,4 +1,8 @@
-trigger CC_Message_Metadata_Trigger on CC_Message_Metadata__c (after delete, after update) {
+trigger CC_Message_Metadata_Trigger on CC_Message_Metadata__c (before insert, before update, after delete, after update) {
+    if (Trigger.isBefore) {
+        CcMessageLifecycleService.applyStatusDerivations(Trigger.new, Trigger.isUpdate ? Trigger.oldMap : null);
+    }
+
     if (Trigger.isAfter && Trigger.isDelete) {
         List<String> variantIdsToDelete = new List<String>();
 

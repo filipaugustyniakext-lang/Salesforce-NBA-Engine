@@ -26,8 +26,8 @@ private class CopyCockpitCloneTest {
         System.assertEquals('BAN_PL_TEST_2', clone.Name);
         System.assertEquals('BAN_PL_TEST', clone.MessageName__c);
         System.assertEquals(2, clone.Version__c.intValue());
-        System.assertEquals('Variant 2', clone.Message_Variant__c);
-        System.assertEquals(null, clone.Message_Variant_Id__c);
-        System.assertEquals(null, clone.MessageVariantId__c);
+        System.assertEquals('2', clone.Message_Variant__c);
+        System.assertNotEquals(null, clone.MessageVariantId__c, 'Every new variant gets an MCE key.');
+        System.assertEquals(clone.MessageVariantId__c, clone.Message_Variant_Id__c);
     }
 }

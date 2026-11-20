@@ -17,6 +17,11 @@
         </div>
     </template>
 
+    <!-- ── Schema v1 editor (source template has a v1 definition) ──────────── -->
+    <template lwc:elseif={useV1Editor}>
+        <c-cc-message-editor message-id={recordId} onback={handleBack}></c-cc-message-editor>
+    </template>
+
     <!-- ── Editor shell ───────────────────────────────────────────────────── -->
     <template lwc:elseif={hasRecord}>
         <div class="editor-shell">
