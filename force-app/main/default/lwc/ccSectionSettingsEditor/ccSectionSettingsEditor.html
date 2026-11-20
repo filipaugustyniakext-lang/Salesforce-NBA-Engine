@@ -1,0 +1,82 @@
+<template>
+    <div class="cc-section-editor">
+        <h3 class="slds-text-heading_small slds-m-bottom_x-small">{title}</h3>
+        <template lwc:if={isFixed}>
+            <div class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">{fixedMessage}</div>
+        </template>
+        <template lwc:if={hasAnyBinding}>
+            <div class="cc-section-editor__grid">
+                <template lwc:if={hasPadding}>
+                    <c-cc-spacing-input label="Padding" value={settings.padding} disabled={readOnly} onchange={handlePadding}></c-cc-spacing-input>
+                </template>
+                <template lwc:if={hasMargin}>
+                    <c-cc-spacing-input label="Margin" value={settings.margin} disabled={readOnly} onchange={handleMargin}></c-cc-spacing-input>
+                </template>
+                <template lwc:if={hasBackground}>
+                    <c-cc-background-input
+                        label={backgroundLabel}
+                        value={settings.background}
+                        presets={section.presets}
+                        allow-custom={isDefinition}
+                        disabled={readOnly}
+                        onchange={handleBackground}>
+                    </c-cc-background-input>
+                </template>
+                <template lwc:if={hasHide}>
+                    <div>
+                        <div class="slds-form-element__label slds-text-title_bold">Visibility</div>
+                        <lightning-input type="toggle" label="Hide on desktop" data-key="hideDesktop" checked={settings.visibility.hideDesktop} disabled={readOnly} message-toggle-active="" message-toggle-inactive="" onchange={handleHide}></lightning-input>
+                        <lightning-input type="toggle" label="Hide on mobile" data-key="hideMobile" checked={settings.visibility.hideMobile} disabled={readOnly} message-toggle-active="" message-toggle-inactive="" onchange={handleHide}></lightning-input>
+                    </div>
+                </template>
+                <template lwc:if={hasDirection}>
+                    <div>
+                        <div class="slds-form-element__label slds-text-title_bold">Column order</div>
+                        <lightning-combobox label="Desktop" options={directionOptions} value={settings.columnDirection.desktop} data-device="desktop" disabled={readOnly} onchange={handleDirection}></lightning-combobox>
+                        <lightning-combobox label="Mobile" options={directionOptions} value={settings.columnDirection.mobile} data-device="mobile" disabled={readOnly} onchange={handleDirection}></lightning-combobox>
+                    </div>
+                </template>
+            </div>
+        </template>
+        <template lwc:else>
+            <p class="slds-text-body_small slds-text-color_weak">No section settings are bound. Add data-cc-bind to this element in the HTML to make settings editable.</p>
+        </template>
+
+        <template lwc:if={isDefinition}>
+            <template lwc:if={hasBackground}>
+                <div class="cc-section-editor__presets slds-m-top_medium">
+                    <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center">
+                        <span class="slds-text-title_bold">Color presets</span>
+                        <lightning-button label="Add color" icon-name="utility:add" variant="base" disabled={disabled} onclick={handleAddColor}></lightning-button>
+                    </div>
+                    <template for:each={colorPresets} for:item="preset">
+                        <div key={preset.key} class="cc-section-editor__preset-row">
+                            <lightning-input label="Label" value={preset.label} data-kind="colors" data-index={preset.index} data-field="label" disabled={disabled} onchange={handlePresetField}></lightning-input>
+                            <lightning-input type="color" label="Color" value={preset.hex} data-kind="colors" data-index={preset.index} data-field="hex" disabled={disabled} onchange={handlePresetField}></lightning-input>
+                            <lightning-button-icon icon-name="utility:delete" variant="bare" alternative-text="Remove color preset" title="Remove" data-kind="colors" data-index={preset.index} disabled={disabled} onclick={handleRemovePreset}></lightning-button-icon>
+                        </div>
+                    </template>
+                    <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-m-top_small">
+                        <span class="slds-text-title_bold">Gradient presets</span>
+                        <lightning-button label="Add gradient" icon-name="utility:add" variant="base" disabled={disabled} onclick={handleAddGradient}></lightning-button>
+                    </div>
+                    <template for:each={gradientPresets} for:item="preset">
+                        <div key={preset.key} class="cc-section-editor__preset-row cc-section-editor__preset-row_gradient">
+                            <lightning-input label="Label" value={preset.label} data-kind="gradients" data-index={preset.index} data-field="label" disabled={disabled} onchange={handlePresetField}></lightning-input>
+                            <lightning-input label="CSS" value={preset.css} data-kind="gradients" data-index={preset.index} data-field="css" disabled={disabled} onchange={handlePresetField}></lightning-input>
+                            <lightning-input type="color" label="Fallback" value={preset.fallbackColor} data-kind="gradients" data-index={preset.index} data-field="fallbackColor" disabled={disabled} onchange={handlePresetField}></lightning-input>
+                            <lightning-button-icon icon-name="utility:delete" variant="bare" alternative-text="Remove gradient preset" title="Remove" data-kind="gradients" data-index={preset.index} disabled={disabled} onclick={handleRemovePreset}></lightning-button-icon>
+                        </div>
+                    </template>
+                    <template lwc:if={hasPresetErrors}>
+                        <ul class="slds-text-color_error slds-text-body_small slds-m-top_x-small">
+                            <template for:each={presetErrors} for:item="message">
+                                <li key={message}>{message}</li>
+                            </template>
+                        </ul>
+                    </template>
+                </div>
+            </template>
+        </template>
+    </div>
+</template>

@@ -1,0 +1,15 @@
+.cc-content-binding__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+    gap: 0.75rem;
+    align-items: end;
+}
+
+.cc-content-binding__icon {
+    display: grid;
+    grid-template-columns: 12rem minmax(0, 1fr) auto;
+    gap: 0.75rem;
+    align-items: start;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f3f3f3;
+}

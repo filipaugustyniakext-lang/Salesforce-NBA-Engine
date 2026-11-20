@@ -1,0 +1,124 @@
+<template>
+    <fieldset class="cc-bg slds-form-element">
+        <legend class="slds-form-element__label slds-text-title_bold">{label}</legend>
+        <lightning-radio-group
+            label="Background type"
+            variant="label-hidden"
+            type="button"
+            options={modeOptions}
+            value={mode}
+            disabled={disabled}
+            onchange={handleMode}>
+        </lightning-radio-group>
+
+        <template lwc:if={isColor}>
+            <div class="slds-m-top_x-small">
+                <template lwc:if={hasColorPresets}>
+                    <div class="cc-bg__swatches" role="listbox" aria-label="Color presets">
+                        <template for:each={colorSwatches} for:item="swatch">
+                            <button
+                                key={swatch.id}
+                                class={swatch.className}
+                                style={swatch.style}
+                                title={swatch.label}
+                                aria-label={swatch.label}
+                                data-id={swatch.id}
+                                disabled={disabled}
+                                onclick={handleSwatch}>
+                            </button>
+                        </template>
+                    </div>
+                </template>
+                <template lwc:if={showCustomColor}>
+                    <lightning-input
+                        class="slds-m-top_x-small"
+                        type="color"
+                        label="Custom color"
+                        value={customColor}
+                        disabled={disabled}
+                        onchange={handleCustomColor}>
+                    </lightning-input>
+                </template>
+            </div>
+        </template>
+
+        <template lwc:if={isGradient}>
+            <div class="slds-m-top_x-small">
+                <template lwc:if={hasGradientPresets}>
+                    <lightning-combobox
+                        label="Gradient preset"
+                        options={gradientPresetOptions}
+                        value={value.gradientPresetId}
+                        disabled={disabled}
+                        onchange={handleGradientPreset}>
+                    </lightning-combobox>
+                </template>
+                <template lwc:if={showCustomGradient}>
+                    <lightning-input
+                        label="Gradient CSS"
+                        placeholder="linear-gradient(90deg, #e2001a 0%, #ff7a00 100%)"
+                        value={gradientCss}
+                        disabled={disabled}
+                        onchange={handleGradientCss}>
+                    </lightning-input>
+                    <lightning-input
+                        type="color"
+                        label="Fallback color (Outlook and older clients)"
+                        value={gradientFallback}
+                        disabled={disabled}
+                        onchange={handleGradientFallback}>
+                    </lightning-input>
+                </template>
+                <div class="cc-bg__gradient-preview slds-m-top_x-small" style={gradientPreviewStyle}></div>
+            </div>
+        </template>
+
+        <template lwc:if={isImage}>
+            <div class="slds-m-top_x-small">
+                <c-cc-image-source-input
+                    label="Desktop image"
+                    data-device="desktop"
+                    value={desktopImage}
+                    disabled={disabled}
+                    onchange={handleImageSource}>
+                </c-cc-image-source-input>
+                <div class="cc-bg__options">
+                    <lightning-combobox label="Size" options={sizeOptions} value={desktopImage.size} data-device="desktop" data-option="size" disabled={disabled} onchange={handleImageOption}></lightning-combobox>
+                    <lightning-combobox label="Repeat" options={repeatOptions} value={desktopImage.repeat} data-device="desktop" data-option="repeat" disabled={disabled} onchange={handleImageOption}></lightning-combobox>
+                    <lightning-combobox label="Position" options={positionOptions} value={desktopImage.position} data-device="desktop" data-option="position" disabled={disabled} onchange={handleImageOption}></lightning-combobox>
+                </div>
+                <lightning-input
+                    class="slds-m-top_x-small"
+                    type="checkbox"
+                    label="Mobile uses the desktop image"
+                    checked={mobileInherits}
+                    disabled={disabled}
+                    onchange={handleMobileInherit}>
+                </lightning-input>
+                <template lwc:if={showMobileImage}>
+                    <c-cc-image-source-input
+                        class="slds-m-top_x-small"
+                        label="Mobile image"
+                        data-device="mobile"
+                        value={mobileImage}
+                        disabled={disabled}
+                        onchange={handleImageSource}>
+                    </c-cc-image-source-input>
+                    <div class="cc-bg__options">
+                        <lightning-combobox label="Size" options={sizeOptions} value={mobileImage.size} data-device="mobile" data-option="size" disabled={disabled} onchange={handleImageOption}></lightning-combobox>
+                        <lightning-combobox label="Repeat" options={repeatOptions} value={mobileImage.repeat} data-device="mobile" data-option="repeat" disabled={disabled} onchange={handleImageOption}></lightning-combobox>
+                        <lightning-combobox label="Position" options={positionOptions} value={mobileImage.position} data-device="mobile" data-option="position" disabled={disabled} onchange={handleImageOption}></lightning-combobox>
+                    </div>
+                </template>
+                <lightning-input
+                    class="slds-m-top_x-small"
+                    type="color"
+                    label="Fallback color"
+                    value={imageFallback}
+                    disabled={disabled}
+                    onchange={handleImageFallback}>
+                </lightning-input>
+            </div>
+        </template>
+    </fieldset>
+</template>

@@ -18,6 +18,7 @@ public with sharing class ChannelTemplateTriggerHandler {
         Map<Id, Channel_Template__c> oldMap
     ) {
         Map<Id, String> channelTypes = loadChannelTypes(newRecords);
+        Map<Id, List<Channel_Template_Block__c>> v1Blocks = loadActivatingV1Blocks(newRecords, oldMap);
         Map<Id, Integer> activationsByChannel = new Map<Id, Integer>();
 
         for (Channel_Template__c record : newRecords) {
@@ -51,8 +52,17 @@ public with sharing class ChannelTemplateTriggerHandler {
                 continue;
             }
             if (record.Status__c != 'Active') continue;
-            if (activationsByChannel.get(record.Channel__c) > 1) {
+            if (!CcTemplateValidator.isV1(record) && activationsByChannel.get(record.Channel__c) > 1) {
                 record.addError('Only one template can be activated per channel in a transaction.');
+                continue;
+            }
+            if (CcTemplateValidator.isV1(record)) {
+                CcTemplateValidator.Result v1 = CcTemplateValidator.validateTemplate(
+                    record,
+                    v1Blocks.containsKey(record.Id) ? v1Blocks.get(record.Id) : new List<Channel_Template_Block__c>(),
+                    true
+                );
+                if (!v1.valid) record.addError('Template validation failed:\n' + v1.summary());
                 continue;
             }
             ChannelTemplateManifestService.ValidationResult validation =
@@ -93,7 +103,7 @@ public with sharing class ChannelTemplateTriggerHandler {
         if (channelIds.isEmpty()) return;
 
         List<Channel_Template__c> priorActive = [
-            SELECT Id, Status__c, Channel__c
+            SELECT Id, Status__c, Channel__c, Definition_JSON__c, Template_Slug__c, Locale__c
             FROM Channel_Template__c
             WHERE Channel__c IN :channelIds
               AND Status__c = 'Active'
@@ -105,13 +115,20 @@ public with sharing class ChannelTemplateTriggerHandler {
         for (Channel_Template__c record : newRecords) {
             if (!activatedIds.contains(record.Id)) continue;
             for (Channel_Template__c prior : priorActive) {
-                if (prior.Channel__c == record.Channel__c) {
+                if (supersedes(record, prior)) {
                     successorBySuperseded.put(prior.Id, record.Id);
                 }
             }
         }
 
-        for (Channel_Template__c record : priorActive) record.Status__c = 'Archived';
+        List<Channel_Template__c> superseded = new List<Channel_Template__c>();
+        for (Channel_Template__c record : priorActive) {
+            if (!successorBySuperseded.containsKey(record.Id)) continue;
+            record.Status__c = 'Archived';
+            superseded.add(record);
+        }
+        if (superseded.isEmpty()) return;
+        priorActive = superseded;
         allowSupersedingArchive = true;
         try {
             update priorActive;
@@ -125,6 +142,42 @@ public with sharing class ChannelTemplateTriggerHandler {
                 successorBySuperseded.get(supersededId)
             );
         }
+    }
+
+    /**
+     * Legacy templates keep one Active template per channel. Schema v1 templates only replace the
+     * Active version of the same template family (same slug and locale), so several locales and
+     * classifications can be live on one channel.
+     */
+    private static Boolean supersedes(Channel_Template__c activated, Channel_Template__c prior) {
+        if (prior.Channel__c != activated.Channel__c) return false;
+        Boolean activatedV1 = CcTemplateValidator.isV1(activated);
+        if (activatedV1 != CcTemplateValidator.isV1(prior)) return false;
+        if (!activatedV1) return true;
+        return prior.Template_Slug__c == activated.Template_Slug__c && prior.Locale__c == activated.Locale__c;
+    }
+
+    private static Map<Id, List<Channel_Template_Block__c>> loadActivatingV1Blocks(
+        List<Channel_Template__c> newRecords,
+        Map<Id, Channel_Template__c> oldMap
+    ) {
+        Set<Id> ids = new Set<Id>();
+        for (Channel_Template__c record : newRecords) {
+            if (record.Status__c == 'Active' && oldMap.get(record.Id).Status__c != 'Active' && CcTemplateValidator.isV1(record)) {
+                ids.add(record.Id);
+            }
+        }
+        Map<Id, List<Channel_Template_Block__c>> result = new Map<Id, List<Channel_Template_Block__c>>();
+        if (ids.isEmpty()) return result;
+        for (Channel_Template_Block__c block : [
+            SELECT Id, Name, Channel_Template__c, Status__c, Source_HTML__c, Definition_JSON__c
+            FROM Channel_Template_Block__c
+            WHERE Channel_Template__c IN :ids
+        ]) {
+            if (!result.containsKey(block.Channel_Template__c)) result.put(block.Channel_Template__c, new List<Channel_Template_Block__c>());
+            result.get(block.Channel_Template__c).add(block);
+        }
+        return result;
     }
 
     private static Map<Id, String> loadChannelTypes(List<Channel_Template__c> templates) {

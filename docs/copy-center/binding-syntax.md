@@ -100,5 +100,5 @@ New uploads must use the v1 attributes. The wizard reports legacy markers as war
 ## 5. Status rules
 
 - `Channel_Template__c` and `Channel_Template_Block__c` statuses are Draft, Ready, Active, Archived. Only a definition with `Validation_Status__c = 'Valid'` can be activated, and only Active blocks appear in the Copy Center editor.
-- A template or block cannot be deleted while any `CC_Message_Metadata__c` (template) or `CC_Message_Blocks__c` (block) references it.
+- A template or block cannot be deleted while any `CC_Message_Metadata__c.Source_Template__c` (template) or `CC_Message_Blocks__c` (block) references it.
 - `CC_Message_Metadata__c.Status__c` values are Draft, Ready, Live, Inactive, Archived. `IsActive__c` is derived (`Status__c = 'Live'`) by the metadata trigger.

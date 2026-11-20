@@ -1,0 +1,32 @@
+.cc-bg__swatches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.cc-bg__swatch {
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 50%;
+    border: 1px solid #c9c9c9;
+    cursor: pointer;
+    padding: 0;
+}
+
+.cc-bg__swatch_selected {
+    outline: 2px solid #0176d3;
+    outline-offset: 2px;
+}
+
+.cc-bg__gradient-preview {
+    height: 1.5rem;
+    border-radius: 0.25rem;
+    border: 1px solid #dddbda;
+}
+
+.cc-bg__options {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}

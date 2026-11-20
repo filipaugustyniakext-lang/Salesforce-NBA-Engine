@@ -156,9 +156,6 @@ VALIDATION = ['Not Validated', 'Valid', 'Invalid']
 
 FIELDS = {
     'CC_Message_Metadata__c': [
-        lookup('MasterTemplateDefinitionId__c', 'Master Template Definition', 'Channel_Template__c',
-               'Copy_Center_Messages', 'Copy Center Messages',
-               'Marketing Dictionary master template definition this message variant renders with.'),
         text('MCE_MasterTemplateAssetId__c', 'MCE Master Template Asset Id', 255,
              'MCE Content Builder template asset that renders the send.'),
         text('MCE_MasterTemplateAssetPath__c', 'MCE Master Template Path', 255,

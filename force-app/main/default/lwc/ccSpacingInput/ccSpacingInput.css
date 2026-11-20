@@ -1,0 +1,25 @@
+.cc-spacing__row {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.cc-spacing__device {
+    width: 3.5rem;
+    padding-bottom: 0.5rem;
+    color: #444444;
+}
+
+.cc-spacing__input {
+    width: 5rem;
+}
+
+.cc-spacing__chain {
+    padding-bottom: 0.125rem;
+}
+
+.cc-spacing__unit {
+    padding-bottom: 0.5rem;
+    color: #706e6b;
+}

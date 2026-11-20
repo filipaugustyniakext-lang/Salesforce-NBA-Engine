@@ -1,0 +1,65 @@
+<template>
+    <div class="cc-image-source">
+        <lightning-radio-group
+            label={label}
+            type="button"
+            options={sourceOptions}
+            value={source}
+            required={required}
+            disabled={disabled}
+            onchange={handleSource}>
+        </lightning-radio-group>
+        <div class="slds-m-top_x-small">
+            <template lwc:if={isUrl}>
+                <lightning-input
+                    type="url"
+                    label="Image URL"
+                    variant="label-hidden"
+                    placeholder="https://"
+                    value={url}
+                    disabled={disabled}
+                    onchange={handleUrl}>
+                </lightning-input>
+            </template>
+            <template lwc:if={isUpload}>
+                <lightning-file-upload
+                    label="Upload image"
+                    accept={acceptedFormats}
+                    disabled={disabled}
+                    onuploadfinished={handleUpload}>
+                </lightning-file-upload>
+            </template>
+            <template lwc:if={isCms}>
+                <template lwc:if={cmsLoading}>
+                    <lightning-spinner size="small" alternative-text="Loading images"></lightning-spinner>
+                </template>
+                <lightning-combobox
+                    label="Image"
+                    variant="label-hidden"
+                    placeholder="Select an image"
+                    options={cmsOptions}
+                    value={value.contentId}
+                    disabled={disabled}
+                    onchange={handleCms}>
+                </lightning-combobox>
+            </template>
+        </div>
+        <template lwc:if={hasPreview}>
+            <div class="cc-image-source__preview slds-m-top_x-small">
+                <img src={url} alt="" />
+                <lightning-button-icon
+                    icon-name="utility:close"
+                    variant="bare"
+                    size="small"
+                    alternative-text="Remove image"
+                    title="Remove image"
+                    disabled={disabled}
+                    onclick={handleClear}>
+                </lightning-button-icon>
+            </div>
+        </template>
+        <template lwc:if={errorMessage}>
+            <div class="slds-text-color_error slds-text-body_small slds-m-top_xx-small">{errorMessage}</div>
+        </template>
+    </div>
+</template>
