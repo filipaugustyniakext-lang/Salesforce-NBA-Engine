@@ -1,0 +1,132 @@
+<template>
+    <div class="cc-editor">
+        <template lwc:if={loading}>
+            <div class="cc-editor__loading"><lightning-spinner alternative-text="Loading message"></lightning-spinner></div>
+        </template>
+        <template lwc:elseif={loadError}>
+            <div class="slds-p-around_large">
+                <p class="slds-text-heading_small slds-text-color_error">The message could not be loaded</p>
+                <p class="slds-m-top_x-small">{loadError}</p>
+                <lightning-button class="slds-m-top_medium" label="Back to list" icon-name="utility:back" onclick={handleBack}></lightning-button>
+            </div>
+        </template>
+        <template lwc:else>
+            <header class="cc-editor__header">
+                <lightning-button-icon icon-name="utility:back" alternative-text="Back to list" title="Back to list" onclick={handleBack}></lightning-button-icon>
+                <div class="cc-editor__title">
+                    <h2 class="slds-text-heading_medium slds-truncate" title={title}>{title}</h2>
+                    <div class="cc-editor__badges">
+                        <span class="slds-badge">{statusLabel}</span>
+                        <span class="slds-badge slds-badge_lightest">{versionLabel}</span>
+                        <template lwc:if={dirty}><span class="slds-badge slds-theme_warning">Unsaved changes</span></template>
+                    </div>
+                </div>
+                <lightning-button label="Save" variant="brand" icon-name="utility:save" disabled={saveDisabled} onclick={handleSave}></lightning-button>
+            </header>
+            <template lwc:if={isLocked}>
+                <div class="slds-notify slds-notify_alert slds-alert_warning cc-editor__alert" role="status">{lockMessage}</div>
+            </template>
+
+            <div class="cc-editor__workspace">
+                <aside class="cc-editor__left">
+                    <template lwc:if={isMulti}>
+                        <h3 class="slds-text-title_caps slds-m-bottom_x-small">Content blocks</h3>
+                        <template lwc:if={hasPalette}>
+                            <template for:each={palette} for:item="entry">
+                                <button key={entry.id} class="cc-editor__palette-item" data-id={entry.id} disabled={isLocked} onclick={handleAddBlock}>
+                                    <lightning-icon icon-name="utility:add" size="x-small"></lightning-icon>
+                                    <span class="cc-editor__palette-text">
+                                        <span class="slds-truncate">{entry.name}</span>
+                                        <span class="slds-text-body_small slds-text-color_weak slds-truncate">{entry.typesLabel}</span>
+                                    </span>
+                                </button>
+                            </template>
+                        </template>
+                        <template lwc:else>
+                            <p class="slds-text-body_small slds-text-color_weak">The template has no Active content blocks.</p>
+                        </template>
+
+                        <h3 class="slds-text-title_caps slds-m-top_medium slds-m-bottom_x-small">Message canvas</h3>
+                        <template lwc:if={hasBlocks}>
+                            <template for:each={canvas} for:item="entry">
+                                <div key={entry.key} class={entry.className} data-index={entry.index} onclick={handleSelectBlock} role="button" tabindex="0">
+                                    <span class="cc-editor__canvas-name slds-truncate">{entry.name}</span>
+                                    <template lwc:if={entry.errorCount}><span class="slds-badge slds-theme_error">{entry.errorCount}</span></template>
+                                    <template lwc:if={entry.isLegacy}><span class="slds-badge">Legacy</span></template>
+                                    <lightning-button-icon icon-name="utility:arrowup" variant="bare" size="small" alternative-text="Move up" data-index={entry.index} data-offset="-1" disabled={entry.isFirst} onclick={handleMoveBlock}></lightning-button-icon>
+                                    <lightning-button-icon icon-name="utility:arrowdown" variant="bare" size="small" alternative-text="Move down" data-index={entry.index} data-offset="1" disabled={entry.isLast} onclick={handleMoveBlock}></lightning-button-icon>
+                                    <lightning-button-icon icon-name="utility:delete" variant="bare" size="small" alternative-text="Remove block" data-index={entry.index} disabled={isLocked} onclick={handleRemoveBlock}></lightning-button-icon>
+                                </div>
+                            </template>
+                        </template>
+                        <template lwc:else>
+                            <p class="slds-text-body_small slds-text-color_weak">Add content blocks from the list above.</p>
+                        </template>
+                    </template>
+                    <template lwc:else>
+                        <p class="slds-text-body_small slds-text-color_weak">Single-block template: edit the template content on the right.</p>
+                    </template>
+                </aside>
+
+                <section class="cc-editor__settings">
+                    <template lwc:if={selectedBlock}>
+                        <template lwc:if={selectedIsLegacy}>
+                            <div class="slds-notify slds-notify_alert slds-alert_warning cc-editor__alert" role="status">
+                                This block was migrated from the previous editor and has no template block binding. Remove it and add a block from the template to edit it here.
+                            </div>
+                        </template>
+                        <template lwc:if={hasSelectedErrors}>
+                            <div class="slds-notify slds-notify_alert slds-alert_error cc-editor__alert" role="alert">
+                                <ul class="slds-list_dotted slds-text-align_left">
+                                    <template for:each={selectedErrors} for:item="error"><li key={error.key}>{error.message}</li></template>
+                                </ul>
+                            </div>
+                        </template>
+                        <template lwc:if={hasSectionOptions}>
+                            <lightning-combobox label="Section settings" options={sectionOptions} value={activeSectionId} onchange={handleSectionPick}></lightning-combobox>
+                            <div class="slds-m-top_small">
+                                <c-cc-section-settings-editor mode="content" section={activeSection} value={activeSectionSettings} disabled={isLocked} onchange={handleSectionSettings}></c-cc-section-settings-editor>
+                            </div>
+                        </template>
+                        <template for:each={columns} for:item="column">
+                            <div key={column.key} class="cc-editor__column">
+                                <div class="cc-editor__column-header">
+                                    <span class="slds-text-title_bold">{column.label}</span>
+                                    <template lwc:if={column.canAdd}>
+                                        <lightning-button-menu alternative-text="Add content" label="Add content" icon-name="utility:add" menu-alignment="right" data-row={column.rowIndex} data-column={column.columnIndex} disabled={isLocked} onselect={handleAddItem}>
+                                            <template for:each={column.addTypes} for:item="option">
+                                                <lightning-menu-item key={option.value} label={option.label} value={option.value}></lightning-menu-item>
+                                            </template>
+                                        </lightning-button-menu>
+                                    </template>
+                                </div>
+                                <template for:each={column.items} for:item="entry">
+                                    <div key={entry.key} class="cc-editor__item">
+                                        <div class="cc-editor__item-header">
+                                            <span class="slds-text-body_small slds-text-title_caps">{entry.title}</span>
+                                            <span>
+                                                <lightning-button-icon icon-name="utility:arrowup" variant="bare" alternative-text="Move up" data-row={column.rowIndex} data-column={column.columnIndex} data-item={entry.itemIndex} data-offset="-1" disabled={entry.isFirst} onclick={handleMoveItem}></lightning-button-icon>
+                                                <lightning-button-icon icon-name="utility:arrowdown" variant="bare" alternative-text="Move down" data-row={column.rowIndex} data-column={column.columnIndex} data-item={entry.itemIndex} data-offset="1" disabled={entry.isLast} onclick={handleMoveItem}></lightning-button-icon>
+                                                <lightning-button-icon icon-name="utility:delete" variant="bare" alternative-text="Remove content" data-row={column.rowIndex} data-column={column.columnIndex} data-item={entry.itemIndex} disabled={isLocked} onclick={handleRemoveItem}></lightning-button-icon>
+                                            </span>
+                                        </div>
+                                        <c-cc-content-item-editor item={entry.item} binding={entry.binding} disabled={isLocked} data-row={column.rowIndex} data-column={column.columnIndex} data-item={entry.itemIndex} onchange={handleItemChange}></c-cc-content-item-editor>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </template>
+                    <template lwc:else>
+                        <p class="slds-text-color_weak slds-p-around_medium">Select or add a content block to edit it.</p>
+                    </template>
+                </section>
+
+                <section class="cc-editor__preview">
+                    <template lwc:if={previewRender}>
+                        <c-cc-template-preview title="Preview" render={previewRender}></c-cc-template-preview>
+                    </template>
+                </section>
+            </div>
+        </template>
+    </div>
+</template>

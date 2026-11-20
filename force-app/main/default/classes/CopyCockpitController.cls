@@ -446,7 +446,7 @@ public with sharing class CopyCockpitController {
                    Offer__c, Offer__r.Name,
                    Product_Family__c, Product_Family__r.Name,
                    Campaign__c, Campaign__r.Name,
-                   Source_Template__c, Source_Template__r.Name,
+                   Source_Template__c, Source_Template__r.Name, Source_Template__r.Definition_JSON__c,
                    Canvas_Blocks_JSON__c,
                    MCE_Last_Modified_By__c, MCE_Updated_At__c,
                    LastModifiedBy__c, LastModifiedAt__c, UpdatedAt__c,
