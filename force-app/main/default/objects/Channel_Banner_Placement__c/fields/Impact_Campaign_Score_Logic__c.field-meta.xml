@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Impact_Campaign_Score_Logic__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>For banner placeholders: same flag as on Topic records. Campaigns associated with placeholders marked with this flag are considered for the Customer Propensity Recount Logic in the Data360 transformation.</description>
+    <inlineHelpText>All Campaigns Associated with Placeholders marked with this flag will be considered for Customer Propensity Recount Logic in Data360 Transformation</inlineHelpText>
+    <label>Impact Campaign Score Logic</label>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>

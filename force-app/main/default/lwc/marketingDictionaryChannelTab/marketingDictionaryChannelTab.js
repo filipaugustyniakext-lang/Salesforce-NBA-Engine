@@ -39,7 +39,9 @@ const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Satu
 
 let _key = 0;
 const newKey = () => String(++_key);
-const newPlRow = () => ({ key: newKey(), placeholderId: '', appScreen: '', bannerTypeId: '', description: '' });
+const IMPACT_SCORE_LOGIC_HELP =
+    'All Campaigns Associated with Placeholders marked with this flag will be considered for Customer Propensity Recount Logic in Data360 Transformation';
+const newPlRow = () => ({ key: newKey(), placeholderId: '', appScreen: '', bannerTypeId: '', description: '', impact: false });
 const newITRow = (i) => ({ key: newKey(), name: '', label: `Target ${i}` });
 const newIntentRow = () => ({ key: newKey(), intentValue: '', intentTargetId: '' });
 
@@ -61,7 +63,7 @@ const EMPTY_DAY_RULE = (day, channelId) => ({
     Blocked_From_Hour__c: 22,
     Blocked_To_Hour__c: 8
 });
-const EMPTY_PLACEMENT = () => ({ Name: '', App_Screen__c: '', Banner_Type__c: null, Position_Description__c: '', Channel__c: null });
+const EMPTY_PLACEMENT = () => ({ Name: '', App_Screen__c: '', Banner_Type__c: null, Position_Description__c: '', Channel__c: null, Impact_Campaign_Score_Logic__c: false });
 
 // Per-channel UI state (not part of wire data)
 const defaultChState = () => ({
@@ -469,6 +471,7 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
         const v = this.editChannel.Channel_Icon__c?.trim();
         return v && VALID_ICON.test(v) ? v : null;
     }
+    get impactScoreLogicHelp() { return IMPACT_SCORE_LOGIC_HELP; }
     get isEditOnePlacementMode() { return this._placementMode === 'editOne'; }
     get isEditAllPlacementMode() { return this._placementMode === 'editAll'; }
     get isAddPlacementMode() { return this._placementMode === 'addRows'; }
@@ -829,7 +832,8 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
             placeholderId: p.Name || '',
             appScreen: p.App_Screen__c || '',
             bannerTypeId: p.Banner_Type__c || '',
-            description: p.Position_Description__c || ''
+            description: p.Position_Description__c || '',
+            impact: p.Impact_Campaign_Score_Logic__c === true
         }));
         if (!this.placementRows.length) this.placementRows = [newPlRow()];
         this.isPlacementModalOpen = true;
@@ -837,6 +841,16 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
 
     handlePlacementFieldChange(event) {
         this.editPlacement = { ...this.editPlacement, [event.currentTarget.dataset.field]: event.detail.value || null };
+    }
+
+    handlePlacementImpactChange(event) {
+        this.editPlacement = { ...this.editPlacement, Impact_Campaign_Score_Logic__c: event.target.checked === true };
+    }
+
+    handlePlacementRowImpactChange(event) {
+        const key = event.currentTarget.dataset.key;
+        const checked = event.target.checked === true;
+        this.placementRows = this.placementRows.map(r => r.key === key ? { ...r, impact: checked } : r);
     }
 
     handlePlacementRowChange(event) {
@@ -869,6 +883,7 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
                     App_Screen__c: r.appScreen.trim() || null,
                     Banner_Type__c: r.bannerTypeId || null,
                     Position_Description__c: r.description.trim() || null,
+                    Impact_Campaign_Score_Logic__c: r.impact === true,
                     Channel__c: this._activeBannerChannelId
                 }));
                 await saveBannerPlacementsBulk({ placementsJson: JSON.stringify(records) });

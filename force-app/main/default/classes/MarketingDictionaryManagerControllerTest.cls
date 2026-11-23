@@ -617,4 +617,31 @@ private class MarketingDictionaryManagerControllerTest {
         });
         System.assert(message != null && message.contains('at most 255'), message);
     }
+
+    @IsTest
+    static void bannerPlaceholdersCarryTheirImpactCampaignScoreLogicFlag() {
+        Marketing_Dictionary__c channel = new Marketing_Dictionary__c(
+            Name = 'Banner',
+            RecordTypeId = Schema.SObjectType.Marketing_Dictionary__c.getRecordTypeInfosByDeveloperName().get('Channel').getRecordTypeId()
+        );
+        insert channel;
+        Id savedId = MarketingDictionaryManagerController.saveBannerPlacement(JSON.serialize(new Channel_Banner_Placement__c(
+            Name = 'PH_HOME_MAIN', Channel__c = channel.Id, Impact_Campaign_Score_Logic__c = true
+        )));
+        MarketingDictionaryManagerController.saveBannerPlacementsBulk(JSON.serialize(new List<Channel_Banner_Placement__c>{
+            new Channel_Banner_Placement__c(Name = 'PH_HOME_TOP', Channel__c = channel.Id)
+        }));
+
+        Map<String, Boolean> flags = new Map<String, Boolean>();
+        for (Marketing_Dictionary__c record : MarketingDictionaryManagerController.getChannelRecords()) {
+            if (record.Id == channel.Id) {
+                for (Channel_Banner_Placement__c placement : record.Channel_Banner_Placements__r) {
+                    flags.put(placement.Name, placement.Impact_Campaign_Score_Logic__c);
+                }
+            }
+        }
+        System.assertNotEquals(null, savedId);
+        System.assertEquals(true, flags.get('PH_HOME_MAIN'));
+        System.assertEquals(false, flags.get('PH_HOME_TOP'));
+    }
 }

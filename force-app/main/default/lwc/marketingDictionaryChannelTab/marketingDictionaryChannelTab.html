@@ -294,6 +294,13 @@
                                                                 </div>
                                                             </th>
                                                             <th><div class="slds-truncate">Position</div></th>
+                                                            <th class="placement-col-flag">
+                                                                <div class="placement-th-inline">
+                                                                    <span class="slds-truncate" title="Impact Campaign Score Logic">Score Logic</span>
+                                                                    <lightning-helptext class="slds-m-left_xx-small" content={impactScoreLogicHelp}>
+                                                                    </lightning-helptext>
+                                                                </div>
+                                                            </th>
                                                             <th class="action-col"></th>
                                                         </tr>
                                                     </thead>
@@ -304,6 +311,13 @@
                                                                 <td><div class="slds-truncate slds-text-body_small" title={pl.App_Screen__c}>{pl.App_Screen__c}</div></td>
                                                                 <td><div class="slds-truncate slds-text-body_small">{pl.bannerTypeName}</div></td>
                                                                 <td><div class="placement-desc slds-text-body_small">{pl.Position_Description__c}</div></td>
+                                                                <td class="placement-col-flag">
+                                                                    <template lwc:if={pl.Impact_Campaign_Score_Logic__c}>
+                                                                        <lightning-icon icon-name="utility:check" size="xx-small"
+                                                                            alternative-text="Yes" title="Impacts campaign score logic" class="placement-check-icon">
+                                                                        </lightning-icon>
+                                                                    </template>
+                                                                </td>
                                                                 <td class="action-col">
                                                                     <lightning-button-icon icon-name="utility:edit" variant="border-filled" size="x-small"
                                                                         alternative-text="Edit" title="Edit"
@@ -661,6 +675,15 @@
                                     data-field="Position_Description__c" onchange={handlePlacementFieldChange}>
                                 </lightning-textarea>
                             </div>
+                            <div class="slds-col slds-size_1-of-1 slds-m-top_small">
+                                <div class="placement-flag-field">
+                                    <lightning-input type="checkbox" label="Impact Campaign Score Logic"
+                                        checked={editPlacement.Impact_Campaign_Score_Logic__c}
+                                        onchange={handlePlacementImpactChange}>
+                                    </lightning-input>
+                                    <lightning-helptext content={impactScoreLogicHelp}></lightning-helptext>
+                                </div>
+                            </div>
                         </div>
                     </template>
                     <template lwc:else>
@@ -684,7 +707,7 @@
                                         onchange={handlePlacementRowChange}>
                                     </lightning-input>
                                 </div>
-                                <div class="slds-col slds-size_3-of-12">
+                                <div class="slds-col slds-size_2-of-12">
                                     <lightning-combobox label="Banner Type" value={row.bannerTypeId}
                                         options={activeBannerTypeOptions} placeholder="Select..."
                                         data-key={row.key} data-rowfield="bannerTypeId"
@@ -696,6 +719,12 @@
                                         placeholder="Where on screen..."
                                         data-key={row.key} data-rowfield="description"
                                         onchange={handlePlacementRowChange}>
+                                    </lightning-input>
+                                </div>
+                                <div class="slds-col slds-size_2-of-12">
+                                    <lightning-input type="checkbox" label="Score Logic" checked={row.impact}
+                                        field-level-help={impactScoreLogicHelp}
+                                        data-key={row.key} onchange={handlePlacementRowImpactChange}>
                                     </lightning-input>
                                 </div>
                                 <div class="slds-col slds-no-flex slds-p-bottom_xx-small">
