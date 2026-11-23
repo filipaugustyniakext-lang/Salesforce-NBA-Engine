@@ -36,6 +36,40 @@ describe('describeMarked', () => {
     });
 });
 
+describe('c-cc-template-preview chrome', () => {
+    afterEach(() => {
+        while (document.body.firstChild) document.body.removeChild(document.body.firstChild);
+    });
+
+    const frame = element => element.shadowRoot.querySelector('.cc-preview-frame');
+    const button = (element, title) => element.shadowRoot.querySelector(`button[title="${title}"]`);
+
+    it('renders the mobile mockup by default and switches device and theme with icon buttons', async () => {
+        const calls = [];
+        const element = await mount({ inspectable: false, renderFn: (device, theme) => { calls.push(`${device}/${theme}`); return HTML; } });
+        expect(frame(element).className).toContain('cc-preview-frame_mobile');
+        expect(frame(element).className).toContain('cc-preview-frame_light');
+        expect(element.shadowRoot.querySelector('.cc-preview-frame__browser-bar')).toBeNull();
+        expect(calls[0]).toBe('mobile/light');
+        expect(button(element, 'Mobile preview').className).toContain('slds-is-selected');
+        expect(button(element, 'Mobile preview').querySelector('lightning-icon').iconName).toBe('utility:phone_portrait');
+        expect(button(element, 'Dark mode').querySelector('lightning-icon').iconName).toBe('custom:custom10');
+        expect(element.shadowRoot.querySelector('lightning-radio-group')).toBeNull();
+
+        button(element, 'Desktop preview').click();
+        await flush();
+        expect(frame(element).className).toContain('cc-preview-frame_desktop');
+        expect(element.shadowRoot.querySelector('.cc-preview-frame__browser-bar')).not.toBeNull();
+        expect(button(element, 'Desktop preview').getAttribute('aria-pressed')).toBe('true');
+        expect(calls[calls.length - 1]).toBe('desktop/light');
+
+        button(element, 'Dark mode').click();
+        await flush();
+        expect(frame(element).className).toContain('cc-preview-frame_dark');
+        expect(calls[calls.length - 1]).toBe('desktop/dark');
+    });
+});
+
 describe('c-cc-template-preview inspect mode', () => {
     let original;
     const scrolled = [];

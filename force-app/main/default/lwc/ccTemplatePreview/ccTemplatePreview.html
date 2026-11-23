@@ -2,9 +2,27 @@
     <div class="cc-preview-panel">
         <div class="cc-preview-panel__header">
             <h3 class="slds-text-heading_small">{heading}</h3>
-            <div class="cc-preview-panel__toggles">
-                <lightning-radio-group label="Device" variant="label-hidden" type="button" options={deviceOptions} value={device} onchange={handleDevice}></lightning-radio-group>
-                <lightning-radio-group label="Theme" variant="label-hidden" type="button" options={themeOptions} value={theme} onchange={handleTheme}></lightning-radio-group>
+            <div class="cc-preview-panel__toggles" role="toolbar" aria-label="Preview options">
+                <div class="slds-button-group" role="group" aria-label="Device">
+                    <button class={desktopClass} type="button" title="Desktop preview" aria-pressed={isDesktop} onclick={handleDeviceDesktop}>
+                        <lightning-icon icon-name="utility:desktop" size="x-small" variant={desktopVariant} class="slds-button__icon"></lightning-icon>
+                        <span class="slds-assistive-text">Desktop</span>
+                    </button>
+                    <button class={mobileClass} type="button" title="Mobile preview" aria-pressed={isMobile} onclick={handleDeviceMobile}>
+                        <lightning-icon icon-name="utility:phone_portrait" size="x-small" variant={mobileVariant} class="slds-button__icon"></lightning-icon>
+                        <span class="slds-assistive-text">Mobile</span>
+                    </button>
+                </div>
+                <div class="slds-button-group" role="group" aria-label="Theme">
+                    <button class={lightClass} type="button" title="Light mode" aria-pressed={isLight} onclick={handleThemeLight}>
+                        <lightning-icon icon-name="custom:custom3" size="x-small" variant={lightVariant} class="slds-button__icon cc-preview-panel__theme-icon"></lightning-icon>
+                        <span class="slds-assistive-text">Light</span>
+                    </button>
+                    <button class={darkClass} type="button" title="Dark mode" aria-pressed={isDark} onclick={handleThemeDark}>
+                        <lightning-icon icon-name="custom:custom10" size="x-small" variant={darkVariant} class="slds-button__icon cc-preview-panel__theme-icon"></lightning-icon>
+                        <span class="slds-assistive-text">Dark</span>
+                    </button>
+                </div>
             </div>
         </div>
         <template lwc:if={inspectable}>
@@ -22,7 +40,14 @@
         </template>
         <div class="cc-preview-panel__stage">
             <div class={frameClass}>
-                <div data-preview-host lwc:dom="manual" style="position:relative;"></div>
+                <template lwc:if={isDesktop}>
+                    <div class="cc-preview-frame__browser-bar">
+                        <span class="cc-preview-frame__dot"></span>
+                        <span class="cc-preview-frame__dot"></span>
+                        <span class="cc-preview-frame__dot"></span>
+                    </div>
+                </template>
+                <div class="cc-preview-frame__document" data-preview-host lwc:dom="manual" style="position:relative;"></div>
             </div>
         </div>
     </div>

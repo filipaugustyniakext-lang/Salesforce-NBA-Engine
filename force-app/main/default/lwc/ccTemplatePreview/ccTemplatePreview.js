@@ -18,7 +18,7 @@ export default class CcTemplatePreview extends LightningElement {
     @api heading = 'Preview';
     @api inspectable = false;
     @api inspectScope = 'all';
-    device = 'desktop';
+    device = 'mobile';
     theme = 'light';
     inspectOn = true;
     _render;
@@ -63,18 +63,52 @@ export default class CcTemplatePreview extends LightningElement {
         if (this._frame) cancelAnimationFrame(this._frame);
     }
 
-    get deviceOptions() {
-        return [
-            { label: 'Desktop', value: 'desktop' },
-            { label: 'Mobile', value: 'mobile' }
-        ];
+    get isDesktop() {
+        return this.device === 'desktop';
     }
 
-    get themeOptions() {
-        return [
-            { label: 'Light', value: 'light' },
-            { label: 'Dark', value: 'dark' }
-        ];
+    get isMobile() {
+        return this.device === 'mobile';
+    }
+
+    get isLight() {
+        return this.theme === 'light';
+    }
+
+    get isDark() {
+        return this.theme === 'dark';
+    }
+
+    get desktopClass() {
+        return `slds-button slds-button_icon slds-button_icon-border${this.isDesktop ? ' slds-is-selected' : ''}`;
+    }
+
+    get mobileClass() {
+        return `slds-button slds-button_icon slds-button_icon-border${this.isMobile ? ' slds-is-selected' : ''}`;
+    }
+
+    get lightClass() {
+        return `slds-button slds-button_icon slds-button_icon-border${this.isLight ? ' slds-is-selected' : ''}`;
+    }
+
+    get darkClass() {
+        return `slds-button slds-button_icon slds-button_icon-border${this.isDark ? ' slds-is-selected' : ''}`;
+    }
+
+    get desktopVariant() {
+        return this.isDesktop ? 'inverse' : '';
+    }
+
+    get mobileVariant() {
+        return this.isMobile ? 'inverse' : '';
+    }
+
+    get lightVariant() {
+        return this.isLight ? 'inverse' : '';
+    }
+
+    get darkVariant() {
+        return this.isDark ? 'inverse' : '';
     }
 
     get frameClass() {
@@ -93,14 +127,32 @@ export default class CcTemplatePreview extends LightningElement {
         ];
     }
 
-    handleDevice(event) {
-        this.device = event.detail.value;
+    setDevice(device) {
+        if (device === this.device) return;
+        this.device = device;
         this._stamp = null;
     }
 
-    handleTheme(event) {
-        this.theme = event.detail.value;
+    setTheme(theme) {
+        if (theme === this.theme) return;
+        this.theme = theme;
         this._stamp = null;
+    }
+
+    handleDeviceDesktop() {
+        this.setDevice('desktop');
+    }
+
+    handleDeviceMobile() {
+        this.setDevice('mobile');
+    }
+
+    handleThemeLight() {
+        this.setTheme('light');
+    }
+
+    handleThemeDark() {
+        this.setTheme('dark');
     }
 
     handleInspectToggle(event) {
@@ -199,8 +251,9 @@ export default class CcTemplatePreview extends LightningElement {
         const rect = element.getBoundingClientRect();
         if (!rect.width || !rect.height) return null;
         const box = document.createElement('div');
-        const left = rect.left - hostRect.left;
-        const top = rect.top - hostRect.top;
+        // The host is the scroll container of the device mockup; overlays scroll with its content.
+        const left = rect.left - hostRect.left + host.scrollLeft;
+        const top = rect.top - hostRect.top + host.scrollTop;
         box.style.cssText = `position:absolute;box-sizing:border-box;left:${left}px;top:${top}px;width:${rect.width}px;height:${rect.height}px;`
             + `border:${solid ? '2px solid' : '1px dashed'} ${color};${tint ? `background:${color}22;` : ''}`;
         if (label) {
