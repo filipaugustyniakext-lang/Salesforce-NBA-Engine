@@ -3,7 +3,8 @@ import { scopePreviewDocument, pinPreviewWidths } from 'c/copyTemplatePreview';
 import { describeMarked } from 'c/ccTemplateParser';
 
 const MARKED_SELECTOR = '[data-cc-content], [data-cc-section], [data-cc-region]';
-const KIND_COLORS = { section: '#0176d3', content: '#2e844a', region: '#7f4bc4' };
+const KIND_COLORS = { section: '#0176d3', content: '#2e844a', region: '#7f4bc4', pick: '#dd7a01' };
+const NODE_SELECTOR = '[data-cc-node]';
 
 /**
  * Renders already-merged HTML (see c/ccTemplateRenderer) in a scoped preview host.
@@ -18,6 +19,10 @@ export default class CcTemplatePreview extends LightningElement {
     @api heading = 'Preview';
     @api inspectable = false;
     @api inspectScope = 'all';
+    /** Mark mode is offered when the HTML being shown carries data-cc-node ids (see c/ccElementMarking). */
+    @api markable = false;
+    @api markMode = false;
+    _pickedNode = null;
     device = 'mobile';
     theme = 'light';
     inspectOn = true;
@@ -25,6 +30,7 @@ export default class CcTemplatePreview extends LightningElement {
     _stamp;
     _selectedKey;
     _scrollPending = false;
+    _scrollPickPending = false;
     _frame;
     _hoverElement = null;
     _resizeHandler = () => this.scheduleOverlay();
@@ -46,6 +52,18 @@ export default class CcTemplatePreview extends LightningElement {
         if (key === this._selectedKey) return;
         this._selectedKey = key;
         this._scrollPending = !!key;
+    }
+
+    /** Node id (data-cc-node) of the element being marked; highlighted solid orange. */
+    @api
+    get pickedNode() {
+        return this._pickedNode;
+    }
+    set pickedNode(node) {
+        const next = node === undefined ? null : node;
+        if (next === this._pickedNode) return;
+        this._pickedNode = next;
+        this._scrollPickPending = next !== null;
     }
 
     @api
@@ -119,11 +137,24 @@ export default class CcTemplatePreview extends LightningElement {
         return !!this.inspectable && this.inspectOn;
     }
 
+    get markActive() {
+        return this.inspectActive && !!this.markable && !!this.markMode;
+    }
+
+    get showMarkToggle() {
+        return this.inspectActive && !!this.markable;
+    }
+
+    get hintText() {
+        return this.markActive ? 'Click any element to tell the processor what it is.' : 'Hover to identify, click to edit.';
+    }
+
     get legend() {
         return [
             { key: 'section', label: 'Section', style: `background:${KIND_COLORS.section}` },
             { key: 'content', label: 'Content', style: `background:${KIND_COLORS.content}` },
-            { key: 'region', label: 'Region', style: `background:${KIND_COLORS.region}` }
+            { key: 'region', label: 'Region', style: `background:${KIND_COLORS.region}` },
+            ...(this.markActive ? [{ key: 'pick', label: 'Selected', style: `background:${KIND_COLORS.pick}` }] : [])
         ];
     }
 
@@ -157,6 +188,10 @@ export default class CcTemplatePreview extends LightningElement {
 
     handleInspectToggle(event) {
         this.inspectOn = event.target.checked;
+    }
+
+    handleMarkToggle(event) {
+        this.dispatchEvent(new CustomEvent('modechange', { detail: { mark: event.target.checked } }));
     }
 
     renderedCallback() {
@@ -198,6 +233,19 @@ export default class CcTemplatePreview extends LightningElement {
         return this.inspectScope !== 'blocks' || !!element.closest('[data-cc-region="blocks"]');
     }
 
+    /** In mark mode any element that has a node id can be hovered or picked, not only marked ones. */
+    elementAt(target) {
+        let element = target && target.closest ? target.closest(NODE_SELECTOR) : null;
+        while (element && !this.inScope(element)) {
+            element = element.parentElement ? element.parentElement.closest(NODE_SELECTOR) : null;
+        }
+        return element;
+    }
+
+    targetAt(target) {
+        return this.markActive ? this.elementAt(target) : this.markedAt(target);
+    }
+
     markedAt(target) {
         let element = target && target.closest ? target.closest(MARKED_SELECTOR) : null;
         while (element && !this.inScope(element)) {
@@ -209,7 +257,7 @@ export default class CcTemplatePreview extends LightningElement {
     handleMove(event) {
         if (!this.inspectActive) return;
         const host = event.currentTarget;
-        const element = this.markedAt(event.target);
+        const element = this.targetAt(event.target);
         host.style.cursor = element ? 'pointer' : '';
         if (element !== this._hoverElement) this.drawHover(element);
     }
@@ -218,6 +266,18 @@ export default class CcTemplatePreview extends LightningElement {
         if (!this.inspectActive) return;
         const link = event.target && event.target.closest ? event.target.closest('a') : null;
         if (link) event.preventDefault();
+        if (this.markActive) {
+            const picked = this.elementAt(event.target);
+            if (!picked) return;
+            event.preventDefault();
+            event.stopPropagation();
+            const node = Number(picked.getAttribute('data-cc-node'));
+            this._pickedNode = node;
+            this._scrollPickPending = false;
+            this.scheduleOverlay();
+            this.dispatchEvent(new CustomEvent('pick', { detail: { node } }));
+            return;
+        }
         const element = this.markedAt(event.target);
         const info = describeMarked(element);
         if (!info) return;
@@ -291,6 +351,18 @@ export default class CcTemplatePreview extends LightningElement {
             firstSelected.scrollIntoView({ block: 'nearest', inline: 'nearest' });
         }
         this._scrollPending = false;
+        if (this.markActive && this._pickedNode !== null) {
+            let firstPicked = null;
+            host.querySelectorAll(`[data-cc-node="${this._pickedNode}"]`).forEach(element => {
+                if (!this.inScope(element)) return;
+                const box = this.box(host, element, { color: KIND_COLORS.pick, solid: true, tint: true });
+                if (!box) return;
+                layer.appendChild(box);
+                if (!firstPicked) firstPicked = element;
+            });
+            if (firstPicked && this._scrollPickPending) firstPicked.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        }
+        this._scrollPickPending = false;
     }
 
     drawHover(element) {
@@ -301,7 +373,18 @@ export default class CcTemplatePreview extends LightningElement {
         this._hoverElement = element;
         if (!element) return;
         const info = describeMarked(element);
-        const box = info && this.box(host, element, { color: KIND_COLORS[info.kind], solid: true, tint: true, label: info.label });
+        let box;
+        if (this.markActive) {
+            const tag = element.tagName.toLowerCase();
+            box = this.box(host, element, {
+                color: info ? KIND_COLORS[info.kind] : KIND_COLORS.pick,
+                solid: true,
+                tint: true,
+                label: info ? `<${tag}> · ${info.label}` : `<${tag}> · click to mark`
+            });
+        } else if (info) {
+            box = this.box(host, element, { color: KIND_COLORS[info.kind], solid: true, tint: true, label: info.label });
+        }
         if (box) layer.appendChild(box);
     }
 }

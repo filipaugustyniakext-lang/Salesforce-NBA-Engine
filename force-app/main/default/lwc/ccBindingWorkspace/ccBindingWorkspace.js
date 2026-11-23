@@ -1,5 +1,6 @@
 import { LightningElement, api } from 'lwc';
-import { parseTemplate } from 'c/ccTemplateParser';
+import { parseTemplate, describeMarked } from 'c/ccTemplateParser';
+import { inspectNode, applyMarking, nodeElement, isUnmarked } from 'c/ccElementMarking';
 import { validateDefinition, CONTENT_TYPE_LABELS, clone } from 'c/ccTemplateSchema';
 
 const LEVEL_ICONS = { container: 'utility:layout', row: 'utility:rows', column: 'utility:column' };
@@ -25,6 +26,9 @@ export default class CcBindingWorkspace extends LightningElement {
     warnings = [];
     selectedKey;
     fileName;
+    pickedNode = null;
+    markerErrors = [];
+    _markerCache = { html: null, node: null, info: null };
     _templateMode = 'multi';
 
     /** Key of the selected list item (section:id, slot:key, region:id); set by the preview or the list. */
@@ -36,6 +40,19 @@ export default class CcBindingWorkspace extends LightningElement {
         if ((key || null) === this.selectedKey) return;
         this.selectedKey = key || null;
         this._revealPending = !!key;
+    }
+
+    /** Node index (see c/ccElementMarking) of the element picked in the preview's mark mode. */
+    @api
+    get pickedElement() {
+        return this.pickedNode;
+    }
+    set pickedElement(node) {
+        const next = node === undefined ? null : node;
+        if (next === this.pickedNode) return;
+        this.pickedNode = next;
+        this.markerErrors = [];
+        this._revealPending = next !== null;
     }
 
     renderedCallback() {
@@ -208,7 +225,71 @@ export default class CcBindingWorkspace extends LightningElement {
 
     handleSelect(event) {
         this.selectedKey = event.currentTarget.dataset.key;
+        this.setPicked(null);
         this.dispatchEvent(new CustomEvent('select', { detail: { key: this.selectedKey } }));
+    }
+
+    // ─── Guided marking ──────────────────────────────────────────────────────
+
+    setPicked(node) {
+        this.pickedNode = node;
+        this.markerErrors = [];
+        this.dispatchEvent(new CustomEvent('pick', { detail: { node } }));
+    }
+
+    get markerInfo() {
+        if (this.pickedNode === null || !this.html) return null;
+        const cache = this._markerCache;
+        if (cache.html !== this.html || cache.node !== this.pickedNode) {
+            this._markerCache = { html: this.html, node: this.pickedNode, info: inspectNode(this.html, this.pickedNode) };
+        }
+        return this._markerCache.info;
+    }
+
+    get markerKind() {
+        return this.kind;
+    }
+
+    get existingKeys() {
+        return (this.definition?.contentSlots || []).map(slot => slot.bindingKey);
+    }
+
+    get isRawHtml() {
+        return !!this.html && isUnmarked(this.definition);
+    }
+
+    handleMarkerPick(event) {
+        this.setPicked(event.detail.node);
+    }
+
+    handleMarkerClose() {
+        this.setPicked(null);
+    }
+
+    handleMarkerApply(event) {
+        this.applyMarkingChange(event.detail.marking);
+    }
+
+    handleMarkerRemove() {
+        this.applyMarkingChange({ role: 'none' });
+    }
+
+    applyMarkingChange(marking) {
+        const result = applyMarking(this.html, this.pickedNode, marking, { kind: this.kind });
+        if (result.errors.length) {
+            this.markerErrors = result.errors;
+            return;
+        }
+        this.html = result.html;
+        this.reparse();
+        let key = null;
+        if (marking.role !== 'none') {
+            const element = nodeElement(this.html, result.markedNode);
+            key = describeMarked(element)?.key || null;
+        }
+        this.selectedKey = key;
+        this.setPicked(null);
+        if (key) this.dispatchEvent(new CustomEvent('select', { detail: { key } }));
     }
 
     handleSectionChange(event) {

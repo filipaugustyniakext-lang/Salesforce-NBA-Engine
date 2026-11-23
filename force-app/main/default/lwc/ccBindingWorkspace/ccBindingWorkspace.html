@@ -35,6 +35,11 @@
         </template>
 
         <template lwc:if={hasHtml}>
+            <template lwc:if={isRawHtml}>
+                <div class="slds-notify slds-notify_alert slds-alert_info cc-workspace__alert" role="status">
+                    <span>No bindings were found in this file. Turn on <strong>Mark elements</strong> in the preview and click an element to tell the processor what it is: start with the outer layout (container, rows, columns), then the content inside.</span>
+                </div>
+            </template>
             <div class="cc-workspace__body">
                 <nav class="cc-workspace__nav" aria-label="Bindings">
                     <template for:each={navItems} for:item="group">
@@ -56,6 +61,10 @@
                     </template>
                 </nav>
                 <div class="cc-workspace__editor">
+                    <template lwc:if={markerInfo}>
+                        <c-cc-element-marker info={markerInfo} kind={markerKind} template-mode={templateMode} existing-keys={existingKeys} errors={markerErrors} onapply={handleMarkerApply} onremove={handleMarkerRemove} onclose={handleMarkerClose} onpick={handleMarkerPick}></c-cc-element-marker>
+                    </template>
+                    <template lwc:else>
                     <template lwc:if={selectedSection}>
                         <c-cc-section-settings-editor mode="definition" section={selectedSection} disabled={disabled} onchange={handleSectionChange}></c-cc-section-settings-editor>
                     </template>
@@ -67,7 +76,8 @@
                         <p class="slds-text-body_small slds-m-top_x-small">{regionDescription}</p>
                     </template>
                     <template lwc:if={showEmptySelection}>
-                        <p class="slds-text-color_weak">Select a region, section or content binding to configure its defaults, presets and editor options.</p>
+                        <p class="slds-text-color_weak">Select a region, section or content binding to configure its defaults, presets and editor options. To mark more of the file, turn on Mark elements in the preview and click an element.</p>
+                    </template>
                     </template>
                 </div>
             </div>

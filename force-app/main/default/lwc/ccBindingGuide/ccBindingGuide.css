@@ -44,3 +44,9 @@
     font-size: 0.75rem;
     white-space: pre;
 }
+
+.cc-guide__tip {
+    padding: 0.5rem 0.75rem;
+    border-left: 3px solid #0176d3;
+    background: #eef4ff;
+}

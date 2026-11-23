@@ -5,7 +5,10 @@
             <span class="slds-text-title_bold">{title}</span>
         </summary>
         <div class="cc-guide__body">
-            <ol class="slds-list_ordered cc-guide__steps">
+            <div class="cc-guide__tip slds-text-body_small">
+                <strong>No markup in your file?</strong> You do not have to add the attributes yourself. Upload the raw HTML, turn on <strong>Mark elements</strong> in the preview, then click an element and say what it is. The wizard writes the attributes for you. The reference below explains what they mean.
+            </div>
+            <ol class="slds-list_ordered cc-guide__steps slds-m-top_small">
                 <li>Build one <strong>HTML file</strong> and put all CSS in a <code>&lt;style&gt;</code> tag. External stylesheets and scripts are rejected.</li>
                 <li>Mark the structure with <code>data-cc-section</code>: <strong>container &gt; row &gt; column</strong>. Content sits inside a column.</li>
                 <li>Say which settings marketers may change with <code>data-cc-bind</code>. The CSS must support them: <code>.cc-hide-dsk</code> and <code>.cc-hide-mob</code> for hiding, <code>.cc-stack-mob</code> for mobile column order.</li>

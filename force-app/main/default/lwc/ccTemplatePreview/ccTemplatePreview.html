@@ -28,13 +28,16 @@
         <template lwc:if={inspectable}>
             <div class="cc-preview-panel__inspect">
                 <lightning-input type="toggle" label="Inspect bindings" checked={inspectOn} message-toggle-active="" message-toggle-inactive="" onchange={handleInspectToggle}></lightning-input>
+                <template lwc:if={showMarkToggle}>
+                    <lightning-input type="toggle" label="Mark elements" checked={markMode} message-toggle-active="" message-toggle-inactive="" onchange={handleMarkToggle}></lightning-input>
+                </template>
                 <template lwc:if={inspectActive}>
                     <ul class="cc-preview-panel__legend">
                         <template for:each={legend} for:item="item">
                             <li key={item.key}><span class="cc-preview-panel__swatch" style={item.style}></span>{item.label}</li>
                         </template>
                     </ul>
-                    <span class="slds-text-body_small slds-text-color_weak">Hover to identify, click to edit.</span>
+                    <span class="slds-text-body_small slds-text-color_weak">{hintText}</span>
                 </template>
             </div>
         </template>

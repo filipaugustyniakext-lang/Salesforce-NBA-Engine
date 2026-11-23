@@ -12,6 +12,10 @@ function flush() {
 }
 
 describe('c-cc-binding-workspace', () => {
+    beforeAll(() => {
+        Element.prototype.scrollIntoView = jest.fn();
+    });
+
     afterEach(() => {
         while (document.body.firstChild) document.body.removeChild(document.body.firstChild);
     });
@@ -56,6 +60,52 @@ describe('c-cc-binding-workspace', () => {
         expect(guide.kind).toBe('shell');
         expect(guide.open).toBe(true);
         expect(element.shadowRoot.querySelector('c-cc-template-preview')).toBeNull();
+    });
+
+    it('guides marking of raw HTML: pick, apply, and the lists update', async () => {
+        const raw = '<table><tr><td><p>Hello world</p><img src="a.png" alt="Hero"></td></tr></table>';
+        const element = createElement('c-cc-binding-workspace', { is: CcBindingWorkspace });
+        element.kind = 'block';
+        element.source = { html: raw, definition: null };
+        const events = [];
+        ['change', 'pick', 'select'].forEach(name => element.addEventListener(name, event => events.push([name, event.detail])));
+        document.body.appendChild(element);
+        await flush();
+        expect(element.shadowRoot.textContent).toContain('No bindings were found in this file');
+
+        element.pickedElement = 5;
+        await flush();
+        const marker = element.shadowRoot.querySelector('c-cc-element-marker');
+        expect(marker.info.tag).toBe('img');
+
+        marker.dispatchEvent(new CustomEvent('apply', { detail: { marking: { role: 'content', contentType: 'image', key: 'hero' } } }));
+        await flush();
+        expect(element.shadowRoot.querySelector('c-cc-element-marker')).toBeNull();
+        expect(element.shadowRoot.textContent).not.toContain('No bindings were found in this file');
+        const change = events.filter(([name]) => name === 'change').pop()[1];
+        expect(change.html).toContain('data-cc-content="image"');
+        expect(change.definition.contentSlots.map(slot => slot.bindingKey)).toEqual(['hero']);
+        expect(events.filter(([name]) => name === 'select').pop()[1]).toEqual({ key: 'slot:hero' });
+        expect(events.filter(([name]) => name === 'pick').pop()[1]).toEqual({ node: null });
+        expect(element.activeKey).toBe('slot:hero');
+    });
+
+    it('keeps the panel open and shows the problem when a marking is invalid', async () => {
+        const element = createElement('c-cc-binding-workspace', { is: CcBindingWorkspace });
+        element.kind = 'block';
+        element.source = { html: '<table><tr><td><p>Hello</p></td></tr></table>', definition: null };
+        document.body.appendChild(element);
+        await flush();
+        element.pickedElement = 4;
+        await flush();
+        const marker = element.shadowRoot.querySelector('c-cc-element-marker');
+        marker.dispatchEvent(new CustomEvent('apply', { detail: { marking: { role: 'content', contentType: 'image', key: 'pic' } } }));
+        await flush();
+        expect(element.shadowRoot.querySelector('c-cc-element-marker').errors[0]).toContain('must be an <img>');
+
+        element.shadowRoot.querySelector('c-cc-element-marker').dispatchEvent(new CustomEvent('close'));
+        await flush();
+        expect(element.shadowRoot.querySelector('c-cc-element-marker')).toBeNull();
     });
 
     it('shows parse errors for invalid HTML', async () => {

@@ -70,6 +70,79 @@ describe('c-cc-template-preview chrome', () => {
     });
 });
 
+describe('c-cc-template-preview mark mode', () => {
+    let original;
+    const NODE_HTML = '<div data-cc-node="0"><p data-cc-node="1">Hello <b data-cc-node="2">there</b></p><img data-cc-node="3" src="a.png"><i data-cc-node="4" data-cc-content="richText" data-cc-key="n">n</i></div>';
+    beforeEach(() => {
+        original = Element.prototype.getBoundingClientRect;
+        Element.prototype.getBoundingClientRect = () => ({ left: 10, top: 40, width: 120, height: 30, right: 130, bottom: 70 });
+        Element.prototype.scrollIntoView = jest.fn();
+    });
+    afterEach(() => {
+        Element.prototype.getBoundingClientRect = original;
+        while (document.body.firstChild) document.body.removeChild(document.body.firstChild);
+    });
+
+    async function mountMark(props = {}) {
+        return mount({ renderFn: () => NODE_HTML, markable: true, markMode: true, ...props });
+    }
+
+    it('hovers and picks any element with a node id, not only marked ones', async () => {
+        const element = await mountMark();
+        const picks = [];
+        element.addEventListener('pick', event => picks.push(event.detail.node));
+        const bold = host(element).querySelector('b');
+        bold.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+        expect(boxes(element, 'hover')[0].textContent).toBe('<b> · click to mark');
+
+        const click = new MouseEvent('click', { bubbles: true, cancelable: true });
+        bold.dispatchEvent(click);
+        expect(click.defaultPrevented).toBe(true);
+        expect(picks).toEqual([2]);
+        host(element).querySelector('i').dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+        expect(boxes(element, 'hover')[0].textContent).toBe('<i> · Rich text · n');
+    });
+
+    it('does not emit select in mark mode and highlights the picked node', async () => {
+        const element = await mountMark({ pickedNode: 3 });
+        const selects = [];
+        element.addEventListener('select', event => selects.push(event.detail));
+        host(element).querySelector('i').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        expect(selects).toEqual([]);
+        expect(element.shadowRoot.textContent).toContain('Selected');
+        element.pickedNode = 1;
+        await new Promise(resolve => setTimeout(resolve, 50));
+        const solid = boxes(element, 'marks').filter(box => box.style.border.includes('solid'));
+        expect(solid).toHaveLength(1);
+        expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+    });
+
+    it('reports the mark toggle and falls back to inspect behaviour when off', async () => {
+        const element = await mountMark({ markMode: false });
+        const modes = [];
+        element.addEventListener('modechange', event => modes.push(event.detail.mark));
+        const toggles = element.shadowRoot.querySelectorAll('lightning-input');
+        const markToggle = Array.from(toggles).find(toggle => toggle.label === 'Mark elements');
+        markToggle.checked = true;
+        markToggle.dispatchEvent(new CustomEvent('change'));
+        expect(modes).toEqual([true]);
+
+        const picks = [];
+        const selects = [];
+        element.addEventListener('pick', event => picks.push(event.detail.node));
+        element.addEventListener('select', event => selects.push(event.detail.key));
+        host(element).querySelector('b').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        host(element).querySelector('i').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        expect(picks).toEqual([]);
+        expect(selects).toEqual(['slot:n']);
+    });
+
+    it('hides the mark toggle when the content is not markable', async () => {
+        const element = await mountMark({ markable: false });
+        expect(Array.from(element.shadowRoot.querySelectorAll('lightning-input')).some(toggle => toggle.label === 'Mark elements')).toBe(false);
+    });
+});
+
 describe('c-cc-template-preview inspect mode', () => {
     let original;
     const scrolled = [];

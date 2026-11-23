@@ -83,6 +83,32 @@ describe('c-cc-template-wizard layout', () => {
         expect(element.shadowRoot.querySelector('c-cc-template-preview').selectedKey).toBe('slot:footerNote');
     });
 
+    it('switches to guided mark mode for a raw upload and routes picks to the workspace', async () => {
+        const element = await openShellStep();
+        const workspace = element.shadowRoot.querySelector('c-cc-binding-workspace');
+        const raw = '<div><table><tr><td><p>Hello</p></td></tr></table></div>';
+        const parsed = parseTemplate(raw, { kind: 'shell', templateMode: 'multi' });
+        workspace.dispatchEvent(new CustomEvent('change', { detail: { html: parsed.html, definition: parsed.definition, errors: parsed.errors, warnings: [] } }));
+        await flush();
+
+        const preview = element.shadowRoot.querySelector('c-cc-template-preview');
+        expect(preview.markable).toBe(true);
+        expect(preview.markMode).toBe(true);
+        expect(preview.renderFn('desktop', 'light')).toContain('data-cc-node="3"');
+
+        preview.dispatchEvent(new CustomEvent('pick', { detail: { node: 3 } }));
+        await flush();
+        expect(element.shadowRoot.querySelector('c-cc-binding-workspace').pickedElement).toBe(3);
+        expect(element.shadowRoot.querySelector('c-cc-template-preview').pickedNode).toBe(3);
+
+        element.shadowRoot.querySelector('c-cc-template-preview').dispatchEvent(new CustomEvent('modechange', { detail: { mark: false } }));
+        await flush();
+        const after = element.shadowRoot.querySelector('c-cc-template-preview');
+        expect(after.markMode).toBe(false);
+        expect(after.renderFn('desktop', 'light')).not.toContain('data-cc-node');
+        expect(element.shadowRoot.querySelector('c-cc-binding-workspace').pickedElement).toBeNull();
+    });
+
     it('offers delete only for saved templates', async () => {
         const element = await openShellStep();
         const labels = () => Array.from(element.shadowRoot.querySelectorAll('lightning-button')).map(button => button.label);

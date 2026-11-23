@@ -12,6 +12,8 @@ import activateTemplate from '@salesforce/apex/CcTemplateDefinitionController.ac
 import getLocales from '@salesforce/apex/MarketingDictionaryManagerController.getLocales';
 import { parseJson, buildBlockConfig, newMessageBlock, CONTENT_TYPE_LABELS } from 'c/ccTemplateSchema';
 import { renderMessage } from 'c/ccTemplateRenderer';
+import { parseTemplate } from 'c/ccTemplateParser';
+import { annotateNodes, isUnmarked } from 'c/ccElementMarking';
 
 const STEPS = [
     { value: 'basic', label: 'Basics' },
@@ -50,6 +52,9 @@ export default class CcTemplateWizard extends LightningElement {
     validation = null;
     previewChoice = 'all';
     inspectKey = null;
+    pickedNode = null;
+    markOn = false;
+    _annotated = { html: null, out: null };
     isLegacy = false;
     messageCount = 0;
 
@@ -94,8 +99,12 @@ export default class CcTemplateWizard extends LightningElement {
             mcnAssetId: detail.mcnAssetId,
             mcnAssetPath: detail.mcnAssetPath
         };
+        let shellHtml = detail.shellHtml || '';
+        if (!detail.isV1 && shellHtml) {
+            shellHtml = parseTemplate(shellHtml, { kind: 'shell', templateMode: detail.templateMode || 'multi' }).html;
+        }
         this.shell = {
-            html: detail.shellHtml || '',
+            html: shellHtml,
             definition: detail.isV1 ? parseJson(detail.definitionJson, null) : null,
             errors: [],
             warnings: []
@@ -185,14 +194,14 @@ export default class CcTemplateWizard extends LightningElement {
             }
         }
         const order = this.stepOrder();
-        this.inspectKey = null;
+        this.resetInspect();
         this.step = order[Math.min(order.indexOf(this.step) + 1, order.length - 1)];
         if (this.step === 'summary') this.runValidation();
     }
 
     handleBack() {
         const order = this.stepOrder();
-        this.inspectKey = null;
+        this.resetInspect();
         this.step = order[Math.max(order.indexOf(this.step) - 1, 0)];
     }
 
@@ -202,7 +211,7 @@ export default class CcTemplateWizard extends LightningElement {
             this.toast('Save the shell first', 'Upload and save the template shell before configuring blocks.', 'info');
             return;
         }
-        this.inspectKey = null;
+        this.resetInspect();
         this.step = target;
         if (target === 'summary') this.runValidation();
     }
@@ -227,6 +236,7 @@ export default class CcTemplateWizard extends LightningElement {
     }
 
     handleShellChange(event) {
+        this.noteUpload(event.detail);
         this.shell = { ...event.detail };
     }
 
@@ -297,12 +307,12 @@ export default class CcTemplateWizard extends LightningElement {
     }
 
     handleNewBlock() {
-        this.inspectKey = null;
+        this.resetInspect();
         this.blockDraft = { id: null, name: '', description: '', html: '', definition: null, errors: [], status: 'Draft' };
     }
 
     handleEditBlock(event) {
-        this.inspectKey = null;
+        this.resetInspect();
         const block = this.blocks.find(item => item.id === event.currentTarget.dataset.id);
         if (!block) return;
         this.blockDraft = {
@@ -323,11 +333,12 @@ export default class CcTemplateWizard extends LightningElement {
     }
 
     handleBlockSource(event) {
+        this.noteUpload(event.detail);
         this.blockDraft = { ...this.blockDraft, ...event.detail };
     }
 
     handleCancelBlock() {
-        this.inspectKey = null;
+        this.resetInspect();
         this.blockDraft = null;
     }
 
@@ -482,7 +493,33 @@ export default class CcTemplateWizard extends LightningElement {
     }
 
     handleInspectSelect(event) {
+        this.pickedNode = null;
         this.inspectKey = event.detail.key;
+    }
+
+    resetInspect() {
+        this.inspectKey = null;
+        this.pickedNode = null;
+    }
+
+    handlePick(event) {
+        this.pickedNode = event.detail.node;
+        this.inspectKey = null;
+    }
+
+    handleModeChange(event) {
+        this.markOn = !!event.detail.mark;
+        this.pickedNode = null;
+    }
+
+    /** A raw upload (no markings yet) switches the preview into guided mark mode. */
+    noteUpload(detail) {
+        if (detail.html && isUnmarked(detail.definition)) this.markOn = true;
+    }
+
+    annotated(html) {
+        if (this._annotated.html !== html) this._annotated = { html, out: annotateNodes(html) };
+        return this._annotated.out;
     }
 
     get previewHeading() {
@@ -493,13 +530,17 @@ export default class CcTemplateWizard extends LightningElement {
     /** Preview follows the step: shell while uploading, the block being edited, or the chosen summary view. */
     get previewRender() {
         if (!this.hasShell) return null;
-        const shell = { html: this.shell.html, definition: this.shell.definition };
+        const marking = this.inspectable && this.markOn;
+        const shell = {
+            html: marking && this.isShellStep ? this.annotated(this.shell.html) : this.shell.html,
+            definition: this.shell.definition
+        };
         const isMulti = this.isMulti;
         const draft = this.blockDraft;
         let blocks = [];
         if (isMulti) {
             if (this.isBlocksStep && draft?.html && draft.definition) {
-                blocks = [{ html: draft.html, definition: draft.definition, record: {} }];
+                blocks = [{ html: marking ? this.annotated(draft.html) : draft.html, definition: draft.definition, record: {} }];
             } else if (this.isSummaryStep || this.isBlocksStep) {
                 const choice = this.isSummaryStep ? this.previewChoice : 'all';
                 blocks = this.blocks
