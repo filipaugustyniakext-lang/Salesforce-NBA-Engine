@@ -349,6 +349,16 @@ public with sharing class MarketingDictionaryDeleteGuard {
                 : 'Channel cooldown rule';
             addDependency(dependencies, label, cooldown);
         }
+        for (Marketing_Dictionary__c path : [
+            SELECT Name
+            FROM Marketing_Dictionary__c
+            WHERE Audience_Type_Dict__c = :recordId
+            AND Dictionary_Sub_Type__c = 'Activation Path'
+            ORDER BY Name ASC
+            LIMIT :MAX_DEPENDENCY_LABELS
+        ]) {
+            addDependency(dependencies, 'Activation path', path);
+        }
     }
 
     private static void collectProductFamilyDependencies(Id recordId, DependencyCollector dependencies) {

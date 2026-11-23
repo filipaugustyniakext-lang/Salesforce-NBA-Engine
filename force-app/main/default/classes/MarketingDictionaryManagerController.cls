@@ -543,6 +543,7 @@ public with sharing class MarketingDictionaryManagerController {
         return [
             SELECT Id, Name, Dictionary_Sub_Type__c, Topic_Description__c,
                    Include_In_Emergency__c, Is_Active__c, Is_Default__c, Distribution_Percent__c,
+                   Audience_Type_Dict__c, Audience_Type_Dict__r.Name,
                    Impact_Campaign_Score_Logic__c, Campaign_Type_Icon__c,
                    Topic_Group_Dict__c, Topic_Group_Dict__r.Name,
                    Define_Campaign_Groups__c, Timing_Evaluation_Type__c,
@@ -1109,6 +1110,14 @@ public with sharing class MarketingDictionaryManagerController {
                     }
                 }
             }
+            if (subType == 'Activation Path') {
+                Boolean audienceMissing = record.Id == null
+                    ? record.Audience_Type_Dict__c == null
+                    : record.isSet('Audience_Type_Dict__c') && record.Audience_Type_Dict__c == null;
+                if (audienceMissing) {
+                    throwPathError('Select the audience type this activation path applies to.');
+                }
+            }
             Boolean makeDefault = false;
             if (subType == 'Locale') {
                 // Unset checkboxes read as false, so only fields the caller actually sent count.
@@ -1341,11 +1350,12 @@ public with sharing class MarketingDictionaryManagerController {
     }
 
     /**
-     * Saves edits to existing Activation Paths (name, active flag, allocation) in one step and keeps the
-     * distribution consistent: after the change the active paths must add up to 100% (and at least one must be
-     * active), names must be filled in and unique, and an inactive path always carries 0%.
-     * The sum rule is only checked when the call changes the active flag or an allocation, so a rename never fails
-     * because of an older, unrelated distribution.
+     * Saves edits to existing Activation Paths (name, audience type, active flag, allocation) in one step and keeps
+     * the distribution consistent. After the change every path must have an audience type, and for each audience
+     * type the active paths must add up to exactly 100% (with at least one active path). Names must be filled in
+     * and unique, and an inactive path always carries 0%.
+     * The audience and allocation rules are only checked when the call changes an audience, an active flag or an
+     * allocation, so a rename never fails because of an older, unrelated distribution.
      */
     @AuraEnabled
     public static void saveActivationPaths(List<Marketing_Dictionary__c> records) {
@@ -1354,7 +1364,7 @@ public with sharing class MarketingDictionaryManagerController {
                 return;
             }
             Map<Id, Marketing_Dictionary__c> current = new Map<Id, Marketing_Dictionary__c>([
-                SELECT Id, Name, Is_Active__c, Distribution_Percent__c
+                SELECT Id, Name, Is_Active__c, Distribution_Percent__c, Audience_Type_Dict__c
                 FROM Marketing_Dictionary__c
                 WHERE RecordType.DeveloperName = 'Campaign'
                 AND Dictionary_Sub_Type__c = 'Activation Path'
@@ -1365,6 +1375,7 @@ public with sharing class MarketingDictionaryManagerController {
                 next.put(path.Id, path.clone(true, true, true, true));
             }
             Boolean allocationTouched = false;
+            Set<Id> audienceIds = new Set<Id>();
             List<Marketing_Dictionary__c> changes = new List<Marketing_Dictionary__c>();
             for (Marketing_Dictionary__c incoming : records) {
                 if (incoming.Id == null || !current.containsKey(incoming.Id)) {
@@ -1375,6 +1386,14 @@ public with sharing class MarketingDictionaryManagerController {
                 if (incoming.isSet('Name')) {
                     target.Name = incoming.Name == null ? null : incoming.Name.trim();
                     change.Name = target.Name;
+                }
+                if (incoming.isSet('Audience_Type_Dict__c')) {
+                    target.Audience_Type_Dict__c = incoming.Audience_Type_Dict__c;
+                    change.Audience_Type_Dict__c = target.Audience_Type_Dict__c;
+                    allocationTouched = true;
+                    if (target.Audience_Type_Dict__c != null) {
+                        audienceIds.add(target.Audience_Type_Dict__c);
+                    }
                 }
                 if (incoming.isSet('Is_Active__c')) {
                     target.Is_Active__c = incoming.Is_Active__c == true;
@@ -1405,33 +1424,66 @@ public with sharing class MarketingDictionaryManagerController {
                 }
             }
             if (allocationTouched) {
-                Decimal activeTotal = 0;
-                Integer activeCount = 0;
-                for (Marketing_Dictionary__c path : next.values()) {
-                    if (path.Is_Active__c != true) {
-                        continue;
-                    }
-                    Decimal percent = path.Distribution_Percent__c == null ? 0 : path.Distribution_Percent__c;
-                    if (percent < 0 || percent > 100) {
-                        throwPathError('Allocations must be between 0 and 100%.');
-                    }
-                    activeTotal += percent;
-                    activeCount++;
-                }
-                if (activeCount == 0) {
-                    throwPathError('At least one activation path must stay active.');
-                }
-                if (Math.abs(activeTotal - 100) > 0.005) {
-                    throwPathError(
-                        'The active paths add up to ' + activeTotal.setScale(2) + '%. They must add up to exactly 100%.'
-                    );
-                }
+                validateActivationPathDistribution(next.values(), audienceIds);
             }
             update changes;
         } catch (AuraHandledException ahe) {
             throw ahe;
         } catch (Exception e) {
             throwPathError(e.getMessage());
+        }
+    }
+
+    private static void validateActivationPathDistribution(
+        List<Marketing_Dictionary__c> paths,
+        Set<Id> audienceIdsToCheck
+    ) {
+        Set<Id> audienceIds = new Set<Id>();
+        for (Marketing_Dictionary__c path : paths) {
+            if (path.Audience_Type_Dict__c == null) {
+                throwPathError('Select an audience type for every activation path.');
+            }
+            audienceIds.add(path.Audience_Type_Dict__c);
+        }
+        Map<Id, Marketing_Dictionary__c> audiences = new Map<Id, Marketing_Dictionary__c>([
+            SELECT Id, Name
+            FROM Marketing_Dictionary__c
+            WHERE Id IN :audienceIds
+            AND Dictionary_Sub_Type__c = 'Audience Type'
+        ]);
+        for (Id audienceId : audienceIdsToCheck) {
+            if (!audiences.containsKey(audienceId)) {
+                throwPathError('The selected audience type does not exist. Pick one from the Person section.');
+            }
+        }
+        Map<Id, Decimal> totals = new Map<Id, Decimal>();
+        Map<Id, Integer> activeCounts = new Map<Id, Integer>();
+        for (Marketing_Dictionary__c path : paths) {
+            if (!totals.containsKey(path.Audience_Type_Dict__c)) {
+                totals.put(path.Audience_Type_Dict__c, 0);
+                activeCounts.put(path.Audience_Type_Dict__c, 0);
+            }
+            if (path.Is_Active__c != true) {
+                continue;
+            }
+            Decimal percent = path.Distribution_Percent__c == null ? 0 : path.Distribution_Percent__c;
+            if (percent < 0 || percent > 100) {
+                throwPathError('Allocations must be between 0 and 100%.');
+            }
+            totals.put(path.Audience_Type_Dict__c, totals.get(path.Audience_Type_Dict__c) + percent);
+            activeCounts.put(path.Audience_Type_Dict__c, activeCounts.get(path.Audience_Type_Dict__c) + 1);
+        }
+        for (Id audienceId : totals.keySet()) {
+            String label = audiences.containsKey(audienceId) ? audiences.get(audienceId).Name : String.valueOf(audienceId);
+            if (activeCounts.get(audienceId) == 0) {
+                throwPathError('Audience type "' + label + '" needs at least one active path.');
+            }
+            if (Math.abs(totals.get(audienceId) - 100) > 0.005) {
+                throwPathError(
+                    'The active paths of audience type "' + label + '" add up to ' + totals.get(audienceId).setScale(2)
+                    + '%. They must add up to exactly 100%.'
+                );
+            }
         }
     }
 
