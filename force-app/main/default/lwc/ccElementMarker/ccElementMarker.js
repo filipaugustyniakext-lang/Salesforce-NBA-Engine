@@ -157,23 +157,8 @@ export default class CcElementMarker extends LightningElement {
         return `Suggestion: ${this._info.suggestion.reason}`;
     }
 
-    get path() {
-        const items = this._info?.path || [];
-        return items.map((item, index) => ({
-            ...item,
-            key: `${item.node}`,
-            current: index === items.length - 1,
-            className: `cc-marker__crumb${item.marked ? ' cc-marker__crumb_marked' : ''}${index === items.length - 1 ? ' cc-marker__crumb_current' : ''}`
-        }));
-    }
 
-    get children() {
-        return (this._info?.children || []).map(item => ({ ...item, key: `${item.node}` }));
-    }
 
-    get hasChildren() {
-        return this.children.length > 0;
-    }
 
     get roleOptions() {
         const options = [];
@@ -276,8 +261,8 @@ export default class CcElementMarker extends LightningElement {
         this.setDraft({ [event.target.dataset.field]: event.detail?.value ?? event.target.value });
     }
 
-    handlePick(event) {
-        this.dispatchEvent(new CustomEvent('pick', { detail: { node: Number(event.currentTarget.dataset.node) } }));
+    handlePathPick(event) {
+        this.dispatchEvent(new CustomEvent('pick', { detail: { node: event.detail.node } }));
     }
 
     handleApply() {

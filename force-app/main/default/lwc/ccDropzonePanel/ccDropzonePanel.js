@@ -99,6 +99,10 @@ export default class CcDropzonePanel extends LightningElement {
         this.dispatchEvent(new CustomEvent('removezone'));
     }
 
+    handlePathPick(event) {
+        this.dispatchEvent(new CustomEvent('pick', { detail: { node: event.detail.node } }));
+    }
+
     handleUseEnclosing() {
         this.dispatchEvent(new CustomEvent('pick', { detail: { node: this.info.areaNode } }));
     }

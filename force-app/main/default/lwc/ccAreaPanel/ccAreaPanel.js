@@ -9,7 +9,7 @@ const KIND_OPTIONS = [
 /**
  * Step 1 of the shell setup: name fixed areas and decide whether they are read-only or editable.
  * Emits create { name, kind }, update { regionId, name, kind, removeContent }, remove { regionId },
- * nofixed { value }, pick { node }, clear, next.
+ * nofixed { value }, pick { node }, groupchildren, clear, next.
  */
 export default class CcAreaPanel extends LightningElement {
     connectedCallback() {
@@ -211,6 +211,14 @@ export default class CcAreaPanel extends LightningElement {
 
     handlePickArea(event) {
         this.dispatchEvent(new CustomEvent('pick', { detail: { node: Number(event.currentTarget.dataset.node) } }));
+    }
+
+    handlePathPick(event) {
+        this.dispatchEvent(new CustomEvent('pick', { detail: { node: event.detail.node } }));
+    }
+
+    handleGroupChildren() {
+        this.dispatchEvent(new CustomEvent('groupchildren'));
     }
 
     handleUseEnclosing() {

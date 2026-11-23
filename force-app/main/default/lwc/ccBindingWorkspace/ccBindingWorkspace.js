@@ -533,6 +533,14 @@ export default class CcBindingWorkspace extends LightningElement {
         this.applyMarkingChange({ role: 'none' });
     }
 
+    handleGroupChildren() {
+        const info = this.markerInfo;
+        if (!info || info.firstChild === null) return;
+        const range = rangeBetween(this.html, info.firstChild, info.lastChild);
+        if (range.error) this.markerErrors = [range.error];
+        else this.setPicked(range.nodes);
+    }
+
     applyMarkingChange(marking) {
         const result = applyMarking(this.html, this.primaryNode, marking, { kind: this.kind });
         this.finishStructureChange(result, marking.role === 'none');

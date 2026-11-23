@@ -59,18 +59,14 @@ describe('c-cc-element-marker', () => {
         expect(element.shadowRoot.textContent).toContain('already used');
     });
 
-    it('lets the user move through the element path and children', async () => {
+    it('shows the node selector and re-emits picks from it', async () => {
         const element = await mount('td');
         const picks = [];
         element.addEventListener('pick', event => picks.push(event.detail.node));
-        const crumbs = Array.from(element.shadowRoot.querySelectorAll('.cc-marker__path .cc-marker__crumb'));
-        expect(crumbs.map(crumb => crumb.textContent)).toEqual(['table', 'tbody', 'tr', 'td']);
-        expect(crumbs[3].disabled).toBe(true);
-        crumbs[0].click();
-        const children = Array.from(element.shadowRoot.querySelectorAll('.cc-marker__children .cc-marker__crumb:not(.cc-marker__crumb_action)'));
-        expect(children.map(child => child.textContent)).toEqual(['p', 'img', 'span']);
-        children[1].click();
-        expect(picks).toEqual([idx('table'), idx('img')]);
+        const path = q(element, 'c-cc-element-path');
+        expect(path.info.path.map(item => item.label)).toEqual(['table', 'tbody', 'tr', 'td']);
+        path.dispatchEvent(new CustomEvent('pick', { detail: { node: idx('table') } }));
+        expect(picks).toEqual([idx('table')]);
     });
 
     it('shows existing marks with a remove action and the validation errors', async () => {

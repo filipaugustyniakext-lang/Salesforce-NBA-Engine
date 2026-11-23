@@ -119,6 +119,20 @@ describe('c-cc-area-panel', () => {
         expect(zone.shadowRoot.textContent).toContain('This is the dropzone');
     });
 
+    it('keeps the node selector: path and children of the picked element, with grouping', async () => {
+        const picked = info({ path: [{ node: 1, label: 'div.body', marked: false }, { node: 20, label: 'table', marked: false }], children: [{ node: 21, label: 'tr', marked: false }, { node: 22, label: 'tr', marked: false }], childCount: 2 });
+        const element = await mount({ info: picked });
+        const path = q(element, 'c-cc-element-path');
+        expect(path.info).toEqual(picked);
+        expect(path.allowGroup).toBe(true);
+        const events = [];
+        element.addEventListener('pick', event => events.push(['pick', event.detail.node]));
+        element.addEventListener('groupchildren', () => events.push(['group']));
+        path.dispatchEvent(new CustomEvent('pick', { detail: { node: 1 } }));
+        path.dispatchEvent(new CustomEvent('groupchildren'));
+        expect(events).toEqual([['pick', 1], ['group']]);
+    });
+
     it('shows errors and the continue action once step 1 is done', async () => {
         const element = await mount({ errors: ['The id "x" is already used.'], canContinue: true });
         expect(q(element, '.slds-alert_error').textContent).toContain('already used');

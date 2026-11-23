@@ -5,6 +5,8 @@
             Fixed areas are the parts every message keeps, such as the header, a "view online" line or the footer. Mark each one, name it, and choose whether it is read-only or editable.
         </p>
 
+        <c-cc-element-path info={info} allow-group onpick={handlePathPick} ongroupchildren={handleGroupChildren}></c-cc-element-path>
+
         <template lwc:if={isIdle}>
             <div class="cc-area__hint slds-text-body_small">
                 Click an element in the preview to start. Shift-click neighbouring elements to treat them as one area.

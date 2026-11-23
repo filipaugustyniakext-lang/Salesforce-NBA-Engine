@@ -5,6 +5,8 @@
             The dropzone is the empty area where marketers add content blocks. Place it next to a fixed area, for example after the header. The preview shows it as a dashed box.
         </p>
 
+        <c-cc-element-path info={info} onpick={handlePathPick}></c-cc-element-path>
+
         <template lwc:if={hasPlacement}>
             <div class="cc-zone__current">
                 <lightning-icon icon-name="utility:drag_and_drop" size="x-small"></lightning-icon>

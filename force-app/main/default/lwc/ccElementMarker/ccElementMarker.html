@@ -9,21 +9,7 @@
                 <lightning-button-icon icon-name="utility:close" variant="bare" alternative-text="Close" title="Close" onclick={handleClose}></lightning-button-icon>
             </div>
 
-            <nav class="cc-marker__path" aria-label="Element path">
-                <span class="slds-text-body_small slds-text-color_weak">Path:</span>
-                <template for:each={path} for:item="crumb">
-                    <button key={crumb.key} class={crumb.className} type="button" data-node={crumb.node} disabled={crumb.current} onclick={handlePick}>{crumb.label}</button>
-                </template>
-            </nav>
-            <template lwc:if={hasChildren}>
-                <div class="cc-marker__children">
-                    <span class="slds-text-body_small slds-text-color_weak">Inside:</span>
-                    <template for:each={children} for:item="child">
-                        <button key={child.key} class="cc-marker__crumb" type="button" data-node={child.node} onclick={handlePick}>{child.label}</button>
-                    </template>
-                </div>
-            </template>
-            <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">Picked the wrong element? Choose a parent from the path or a child from "Inside", or click another element in the preview.</p>
+            <c-cc-element-path info={info} onpick={handlePathPick}></c-cc-element-path>
 
             <template lwc:if={suggestionText}>
                 <div class="cc-marker__suggestion slds-text-body_small">{suggestionText}</div>

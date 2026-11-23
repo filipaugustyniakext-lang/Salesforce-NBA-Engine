@@ -76,6 +76,18 @@ describe('c-cc-dropzone-panel', () => {
         expect(events).toEqual(['removezone', 'next']);
     });
 
+    it('keeps the node selector so the right container can be chosen', async () => {
+        const picked = info({ path: [{ node: 1, label: 'div.body', marked: false }, { node: 4, label: 'table', marked: false }], children: [], childCount: 0 });
+        const element = await mount({ info: picked });
+        const path = element.shadowRoot.querySelector('c-cc-element-path');
+        expect(path.info).toEqual(picked);
+        expect(path.allowGroup).toBeFalsy();
+        const picks = [];
+        element.addEventListener('pick', event => picks.push(event.detail.node));
+        path.dispatchEvent(new CustomEvent('pick', { detail: { node: 1 } }));
+        expect(picks).toEqual([1]);
+    });
+
     it('shows errors from a refused placement', async () => {
         const element = await mount({ info: info(), errors: ['The blocks zone cannot be placed between table cells.'] });
         expect(element.shadowRoot.querySelector('.slds-alert_error').textContent).toContain('between table cells');
