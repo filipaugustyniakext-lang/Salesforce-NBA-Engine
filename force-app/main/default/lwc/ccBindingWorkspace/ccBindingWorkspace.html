@@ -37,8 +37,18 @@
         <template lwc:if={hasHtml}>
             <template lwc:if={isRawHtml}>
                 <div class="slds-notify slds-notify_alert slds-alert_info cc-workspace__alert" role="status">
-                    <span>No bindings were found in this file. Turn on <strong>Mark elements</strong> in the preview and click an element to tell the processor what it is: start with the outer layout (container, rows, columns), then the content inside.</span>
+                    <span>No bindings were found in this file. Turn on <strong>Mark elements</strong> in the preview and click an element to tell the processor what it is. Shift-click neighbouring elements to treat them as one.</span>
                 </div>
+            </template>
+            <template lwc:if={showChecklist}>
+                <ol class="cc-workspace__todos" aria-label="Shell setup steps">
+                    <template for:each={checklist} for:item="todo">
+                        <li key={todo.key} class={todo.className}>
+                            <lightning-icon icon-name={todo.icon} size="x-small"></lightning-icon>
+                            <span>{todo.text}</span>
+                        </li>
+                    </template>
+                </ol>
             </template>
             <div class="cc-workspace__body">
                 <nav class="cc-workspace__nav" aria-label="Bindings">
@@ -61,8 +71,8 @@
                     </template>
                 </nav>
                 <div class="cc-workspace__editor">
-                    <template lwc:if={markerInfo}>
-                        <c-cc-element-marker info={markerInfo} kind={markerKind} template-mode={templateMode} existing-keys={existingKeys} errors={markerErrors} onapply={handleMarkerApply} onremove={handleMarkerRemove} onclose={handleMarkerClose} onpick={handleMarkerPick}></c-cc-element-marker>
+                    <template lwc:if={showMarker}>
+                        <c-cc-element-marker info={markerInfo} group={groupInfo} kind={markerKind} template-mode={templateMode} existing-keys={existingKeys} errors={markerErrors} onapply={handleMarkerApply} onremove={handleMarkerRemove} onclose={handleMarkerClose} onpick={handleMarkerPick} onwrap={handleMarkerWrap} onzone={handleMarkerZone} ongroupchildren={handleGroupChildren}></c-cc-element-marker>
                     </template>
                     <template lwc:else>
                     <template lwc:if={selectedSection}>

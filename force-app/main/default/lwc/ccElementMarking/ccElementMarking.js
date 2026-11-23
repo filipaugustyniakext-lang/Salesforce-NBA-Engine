@@ -73,9 +73,31 @@ function nearestSectionLevel(element) {
     return null;
 }
 
+function regionAncestor(element, kinds) {
+    let current = element.parentElement;
+    while (current) {
+        const kind = current.getAttribute('data-cc-region');
+        if (kind && (!kinds || kinds.includes(kind))) return current;
+        current = current.parentElement;
+    }
+    return null;
+}
+
+/** In a multi-block shell layout areas are regions; sections only exist in blocks and single-block templates. */
+function isMultiShell({ kind, templateMode } = {}) {
+    return kind === 'shell' && templateMode !== 'single';
+}
+
 /** What the element most likely is, so the panel can pre-select it. */
-export function suggestMarking(element) {
+export function suggestMarking(element, options = {}) {
     const tag = element.tagName.toLowerCase();
+    if (isMultiShell(options) && !regionAncestor(element, ['fixed-edit'])) {
+        return {
+            role: 'region',
+            regionKind: 'fixed-read',
+            reason: 'In a multi-block shell, layout areas are regions: read-only, editable, or the blocks zone. To group several neighbouring elements, Shift-click the others.'
+        };
+    }
     const parentLevel = nearestSectionLevel(element);
     if (tag === 'img') {
         return { role: 'content', contentType: 'image', key: camel(element.getAttribute('alt') || element.getAttribute('id'), 'image'), reason: 'An <img> element is an image.' };
@@ -94,6 +116,9 @@ export function suggestMarking(element) {
     if (ownText(element) && onlyInline && !['table', 'tr', 'tbody'].includes(tag)) {
         return { role: 'content', contentType: 'richText', key: camel(ownText(element), 'text'), reason: 'It only contains text and inline formatting.' };
     }
+    if (isMultiShell(options)) {
+        return { role: 'content', contentType: 'richText', key: camel(ownText(element), 'text'), reason: 'It sits inside an editable region, so it is likely editable content.' };
+    }
     if (!parentLevel) {
         return { role: 'section', level: 'container', reason: 'It is the outermost layout element, so it is likely the container.' };
     }
@@ -107,7 +132,7 @@ export function suggestMarking(element) {
 }
 
 /** Describes the element at `index`: path, children, current marks and a suggestion. */
-export function inspectNode(html, index) {
+export function inspectNode(html, index, options = {}) {
     const { doc } = parseHtml(html);
     const elements = bodyElements(doc);
     const element = elements[index];
@@ -130,9 +155,16 @@ export function inspectNode(html, index) {
             .filter(child => child.tagName.toLowerCase() !== 'style')
             .slice(0, 12)
             .map(summary),
+        childCount: Array.from(element.children).filter(child => child.tagName.toLowerCase() !== 'style').length,
+        firstChild: element.firstElementChild ? indexOf.get(element.firstElementChild) : null,
+        lastChild: element.lastElementChild ? indexOf.get(element.lastElementChild) : null,
         marks,
         parentLevel: nearestSectionLevel(element),
-        suggestion: suggestMarking(element),
+        inEditableRegion: !!regionAncestor(element, ['fixed-edit']),
+        inReadOnlyRegion: !!regionAncestor(element, ['fixed-read']),
+        insideRegion: !!regionAncestor(element),
+        hasBlocksZone: elements.some(item => item.getAttribute('data-cc-region') === 'blocks'),
+        suggestion: suggestMarking(element, options),
         isBlockish: BLOCK_TAGS.has(element.tagName.toLowerCase())
     };
 }
@@ -230,6 +262,8 @@ export function applyMarking(html, index, marking, { kind = 'block' } = {}) {
         }
         const id = slugify(marking.id);
         if (id && others.some(item => item.getAttribute('data-cc-id') === id)) errors.push(`The id "${id}" is already used.`);
+        if (regionAncestor(target)) errors.push('This element is already inside a region. Regions cannot be nested.');
+        if (target.querySelector('[data-cc-region]')) errors.push('This element contains another region. Regions cannot be nested; pick the region or remove it first.');
     } else if (role !== 'none') {
         errors.push('Choose what this element is.');
     }
@@ -277,4 +311,196 @@ export function applyMarking(html, index, marking, { kind = 'block' } = {}) {
 export function nodeElement(html, index) {
     const { doc } = parseHtml(html);
     return bodyElements(doc)[index] || null;
+}
+
+// ─── Groups of siblings and the blocks zone ──────────────────────────────────
+
+const DATA_TABLE_PARENTS = new Set(['tbody', 'thead', 'tfoot']);
+
+function describeParent(parent) {
+    return elementLabel(parent);
+}
+
+/** How a run of siblings under `parent` can be wrapped while keeping the HTML valid. */
+function wrapperPlan(parent) {
+    const tag = parent.tagName.toLowerCase();
+    if (tag === 'tr') return { problem: 'Cells of one table row cannot be grouped without changing the layout. Select the whole row (a parent in the path) instead.' };
+    if (tag === 'ul' || tag === 'ol') return { problem: 'List items cannot be grouped. Select the whole list instead.' };
+    if (tag === 'table') return { problem: 'Select the rows inside the table body, or the whole table, instead.' };
+    if (DATA_TABLE_PARENTS.has(tag)) return { tag, wrapperTag: tag, splitsRows: true };
+    return { tag, wrapperTag: 'div' };
+}
+
+/**
+ * Siblings between `a` and `b` (inclusive, in document order of their shared parent).
+ * Returns { nodes, error }; used by Shift-click.
+ */
+export function rangeBetween(html, a, b) {
+    const { doc } = parseHtml(html);
+    const elements = bodyElements(doc);
+    const first = elements[a];
+    const second = elements[b];
+    if (!first || !second) return { nodes: [], error: 'That element no longer exists. Pick it again.' };
+    if (first === second) return { nodes: [a], error: null };
+    if (first.parentElement !== second.parentElement) {
+        return { nodes: [a], error: 'Shift-click selects neighbouring elements inside the same parent. Select their common parent from the path, or click elements next to each other.' };
+    }
+    const siblings = Array.from(first.parentElement.children);
+    const from = Math.min(siblings.indexOf(first), siblings.indexOf(second));
+    const to = Math.max(siblings.indexOf(first), siblings.indexOf(second));
+    return { nodes: siblings.slice(from, to + 1).map(item => elements.indexOf(item)), error: null };
+}
+
+/** Describes a selected run of siblings for the group panel. */
+export function inspectGroup(html, nodes) {
+    const { doc } = parseHtml(html);
+    const elements = bodyElements(doc);
+    const selected = nodes.map(node => elements[node]).filter(Boolean);
+    if (selected.length < 2) return null;
+    const parent = selected[0].parentElement;
+    const plan = wrapperPlan(parent);
+    const children = Array.from(parent.children);
+    const positions = selected.map(item => children.indexOf(item));
+    const contiguous = Math.max(...positions) - Math.min(...positions) + 1 === selected.length;
+    let problem = '';
+    if (selected.some(item => item.parentElement !== parent)) problem = 'The selected elements must share one parent.';
+    else if (!contiguous) problem = 'The selected elements must be next to each other.';
+    else if (plan.problem) problem = plan.problem;
+    else if (regionAncestor(selected[0])) problem = 'These elements are already inside a region. Regions cannot be nested.';
+    else if (selected.some(item => item.hasAttribute('data-cc-region') || item.querySelector('[data-cc-region]'))) problem = 'The selection contains a region. Regions cannot be nested.';
+    return {
+        count: selected.length,
+        nodes,
+        labels: selected.map(elementLabel),
+        parentLabel: describeParent(parent),
+        wrapperTag: plan.wrapperTag || null,
+        problem
+    };
+}
+
+/**
+ * Wraps a run of sibling elements in a new region wrapper (`<div>`, or `<tbody>` for table rows).
+ * marking: { regionKind: 'fixed-read'|'fixed-edit', id }. Returns { html, markedNode, errors }.
+ */
+export function wrapElements(html, nodes, marking, { kind = 'shell' } = {}) {
+    const { doc, isDocument } = parseHtml(html);
+    const elements = bodyElements(doc);
+    const targets = (nodes || []).map(node => elements[node]);
+    const fail = errors => ({ html: null, markedNode: null, errors });
+    if (!targets.length || targets.some(item => !item)) return fail(['An element no longer exists. Pick it again.']);
+    if (kind !== 'shell') return fail(['Regions can only be set in the template shell.']);
+    if (!['fixed-read', 'fixed-edit'].includes(marking?.regionKind)) return fail(['Choose a read-only or editable region. The blocks zone is inserted, not wrapped.']);
+    const parent = targets[0].parentElement;
+    if (targets.some(item => item.parentElement !== parent)) return fail(['The selected elements must share one parent.']);
+    const children = Array.from(parent.children);
+    const lo = Math.min(...targets.map(item => children.indexOf(item)));
+    const hi = Math.max(...targets.map(item => children.indexOf(item)));
+    const range = children.slice(lo, hi + 1);
+    if (range.length === 1) return applyMarking(html, nodes[0], { role: 'region', regionKind: marking.regionKind, id: marking.id }, { kind });
+    const id = slugify(marking.id);
+    if (id && elements.some(item => item.getAttribute('data-cc-id') === id)) return fail([`The id "${id}" is already used.`]);
+    if (regionAncestor(range[0])) return fail(['These elements are already inside a region. Regions cannot be nested.']);
+    if (range.some(item => item.hasAttribute('data-cc-region') || item.querySelector('[data-cc-region]'))) {
+        return fail(['The selection contains a region. Regions cannot be nested; remove it first.']);
+    }
+    const plan = wrapperPlan(parent);
+    if (plan.problem) return fail([plan.problem]);
+
+    // All nodes from the first to the last selected element move together, so comments between them
+    // (for example Outlook conditional comments) stay with the group.
+    const moving = [];
+    for (let node = range[0]; node; node = node.nextSibling) {
+        moving.push(node);
+        if (node === range[range.length - 1]) break;
+    }
+    let wrapper;
+    if (plan.splitsRows) {
+        const tail = [];
+        for (let node = range[range.length - 1].nextSibling; node; node = node.nextSibling) tail.push(node);
+        wrapper = doc.createElement(plan.wrapperTag);
+        parent.parentNode.insertBefore(wrapper, parent.nextSibling);
+        moving.forEach(node => wrapper.appendChild(node));
+        if (tail.length) {
+            const rest = doc.createElement(plan.wrapperTag);
+            tail.forEach(node => rest.appendChild(node));
+            parent.parentNode.insertBefore(rest, wrapper.nextSibling);
+        }
+        if (!Array.from(parent.children).length) parent.remove();
+    } else {
+        wrapper = doc.createElement(plan.wrapperTag);
+        parent.insertBefore(wrapper, range[0]);
+        moving.forEach(node => wrapper.appendChild(node));
+    }
+    wrapper.setAttribute('data-cc-region', marking.regionKind);
+    if (id) wrapper.setAttribute('data-cc-id', id);
+    return { html: serializeHtml(doc, isDocument), markedNode: bodyElements(doc).indexOf(wrapper), errors: [] };
+}
+
+function freeId(elements, base) {
+    let id = base;
+    let counter = 2;
+    while (elements.some(item => item.getAttribute('data-cc-id') === id)) {
+        id = `${base}-${counter}`;
+        counter += 1;
+    }
+    return id;
+}
+
+/**
+ * Inserts the blocks zone relative to an element: position is 'before', 'after', 'inside-start' or 'inside-end'.
+ * An existing blocks zone is moved. Returns { html, markedNode, errors }.
+ */
+export function insertBlocksZone(html, node, position, { kind = 'shell', templateMode = 'multi' } = {}) {
+    const { doc, isDocument } = parseHtml(html);
+    const elements = bodyElements(doc);
+    const anchor = elements[node];
+    const fail = errors => ({ html: null, markedNode: null, errors });
+    if (kind !== 'shell' || templateMode === 'single') return fail(['The blocks zone only exists in multi-block shells.']);
+    if (!anchor) return fail(['That element no longer exists. Pick it again.']);
+    if (!['before', 'after', 'inside-start', 'inside-end'].includes(position)) return fail(['Choose where to place the blocks zone.']);
+    const existing = elements.find(item => item.getAttribute('data-cc-region') === 'blocks');
+    if (existing && (existing === anchor || existing.contains(anchor))) {
+        return fail(['Pick an element outside the current blocks zone to move it.']);
+    }
+    let container = position.startsWith('inside') ? anchor : anchor.parentElement;
+    if (!container) return fail(['The blocks zone cannot be placed here.']);
+    if (container.tagName.toLowerCase() === 'table' && position.startsWith('inside')) {
+        container = container.querySelector('tbody') || container;
+    }
+    if (container.hasAttribute('data-cc-region') || regionAncestor(container)) {
+        return fail(['The blocks zone cannot be inside another region. Place it before or after that region.']);
+    }
+    const containerTag = container.tagName.toLowerCase();
+    if (containerTag === 'tr') return fail(['The blocks zone cannot be placed between table cells. Select the table row and place it before or after the row.']);
+    if (containerTag === 'ul' || containerTag === 'ol') return fail(['The blocks zone cannot be placed inside a list.']);
+
+    const zoneId = freeId(elements.filter(item => item !== existing), 'content');
+    let zone;
+    let inserted;
+    if (['table', 'tbody', 'thead', 'tfoot'].includes(containerTag)) {
+        inserted = doc.createElement('tr');
+        zone = doc.createElement('td');
+        inserted.appendChild(zone);
+    } else {
+        inserted = doc.createElement('div');
+        zone = inserted;
+    }
+    zone.setAttribute('data-cc-region', 'blocks');
+    zone.setAttribute('data-cc-id', zoneId);
+
+    if (existing) {
+        const empty = !existing.children.length && !ownText(existing);
+        if (empty) {
+            const row = existing.parentElement && existing.parentElement.tagName.toLowerCase() === 'tr' && existing.parentElement.children.length === 1
+                ? existing.parentElement : null;
+            (row || existing).remove();
+        } else {
+            clearMarks(existing);
+        }
+    }
+    if (position === 'before') anchor.parentNode.insertBefore(inserted, anchor);
+    else if (position === 'after') anchor.parentNode.insertBefore(inserted, anchor.nextSibling);
+    else if (position === 'inside-start') container.insertBefore(inserted, container.firstChild);
+    else container.appendChild(inserted);
+    return { html: serializeHtml(doc, isDocument), markedNode: bodyElements(doc).indexOf(zone), errors: [] };
 }

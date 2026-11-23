@@ -22,7 +22,7 @@ export default class CcTemplatePreview extends LightningElement {
     /** Mark mode is offered when the HTML being shown carries data-cc-node ids (see c/ccElementMarking). */
     @api markable = false;
     @api markMode = false;
-    _pickedNode = null;
+    _pickedNodes = [];
     device = 'mobile';
     theme = 'light';
     inspectOn = true;
@@ -54,16 +54,16 @@ export default class CcTemplatePreview extends LightningElement {
         this._scrollPending = !!key;
     }
 
-    /** Node id (data-cc-node) of the element being marked; highlighted solid orange. */
+    /** Node ids (data-cc-node) of the element(s) being marked; highlighted solid orange. */
     @api
-    get pickedNode() {
-        return this._pickedNode;
+    get pickedNodes() {
+        return this._pickedNodes;
     }
-    set pickedNode(node) {
-        const next = node === undefined ? null : node;
-        if (next === this._pickedNode) return;
-        this._pickedNode = next;
-        this._scrollPickPending = next !== null;
+    set pickedNodes(nodes) {
+        const next = Array.isArray(nodes) ? nodes : [];
+        if (next.length === this._pickedNodes.length && next.every((node, index) => node === this._pickedNodes[index])) return;
+        this._pickedNodes = next;
+        this._scrollPickPending = next.length > 0;
     }
 
     @api
@@ -146,7 +146,9 @@ export default class CcTemplatePreview extends LightningElement {
     }
 
     get hintText() {
-        return this.markActive ? 'Click any element to tell the processor what it is.' : 'Hover to identify, click to edit.';
+        return this.markActive
+            ? 'Click an element to tell the processor what it is. Shift-click to add neighbouring elements.'
+            : 'Hover to identify, click to edit.';
     }
 
     get legend() {
@@ -272,10 +274,11 @@ export default class CcTemplatePreview extends LightningElement {
             event.preventDefault();
             event.stopPropagation();
             const node = Number(picked.getAttribute('data-cc-node'));
-            this._pickedNode = node;
+            const extend = !!event.shiftKey;
+            if (!extend) this._pickedNodes = [node];
             this._scrollPickPending = false;
             this.scheduleOverlay();
-            this.dispatchEvent(new CustomEvent('pick', { detail: { node } }));
+            this.dispatchEvent(new CustomEvent('pick', { detail: { node, extend } }));
             return;
         }
         const element = this.markedAt(event.target);
@@ -351,10 +354,12 @@ export default class CcTemplatePreview extends LightningElement {
             firstSelected.scrollIntoView({ block: 'nearest', inline: 'nearest' });
         }
         this._scrollPending = false;
-        if (this.markActive && this._pickedNode !== null) {
+        host.style.userSelect = this.markActive ? 'none' : '';
+        if (this.markActive && this._pickedNodes.length) {
             let firstPicked = null;
-            host.querySelectorAll(`[data-cc-node="${this._pickedNode}"]`).forEach(element => {
-                if (!this.inScope(element)) return;
+            const picked = new Set(this._pickedNodes.map(String));
+            host.querySelectorAll(NODE_SELECTOR).forEach(element => {
+                if (!picked.has(element.getAttribute('data-cc-node')) || !this.inScope(element)) return;
                 const box = this.box(host, element, { color: KIND_COLORS.pick, solid: true, tint: true });
                 if (!box) return;
                 layer.appendChild(box);

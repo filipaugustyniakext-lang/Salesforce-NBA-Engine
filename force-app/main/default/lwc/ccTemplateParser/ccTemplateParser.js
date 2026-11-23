@@ -266,10 +266,18 @@ export function parseTemplate(html, { kind = 'block', templateMode = 'multi', pr
     const regions = Array.from(doc.querySelectorAll('[data-cc-region]')).map((element, index) => {
         const regionKind = element.getAttribute('data-cc-region');
         if (!REGION_KINDS.includes(regionKind)) errors.push(`Unknown data-cc-region "${regionKind}".`);
+        const outer = element.parentElement ? element.parentElement.closest('[data-cc-region]') : null;
+        if (outer) errors.push(`Region "${regionKind}" is inside another region ("${outer.getAttribute('data-cc-region')}"). Regions cannot be nested.`);
         const regionId = slugify(element.getAttribute('data-cc-id')) || `${regionKind}-${index + 1}`;
         element.setAttribute('data-cc-id', regionId);
         return { regionId, kind: regionKind };
     });
+
+    if (kind === 'shell' && templateMode !== 'single') {
+        contentSlots.filter(slot => slot.regionKind !== 'fixed-edit').forEach(slot => {
+            warnings.push(`Content "${slot.bindingKey}" is not inside an editable region (fixed-edit), so marketers cannot edit it.`);
+        });
+    }
 
     const css = cssText(doc);
     if (sections.some(section => section.binds.includes('hide'))

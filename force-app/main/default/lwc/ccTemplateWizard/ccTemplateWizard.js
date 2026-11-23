@@ -52,7 +52,7 @@ export default class CcTemplateWizard extends LightningElement {
     validation = null;
     previewChoice = 'all';
     inspectKey = null;
-    pickedNode = null;
+    pickedNodes = [];
     markOn = false;
     _annotated = { html: null, out: null };
     isLegacy = false;
@@ -493,23 +493,36 @@ export default class CcTemplateWizard extends LightningElement {
     }
 
     handleInspectSelect(event) {
-        this.pickedNode = null;
+        this.pickedNodes = [];
         this.inspectKey = event.detail.key;
     }
 
     resetInspect() {
         this.inspectKey = null;
-        this.pickedNode = null;
+        this.pickedNodes = [];
     }
 
-    handlePick(event) {
-        this.pickedNode = event.detail.node;
+    /** A click in the preview (Shift extends the selection to neighbouring elements via the workspace). */
+    handlePreviewPick(event) {
         this.inspectKey = null;
+        const { node, extend } = event.detail;
+        const workspace = this.template.querySelector('c-cc-binding-workspace');
+        if (extend && this.pickedNodes.length && workspace) {
+            workspace.extendSelection(node);
+            return;
+        }
+        this.pickedNodes = [node];
+    }
+
+    /** The workspace changed the selection (group, children, wrap result, close). */
+    handleWorkspacePick(event) {
+        this.pickedNodes = event.detail.nodes || [];
+        if (this.pickedNodes.length) this.inspectKey = null;
     }
 
     handleModeChange(event) {
         this.markOn = !!event.detail.mark;
-        this.pickedNode = null;
+        this.pickedNodes = [];
     }
 
     /** A raw upload (no markings yet) switches the preview into guided mark mode. */

@@ -90,7 +90,7 @@ describe('c-cc-template-preview mark mode', () => {
     it('hovers and picks any element with a node id, not only marked ones', async () => {
         const element = await mountMark();
         const picks = [];
-        element.addEventListener('pick', event => picks.push(event.detail.node));
+        element.addEventListener('pick', event => picks.push(event.detail));
         const bold = host(element).querySelector('b');
         bold.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
         expect(boxes(element, 'hover')[0].textContent).toBe('<b> · click to mark');
@@ -98,22 +98,33 @@ describe('c-cc-template-preview mark mode', () => {
         const click = new MouseEvent('click', { bubbles: true, cancelable: true });
         bold.dispatchEvent(click);
         expect(click.defaultPrevented).toBe(true);
-        expect(picks).toEqual([2]);
+        expect(picks).toEqual([{ node: 2, extend: false }]);
         host(element).querySelector('i').dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
         expect(boxes(element, 'hover')[0].textContent).toBe('<i> · Rich text · n');
     });
 
+    it('reports Shift-click as an extension of the selection', async () => {
+        const element = await mountMark();
+        const picks = [];
+        element.addEventListener('pick', event => picks.push(event.detail));
+        host(element).querySelector('p').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        host(element).querySelector('img').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, shiftKey: true }));
+        expect(picks).toEqual([{ node: 1, extend: false }, { node: 3, extend: true }]);
+        expect(element.pickedNodes).toEqual([1]);
+        expect(host(element).style.userSelect).toBe('none');
+    });
+
     it('does not emit select in mark mode and highlights the picked node', async () => {
-        const element = await mountMark({ pickedNode: 3 });
+        const element = await mountMark({ pickedNodes: [3] });
         const selects = [];
         element.addEventListener('select', event => selects.push(event.detail));
         host(element).querySelector('i').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
         expect(selects).toEqual([]);
         expect(element.shadowRoot.textContent).toContain('Selected');
-        element.pickedNode = 1;
+        element.pickedNodes = [1, 2];
         await new Promise(resolve => setTimeout(resolve, 50));
         const solid = boxes(element, 'marks').filter(box => box.style.border.includes('solid'));
-        expect(solid).toHaveLength(1);
+        expect(solid).toHaveLength(2);
         expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
     });
 

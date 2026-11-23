@@ -25,6 +25,13 @@ const REGION_OPTIONS = [
     { label: 'Editable content, fixed settings', value: 'fixed-edit' },
     { label: 'Blocks zone (marketers drop blocks here)', value: 'blocks' }
 ];
+const FIXED_REGION_OPTIONS = REGION_OPTIONS.filter(option => option.value !== 'blocks');
+const ZONE_POSITIONS = [
+    { label: 'Before this element', value: 'before' },
+    { label: 'After this element', value: 'after' },
+    { label: 'Inside, at the start', value: 'inside-start' },
+    { label: 'Inside, at the end', value: 'inside-end' }
+];
 const BLANK = { role: 'none', level: 'container', id: '', binds: [], contentType: 'richText', key: '', label: '', complexity: 'standard', regionKind: 'fixed-read' };
 
 /** Guided panel: tell the processor what the picked element is. Emits apply { marking }, remove, close, pick { node }. */
@@ -33,6 +40,11 @@ export default class CcElementMarker extends LightningElement {
     @api templateMode = 'multi';
     @api existingIds = [];
     @api errors = [];
+    /** Set when several neighbouring elements are selected (see inspectGroup). */
+    @api group = null;
+    zonePositions = ZONE_POSITIONS;
+    zonePosition = 'after';
+    groupDraft = { regionKind: 'fixed-read', id: '' };
     complexityOptions = COMPLEXITY_OPTIONS;
     contentOptions = CONTENT_OPTIONS;
     regionOptions = REGION_OPTIONS;
@@ -85,6 +97,7 @@ export default class CcElementMarker extends LightningElement {
         const suggestion = info.suggestion || {};
         const draft = { ...BLANK, role: suggestion.role || 'none' };
         if (suggestion.role === 'section') draft.level = suggestion.level;
+        if (suggestion.role === 'region') draft.regionKind = suggestion.regionKind || 'fixed-read';
         if (suggestion.role === 'content') {
             draft.contentType = suggestion.contentType;
             draft.key = this.autoKey(suggestion.key || 'content');
@@ -152,14 +165,66 @@ export default class CcElementMarker extends LightningElement {
         return this.children.length > 0;
     }
 
+    get isMultiShell() {
+        return this.kind === 'shell' && this.templateMode !== 'single';
+    }
+
     get roleOptions() {
-        const options = [
-            { label: 'Section', value: 'section' },
-            { label: 'Content', value: 'content' }
-        ];
-        if (this.kind === 'shell' && this.templateMode !== 'single') options.push({ label: 'Region', value: 'region' });
+        const options = [];
+        if (!this.isMultiShell) options.push({ label: 'Section', value: 'section' });
+        options.push({ label: 'Content', value: 'content' });
+        if (this.isMultiShell) options.push({ label: 'Region', value: 'region' });
         options.push({ label: 'Not marked', value: 'none' });
         return options;
+    }
+
+    get hasGroup() {
+        return !!this.group;
+    }
+
+    get groupLabels() {
+        return (this.group?.labels || []).map((label, index) => ({ key: `${index}`, label }));
+    }
+
+    get groupRegionOptions() {
+        return FIXED_REGION_OPTIONS;
+    }
+
+    get groupProblem() {
+        return this.group?.problem || '';
+    }
+
+    get wrapDisabled() {
+        return !!this.groupProblem;
+    }
+
+    get wrapperNote() {
+        return this.group?.wrapperTag === 'div'
+            ? 'The elements are wrapped in a new <div> that carries the region.'
+            : 'The rows are wrapped in a new <tbody> that carries the region.';
+    }
+
+    get showZone() {
+        return this.isMultiShell && !this._info?.insideRegion && !this._info?.marks?.regionKind;
+    }
+
+    get zoneLabel() {
+        return this._info?.hasBlocksZone ? 'Move blocks zone here' : 'Insert blocks zone';
+    }
+
+    get zoneHelp() {
+        return this._info?.hasBlocksZone
+            ? 'The shell already has a blocks zone; this moves it next to the element above.'
+            : 'The blocks zone is the empty area where marketers add content blocks. Place it next to a fixed area, e.g. after the header.';
+    }
+
+    get canGroupChildren() {
+        return (this._info?.childCount || 0) > 1;
+    }
+
+    get contentWarning() {
+        if (!this.isContent || !this.isMultiShell || this._info?.inEditableRegion) return '';
+        return 'In a multi-block shell, content is only editable inside an editable region. Mark the surrounding area as an editable region first.';
     }
 
     get isSection() {
@@ -261,6 +326,26 @@ export default class CcElementMarker extends LightningElement {
 
     handlePick(event) {
         this.dispatchEvent(new CustomEvent('pick', { detail: { node: Number(event.currentTarget.dataset.node) } }));
+    }
+
+    handleZonePosition(event) {
+        this.zonePosition = event.detail.value;
+    }
+
+    handleInsertZone() {
+        this.dispatchEvent(new CustomEvent('zone', { detail: { position: this.zonePosition } }));
+    }
+
+    handleGroupChildren() {
+        this.dispatchEvent(new CustomEvent('groupchildren'));
+    }
+
+    handleGroupField(event) {
+        this.groupDraft = { ...this.groupDraft, [event.target.dataset.field]: event.detail?.value ?? event.target.value };
+    }
+
+    handleWrap() {
+        this.dispatchEvent(new CustomEvent('wrap', { detail: { marking: { ...this.groupDraft } } }));
     }
 
     handleApply() {

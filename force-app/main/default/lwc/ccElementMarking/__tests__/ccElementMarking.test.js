@@ -1,4 +1,4 @@
-import { annotateNodes, inspectNode, applyMarking, isUnmarked, nodeElement } from 'c/ccElementMarking';
+import { annotateNodes, inspectNode, applyMarking, isUnmarked, nodeElement, rangeBetween, inspectGroup, wrapElements, insertBlocksZone } from 'c/ccElementMarking';
 import { parseTemplate, parseHtml, describeMarked } from 'c/ccTemplateParser';
 
 const RAW = `<html><head><style>.cc-hide-dsk{} .cc-hide-mob{}</style></head><body>
@@ -119,5 +119,159 @@ describe('applyMarking', () => {
 
     it('reports a missing element', () => {
         expect(applyMarking('<p>x</p>', 5, { role: 'none' }).errors[0]).toContain('no longer exists');
+    });
+});
+
+const PAGE = `<div id="page">
+  <table id="top" class="header"><tr><td>Logo</td></tr></table>
+  <table id="nav"><tr><td>Menu</td></tr></table>
+  <table id="body-copy"><tr><td>Promo</td></tr></table>
+  <table id="footer-a"><tr><td>Legal A</td></tr></table>
+  <table id="footer-b"><tr><td>Legal B</td></tr></table>
+</div>`;
+
+function node(html, selector) {
+    return indexOfSelector(html, selector);
+}
+
+describe('groups of siblings', () => {
+    it('selects the run of siblings between two clicks and rejects different parents', () => {
+        const range = rangeBetween(PAGE, node(PAGE, '#footer-b'), node(PAGE, '#nav'));
+        expect(range.error).toBeNull();
+        expect(range.nodes).toEqual([node(PAGE, '#nav'), node(PAGE, '#body-copy'), node(PAGE, '#footer-a'), node(PAGE, '#footer-b')]);
+        expect(rangeBetween(PAGE, 3, 3)).toEqual({ nodes: [3], error: null });
+        const mixed = rangeBetween(PAGE, node(PAGE, '#footer-a'), node(PAGE, '#footer-b td'));
+        expect(mixed.error).toContain('same parent');
+        expect(rangeBetween(PAGE, 1, 999).error).toContain('no longer exists');
+    });
+
+    it('describes a group and explains when it cannot be wrapped', () => {
+        const group = inspectGroup(PAGE, [node(PAGE, '#footer-a'), node(PAGE, '#footer-b')]);
+        expect(group).toMatchObject({ count: 2, wrapperTag: 'div', problem: '', parentLabel: 'div#page' });
+        expect(group.labels).toEqual(['table#footer-a', 'table#footer-b']);
+        const cells = '<table><tr><td>a</td><td>b</td></tr></table>';
+        expect(inspectGroup(cells, [3, 4]).problem).toContain('table row');
+        expect(inspectGroup(PAGE, [node(PAGE, '#footer-a')])).toBeNull();
+        const gap = inspectGroup(PAGE, [node(PAGE, '#top'), node(PAGE, '#footer-b')]);
+        expect(gap.problem).toContain('next to each other');
+    });
+
+    it('wraps neighbouring tables in a div region (the black footer case) that parses cleanly', () => {
+        const result = wrapElements(PAGE, [node(PAGE, '#footer-a'), node(PAGE, '#footer-b')], { regionKind: 'fixed-read', id: 'footer' }, { kind: 'shell' });
+        expect(result.errors).toEqual([]);
+        const wrapper = nodeElement(result.html, result.markedNode);
+        expect(wrapper.tagName).toBe('DIV');
+        expect(wrapper.getAttribute('data-cc-region')).toBe('fixed-read');
+        expect(Array.from(wrapper.children).map(child => child.id)).toEqual(['footer-a', 'footer-b']);
+        expect(wrapper.parentElement.id).toBe('page');
+        const parsed = parseTemplate(result.html, { kind: 'shell', templateMode: 'multi' });
+        expect(parsed.definition.regions).toEqual([{ regionId: 'footer', kind: 'fixed-read' }]);
+    });
+
+    it('wraps table rows in their own tbody, splitting the original body', () => {
+        const table = '<table><tbody><tr><td>1</td></tr><tr><td>2</td></tr><tr><td>3</td></tr><tr><td>4</td></tr></tbody></table>';
+        const rows = [node(table, 'tr:nth-child(2)'), node(table, 'tr:nth-child(3)')];
+        const result = wrapElements(table, rows, { regionKind: 'fixed-edit' }, { kind: 'shell' });
+        expect(result.errors).toEqual([]);
+        const { doc } = parseHtml(result.html);
+        const bodies = Array.from(doc.querySelectorAll('tbody'));
+        expect(bodies.map(body => `${body.getAttribute('data-cc-region') || '-'}:${body.children.length}`)).toEqual(['-:1', 'fixed-edit:2', '-:1']);
+
+        const first = wrapElements(table, [node(table, 'tr:nth-child(1)'), node(table, 'tr:nth-child(2)')], { regionKind: 'fixed-read' }, { kind: 'shell' });
+        const firstBodies = Array.from(parseHtml(first.html).doc.querySelectorAll('tbody'));
+        expect(firstBodies.map(body => body.children.length)).toEqual([2, 2]);
+    });
+
+    it('keeps comments between grouped elements, and rejects invalid groups', () => {
+        const html = '<div><p id="a">a</p><!--[if mso]><i></i><![endif]--><p id="b">b</p></div>';
+        const result = wrapElements(html, [node(html, '#a'), node(html, '#b')], { regionKind: 'fixed-read' }, { kind: 'shell' });
+        expect(result.html).toContain('<div data-cc-region="fixed-read"><p id="a">a</p><!--[if mso]><i></i><![endif]--><p id="b">b</p></div>');
+
+        const fail = (nodes, marking, options) => wrapElements(PAGE, nodes, marking, options).errors.join(' ');
+        const two = [node(PAGE, '#footer-a'), node(PAGE, '#footer-b')];
+        expect(fail(two, { regionKind: 'blocks' }, { kind: 'shell' })).toContain('inserted, not wrapped');
+        expect(fail(two, { regionKind: 'fixed-read' }, { kind: 'block' })).toContain('only be set in the template shell');
+        expect(fail([node(PAGE, '#top'), node(PAGE, '#footer-b td')], { regionKind: 'fixed-read' }, { kind: 'shell' })).toContain('share one parent');
+        expect(fail(two, { regionKind: 'fixed-read', id: 'page' }, { kind: 'shell' })).toBe('');
+        expect(fail([node(PAGE, '#top td'), node(PAGE, '#top td')], { regionKind: 'fixed-read' }, { kind: 'shell' })).toBe('');
+        const cells = '<table><tr><td>a</td><td>b</td></tr></table>';
+        expect(wrapElements(cells, [3, 4], { regionKind: 'fixed-read' }, { kind: 'shell' }).errors.join(' ')).toContain('table row');
+    });
+
+    it('does not allow nested regions', () => {
+        const outer = wrapElements(PAGE, [node(PAGE, '#footer-a'), node(PAGE, '#footer-b')], { regionKind: 'fixed-read', id: 'footer' }, { kind: 'shell' });
+        const again = wrapElements(outer.html, [node(outer.html, '#footer-a'), node(outer.html, '#footer-b')], { regionKind: 'fixed-edit' }, { kind: 'shell' });
+        expect(again.errors.join(' ')).toContain('already inside a region');
+        const single = applyMarking(outer.html, node(outer.html, '#footer-a'), { role: 'region', regionKind: 'fixed-read' }, { kind: 'shell' });
+        expect(single.errors.join(' ')).toContain('already inside a region');
+        const parent = applyMarking(outer.html, node(outer.html, '#page'), { role: 'region', regionKind: 'fixed-read' }, { kind: 'shell' });
+        expect(parent.errors.join(' ')).toContain('contains another region');
+        const nested = '<div data-cc-region="fixed-read"><div data-cc-region="fixed-edit"></div></div>';
+        expect(parseTemplate(nested, { kind: 'shell', templateMode: 'multi' }).errors.join(' ')).toContain('Regions cannot be nested');
+    });
+});
+
+describe('blocks zone', () => {
+    const shell = (html, selector, position, options) => {
+        const result = insertBlocksZone(html, node(html, selector), position, options);
+        return result;
+    };
+
+    it('inserts an empty zone before or after a wrapper and the shell becomes valid', () => {
+        let html = wrapElements(PAGE, [node(PAGE, '#footer-a'), node(PAGE, '#footer-b')], { regionKind: 'fixed-read', id: 'footer' }, { kind: 'shell' }).html;
+        const before = shell(html, '[data-cc-id="footer"]', 'before');
+        expect(before.errors).toEqual([]);
+        const zone = nodeElement(before.html, before.markedNode);
+        expect(zone.outerHTML).toBe('<div data-cc-region="blocks" data-cc-id="content"></div>');
+        expect(zone.nextElementSibling.getAttribute('data-cc-id')).toBe('footer');
+        expect(parseTemplate(before.html, { kind: 'shell', templateMode: 'multi' }).errors).toEqual([]);
+
+        const after = shell(html, '#top', 'after');
+        expect(nodeElement(after.html, after.markedNode).previousElementSibling.id).toBe('top');
+        html = after.html;
+        expect(shell(html, '#top', 'inside-end', { kind: 'shell' }).errors).toEqual([]);
+    });
+
+    it('moves an existing zone instead of adding a second one', () => {
+        const first = shell(PAGE, '#top', 'after');
+        const moved = shell(first.html, '#footer-b', 'after');
+        expect(moved.errors).toEqual([]);
+        const { doc } = parseHtml(moved.html);
+        const zones = doc.querySelectorAll('[data-cc-region="blocks"]');
+        expect(zones).toHaveLength(1);
+        expect(zones[0].previousElementSibling.id).toBe('footer-b');
+        expect(shell(first.html, '[data-cc-region="blocks"]', 'after').errors.join(' ')).toContain('outside the current blocks zone');
+    });
+
+    it('builds a table row for table contexts and refuses invalid spots', () => {
+        const table = '<table><tbody><tr><td>1</td></tr><tr><td>2</td></tr></tbody></table>';
+        const result = shell(table, 'tr', 'after');
+        expect(result.errors).toEqual([]);
+        expect(nodeElement(result.html, result.markedNode).tagName).toBe('TD');
+        expect(result.html).toContain('<tr><td data-cc-region="blocks" data-cc-id="content"></td></tr>');
+
+        expect(shell(table, 'td', 'after').errors.join(' ')).toContain('between table cells');
+        expect(shell('<ul><li>a</li></ul>', 'li', 'after').errors.join(' ')).toContain('inside a list');
+        const wrapped = wrapElements(PAGE, [node(PAGE, '#footer-a'), node(PAGE, '#footer-b')], { regionKind: 'fixed-read', id: 'footer' }, { kind: 'shell' }).html;
+        expect(shell(wrapped, '#footer-a', 'after').errors.join(' ')).toContain('inside another region');
+        expect(shell(PAGE, '#top', 'after', { kind: 'block' }).errors.join(' ')).toContain('multi-block shells');
+        expect(shell(PAGE, '#top', 'after', { kind: 'shell', templateMode: 'single' }).errors.join(' ')).toContain('multi-block shells');
+        expect(shell(PAGE, '#top', 'sideways').errors.join(' ')).toContain('Choose where');
+        expect(insertBlocksZone(PAGE, 999, 'after').errors.join(' ')).toContain('no longer exists');
+    });
+
+    it('suggests regions for layout areas of a multi-block shell', () => {
+        const options = { kind: 'shell', templateMode: 'multi' };
+        const info = inspectNode(PAGE, node(PAGE, '#footer-a'), options);
+        expect(info.suggestion).toMatchObject({ role: 'region', regionKind: 'fixed-read' });
+        expect(info.hasBlocksZone).toBe(false);
+        const withZone = shell(PAGE, '#top', 'after').html;
+        expect(inspectNode(withZone, node(withZone, '#nav'), options).hasBlocksZone).toBe(true);
+        const editable = wrapElements(PAGE, [node(PAGE, '#footer-a'), node(PAGE, '#footer-b')], { regionKind: 'fixed-edit', id: 'footer' }, { kind: 'shell' }).html;
+        const inside = inspectNode(editable, node(editable, '#footer-a td'), options);
+        expect(inside.inEditableRegion).toBe(true);
+        expect(inside.suggestion.role).toBe('content');
+        expect(inspectNode(PAGE, node(PAGE, '#footer-a'), { kind: 'block' }).suggestion.role).toBe('section');
+        expect(parseTemplate('<div data-cc-region="fixed-read"><p data-cc-content="richText" data-cc-key="t">x</p></div><div data-cc-region="blocks"></div>', { kind: 'shell', templateMode: 'multi' }).warnings.join(' ')).toContain('not inside an editable region');
     });
 });

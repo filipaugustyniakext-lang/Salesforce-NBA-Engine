@@ -1,6 +1,6 @@
 import { LightningElement, api } from 'lwc';
 import { parseTemplate, describeMarked } from 'c/ccTemplateParser';
-import { inspectNode, applyMarking, nodeElement, isUnmarked } from 'c/ccElementMarking';
+import { inspectNode, inspectGroup, applyMarking, wrapElements, insertBlocksZone, rangeBetween, nodeElement, isUnmarked } from 'c/ccElementMarking';
 import { validateDefinition, CONTENT_TYPE_LABELS, clone } from 'c/ccTemplateSchema';
 
 const LEVEL_ICONS = { container: 'utility:layout', row: 'utility:rows', column: 'utility:column' };
@@ -26,9 +26,9 @@ export default class CcBindingWorkspace extends LightningElement {
     warnings = [];
     selectedKey;
     fileName;
-    pickedNode = null;
+    pickedNodes = [];
     markerErrors = [];
-    _markerCache = { html: null, node: null, info: null };
+    _markerCache = { html: null, node: null, mode: null, info: null };
     _templateMode = 'multi';
 
     /** Key of the selected list item (section:id, slot:key, region:id); set by the preview or the list. */
@@ -40,19 +40,6 @@ export default class CcBindingWorkspace extends LightningElement {
         if ((key || null) === this.selectedKey) return;
         this.selectedKey = key || null;
         this._revealPending = !!key;
-    }
-
-    /** Node index (see c/ccElementMarking) of the element picked in the preview's mark mode. */
-    @api
-    get pickedElement() {
-        return this.pickedNode;
-    }
-    set pickedElement(node) {
-        const next = node === undefined ? null : node;
-        if (next === this.pickedNode) return;
-        this.pickedNode = next;
-        this.markerErrors = [];
-        this._revealPending = next !== null;
     }
 
     renderedCallback() {
@@ -225,25 +212,72 @@ export default class CcBindingWorkspace extends LightningElement {
 
     handleSelect(event) {
         this.selectedKey = event.currentTarget.dataset.key;
-        this.setPicked(null);
+        this.setPicked([]);
         this.dispatchEvent(new CustomEvent('select', { detail: { key: this.selectedKey } }));
     }
 
     // ─── Guided marking ──────────────────────────────────────────────────────
 
-    setPicked(node) {
-        this.pickedNode = node;
+    /** Node indexes (see c/ccElementMarking) of the element(s) picked in the preview's mark mode. */
+    @api
+    get pickedElements() {
+        return this.pickedNodes;
+    }
+    set pickedElements(nodes) {
+        const next = Array.isArray(nodes) ? nodes : [];
+        if (next.length === this.pickedNodes.length && next.every((node, index) => node === this.pickedNodes[index])) return;
+        this.pickedNodes = next;
         this.markerErrors = [];
-        this.dispatchEvent(new CustomEvent('pick', { detail: { node } }));
+        this._revealPending = next.length > 0;
+    }
+
+    /** Shift-click: extends the selection from the first picked element to `node` (neighbours in one parent). */
+    @api
+    extendSelection(node) {
+        if (!this.pickedNodes.length) {
+            this.setPicked([node]);
+            return;
+        }
+        const range = rangeBetween(this.html, this.pickedNodes[0], node);
+        if (range.error) {
+            this.markerErrors = [range.error];
+            return;
+        }
+        this.setPicked(range.nodes);
+    }
+
+    setPicked(nodes) {
+        this.pickedNodes = nodes;
+        this.markerErrors = [];
+        this.dispatchEvent(new CustomEvent('pick', { detail: { nodes } }));
+    }
+
+    get primaryNode() {
+        return this.pickedNodes.length ? this.pickedNodes[0] : null;
     }
 
     get markerInfo() {
-        if (this.pickedNode === null || !this.html) return null;
+        if (!this.html || this.pickedNodes.length !== 1) return null;
+        const node = this.primaryNode;
         const cache = this._markerCache;
-        if (cache.html !== this.html || cache.node !== this.pickedNode) {
-            this._markerCache = { html: this.html, node: this.pickedNode, info: inspectNode(this.html, this.pickedNode) };
+        if (cache.html !== this.html || cache.node !== node || cache.mode !== this._templateMode) {
+            this._markerCache = {
+                html: this.html,
+                node,
+                mode: this._templateMode,
+                info: inspectNode(this.html, node, { kind: this.kind, templateMode: this._templateMode })
+            };
         }
         return this._markerCache.info;
+    }
+
+    get groupInfo() {
+        if (!this.html || this.pickedNodes.length < 2) return null;
+        return inspectGroup(this.html, this.pickedNodes);
+    }
+
+    get showMarker() {
+        return !!this.markerInfo || !!this.groupInfo;
     }
 
     get markerKind() {
@@ -258,12 +292,41 @@ export default class CcBindingWorkspace extends LightningElement {
         return !!this.html && isUnmarked(this.definition);
     }
 
+    /** Checklist for multi-block shells: fixed areas, blocks zone, editable content. */
+    get isMultiShell() {
+        return this.kind === 'shell' && this._templateMode !== 'single';
+    }
+
+    get checklist() {
+        const regions = this.definition?.regions || [];
+        const fixed = regions.filter(region => region.kind !== 'blocks').length;
+        const zone = regions.some(region => region.kind === 'blocks');
+        const editable = regions.some(region => region.kind === 'fixed-edit');
+        const slots = (this.definition?.contentSlots || []).length;
+        const item = (key, done, text, optional) => ({
+            key,
+            done,
+            icon: done ? 'utility:success' : 'utility:routing_offline',
+            className: `cc-workspace__todo${done ? ' cc-workspace__todo_done' : ''}`,
+            text: optional ? `${text} (optional)` : text
+        });
+        return [
+            item('fixed', fixed > 0, 'Mark the fixed areas (header, footer): click an element, Shift-click its neighbours, choose Region.'),
+            item('zone', zone, 'Place the blocks zone: click an element next to a fixed area and choose Insert blocks zone.'),
+            item('content', slots > 0, editable ? 'Mark the editable content inside the editable regions.' : 'Mark editable content inside editable regions.', true)
+        ];
+    }
+
+    get showChecklist() {
+        return this.isMultiShell && !!this.html;
+    }
+
     handleMarkerPick(event) {
-        this.setPicked(event.detail.node);
+        this.setPicked([event.detail.node]);
     }
 
     handleMarkerClose() {
-        this.setPicked(null);
+        this.setPicked([]);
     }
 
     handleMarkerApply(event) {
@@ -274,8 +337,31 @@ export default class CcBindingWorkspace extends LightningElement {
         this.applyMarkingChange({ role: 'none' });
     }
 
+    handleGroupChildren() {
+        const info = this.markerInfo;
+        if (!info || info.firstChild === null) return;
+        const range = rangeBetween(this.html, info.firstChild, info.lastChild);
+        if (range.error) this.markerErrors = [range.error];
+        else this.setPicked(range.nodes);
+    }
+
+    handleMarkerWrap(event) {
+        const result = wrapElements(this.html, this.pickedNodes, event.detail.marking, { kind: this.kind });
+        this.finishStructureChange(result);
+    }
+
+    handleMarkerZone(event) {
+        const result = insertBlocksZone(this.html, this.primaryNode, event.detail.position, { kind: this.kind, templateMode: this._templateMode });
+        this.finishStructureChange(result);
+    }
+
     applyMarkingChange(marking) {
-        const result = applyMarking(this.html, this.pickedNode, marking, { kind: this.kind });
+        const result = applyMarking(this.html, this.primaryNode, marking, { kind: this.kind });
+        this.finishStructureChange(result, marking.role === 'none');
+    }
+
+    /** Stores the edited HTML, re-parses it and selects the element that now carries the marking. */
+    finishStructureChange(result, removed = false) {
         if (result.errors.length) {
             this.markerErrors = result.errors;
             return;
@@ -283,12 +369,11 @@ export default class CcBindingWorkspace extends LightningElement {
         this.html = result.html;
         this.reparse();
         let key = null;
-        if (marking.role !== 'none') {
-            const element = nodeElement(this.html, result.markedNode);
-            key = describeMarked(element)?.key || null;
+        if (!removed && result.markedNode !== null && result.markedNode !== undefined) {
+            key = describeMarked(nodeElement(this.html, result.markedNode))?.key || null;
         }
         this.selectedKey = key;
-        this.setPicked(null);
+        this.setPicked([]);
         if (key) this.dispatchEvent(new CustomEvent('select', { detail: { key } }));
     }
 

@@ -96,17 +96,24 @@ describe('c-cc-template-wizard layout', () => {
         expect(preview.markMode).toBe(true);
         expect(preview.renderFn('desktop', 'light')).toContain('data-cc-node="3"');
 
-        preview.dispatchEvent(new CustomEvent('pick', { detail: { node: 3 } }));
+        preview.dispatchEvent(new CustomEvent('pick', { detail: { node: 3, extend: false } }));
         await flush();
-        expect(element.shadowRoot.querySelector('c-cc-binding-workspace').pickedElement).toBe(3);
-        expect(element.shadowRoot.querySelector('c-cc-template-preview').pickedNode).toBe(3);
+        expect(element.shadowRoot.querySelector('c-cc-binding-workspace').pickedElements).toEqual([3]);
+        expect(element.shadowRoot.querySelector('c-cc-template-preview').pickedNodes).toEqual([3]);
+
+        element.shadowRoot.querySelector('c-cc-binding-workspace').extendSelection = jest.fn();
+        element.shadowRoot.querySelector('c-cc-template-preview').dispatchEvent(new CustomEvent('pick', { detail: { node: 5, extend: true } }));
+        expect(element.shadowRoot.querySelector('c-cc-binding-workspace').extendSelection).toHaveBeenCalledWith(5);
+        element.shadowRoot.querySelector('c-cc-binding-workspace').dispatchEvent(new CustomEvent('pick', { detail: { nodes: [3, 5] } }));
+        await flush();
+        expect(element.shadowRoot.querySelector('c-cc-template-preview').pickedNodes).toEqual([3, 5]);
 
         element.shadowRoot.querySelector('c-cc-template-preview').dispatchEvent(new CustomEvent('modechange', { detail: { mark: false } }));
         await flush();
         const after = element.shadowRoot.querySelector('c-cc-template-preview');
         expect(after.markMode).toBe(false);
         expect(after.renderFn('desktop', 'light')).not.toContain('data-cc-node');
-        expect(element.shadowRoot.querySelector('c-cc-binding-workspace').pickedElement).toBeNull();
+        expect(element.shadowRoot.querySelector('c-cc-binding-workspace').pickedElements).toEqual([]);
     });
 
     it('offers delete only for saved templates', async () => {
