@@ -18,7 +18,7 @@ import {
     blockProgress,
     listBindings
 } from 'c/ccElementMarking';
-import { validateDefinition, CONTENT_TYPE_LABELS, clone } from 'c/ccTemplateSchema';
+import { validateDefinition, buildBlockConfig, CONTENT_TYPE_LABELS, clone } from 'c/ccTemplateSchema';
 import { isolateNativeEvents } from 'c/ccEventGuard';
 
 const LEVEL_ICONS = { container: 'utility:layout', row: 'utility:rows', column: 'utility:column' };
@@ -34,6 +34,8 @@ const MAX_FILE_BYTES = 262144;
 /**
  * Upload + parse + configure bindings of one HTML file (shell or block).
  * Emits bindingchange { html, definition, errors, warnings }.
+ * Emits testchange { config } while "Test bindings" is on (config is null again when it ends): the wizard renders the
+ * preview with those values so every binding can be tried out.
  * Both kinds of template are set up in three gated steps; the workspace announces the active step with
  * stepchange { step, pickScope } so the preview only offers what the step needs.
  *   multi-block shell:             fixed areas, dropzone, editable content
@@ -50,6 +52,8 @@ export default class CcBindingWorkspace extends LightningElement {
     definition = null;
     errors = [];
     warnings = [];
+    testMode = false;
+    testConfig = null;
     selectedKey;
     fileName;
     pickedNodes = [];
@@ -97,6 +101,7 @@ export default class CcBindingWorkspace extends LightningElement {
         const html = next?.html || '';
         const definition = next?.definition || null;
         if (html === this.html && JSON.stringify(definition) === JSON.stringify(this.definition)) return;
+        this.exitTest();
         this.html = html;
         this.definition = definition;
         if (html) {
@@ -110,6 +115,57 @@ export default class CcBindingWorkspace extends LightningElement {
             this.errors = [];
             this.warnings = [];
         }
+    }
+
+    get setupVariant() {
+        return this.testMode ? 'neutral' : 'brand';
+    }
+
+    get testVariant() {
+        return this.testMode ? 'brand' : 'neutral';
+    }
+
+    get cannotTest() {
+        const definition = this.definition;
+        const hasBindings = !!definition && ((definition.sections || []).length > 0 || (definition.contentSlots || []).length > 0);
+        return this.hasErrors || !hasBindings;
+    }
+
+    get testTitle() {
+        return this.cannotTest ? 'Fix the errors and mark some sections or content first' : 'Change settings and content to check how the preview reacts';
+    }
+
+    handleTestMode() {
+        if (this.cannotTest || this.testMode) return;
+        this.testConfig = buildBlockConfig(this.definition);
+        this.testMode = true;
+        this.emitTest();
+    }
+
+    handleSetupMode() {
+        this.exitTest();
+    }
+
+    exitTest() {
+        if (!this.testMode) return;
+        this.testMode = false;
+        this.testConfig = null;
+        this.emitTest();
+    }
+
+    handlePlaygroundChange(event) {
+        if (!event.detail || !event.detail.config) return;
+        this.testConfig = event.detail.config;
+        this.emitTest();
+    }
+
+    handlePlaygroundReset() {
+        this.testConfig = buildBlockConfig(this.definition);
+        this.emitTest();
+    }
+
+    emitTest() {
+        this.dispatchEvent(new CustomEvent('testchange', { detail: { config: this.testConfig } }));
     }
 
     get guideOpen() {

@@ -3,6 +3,7 @@ import CcTemplateWizard from 'c/ccTemplateWizard';
 import getLocales from '@salesforce/apex/MarketingDictionaryManagerController.getLocales';
 import { parseTemplate } from 'c/ccTemplateParser';
 import { SHELL_EXAMPLE } from 'c/ccBindingExamples';
+import { buildBlockConfig } from 'c/ccTemplateSchema';
 
 jest.mock('@salesforce/apex/CcTemplateDefinitionController.getTemplateDetail', () => ({ default: jest.fn() }), { virtual: true });
 jest.mock('@salesforce/apex/CcTemplateDefinitionController.saveTemplate', () => ({ default: jest.fn() }), { virtual: true });
@@ -135,6 +136,30 @@ describe('c-cc-template-wizard layout', () => {
         workspace.dispatchEvent(new CustomEvent('stepchange', { detail: { step: 2, pickScope: 'any' } }));
         await flush();
         expect(element.shadowRoot.querySelector('c-cc-template-preview').markMode).toBe(true);
+    });
+
+    it('renders the preview with the values tried out in Test bindings, and stops when testing ends', async () => {
+        const element = await openShellStep();
+        const workspace = element.shadowRoot.querySelector('c-cc-binding-workspace');
+        const html = '<table data-cc-region="fixed-edit"><tr><td><div data-cc-content="richText" data-cc-key="intro">Default text</div></td></tr></table><div data-cc-region="blocks"></div>';
+        const parsed = parseTemplate(html, { kind: 'shell', templateMode: 'multi' });
+        workspace.dispatchEvent(new CustomEvent('bindingchange', { detail: { html: parsed.html, definition: parsed.definition, errors: [], warnings: [] } }));
+        await flush();
+        expect(element.shadowRoot.querySelector('c-cc-template-preview').inspectable).toBe(true);
+
+        const config = buildBlockConfig(parsed.definition);
+        config.rows[0].columns[0].content[0].html = '<b>Typed by the admin</b>';
+        workspace.dispatchEvent(new CustomEvent('testchange', { detail: { config } }));
+        await flush();
+        const testing = element.shadowRoot.querySelector('c-cc-template-preview');
+        expect(testing.inspectable).toBe(false);
+        expect(testing.renderFn('mobile', 'light')).toContain('Typed by the admin');
+
+        workspace.dispatchEvent(new CustomEvent('testchange', { detail: { config: null } }));
+        await flush();
+        const done = element.shadowRoot.querySelector('c-cc-template-preview');
+        expect(done.inspectable).toBe(true);
+        expect(done.renderFn('mobile', 'light')).not.toContain('Typed by the admin');
     });
 
     it('is not wiped by change events that bubble out of inputs inside the marker panel', async () => {

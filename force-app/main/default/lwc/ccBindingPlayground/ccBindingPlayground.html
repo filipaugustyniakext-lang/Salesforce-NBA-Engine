@@ -1,0 +1,32 @@
+<template>
+    <div class="cc-play">
+        <div class="cc-play__intro">
+            <p class="slds-text-body_small">
+                Change the settings and content below the way a marketer would and watch the preview. Switch the preview between mobile and desktop, light and dark, to check <strong>hide</strong>, images and colors. Nothing here is saved.
+            </p>
+            <lightning-button label="Reset to defaults" icon-name="utility:undo" onclick={handleReset}></lightning-button>
+        </div>
+        <template lwc:if={isEmpty}>
+            <p class="slds-text-color_weak slds-m-top_small">This template has no bindings that marketers can change yet. Mark some in <strong>Set up bindings</strong>.</p>
+        </template>
+        <template lwc:if={hasSectionOptions}>
+            <div class="cc-play__card">
+                <lightning-combobox label="Section settings" options={sectionOptions} value={activeSectionId} onchange={handleSectionPick}></lightning-combobox>
+                <div class="slds-m-top_small">
+                    <c-cc-section-settings-editor mode="content" section={activeSection} value={activeSettings} onchange={handleSectionSettings}></c-cc-section-settings-editor>
+                </div>
+            </div>
+        </template>
+        <template for:each={columns} for:item="column">
+            <div key={column.key} class="cc-play__card">
+                <div class="slds-text-title_bold">{column.label}</div>
+                <template for:each={column.items} for:item="entry">
+                    <div key={entry.key} class="cc-play__item">
+                        <div class="slds-text-body_small slds-text-title_caps">{entry.title}</div>
+                        <c-cc-content-item-editor item={entry.item} binding={entry.binding} data-row={column.rowIndex} data-column={column.columnIndex} data-item={entry.itemIndex} onchange={handleItemChange}></c-cc-content-item-editor>
+                    </div>
+                </template>
+            </div>
+        </template>
+    </div>
+</template>

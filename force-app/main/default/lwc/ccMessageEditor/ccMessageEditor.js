@@ -11,6 +11,8 @@ import {
     defaultContent,
     validateBlockContent,
     clone,
+    readSectionSettings as readSettings,
+    writeSectionSettings as writeSettings,
     CONTENT_TYPE_LABELS
 } from 'c/ccTemplateSchema';
 import { renderMessage } from 'c/ccTemplateRenderer';
@@ -388,36 +390,5 @@ export default class CcMessageEditor extends LightningElement {
 
     toast(title, message, variant) {
         this.dispatchEvent(new ShowToastEvent({ title, message, variant }));
-    }
-}
-
-function readSettings(config, sectionId) {
-    if (!config || !sectionId) return null;
-    if ((config.sectionId || 'block') === sectionId) return config.blockSettings;
-    for (const row of config.rows || []) {
-        if (row.sectionId === sectionId) return row.rowSettings;
-        for (const column of row.columns || []) {
-            if (column.sectionId === sectionId) return column.columnSettings;
-        }
-    }
-    return null;
-}
-
-function writeSettings(config, sectionId, value) {
-    if ((config.sectionId || 'block') === sectionId) {
-        config.blockSettings = value;
-        return;
-    }
-    for (const row of config.rows || []) {
-        if (row.sectionId === sectionId) {
-            row.rowSettings = value;
-            return;
-        }
-        for (const column of row.columns || []) {
-            if (column.sectionId === sectionId) {
-                column.columnSettings = value;
-                return;
-            }
-        }
     }
 }

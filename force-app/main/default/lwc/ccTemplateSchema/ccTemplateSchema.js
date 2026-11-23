@@ -300,6 +300,39 @@ export function buildBlockConfig(definition) {
     return config;
 }
 
+/** Reads the settings object of a section (container, row or column) of a block configuration. */
+export function readSectionSettings(config, sectionId) {
+    if (!config || !sectionId) return null;
+    if ((config.sectionId || 'block') === sectionId) return config.blockSettings;
+    for (const row of config.rows || []) {
+        if (row.sectionId === sectionId) return row.rowSettings;
+        for (const column of row.columns || []) {
+            if (column.sectionId === sectionId) return column.columnSettings;
+        }
+    }
+    return null;
+}
+
+/** Writes the settings object of a section of a block configuration (mutates `config`). */
+export function writeSectionSettings(config, sectionId, value) {
+    if ((config.sectionId || 'block') === sectionId) {
+        config.blockSettings = value;
+        return;
+    }
+    for (const row of config.rows || []) {
+        if (row.sectionId === sectionId) {
+            row.rowSettings = value;
+            return;
+        }
+        for (const column of row.columns || []) {
+            if (column.sectionId === sectionId) {
+                column.columnSettings = value;
+                return;
+            }
+        }
+    }
+}
+
 export function contentTypesOf(definition) {
     const found = new Set((definition?.contentSlots || []).map(slot => slot.type));
     return CONTENT_TYPES.filter(type => found.has(type));

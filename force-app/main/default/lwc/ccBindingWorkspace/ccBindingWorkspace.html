@@ -40,6 +40,16 @@
                     <span>No bindings were found in this file. Turn on <strong>Mark elements</strong> in the preview and click an element to tell the processor what it is. Shift-click neighbouring elements to treat them as one.</span>
                 </div>
             </template>
+            <div class="cc-workspace__modes">
+                <lightning-button-group>
+                    <lightning-button label="Set up bindings" icon-name="utility:edit" variant={setupVariant} onclick={handleSetupMode}></lightning-button>
+                    <lightning-button label="Test bindings" icon-name="utility:preview" variant={testVariant} disabled={cannotTest} title={testTitle} onclick={handleTestMode}></lightning-button>
+                </lightning-button-group>
+            </div>
+            <template lwc:if={testMode}>
+                <c-cc-binding-playground definition={definition} config={testConfig} onconfigchange={handlePlaygroundChange} onresetconfig={handlePlaygroundReset}></c-cc-binding-playground>
+            </template>
+            <template lwc:else>
             <template lwc:if={showSteps}>
                 <c-cc-shell-steps variant={stepsVariant} progress={progress} active-step={activeStep} onstepselect={handleStepSelect}></c-cc-shell-steps>
             </template>
@@ -154,6 +164,7 @@
                     </template>
                 </div>
             </div>
+            </template>
         </template>
     </div>
 </template>

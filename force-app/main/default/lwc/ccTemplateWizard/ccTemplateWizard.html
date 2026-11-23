@@ -52,7 +52,7 @@
                 </template>
 
                 <template lwc:if={isShellStep}>
-                    <c-cc-binding-workspace kind="shell" template-mode={basics.templateMode} source={shellSource} active-key={inspectKey} picked-elements={pickedNodes} onselect={handleInspectSelect} onpick={handleWorkspacePick} onstepchange={handleStepChange} onbindingchange={handleShellChange}></c-cc-binding-workspace>
+                    <c-cc-binding-workspace kind="shell" template-mode={basics.templateMode} source={shellSource} active-key={inspectKey} picked-elements={pickedNodes} onselect={handleInspectSelect} onpick={handleWorkspacePick} onstepchange={handleStepChange} ontestchange={handleTestChange} onbindingchange={handleShellChange}></c-cc-binding-workspace>
                 </template>
 
                 <template lwc:if={isBlocksStep}>
@@ -108,7 +108,7 @@
                                 <lightning-input label="Block name" required value={blockDraft.name} data-field="name" onchange={handleBlockField}></lightning-input>
                                 <lightning-input label="Description" value={blockDraft.description} data-field="description" onchange={handleBlockField}></lightning-input>
                             </div>
-                            <c-cc-binding-workspace kind="block" template-mode="single" source={blockSource} active-key={inspectKey} picked-elements={pickedNodes} onselect={handleInspectSelect} onpick={handleWorkspacePick} onstepchange={handleStepChange} onbindingchange={handleBlockSource}></c-cc-binding-workspace>
+                            <c-cc-binding-workspace kind="block" template-mode="single" source={blockSource} active-key={inspectKey} picked-elements={pickedNodes} onselect={handleInspectSelect} onpick={handleWorkspacePick} onstepchange={handleStepChange} ontestchange={handleTestChange} onbindingchange={handleBlockSource}></c-cc-binding-workspace>
                             <div class="cc-wizard__actions slds-m-top_small">
                                 <lightning-button label="Cancel" onclick={handleCancelBlock}></lightning-button>
                                 <lightning-button label="Save block" variant="brand" disabled={saving} onclick={handleSaveBlock}></lightning-button>

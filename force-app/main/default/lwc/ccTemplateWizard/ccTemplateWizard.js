@@ -63,6 +63,7 @@ export default class CcTemplateWizard extends LightningElement {
     pickedNodes = [];
     shellPickScope = 'areas';
     markOn = false;
+    testConfig = null;
     _annotated = { html: null, out: null };
     isLegacy = false;
     messageCount = 0;
@@ -352,6 +353,7 @@ export default class CcTemplateWizard extends LightningElement {
     handleCancelBlock() {
         this.resetInspect();
         this.blockDraft = null;
+        this.testConfig = null;
     }
 
     async handleSaveBlock() {
@@ -384,6 +386,7 @@ export default class CcTemplateWizard extends LightningElement {
             this.toast('Block saved', result.validation?.valid ? 'The block is valid.' : 'Saved as draft with validation issues.', result.validation?.valid ? 'success' : 'warning');
             await this.reloadBlocks();
             this.blockDraft = null;
+            this.testConfig = null;
         } catch (error) {
             this.toast('Block could not be saved', errorMessage(error), 'error');
         } finally {
@@ -497,7 +500,18 @@ export default class CcTemplateWizard extends LightningElement {
 
     /** Hover/click inspection works while editing bindings: the shell step, or a block opened for editing. */
     get inspectable() {
-        return this.hasShell && (this.isShellStep || (this.isBlocksStep && !!this.blockDraft?.html && !!this.blockDraft?.definition));
+        return this.hasShell && !this.testActive && (this.isShellStep || (this.isBlocksStep && !!this.blockDraft?.html && !!this.blockDraft?.definition));
+    }
+
+    /** "Test bindings" is on in the workspace: the preview shows the values being tried out, without marking aids. */
+    get testActive() {
+        return !!this.testConfig && (this.isShellStep || (this.isBlocksStep && !!this.blockDraft?.html));
+    }
+
+    handleTestChange(event) {
+        const detail = event.detail;
+        if (!detail || !('config' in detail)) return;
+        this.testConfig = detail.config || null;
     }
 
     get inspectScope() {
@@ -523,6 +537,7 @@ export default class CcTemplateWizard extends LightningElement {
     }
 
     resetInspect() {
+        this.testConfig = null;
         this.inspectKey = null;
         this.pickedNodes = [];
     }
@@ -575,10 +590,11 @@ export default class CcTemplateWizard extends LightningElement {
         };
         const isMulti = this.isMulti;
         const draft = this.blockDraft;
+        const testConfig = this.testActive ? this.testConfig : null;
         let blocks = [];
         if (isMulti) {
             if (this.isBlocksStep && draft?.html && draft.definition) {
-                blocks = [{ html: marking ? this.annotated(draft.html) : draft.html, definition: draft.definition, record: {} }];
+                blocks = [{ html: marking ? this.annotated(draft.html) : draft.html, definition: draft.definition, record: {}, config: testConfig }];
             } else if (this.isSummaryStep || this.isBlocksStep) {
                 const choice = this.isSummaryStep ? this.previewChoice : 'all';
                 blocks = this.blocks
@@ -591,12 +607,13 @@ export default class CcTemplateWizard extends LightningElement {
         return (device, theme) => renderMessage({
             zonePlaceholder: DROPZONE_HTML,
             shell,
-            shellContent: !isMulti ? { blockConfig: buildBlockConfig(shell.definition) } : null,
-            blocks: blocks.map((entry, index) => ({
-                html: entry.html,
-                definition: entry.definition,
-                block: newMessageBlock(entry.record, entry.definition, index + 1)
-            })),
+            shellContent: this.isShellStep && testConfig
+                ? { blockConfig: testConfig }
+                : (!isMulti ? { blockConfig: buildBlockConfig(shell.definition) } : null),
+            blocks: blocks.map((entry, index) => {
+                const block = newMessageBlock(entry.record, entry.definition, index + 1);
+                return { html: entry.html, definition: entry.definition, block: entry.config ? { ...block, blockConfig: entry.config } : block };
+            }),
             device,
             theme
         });

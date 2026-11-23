@@ -383,6 +383,56 @@ describe('c-cc-binding-workspace', () => {
         expect(panel(element, 'c-cc-area-panel')).toBeNull();
     });
 
+    it('lets the admin test the bindings: starts from the defaults, reports every change, and ends cleanly', async () => {
+        const element = createElement('c-cc-binding-workspace', { is: CcBindingWorkspace });
+        element.kind = 'block';
+        element.source = { html: BLOCK_HTML, definition: null };
+        const tests = [];
+        const bindingChanges = [];
+        element.addEventListener('testchange', event => tests.push(event.detail.config));
+        element.addEventListener('bindingchange', event => bindingChanges.push(event.detail));
+        document.body.appendChild(element);
+        await flush();
+        const modeButton = label => Array.from(element.shadowRoot.querySelectorAll('.cc-workspace__modes lightning-button')).find(button => button.label === label);
+        expect(modeButton('Test bindings').disabled).toBe(false);
+
+        modeButton('Test bindings').click();
+        await flush();
+        expect(tests).toHaveLength(1);
+        expect(tests[0].rows[0].columns[0].content.map(item => item.bindingKey)).toEqual(['note', 'cta']);
+        const playground = element.shadowRoot.querySelector('c-cc-binding-playground');
+        expect(playground.definition.sections.length).toBeGreaterThan(0);
+        expect(element.shadowRoot.querySelector('c-cc-shell-steps')).toBeNull();
+
+        const changed = { ...tests[0], blockSettings: { ...tests[0].blockSettings, marker: true } };
+        playground.dispatchEvent(new CustomEvent('configchange', { detail: { config: changed } }));
+        await flush();
+        expect(tests[1].blockSettings.marker).toBe(true);
+        expect(element.shadowRoot.querySelector('c-cc-binding-playground').config.blockSettings.marker).toBe(true);
+
+        playground.dispatchEvent(new CustomEvent('resetconfig'));
+        await flush();
+        expect(tests[2].blockSettings.marker).toBeUndefined();
+
+        modeButton('Set up bindings').click();
+        await flush();
+        expect(tests[3]).toBeNull();
+        expect(element.shadowRoot.querySelector('c-cc-binding-playground')).toBeNull();
+        expect(element.shadowRoot.querySelector('c-cc-shell-steps')).not.toBeNull();
+        // Testing never changes the template itself.
+        expect(bindingChanges).toHaveLength(0);
+    });
+
+    it('does not allow testing before anything is marked or while the file has errors', async () => {
+        const raw = createElement('c-cc-binding-workspace', { is: CcBindingWorkspace });
+        raw.kind = 'block';
+        raw.source = { html: '<table><tr><td>Hi</td></tr></table>', definition: null };
+        document.body.appendChild(raw);
+        await flush();
+        const button = Array.from(raw.shadowRoot.querySelectorAll('.cc-workspace__modes lightning-button')).find(item => item.label === 'Test bindings');
+        expect(button.disabled).toBe(true);
+    });
+
     it('shows parse errors for invalid HTML', async () => {
         const element = createElement('c-cc-binding-workspace', { is: CcBindingWorkspace });
         element.kind = 'block';
