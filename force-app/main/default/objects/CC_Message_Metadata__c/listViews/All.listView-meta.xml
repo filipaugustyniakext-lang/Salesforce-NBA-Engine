@@ -7,8 +7,6 @@
     <columns>MessageType__c</columns>
     <columns>MessageName__c</columns>
     <columns>MessageVariant__c</columns>
-    <columns>MessagePropertiesJSON__c</columns>
-    <columns>MessagePropertiesJSON2__c</columns>
     <columns>VariantStatus__c</columns>
     <columns>IsActive__c</columns>
     <columns>BlockCount__c</columns>

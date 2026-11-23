@@ -1,0 +1,66 @@
+.cc-steps {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.cc-steps__card {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    width: 100%;
+    height: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #dddbda;
+    border-radius: 0.25rem;
+    background: #ffffff;
+    text-align: left;
+    cursor: pointer;
+}
+
+.cc-steps__card:hover:not(:disabled) {
+    border-color: #0176d3;
+}
+
+.cc-steps__card_active {
+    border-color: #0176d3;
+    box-shadow: inset 0 0 0 1px #0176d3;
+    background: #f3f9ff;
+}
+
+.cc-steps__card_done .cc-steps__title {
+    color: #2e844a;
+}
+
+.cc-steps__card_locked {
+    background: #f3f3f3;
+    color: #747474;
+    cursor: not-allowed;
+}
+
+.cc-steps__text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.cc-steps__title {
+    font-weight: 700;
+    font-size: 0.8125rem;
+}
+
+.cc-steps__summary {
+    font-size: 0.75rem;
+    color: #444444;
+}
+
+.cc-steps__card_locked .cc-steps__summary {
+    color: #747474;
+}
+
+@media (max-width: 900px) {
+    .cc-steps {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}

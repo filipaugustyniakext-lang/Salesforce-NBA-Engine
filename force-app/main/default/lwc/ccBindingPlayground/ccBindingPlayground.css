@@ -1,0 +1,23 @@
+.cc-play__intro {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-left: 3px solid #0176d3;
+    background: #eef4ff;
+}
+
+.cc-play__card {
+    margin-top: 0.75rem;
+    padding: 0.75rem;
+    border: 1px solid #e5e5e5;
+    border-radius: 0.25rem;
+    background: #fff;
+}
+
+.cc-play__item {
+    margin-top: 0.75rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid #f0f0f0;
+}

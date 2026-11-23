@@ -317,6 +317,10 @@ export default class CopyCockpitEditor extends LightningElement {
     get isLoading() { return this._isLoading; }
     get hasError()  { return this._hasError; }
     get errorMsg()  { return this._errorMsg; }
+    get useV1Editor() {
+        return !!this._record?.Source_Template__r?.Definition_JSON__c;
+    }
+
     get hasRecord() { return !this._isLoading && !this._hasError && !!this._record; }
 
     // ── header & toolbar ──────────────────────────────────────────────────────

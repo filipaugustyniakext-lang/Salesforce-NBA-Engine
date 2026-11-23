@@ -1,0 +1,92 @@
+<template>
+    <div class="cc-item-editor">
+        <template lwc:if={isRichText}>
+            <lightning-input-rich-text
+                label={label}
+                label-visible
+                formats={formats}
+                value={item.html}
+                disabled={disabled}
+                onchange={handleRichText}>
+            </lightning-input-rich-text>
+        </template>
+
+        <template lwc:if={isImage}>
+            <lightning-input label="Alternative text" value={item.altText} data-field="altText" disabled={disabled} onchange={handleField}></lightning-input>
+            <div class="cc-item-editor__image">
+                <c-cc-image-source-input label="Desktop image" required data-device="desktop" data-theme="light" value={desktopLight} disabled={disabled} onchange={handleImage}></c-cc-image-source-input>
+                <div class="cc-item-editor__size">
+                    <lightning-input type="number" min="0" label="Width (px)" value={desktopLight.width} data-device="desktop" data-theme="light" data-field="width" disabled={disabled} onchange={handleImageSize}></lightning-input>
+                    <lightning-input type="number" min="0" label="Height (px)" value={desktopLight.height} data-device="desktop" data-theme="light" data-field="height" disabled={disabled} onchange={handleImageSize}></lightning-input>
+                </div>
+                <lightning-input type="checkbox" label="Use a different image in dark mode" checked={desktopDarkCustom} data-device="desktop" disabled={disabled} onchange={handleDarkCustom}></lightning-input>
+                <template lwc:if={desktopDarkCustom}>
+                    <c-cc-image-source-input label="Desktop dark mode image" data-device="desktop" data-theme="dark" value={desktopDark} disabled={disabled} onchange={handleImage}></c-cc-image-source-input>
+                </template>
+                <lightning-input type="checkbox" label="Use a different image on mobile" checked={mobileCustom} disabled={disabled} onchange={handleMobileCustom}></lightning-input>
+                <template lwc:if={mobileCustom}>
+                    <c-cc-image-source-input label="Mobile image" data-device="mobile" data-theme="light" value={mobileLight} disabled={disabled} onchange={handleImage}></c-cc-image-source-input>
+                    <div class="cc-item-editor__size">
+                        <lightning-input type="number" min="0" label="Width (px)" value={mobileLight.width} data-device="mobile" data-theme="light" data-field="width" disabled={disabled} onchange={handleImageSize}></lightning-input>
+                        <lightning-input type="number" min="0" label="Height (px)" value={mobileLight.height} data-device="mobile" data-theme="light" data-field="height" disabled={disabled} onchange={handleImageSize}></lightning-input>
+                    </div>
+                    <lightning-input type="checkbox" label="Use a different mobile image in dark mode" checked={mobileDarkCustom} data-device="mobile" disabled={disabled} onchange={handleDarkCustom}></lightning-input>
+                    <template lwc:if={mobileDarkCustom}>
+                        <c-cc-image-source-input label="Mobile dark mode image" data-device="mobile" data-theme="dark" value={mobileDark} disabled={disabled} onchange={handleImage}></c-cc-image-source-input>
+                    </template>
+                </template>
+            </div>
+        </template>
+
+        <template lwc:if={isBulletList}>
+            <div class="cc-item-editor__row">
+                <template lwc:if={canDisableIcons}>
+                    <lightning-input type="toggle" label="Show bullet icons" checked={item.useIcons} data-field="useIcons" data-kind="checkbox" message-toggle-active="" message-toggle-inactive="" disabled={disabled} onchange={handleField}></lightning-input>
+                </template>
+                <template lwc:if={hasIconPresets}>
+                    <lightning-combobox label="Bullet icon" options={iconOptions} value={item.iconPresetId} data-field="iconPresetId" disabled={disabled} onchange={handleField}></lightning-combobox>
+                </template>
+            </div>
+            <template for:each={listItems} for:item="entry">
+                <div key={entry.key} class="cc-item-editor__list-item">
+                    <lightning-input-rich-text label={entry.label} label-visible formats={formats} value={entry.html} data-index={entry.index} disabled={disabled} onchange={handleListItem}></lightning-input-rich-text>
+                    <div class="cc-item-editor__list-actions">
+                        <lightning-button-icon icon-name="utility:arrowup" variant="bare" alternative-text="Move up" title="Move up" data-index={entry.index} data-offset="-1" disabled={entry.isFirst} onclick={handleMoveListItem}></lightning-button-icon>
+                        <lightning-button-icon icon-name="utility:arrowdown" variant="bare" alternative-text="Move down" title="Move down" data-index={entry.index} data-offset="1" disabled={entry.isLast} onclick={handleMoveListItem}></lightning-button-icon>
+                        <lightning-button-icon icon-name="utility:delete" variant="bare" alternative-text="Remove item" title="Remove" data-index={entry.index} disabled={disabled} onclick={handleRemoveListItem}></lightning-button-icon>
+                    </div>
+                </div>
+            </template>
+            <lightning-button label="Add list item" icon-name="utility:add" variant="base" disabled={disabled} onclick={handleAddListItem}></lightning-button>
+        </template>
+
+        <template lwc:if={isDivider}>
+            <div class="cc-item-editor__row">
+                <lightning-input type="number" min="0" label="Top padding (px)" value={item.paddingTop} data-field="paddingTop" data-kind="number" disabled={disabled} onchange={handleField}></lightning-input>
+                <lightning-input type="number" min="0" label="Bottom padding (px)" value={item.paddingBottom} data-field="paddingBottom" data-kind="number" disabled={disabled} onchange={handleField}></lightning-input>
+                <lightning-input type="toggle" label="Horizontal line" checked={item.showLine} data-field="showLine" data-kind="checkbox" message-toggle-active="" message-toggle-inactive="" disabled={disabled} onchange={handleField}></lightning-input>
+            </div>
+            <template lwc:if={item.showLine}>
+                <div class="cc-item-editor__row">
+                    <lightning-input type="color" label="Line color" value={item.lineColor} data-field="lineColor" disabled={disabled} onchange={handleField}></lightning-input>
+                    <lightning-input type="number" min="1" label="Line width (px)" value={item.lineWidth} data-field="lineWidth" data-kind="number" disabled={disabled} onchange={handleField}></lightning-input>
+                </div>
+            </template>
+        </template>
+
+        <template lwc:if={isButton}>
+            <lightning-input type="toggle" label="Show button" checked={item.visible} data-field="visible" data-kind="checkbox" message-toggle-active="" message-toggle-inactive="" disabled={disabled} onchange={handleField}></lightning-input>
+            <template lwc:if={item.visible}>
+                <div class="cc-item-editor__row">
+                    <lightning-input label="Button label" required value={item.label} data-field="label" disabled={disabled} onchange={handleField}></lightning-input>
+                    <lightning-combobox label="Target type" options={targetTypes} value={item.targetType} data-field="targetType" disabled={disabled} onchange={handleField}></lightning-combobox>
+                </div>
+                <lightning-input label="Target URL" required value={item.url} data-field="url" disabled={disabled} onchange={handleField}></lightning-input>
+                <div class="cc-item-editor__row">
+                    <lightning-combobox label="Behavior" options={behaviors} value={item.behavior} data-field="behavior" disabled={disabled} onchange={handleField}></lightning-combobox>
+                    <lightning-input label="URL alias (tracking)" value={item.alias} data-field="alias" disabled={disabled} onchange={handleField}></lightning-input>
+                </div>
+            </template>
+        </template>
+    </div>
+</template>

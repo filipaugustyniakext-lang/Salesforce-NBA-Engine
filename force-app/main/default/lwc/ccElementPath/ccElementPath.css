@@ -1,0 +1,52 @@
+.cc-path {
+    margin-top: 0.5rem;
+}
+
+.cc-path__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem;
+    margin-top: 0.5rem;
+}
+
+.cc-path__label {
+    font-size: 0.8125rem;
+    color: #706e6b;
+}
+
+.cc-path__crumb {
+    padding: 0.125rem 0.5rem;
+    border: 1px solid #c9c9c9;
+    border-radius: 0.75rem;
+    background: #ffffff;
+    font-size: 0.75rem;
+    cursor: pointer;
+}
+
+.cc-path__crumb:hover:not(:disabled) {
+    border-color: #0176d3;
+    color: #0176d3;
+}
+
+.cc-path__crumb_marked {
+    border-color: #2e844a;
+}
+
+.cc-path__crumb_current {
+    background: #dd7a01;
+    border-color: #dd7a01;
+    color: #ffffff;
+    cursor: default;
+}
+
+.cc-path__crumb_action {
+    border-style: dashed;
+    color: #0176d3;
+}
+
+.cc-path__hint {
+    margin-top: 0.25rem;
+    font-size: 0.8125rem;
+    color: #706e6b;
+}

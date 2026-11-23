@@ -1,0 +1,33 @@
+.cc-marker__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+
+.cc-marker__suggestion {
+    margin-top: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-left: 3px solid #0176d3;
+    background: #eef4ff;
+}
+
+.cc-marker__form {
+    display: grid;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.cc-marker__alert {
+    justify-content: flex-start;
+    margin-top: 0.75rem;
+    border-radius: 0.25rem;
+}
+
+.cc-marker__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+

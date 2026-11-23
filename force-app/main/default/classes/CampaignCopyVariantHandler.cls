@@ -17,7 +17,7 @@ public with sharing class CampaignCopyVariantHandler {
             if (prior == null) {
                 continue;
             }
-            if (prior.Status__c == 'Published' && row.Status__c != 'Published') {
+            if (CcMessageLifecycleService.isLive(prior.Status__c) && !CcMessageLifecycleService.isLive(row.Status__c)) {
                 noLongerPublished.add(row.Id);
             }
         }

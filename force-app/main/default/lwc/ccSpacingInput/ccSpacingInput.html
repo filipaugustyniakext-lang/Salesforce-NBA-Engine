@@ -1,0 +1,75 @@
+<template>
+    <fieldset class="cc-spacing slds-form-element">
+        <legend class="slds-form-element__label slds-text-title_bold">{label}</legend>
+        <div class="cc-spacing__row">
+            <span class="cc-spacing__device slds-text-body_small">Desktop</span>
+            <lightning-button-icon
+                class="cc-spacing__chain"
+                icon-name={desktop.chainIcon}
+                variant="border-filled"
+                size="small"
+                title={desktop.chainTitle}
+                alternative-text={desktop.chainTitle}
+                data-device="desktop"
+                disabled={disabled}
+                onclick={handleChain}>
+            </lightning-button-icon>
+            <template for:each={desktop.fields} for:item="field">
+                <lightning-input
+                    key={field.id}
+                    class="cc-spacing__input"
+                    type="number"
+                    min="0"
+                    step="1"
+                    label={field.label}
+                    value={field.value}
+                    data-device="desktop"
+                    data-side={field.key}
+                    disabled={disabled}
+                    onchange={handleSide}>
+                </lightning-input>
+            </template>
+            <span class="cc-spacing__unit slds-text-body_small">px</span>
+        </div>
+        <lightning-input
+            class="slds-m-top_x-small"
+            type="checkbox"
+            label="Mobile uses desktop values"
+            checked={mobileInherits}
+            disabled={disabled}
+            onchange={handleInherit}>
+        </lightning-input>
+        <template lwc:if={showMobile}>
+            <div class="cc-spacing__row slds-m-top_x-small">
+                <span class="cc-spacing__device slds-text-body_small">Mobile</span>
+                <lightning-button-icon
+                    class="cc-spacing__chain"
+                    icon-name={mobile.chainIcon}
+                    variant="border-filled"
+                    size="small"
+                    title={mobile.chainTitle}
+                    alternative-text={mobile.chainTitle}
+                    data-device="mobile"
+                    disabled={disabled}
+                    onclick={handleChain}>
+                </lightning-button-icon>
+                <template for:each={mobile.fields} for:item="field">
+                    <lightning-input
+                        key={field.id}
+                        class="cc-spacing__input"
+                        type="number"
+                        min="0"
+                        step="1"
+                        label={field.label}
+                        value={field.value}
+                        data-device="mobile"
+                        data-side={field.key}
+                        disabled={disabled}
+                        onchange={handleSide}>
+                    </lightning-input>
+                </template>
+                <span class="cc-spacing__unit slds-text-body_small">px</span>
+            </div>
+        </template>
+    </fieldset>
+</template>

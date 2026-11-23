@@ -19,6 +19,11 @@
     <description>Content Center SFMC to Core mirror: REST endpoint access and CRUD/FLS on mirrored CC objects.</description>
     <fieldPermissions>
         <editable>true</editable>
+        <field>CC_Message_Metadata__c.Message_Settings_JSON__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
         <field>CC_Message_Metadata__c.BlockCount__c</field>
         <readable>true</readable>
     </fieldPermissions>
@@ -85,16 +90,6 @@
     <fieldPermissions>
         <editable>true</editable>
         <field>CC_Message_Metadata__c.MessageName__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>CC_Message_Metadata__c.MessagePropertiesJSON2__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>CC_Message_Metadata__c.MessagePropertiesJSON__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>

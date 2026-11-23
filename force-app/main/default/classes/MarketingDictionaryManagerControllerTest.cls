@@ -36,8 +36,14 @@ private class MarketingDictionaryManagerControllerTest {
 
         System.assertEquals(true, blocked, 'Delete should be rejected while products reference the type.');
         System.assert(message.contains('must be removed before it can be deleted'), message);
-        System.assert(message.contains('Everyday Checking'), message);
-        System.assert(message.contains('Savings'), message);
+        MarketingDictionaryDeleteGuard.DependencyReport report =
+            MarketingDictionaryDeleteGuard.getDictionaryDeleteDependencies(typeRecord.Id);
+        Set<String> dependentNames = new Set<String>();
+        for (MarketingDictionaryDeleteGuard.DependencyGroup grp : report.groups) {
+            dependentNames.addAll(grp.recordNames);
+        }
+        System.assert(dependentNames.contains('Everyday Checking'), dependentNames);
+        System.assert(dependentNames.contains('Savings'), dependentNames);
         System.assertEquals(1, [SELECT COUNT() FROM Marketing_Dictionary__c WHERE Id = :typeRecord.Id]);
         System.assertEquals(
             2,

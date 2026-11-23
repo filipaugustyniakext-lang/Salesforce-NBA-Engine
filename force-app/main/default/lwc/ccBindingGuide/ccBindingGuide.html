@@ -1,0 +1,58 @@
+<template>
+    <details class="cc-guide" open={open}>
+        <summary class="cc-guide__summary">
+            <lightning-icon icon-name="utility:info" size="x-small"></lightning-icon>
+            <span class="slds-text-title_bold">{title}</span>
+        </summary>
+        <div class="cc-guide__body">
+            <div class="cc-guide__tip slds-text-body_small">
+                <strong>No markup in your file?</strong> You do not have to add the attributes yourself. Upload the raw HTML and follow the steps shown above the preview: for a multi-block shell, <strong>1. Fixed areas</strong> (name each header or footer and choose read-only or editable), <strong>2. Dropzone</strong> (where content blocks go) and <strong>3. Editable content</strong> (what marketers may change inside editable areas). For blocks, click elements in the preview and say what they are. The wizard writes the attributes for you. The reference below explains what they mean.
+            </div>
+            <ol class="slds-list_ordered cc-guide__steps slds-m-top_small">
+                <li>Build one <strong>HTML file</strong> and put all CSS in a <code>&lt;style&gt;</code> tag. External stylesheets and scripts are rejected.</li>
+                <li>Mark the structure with <code>data-cc-section</code>: <strong>container &gt; row &gt; column</strong>. Content sits inside a column.</li>
+                <li>Say which settings marketers may change with <code>data-cc-bind</code>. The CSS must support them: <code>.cc-hide-dsk</code> and <code>.cc-hide-mob</code> for hiding, <code>.cc-stack-mob</code> for mobile column order.</li>
+                <li>Mark every editable text, image, list, divider and button with <code>data-cc-content</code> and a unique <code>data-cc-key</code>.</li>
+                <template lwc:if={isMultiShell}>
+                    <li>Add exactly one <code>data-cc-region="blocks"</code> where content blocks are dropped. Use <code>fixed-read</code> and <code>fixed-edit</code> regions for header and footer.</li>
+                </template>
+                <li>Upload the file. The lists below the upload show what was found; select an item to set defaults, presets and editor options. The preview on the right shows the result.</li>
+            </ol>
+
+            <h4 class="slds-text-title_bold slds-m-top_small">Sections</h4>
+            <table class="slds-table slds-table_bordered slds-table_cell-buffer cc-guide__table">
+                <tbody>
+                    <template for:each={sectionRows} for:item="row">
+                        <tr key={row.attribute}><th scope="row"><code>{row.attribute}</code></th><td>{row.values}</td><td>{row.meaning}</td></tr>
+                    </template>
+                </tbody>
+            </table>
+
+            <template lwc:if={isShell}>
+                <h4 class="slds-text-title_bold slds-m-top_small">Regions</h4>
+                <table class="slds-table slds-table_bordered slds-table_cell-buffer cc-guide__table">
+                    <tbody>
+                        <template for:each={regionRows} for:item="row">
+                            <tr key={row.attribute}><th scope="row"><code>{row.attribute}</code></th><td>{row.meaning}</td></tr>
+                        </template>
+                    </tbody>
+                </table>
+            </template>
+
+            <h4 class="slds-text-title_bold slds-m-top_small">Content</h4>
+            <table class="slds-table slds-table_bordered slds-table_cell-buffer cc-guide__table">
+                <tbody>
+                    <template for:each={contentRows} for:item="row">
+                        <tr key={row.attribute}><th scope="row"><code>{row.attribute}</code></th><td>{row.values}</td><td>{row.meaning}</td></tr>
+                    </template>
+                </tbody>
+            </table>
+
+            <div class="cc-guide__actions slds-m-top_small">
+                <a class="slds-button slds-button_neutral" href={downloadHref} download={exampleFileName}>Download example HTML</a>
+                <lightning-button label="Copy example" icon-name="utility:copy" onclick={handleCopy}></lightning-button>
+            </div>
+            <pre class="cc-guide__example">{example}</pre>
+        </div>
+    </details>
+</template>

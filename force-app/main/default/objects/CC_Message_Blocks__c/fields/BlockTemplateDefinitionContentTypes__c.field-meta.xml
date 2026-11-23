@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>BlockTemplateDefinitionContentTypes__c</fullName>
+    <label>Block Content Types</label>
+    <required>false</required>
+    <type>MultiselectPicklist</type>
+    <visibleLines>5</visibleLines>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>richText</fullName>
+                <default>false</default>
+                <label>richText</label>
+            </value>
+            <value>
+                <fullName>image</fullName>
+                <default>false</default>
+                <label>image</label>
+            </value>
+            <value>
+                <fullName>bulletList</fullName>
+                <default>false</default>
+                <label>bulletList</label>
+            </value>
+            <value>
+                <fullName>divider</fullName>
+                <default>false</default>
+                <label>divider</label>
+            </value>
+            <value>
+                <fullName>button</fullName>
+                <default>false</default>
+                <label>button</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

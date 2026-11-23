@@ -44,6 +44,7 @@ public with sharing class CopyCockpitController {
                        MessageName__c,
                        MessageVariant__c,
                        Source_Template__c, Source_Template__r.Name,
+                       Draft_Version_Id__c, CurrentMessageVariantVersionNumber__c, Scheduled_Change_Id__c,
                        Published_At__c,
                        MCE_Updated_At__c,
                        MCE_Last_Modified_By__c,
@@ -92,6 +93,7 @@ public with sharing class CopyCockpitController {
                        MessageName__c,
                        MessageVariant__c,
                        Source_Template__c, Source_Template__r.Name,
+                       Draft_Version_Id__c, CurrentMessageVariantVersionNumber__c, Scheduled_Change_Id__c,
                        Published_At__c,
                        MCE_Updated_At__c,
                        MCE_Last_Modified_By__c,
@@ -149,14 +151,20 @@ public with sharing class CopyCockpitController {
         ];
     }
 
-    /** Returns saved-version counts grouped by CC_Message_Metadata__c parent Id.
-     *  Returns empty map until CC_Message_Versions__c object exists.
-     */
+    /** Number of activated versions (CC_Message_History__c snapshots) per message variant Id. */
     @AuraEnabled(cacheable=false)
     public static Map<String, Integer> getVersionCountsByMessageIds(List<String> messageIds) {
         Map<String, Integer> counts = new Map<String, Integer>();
         if (messageIds == null || messageIds.isEmpty()) return counts;
         for (String mid : messageIds) counts.put(mid, 0);
+        for (AggregateResult row : [
+            SELECT Message_Metadata__c messageId, COUNT_DISTINCT(MessageVariantVersionId__c) total
+            FROM CC_Message_History__c
+            WHERE Message_Metadata__c IN :messageIds
+            GROUP BY Message_Metadata__c
+        ]) {
+            counts.put(String.valueOf(row.get('messageId')), (Integer) row.get('total'));
+        }
         return counts;
     }
 
@@ -322,22 +330,13 @@ public with sharing class CopyCockpitController {
         }
 
         Set<Id> uniqueIds = new Set<Id>(messageIds);
+        uniqueIds.remove(null);
         assertCanAssignSourceTemplate(uniqueIds);
-        List<CC_Message_Metadata__c> updates = new List<CC_Message_Metadata__c>();
-        for (Id messageId : uniqueIds) {
-            if (messageId == null) {
-                continue;
-            }
-            updates.add(new CC_Message_Metadata__c(
-                Id = messageId,
-                Source_Template__c = templateId
-            ));
-        }
-        if (updates.isEmpty()) {
+        if (uniqueIds.isEmpty()) {
             throw new AuraHandledException('Select at least one message variant.');
         }
-        CopyCockpitModificationService.updateMetadata(updates);
-        return updates.size();
+        CcMessageLifecycleService.changeSourceTemplates(uniqueIds, templateId);
+        return uniqueIds.size();
     }
 
     @TestVisible
@@ -350,9 +349,9 @@ public with sharing class CopyCockpitController {
             FROM CC_Message_Metadata__c
             WHERE Id IN :messageIds
         ]) {
-            if (msg.Status__c == 'Published') {
+            if (CcMessageLifecycleService.isLive(msg.Status__c)) {
                 throw new AuraHandledException(
-                    'Cannot change source template for Published variants. ' +
+                    'Cannot change source template for Live variants. ' +
                     'Set the variant to Inactive first, change the template, then validate and publish again.'
                 );
             }
@@ -446,7 +445,7 @@ public with sharing class CopyCockpitController {
                    Offer__c, Offer__r.Name,
                    Product_Family__c, Product_Family__r.Name,
                    Campaign__c, Campaign__r.Name,
-                   Source_Template__c, Source_Template__r.Name,
+                   Source_Template__c, Source_Template__r.Name, Source_Template__r.Definition_JSON__c,
                    Canvas_Blocks_JSON__c,
                    MCE_Last_Modified_By__c, MCE_Updated_At__c,
                    LastModifiedBy__c, LastModifiedAt__c, UpdatedAt__c,
@@ -558,60 +557,18 @@ public with sharing class CopyCockpitController {
         CopyCockpitModificationService.updateMetadata(rec);
     }
 
-    private static final Set<String> ALLOWED_MESSAGE_STATUSES = new Set<String>{
-        'Draft', 'Ready', 'Published', 'Inactive', 'Archived'
-    };
-
+    /** Status changes follow CcMessageLifecycleService rules (validation before Ready / Live). */
     @AuraEnabled
     public static void updateMessageStatus(Id recordId, String status) {
         if (recordId == null) {
             throw new AuraHandledException('Message variant is required.');
         }
-        if (String.isBlank(status) || !ALLOWED_MESSAGE_STATUSES.contains(status)) {
-            throw new AuraHandledException(
-                'Status must be one of: Draft, Ready, Published, Inactive, or Archived.'
-            );
-        }
-        CC_Message_Metadata__c existing = [
-            SELECT Status__c
-            FROM CC_Message_Metadata__c
-            WHERE Id = :recordId
-            LIMIT 1
-        ];
-        assertAllowedStatusTransition(existing.Status__c, status);
-        CopyCockpitModificationService.updateMetadata(
-            new CC_Message_Metadata__c(Id = recordId, Status__c = status)
-        );
+        CcMessageLifecycleService.changeStatus(recordId, status);
     }
 
     @TestVisible
     private static void assertAllowedStatusTransition(String fromStatus, String toStatus) {
-        String currentStatus = String.isBlank(fromStatus) ? 'Draft' : fromStatus.trim();
-        String targetStatus = toStatus.trim();
-        if (currentStatus == targetStatus) {
-            return;
-        }
-        if (currentStatus == 'Published'
-            && targetStatus != 'Archived'
-            && targetStatus != 'Inactive') {
-            throw new AuraHandledException(
-                'Published messages can only be changed to Inactive or Archived.'
-            );
-        }
-        if (currentStatus == 'Inactive'
-            && targetStatus != 'Draft'
-            && targetStatus != 'Ready'
-            && targetStatus != 'Published'
-            && targetStatus != 'Inactive') {
-            throw new AuraHandledException(
-                'Inactive messages can be set to Draft, Ready, or Published.'
-            );
-        }
-        if (currentStatus == 'Archived' && targetStatus != 'Published') {
-            throw new AuraHandledException(
-                'Archived messages can only be restored to Published.'
-            );
-        }
+        CcMessageLifecycleService.assertTransition(fromStatus, toStatus);
     }
 
     @AuraEnabled
@@ -644,7 +601,7 @@ public with sharing class CopyCockpitController {
 
             CC_Message_Metadata__c copy = src.clone(false, false, false, false);
             copy.Version__c = newVersion;
-            copy.Name = stem + '_' + String.valueOf(newVersion.intValue());
+            copy.Name = appendVariantSuffix(stem, newVersion);
             copy.Message_Variant__c = String.valueOf(newVersion.intValue());
             copy.MessageVariant__c = newVersion;
             copy.Status__c  = 'Draft';
@@ -662,7 +619,11 @@ public with sharing class CopyCockpitController {
                 masterMessageName = stem;
             }
             copy.MessageName__c = masterMessageName;
+            copy.CurrentMessageVariantVersionId__c = null;
+            copy.Current_Message_Variant_Version_Id__c = null;
+            copy.Draft_Version_Id__c = null;
             CopyCockpitModificationService.insertMetadata(copy);
+            CcMessageLifecycleService.copyCurrentContent(sourceId, copy.Id);
             return copy.Id;
         } catch (AuraHandledException e) {
             throw e;
@@ -790,7 +751,9 @@ public with sharing class CopyCockpitController {
             }
         }
 
+        CcMessageLifecycleService.assertDeletable(idSet);
         try {
+            CcMessageLifecycleService.deleteRelatedRecords(idSet);
             deleteBlocksForMetadataRows(rows);
             delete rows;
         } catch (DmlException e) {
@@ -1170,7 +1133,7 @@ public with sharing class CopyCockpitController {
             ' Message_Variant_Id__c, Message_Variant__c, Message_Type__c, Version__c,' +
             ' Display_Probability__c, Display_Probability_Manual__c' +
             ' FROM CC_Message_Metadata__c' +
-            ' WHERE Status__c = \'Published\'' +
+            ' WHERE Status__c IN (\'Live\', \'Published\')' +
             ' AND Channel_Type__c IN :channels' +
             ' AND (' + offeringClause + ')' +
             ' ORDER BY Name ASC, Version__c ASC NULLS LAST' +
@@ -1192,40 +1155,43 @@ public with sharing class CopyCockpitController {
         @AuraEnabled public String   createdByName;
     }
 
-    /**
-     * Returns version snapshots for a message variant, newest first.
-     * Uses dynamic SOQL so the class compiles even before CC_Message_Versions__c is deployed.
-     */
+    /** Version snapshots of a message variant from CC_Message_History__c, newest first. */
     @AuraEnabled(cacheable=false)
     public static List<MessageVersion> getVersionsByMessageId(Id messageId) {
-        if (messageId == null) return new List<MessageVersion>();
-        try {
-            List<SObject> rows = Database.query(
-                'SELECT Id, Name, Status__c, Trigger_Action__c,' +
-                ' Deployment_Note__c, Canvas_Blocks_JSON__c,' +
-                ' CreatedDate, CreatedBy.Name' +
-                ' FROM CC_Message_Versions__c' +
-                ' WHERE Message_Variant__c = :messageId' +
-                ' ORDER BY CreatedDate DESC LIMIT 200'
-            );
-            List<MessageVersion> result = new List<MessageVersion>();
-            for (SObject row : rows) {
+        List<MessageVersion> result = new List<MessageVersion>();
+        if (messageId == null) return result;
+        Map<String, MessageVersion> byVersion = new Map<String, MessageVersion>();
+        Map<String, List<Object>> blocksByVersion = new Map<String, List<Object>>();
+        for (CC_Message_History__c row : [
+            SELECT MessageVariantVersionId__c, MessageVariantVersionNumber__c, Action__c, Commit_Comment__c,
+                   ContentJson__c, ContentJsonPart2__c, CreatedDate, CreatedBy.Name
+            FROM CC_Message_History__c
+            WHERE Message_Metadata__c = :messageId
+            ORDER BY MessageVariantVersionNumber__c DESC, ContentBlockOrder__c ASC
+            LIMIT 2000
+        ]) {
+            String key = row.MessageVariantVersionId__c;
+            if (!byVersion.containsKey(key)) {
                 MessageVersion v = new MessageVersion();
-                v.id            = (String) row.get('Id');
-                v.name          = (String) row.get('Name');
-                v.status        = (String) row.get('Status__c');
-                v.triggerAction = (String) row.get('Trigger_Action__c');
-                v.deploymentNote = (String) row.get('Deployment_Note__c');
-                v.blocksJson    = (String) row.get('Canvas_Blocks_JSON__c');
-                v.createdDate   = (DateTime) row.get('CreatedDate');
-                SObject user    = row.getSObject('CreatedBy');
-                v.createdByName = user != null ? (String) user.get('Name') : null;
+                v.id = key;
+                v.name = 'Version ' + (row.MessageVariantVersionNumber__c == null ? 1 : row.MessageVariantVersionNumber__c.intValue());
+                v.status = row.Action__c;
+                v.triggerAction = row.Action__c;
+                v.deploymentNote = row.Commit_Comment__c;
+                v.createdDate = row.CreatedDate;
+                v.createdByName = row.CreatedBy?.Name;
+                byVersion.put(key, v);
+                blocksByVersion.put(key, new List<Object>());
                 result.add(v);
             }
-            return result;
-        } catch (Exception e) {
-            // Object may not exist yet — return empty list gracefully
-            return new List<MessageVersion>();
+            String payload = CcMessageLifecycleService.mcePayload(CcMessageContentService.joinJson(row.ContentJson__c, row.ContentJsonPart2__c));
+            try {
+                blocksByVersion.get(key).add(JSON.deserializeUntyped(payload));
+            } catch (Exception e) {
+                blocksByVersion.get(key).add(payload);
+            }
         }
+        for (MessageVersion v : result) v.blocksJson = JSON.serialize(blocksByVersion.get(v.id));
+        return result;
     }
 }

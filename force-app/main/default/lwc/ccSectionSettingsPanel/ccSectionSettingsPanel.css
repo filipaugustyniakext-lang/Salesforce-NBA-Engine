@@ -1,0 +1,52 @@
+.cc-settings__hint {
+    margin-top: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-left: 3px solid #0176d3;
+    background: #eef4ff;
+}
+
+.cc-settings__group {
+    margin-top: 1rem;
+}
+
+.cc-settings__card {
+    margin-top: 0.5rem;
+    padding: 0.625rem 0.75rem;
+    border: 1px solid #e5e5e5;
+    border-radius: 0.25rem;
+    background: #fff;
+}
+
+.cc-settings__card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.cc-settings__badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+}
+
+.cc-settings__badge_placed {
+    color: #2e844a;
+}
+
+.cc-settings__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.cc-settings__alert {
+    margin-top: 0.75rem;
+}
+
+code {
+    padding: 0 0.25rem;
+    background: #f3f3f3;
+    border-radius: 0.125rem;
+}

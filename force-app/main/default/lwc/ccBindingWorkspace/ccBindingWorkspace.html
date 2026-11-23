@@ -1,0 +1,176 @@
+<template>
+    <div class="cc-workspace">
+        <c-cc-binding-guide kind={kind} template-mode={templateMode} open={guideOpen}></c-cc-binding-guide>
+        <div class="cc-workspace__upload">
+            <lightning-input
+                type="file"
+                label={uploadLabel}
+                accept=".html,.htm"
+                disabled={disabled}
+                onchange={handleFile}>
+            </lightning-input>
+            <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">{helpText}</p>
+            <template lwc:if={fileName}>
+                <p class="slds-text-body_small slds-m-top_xx-small">Loaded: {fileName}</p>
+            </template>
+        </div>
+
+        <template lwc:if={hasErrors}>
+            <div class="slds-notify slds-notify_alert slds-alert_error cc-workspace__alert" role="alert">
+                <ul class="slds-list_dotted slds-text-align_left">
+                    <template for:each={errorItems} for:item="item">
+                        <li key={item.key}>{item.message}</li>
+                    </template>
+                </ul>
+            </div>
+        </template>
+        <template lwc:if={hasWarnings}>
+            <div class="slds-notify slds-notify_alert slds-alert_warning cc-workspace__alert" role="status">
+                <ul class="slds-list_dotted slds-text-align_left">
+                    <template for:each={warningItems} for:item="item">
+                        <li key={item.key}>{item.message}</li>
+                    </template>
+                </ul>
+            </div>
+        </template>
+
+        <template lwc:if={hasHtml}>
+            <template lwc:if={isRawHtml}>
+                <div class="slds-notify slds-notify_alert slds-alert_info cc-workspace__alert" role="status">
+                    <span>No bindings were found in this file. Turn on <strong>Mark elements</strong> in the preview and click an element to tell the processor what it is. Shift-click neighbouring elements to treat them as one.</span>
+                </div>
+            </template>
+            <div class="cc-workspace__modes">
+                <lightning-button-group>
+                    <lightning-button label="Set up bindings" icon-name="utility:edit" variant={setupVariant} onclick={handleSetupMode}></lightning-button>
+                    <lightning-button label="Test bindings" icon-name="utility:preview" variant={testVariant} disabled={cannotTest} title={testTitle} onclick={handleTestMode}></lightning-button>
+                </lightning-button-group>
+            </div>
+            <template lwc:if={testMode}>
+                <c-cc-binding-playground definition={definition} config={testConfig} onconfigchange={handlePlaygroundChange} onresetconfig={handlePlaygroundReset}></c-cc-binding-playground>
+            </template>
+            <template lwc:else>
+            <template lwc:if={showSteps}>
+                <c-cc-shell-steps variant={stepsVariant} progress={progress} active-step={activeStep} onstepselect={handleStepSelect}></c-cc-shell-steps>
+            </template>
+            <div class="cc-workspace__body">
+                <nav class="cc-workspace__nav" aria-label="Bindings">
+                    <template for:each={navItems} for:item="group">
+                        <div key={group.key} class="cc-workspace__group">
+                            <div class="slds-text-title_caps cc-workspace__group-title">{group.title}</div>
+                            <template for:each={group.items} for:item="item">
+                                <button key={item.key} class={item.className} data-key={item.key} onclick={handleSelect}>
+                                    <lightning-icon icon-name={item.icon} size="x-small"></lightning-icon>
+                                    <span class="cc-workspace__nav-text">
+                                        <span class="slds-truncate">{item.label}</span>
+                                        <span class="slds-text-body_small slds-text-color_weak slds-truncate">{item.meta}</span>
+                                    </span>
+                                </button>
+                            </template>
+                            <template lwc:if={group.isEmpty}>
+                                <p class="slds-text-body_small slds-text-color_weak slds-p-left_small">{group.empty}</p>
+                            </template>
+                        </div>
+                    </template>
+                </nav>
+                <div class="cc-workspace__editor">
+                    <template lwc:if={isMultiShell}>
+                        <template lwc:if={isStep1}>
+                            <c-cc-area-panel
+                                areas={areas}
+                                info={markerInfo}
+                                group={groupInfo}
+                                no-fixed-areas={noFixedAreas}
+                                can-continue={step1Done}
+                                errors={markerErrors}
+                                oncreate={handleAreaCreate}
+                                onupdate={handleAreaUpdate}
+                                onremove={handleAreaRemove}
+                                onnofixed={handleNoFixedAreas}
+                                onpick={handleMarkerPick}
+                                ongroupchildren={handleGroupChildren}
+                                onclear={handleMarkerClose}
+                                onnext={handleNextStep}>
+                            </c-cc-area-panel>
+                        </template>
+                        <template lwc:if={isStep2}>
+                            <c-cc-dropzone-panel
+                                placement={placement}
+                                info={markerInfo}
+                                can-continue={step2Done}
+                                errors={markerErrors}
+                                onplace={handleZonePlace}
+                                onremovezone={handleZoneRemove}
+                                onpick={handleMarkerPick}
+                                onnext={handleNextStep}>
+                            </c-cc-dropzone-panel>
+                        </template>
+                        <template lwc:if={isStep3}>
+                            <h3 class="slds-text-heading_small">3. Editable content <span class="slds-text-body_small slds-text-color_weak">(optional)</span></h3>
+                            <template lwc:if={showContentMarker}>
+                                <c-cc-element-marker mode="content" info={markerInfo} existing-keys={existingKeys} errors={markerErrors} blocked-reason={contentBlockedReason} onapply={handleMarkerApply} onremove={handleMarkerRemove} onclose={handleMarkerClose} onpick={handleMarkerPick}></c-cc-element-marker>
+                            </template>
+                            <template lwc:elseif={selectedSlot}>
+                                <c-cc-content-binding-editor binding={selectedSlot} disabled={disabled} onchange={handleSlotChange}></c-cc-content-binding-editor>
+                            </template>
+                            <template lwc:else>
+                                <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">{contentHint}</p>
+                            </template>
+                        </template>
+                    </template>
+                    <template lwc:else>
+                        <template lwc:if={isStep1}>
+                            <c-cc-section-panel
+                                sections={blockSections}
+                                info={markerInfo}
+                                progress={progress}
+                                no-sections={noSections}
+                                can-continue={step1Done}
+                                errors={markerErrors}
+                                onapply={handleMarkerApply}
+                                onremove={handleMarkerRemove}
+                                onpick={handleMarkerPick}
+                                onclear={handleMarkerClose}
+                                onascolumn={handleAsColumn}
+                                onnosections={handleNoSections}
+                                onnext={handleNextStep}>
+                            </c-cc-section-panel>
+                        </template>
+                        <template lwc:if={isStep2}>
+                            <c-cc-section-settings-panel
+                                section={settingsSection}
+                                info={settingsInfo}
+                                errors={markerErrors}
+                                pending-count={pendingCount}
+                                can-continue={step2Done}
+                                disabled={disabled}
+                                onbindschange={handleBindsChange}
+                                onplace={handlePlace}
+                                onunplace={handleUnplace}
+                                onfallbackchange={handleFallbackChange}
+                                onsectionchange={handleSectionChange}
+                                onnext={handleNextStep}>
+                            </c-cc-section-settings-panel>
+                        </template>
+                        <template lwc:if={isStep3}>
+                            <h3 class="slds-text-heading_small">3. Content</h3>
+                            <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">Mark what marketers fill in: text, images, lists, dividers and buttons.</p>
+                            <template lwc:if={showContentMarker}>
+                                <c-cc-element-marker mode="content" info={markerInfo} existing-keys={existingKeys} errors={markerErrors} blocked-reason={contentBlockedReason} onapply={handleMarkerApply} onremove={handleMarkerRemove} onclose={handleMarkerClose} onpick={handleMarkerPick}></c-cc-element-marker>
+                            </template>
+                            <template lwc:else>
+                                <div class="cc-workspace__hint slds-text-body_small">{contentHintBlock}</div>
+                            </template>
+                            <template lwc:if={selectedSlot}>
+                                <div class="cc-workspace__slot">
+                                    <c-cc-content-binding-editor binding={selectedSlot} disabled={disabled} onchange={handleSlotChange}></c-cc-content-binding-editor>
+                                </div>
+                            </template>
+                        </template>
+                    </template>
+                </div>
+            </div>
+            </template>
+        </template>
+    </div>
+</template>

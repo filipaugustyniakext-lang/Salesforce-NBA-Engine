@@ -1,0 +1,102 @@
+<template>
+    <div class="cc-area">
+        <h3 class="slds-text-heading_small">1. Fixed areas</h3>
+        <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">
+            Fixed areas are the parts every message keeps, such as the header, a "view online" line or the footer. Mark each one, name it, and choose whether it is read-only or editable.
+        </p>
+
+        <c-cc-element-path info={info} allow-group onpick={handlePathPick} ongroupchildren={handleGroupChildren}></c-cc-element-path>
+
+        <template lwc:if={isIdle}>
+            <div class="cc-area__hint slds-text-body_small">
+                Click an element in the preview to start. Shift-click neighbouring elements to treat them as one area.
+            </div>
+        </template>
+
+        <template lwc:if={isInside}>
+            <div class="slds-notify slds-notify_alert slds-alert_warning cc-area__alert" role="status">
+                <span>This element is inside the area "{insideName}". Pick the area itself to change it.</span>
+            </div>
+            <lightning-button class="slds-m-top_x-small" label="Select the area" onclick={handleUseEnclosing}></lightning-button>
+        </template>
+
+        <template lwc:if={isZoneElement}>
+            <div class="slds-notify slds-notify_alert slds-alert_warning cc-area__alert" role="status">
+                <span>This is the dropzone for content blocks. Change it in step 2.</span>
+            </div>
+        </template>
+
+        <template lwc:if={isCreate}>
+            <div class="cc-area__form">
+                <p class="slds-text-title_bold">New fixed area from {targetLabel}</p>
+                <template lwc:if={groupProblem}>
+                    <div class="slds-notify slds-notify_alert slds-alert_warning cc-area__alert" role="status">{groupProblem}</div>
+                </template>
+                <lightning-input label="Area name" required value={nameValue} placeholder="e.g. Header, Footer, View online" onchange={handleName}></lightning-input>
+                <lightning-radio-group label="Type" options={kindOptions} value={kindValue} onchange={handleKind}></lightning-radio-group>
+                <template lwc:if={wrapperNote}>
+                    <p class="slds-text-body_small slds-text-color_weak">{wrapperNote}</p>
+                </template>
+                <div class="cc-area__actions">
+                    <lightning-button label="Clear selection" onclick={handleClear}></lightning-button>
+                    <lightning-button label="Create area" variant="brand" disabled={createDisabled} onclick={handleCreate}></lightning-button>
+                </div>
+            </div>
+        </template>
+
+        <template lwc:if={isEdit}>
+            <div class="cc-area__form">
+                <p class="slds-text-title_bold">Edit area "{editedArea.name}"</p>
+                <lightning-input label="Area name" required value={nameValue} onchange={handleName}></lightning-input>
+                <lightning-radio-group label="Type" options={kindOptions} value={kindValue} onchange={handleKind}></lightning-radio-group>
+                <template lwc:if={dropWarning}>
+                    <div class="slds-notify slds-notify_alert slds-alert_warning cc-area__alert" role="status">{dropWarning}</div>
+                </template>
+                <div class="cc-area__actions">
+                    <template lwc:if={confirmingRemove}>
+                        <span class="slds-text-body_small slds-text-color_error">Remove this area?</span>
+                        <lightning-button label="Keep" onclick={handleRemoveCancel}></lightning-button>
+                        <lightning-button label={removeLabel} variant="destructive" onclick={handleRemoveConfirm}></lightning-button>
+                    </template>
+                    <template lwc:else>
+                        <lightning-button label={removeLabel} variant="destructive-text" onclick={handleRemoveAsk}></lightning-button>
+                        <lightning-button label={saveLabel} variant="brand" disabled={saveDisabled} onclick={handleSave}></lightning-button>
+                    </template>
+                </div>
+            </div>
+        </template>
+
+        <template lwc:if={hasErrors}>
+            <div class="slds-notify slds-notify_alert slds-alert_error cc-area__alert" role="alert">
+                <ul class="slds-list_dotted slds-text-align_left">
+                    <template for:each={errorItems} for:item="item"><li key={item.key}>{item.message}</li></template>
+                </ul>
+            </div>
+        </template>
+
+        <template lwc:if={hasAreas}>
+            <div class="cc-area__list">
+                <p class="slds-text-title_bold">Areas in this template</p>
+                <template for:each={areaRows} for:item="area">
+                    <button key={area.key} class={area.className} type="button" data-node={area.node} onclick={handlePickArea}>
+                        <lightning-icon icon-name="utility:lock" size="x-small"></lightning-icon>
+                        <span class="cc-area__row-text">
+                            <span>{area.name}</span>
+                            <span class="slds-text-body_small slds-text-color_weak">{area.meta}</span>
+                        </span>
+                    </button>
+                </template>
+            </div>
+        </template>
+
+        <template lwc:if={showNoFixed}>
+            <lightning-input class="slds-m-top_small" type="checkbox" label="This template has no fixed areas" checked={noFixedAreas} onchange={handleNoFixed}></lightning-input>
+        </template>
+
+        <template lwc:if={canContinue}>
+            <div class="cc-area__actions slds-m-top_small">
+                <lightning-button label="Continue to the dropzone" icon-name="utility:chevronright" icon-position="right" variant="brand" onclick={handleNext}></lightning-button>
+            </div>
+        </template>
+    </div>
+</template>

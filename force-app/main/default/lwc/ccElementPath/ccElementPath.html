@@ -1,0 +1,27 @@
+<template>
+    <template lwc:if={hasInfo}>
+        <div class="cc-path">
+            <nav class="cc-path__row" aria-label="Element path">
+                <span class="cc-path__label">Path:</span>
+                <template for:each={path} for:item="crumb">
+                    <button key={crumb.key} class={crumb.className} type="button" data-node={crumb.node} disabled={crumb.current} onclick={handlePick}>{crumb.label}</button>
+                </template>
+            </nav>
+            <template lwc:if={hasChildren}>
+                <div class="cc-path__row">
+                    <span class="cc-path__label">Inside:</span>
+                    <template for:each={children} for:item="child">
+                        <button key={child.key} class={child.className} type="button" data-node={child.node} onclick={handlePick}>{child.label}</button>
+                    </template>
+                    <template lwc:if={hiddenChildren}>
+                        <span class="cc-path__label">+{hiddenChildren} more</span>
+                    </template>
+                    <template lwc:if={canGroupChildren}>
+                        <button class="cc-path__crumb cc-path__crumb_action" type="button" onclick={handleGroupChildren}>Group all children</button>
+                    </template>
+                </div>
+            </template>
+            <p class="cc-path__hint">Picked the wrong element? Choose a parent from the path or a child from "Inside", or click another element in the preview.</p>
+        </div>
+    </template>
+</template>

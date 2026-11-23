@@ -1,0 +1,176 @@
+<template>
+    <section class="cc-wizard">
+        <header class="cc-wizard__header">
+            <div>
+                <h2 class="slds-text-heading_medium">{title}</h2>
+                <span class={statusBadgeClass}>{status}</span>
+                <template lwc:if={isLegacy}>
+                    <span class="slds-badge slds-m-left_x-small">Legacy markers will be upgraded on save</span>
+                </template>
+            </div>
+            <div class="cc-wizard__header-actions">
+                <template lwc:if={canDelete}>
+                    <lightning-button label="Delete template" icon-name="utility:delete" variant="destructive-text" onclick={handleDeleteTemplate}></lightning-button>
+                </template>
+                <lightning-button label="Back to templates" icon-name="utility:back" onclick={handleClose}></lightning-button>
+            </div>
+        </header>
+
+        <ol class="cc-wizard__steps" aria-label="Template wizard steps">
+            <template for:each={steps} for:item="item">
+                <li key={item.value}>
+                    <button class={item.className} data-step={item.value} onclick={handleStepClick}>
+                        <span class="cc-wizard__step-number">{item.number}</span>
+                        <span>{item.label}</span>
+                    </button>
+                </li>
+            </template>
+        </ol>
+
+        <template lwc:if={loading}>
+            <div class="slds-is-relative cc-wizard__loading">
+                <lightning-spinner alternative-text="Loading template"></lightning-spinner>
+            </div>
+        </template>
+        <template lwc:else>
+            <div class={layoutClass}>
+            <div class="cc-wizard__body">
+                <template lwc:if={isBasicStep}>
+                    <div class="cc-wizard__form">
+                        <lightning-combobox label="Template locale" required options={localeOptions} value={basics.localeId} data-field="localeId" placeholder="Select a locale from Marketing Dictionary" onchange={handleBasic}></lightning-combobox>
+                        <lightning-input label="Template name" required value={basics.slug} data-field="slug" field-level-help="Used in the record name TEMP_{locale}_{name}_{classification}." onchange={handleBasic}></lightning-input>
+                        <lightning-combobox label="Send classification" required options={classificationOptions} value={basics.classification} data-field="classification" onchange={handleBasic}></lightning-combobox>
+                        <lightning-radio-group label="Template type" options={modeOptions} value={basics.templateMode} data-field="templateMode" disabled={modeLocked} onchange={handleBasic}></lightning-radio-group>
+                        <lightning-textarea label="Description" value={basics.description} data-field="description" max-length="255" onchange={handleBasic}></lightning-textarea>
+                        <div class="cc-wizard__assets">
+                            <lightning-input label="MCE template asset id" value={basics.mceAssetId} data-field="mceAssetId" onchange={handleBasic}></lightning-input>
+                            <lightning-input label="MCE template path" value={basics.mceAssetPath} data-field="mceAssetPath" onchange={handleBasic}></lightning-input>
+                            <lightning-input label="MCN template asset id" value={basics.mcnAssetId} data-field="mcnAssetId" onchange={handleBasic}></lightning-input>
+                            <lightning-input label="MCN template path" value={basics.mcnAssetPath} data-field="mcnAssetPath" onchange={handleBasic}></lightning-input>
+                        </div>
+                    </div>
+                </template>
+
+                <template lwc:if={isShellStep}>
+                    <c-cc-binding-workspace kind="shell" template-mode={basics.templateMode} source={shellSource} active-key={inspectKey} picked-elements={pickedNodes} onselect={handleInspectSelect} onpick={handleWorkspacePick} onstepchange={handleStepChange} ontestchange={handleTestChange} onbindingchange={handleShellChange}></c-cc-binding-workspace>
+                </template>
+
+                <template lwc:if={isBlocksStep}>
+                    <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-m-bottom_small">
+                        <h3 class="slds-text-heading_small">Content blocks</h3>
+                        <lightning-button label="Add content block" icon-name="utility:add" variant="brand" onclick={handleNewBlock}></lightning-button>
+                    </div>
+                    <template lwc:if={hasBlocks}>
+                        <table class="slds-table slds-table_bordered slds-table_cell-buffer">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Block</th>
+                                    <th scope="col">Content types</th>
+                                    <th scope="col">Status</th>
+                                    <th scope="col">Validation</th>
+                                    <th scope="col">Used by</th>
+                                    <th scope="col"><span class="slds-assistive-text">Actions</span></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template for:each={blockRows} for:item="block">
+                                    <tr key={block.id} class={block.rowClass}>
+                                        <td>{block.name}</td>
+                                        <td>{block.typesLabel}</td>
+                                        <td><span class={block.statusClass}>{block.status}</span></td>
+                                        <td class={block.validClass}>{block.validationStatus}</td>
+                                        <td>{block.usageCount}</td>
+                                        <td class="cc-wizard__row-actions">
+                                            <lightning-button-icon icon-name="utility:edit" variant="bare" alternative-text="Edit block" title="Edit" data-id={block.id} onclick={handleEditBlock}></lightning-button-icon>
+                                            <template lwc:if={block.canActivate}>
+                                                <lightning-button label="Activate" variant="base" data-id={block.id} data-status="Active" onclick={handleBlockStatus}></lightning-button>
+                                            </template>
+                                            <template lwc:if={block.canDeactivate}>
+                                                <lightning-button label="Deactivate" variant="base" data-id={block.id} data-status="Draft" onclick={handleBlockStatus}></lightning-button>
+                                            </template>
+                                            <template lwc:if={block.canDelete}>
+                                                <lightning-button-icon icon-name="utility:delete" variant="bare" alternative-text="Delete block" title="Delete" data-id={block.id} onclick={handleDeleteBlock}></lightning-button-icon>
+                                            </template>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </template>
+                    <template lwc:else>
+                        <p class="slds-text-color_weak">No content blocks yet. Add at least one block and activate it before activating this template.</p>
+                    </template>
+
+                    <template lwc:if={blockDraft}>
+                        <div class="cc-wizard__block-editor">
+                            <h3 class="slds-text-heading_small slds-m-bottom_small">{blockDraftTitle}</h3>
+                            <div class="cc-wizard__form cc-wizard__form_inline">
+                                <lightning-input label="Block name" required value={blockDraft.name} data-field="name" onchange={handleBlockField}></lightning-input>
+                                <lightning-input label="Description" value={blockDraft.description} data-field="description" onchange={handleBlockField}></lightning-input>
+                            </div>
+                            <c-cc-binding-workspace kind="block" template-mode="single" source={blockSource} active-key={inspectKey} picked-elements={pickedNodes} onselect={handleInspectSelect} onpick={handleWorkspacePick} onstepchange={handleStepChange} ontestchange={handleTestChange} onbindingchange={handleBlockSource}></c-cc-binding-workspace>
+                            <div class="cc-wizard__actions slds-m-top_small">
+                                <lightning-button label="Cancel" onclick={handleCancelBlock}></lightning-button>
+                                <lightning-button label="Save block" variant="brand" disabled={saving} onclick={handleSaveBlock}></lightning-button>
+                            </div>
+                        </div>
+                    </template>
+                </template>
+
+                <template lwc:if={isSummaryStep}>
+                    <dl class="cc-wizard__summary slds-m-bottom_medium">
+                        <dt>Locale</dt><dd>{localeLabel}</dd>
+                        <dt>Name</dt><dd>{basics.slug}</dd>
+                        <dt>Classification</dt><dd>{basics.classification}</dd>
+                        <dt>Type</dt><dd>{modeLabel}</dd>
+                        <dt>Shell</dt><dd>{shellStats}</dd>
+                    </dl>
+                    <template lwc:if={isValid}>
+                        <div class="slds-notify slds-notify_alert slds-alert_offline cc-wizard__alert cc-wizard__alert_success" role="status">The template is valid.</div>
+                    </template>
+                    <template lwc:if={hasValidationErrors}>
+                        <div class="slds-notify slds-notify_alert slds-alert_error cc-wizard__alert" role="alert">
+                            <ul class="slds-list_dotted slds-text-align_left">
+                                <template for:each={validationErrors} for:item="item"><li key={item.key}>{item.message}</li></template>
+                            </ul>
+                        </div>
+                    </template>
+                    <template lwc:if={hasValidationWarnings}>
+                        <div class="slds-notify slds-notify_alert slds-alert_warning cc-wizard__alert" role="status">
+                            <ul class="slds-list_dotted slds-text-align_left">
+                                <template for:each={validationWarnings} for:item="item"><li key={item.key}>{item.message}</li></template>
+                            </ul>
+                        </div>
+                    </template>
+                </template>
+            </div>
+            <template lwc:if={showSidePreview}>
+                <aside class="cc-wizard__side" aria-label="Template preview">
+                    <template lwc:if={showPreviewChoice}>
+                        <lightning-combobox class="cc-wizard__preview-choice" label="Preview" options={previewOptions} value={previewChoice} onchange={handlePreviewChoice}></lightning-combobox>
+                    </template>
+                    <c-cc-template-preview heading={previewHeading} render-fn={previewRender} inspectable={inspectable} inspect-scope={inspectScope} pick-scope={pickScope} selected-key={inspectKey} markable={inspectable} mark-mode={markOn} picked-nodes={pickedNodes} onselect={handleInspectSelect} onpick={handlePreviewPick} onmodechange={handleModeChange}></c-cc-template-preview>
+                </aside>
+            </template>
+            </div>
+
+            <footer class="cc-wizard__footer">
+                <template lwc:if={showBack}>
+                    <lightning-button label="Back" onclick={handleBack}></lightning-button>
+                </template>
+                <div class="cc-wizard__footer-right">
+                    <template lwc:if={isShellStep}>
+                        <lightning-button label="Save draft" disabled={saving} onclick={handleSaveTemplate}></lightning-button>
+                    </template>
+                    <template lwc:if={isLastStep}>
+                        <lightning-button label="Re-validate" icon-name="utility:refresh" onclick={runValidation}></lightning-button>
+                        <lightning-button label="Activate template" variant="brand" disabled={activateDisabled} onclick={handleActivate}></lightning-button>
+                    </template>
+                    <template lwc:else>
+                        <lightning-button label="Next" variant="brand" disabled={saving} onclick={handleNext}></lightning-button>
+                    </template>
+                </div>
+            </footer>
+        </template>
+    </section>
+</template>

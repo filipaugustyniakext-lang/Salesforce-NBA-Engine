@@ -1,0 +1,37 @@
+.cc-zone__current {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px dashed #7f4bc4;
+    border-radius: 0.25rem;
+    background: #f7f3fc;
+}
+
+.cc-zone__hint {
+    margin-top: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-left: 3px solid #0176d3;
+    background: #eef4ff;
+}
+
+.cc-zone__form {
+    display: grid;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.cc-zone__alert {
+    justify-content: flex-start;
+    margin-top: 0.5rem;
+    border-radius: 0.25rem;
+}
+
+.cc-zone__actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}

@@ -2,6 +2,8 @@
  * Logical DE name → Core SObject API name (1:1 with SFMC Data Extensions).
  * Field lists match cloudpages/ssjs/cc-repository-lib.ssjs + cc-async-jobs-lib.ssjs.
  * Adjust sobjectApiName / externalIdField if your org uses a namespace.
+ * CC_Message_Blocks__c is authored in Core (Copy Center editor) and pushed to MCE,
+ * so it is intentionally not a mirror target.
  */
 public with sharing class CcMirrorObjectMap {
   public class ObjectConfig {
@@ -38,7 +40,6 @@ public with sharing class CcMirrorObjectMap {
         'MessageName',
         'MessageVariant',
         'MessagePropertiesJSON',
-        'MessagePropertiesJSON2',
         'VariantStatus',
         'IsActive',
         'BlockCount',
@@ -69,25 +70,6 @@ public with sharing class CcMirrorObjectMap {
         'ContentBuilderMessagePath'
       }
     ),
-    'CC_Message_Blocks' => new ObjectConfig(
-      'CC_Message_Blocks__c',
-      'CC_External_Key__c',
-      new List<String>{ 'MessageVariantId', 'ContentBlockOrder' },
-      new List<String>{
-        'MessageType',
-        'MessageName',
-        'MessageVariant',
-        'MessageVariantId',
-        'ContentBlockOrder',
-        'BlockType',
-        'ContentBlockPath',
-        'ContentBuilderAssetId',
-        'ContentJson',
-        'ContentJsonPart2',
-        'UpdatedAt',
-        'UpdatedBy'
-      }
-    ),
     'CC_Message_Blocks_All' => new ObjectConfig(
       'CC_Message_Blocks_All__c',
       'CC_External_Key__c',
@@ -105,31 +87,6 @@ public with sharing class CcMirrorObjectMap {
         'ContentJsonPart2',
         'UpdatedAt',
         'UpdatedBy'
-      }
-    ),
-    'CC_Message_VersionHistoryLog' => new ObjectConfig(
-      'CC_Message_VersionHistoryLog__c',
-      'CC_External_Key__c',
-      new List<String>{
-        'MessageVariantId',
-        'MessageVariantVersionId',
-        'ContentBlockOrder'
-      },
-      new List<String>{
-        'MessageVariantId',
-        'MessageVariantVersionId',
-        'ContentBlockOrder',
-        'MessageType',
-        'MessageName',
-        'MessageVariant',
-        'Action',
-        'BlockType',
-        'SnapshotJson',
-        'SnapshotJsonPart2',
-        'CommitComment',
-        'RevertedFromStateId',
-        'CreatedAt',
-        'CreatedBy'
       }
     ),
     'CC_Staging_Changes' => new ObjectConfig(
@@ -191,11 +148,19 @@ public with sharing class CcMirrorObjectMap {
     return BY_DE.keySet();
   }
 
+  /** DE columns whose Core field has a different name. */
+  private static final Map<String, String> FIELD_OVERRIDES = new Map<String, String>{
+    'MessagePropertiesJSON' => 'Message_Settings_JSON__c'
+  };
+
   public static String toFieldApi(String deFieldName) {
     if (String.isBlank(deFieldName)) {
       return null;
     }
     String trimmed = deFieldName.trim();
+    if (FIELD_OVERRIDES.containsKey(trimmed)) {
+      return FIELD_OVERRIDES.get(trimmed);
+    }
     if (trimmed.endsWith('__c')) {
       return trimmed;
     }

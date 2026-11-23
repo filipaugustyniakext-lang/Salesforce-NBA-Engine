@@ -766,7 +766,7 @@ button.cockpit-template-action:disabled lightning-icon {
     background-color: var(--slds-g-color-brand-base-90)
 }
 
-.cockpit-status-picker--published {
+.cockpit-status-picker--live {
     color: var(--slds-g-color-on-success-1);
     background-color: var(--slds-g-color-success-base-95);
 }

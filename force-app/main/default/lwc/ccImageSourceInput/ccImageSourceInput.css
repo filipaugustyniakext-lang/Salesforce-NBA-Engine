@@ -1,0 +1,14 @@
+.cc-image-source__preview {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+
+.cc-image-source__preview img {
+    max-width: 10rem;
+    max-height: 6rem;
+    border: 1px solid #dddbda;
+    border-radius: 0.25rem;
+    object-fit: contain;
+    background: #f3f3f3;
+}
