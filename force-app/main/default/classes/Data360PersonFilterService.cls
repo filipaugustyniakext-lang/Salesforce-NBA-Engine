@@ -1,7 +1,9 @@
 /**
- * Person values (Customer Type and Audience Type) are defined by a filter on the Data360 DMO ssot__Individual__dlm.
+ * Person values (Customer Type and Audience Type) are defined by a filter on the Data360 DMO UnifiedIndividual__dlm,
+ * which has one row per unified person (the Individual DMO holds a row per source record, so customers coming from
+ * GCP_CUSTOMER, their CRM Person Accounts and Contacts would be counted several times).
  * The filter is stored as JSON on Marketing_Dictionary__c.Data360_Filter_JSON__c:
- *   { "version": 1, "dmo": "ssot__Individual__dlm", "logic": "AND|OR", "conditions": [
+ *   { "version": 1, "dmo": "UnifiedIndividual__dlm", "logic": "AND|OR", "conditions": [
  *       { "field": "Profile_Type__c", "type": "text", "operator": "eq", "value": "B2C" },
  *       { "logic": "OR", "conditions": [ ... ] } ] }
  * Operators: eq neq gt gte lt lte between in notIn contains startsWith endsWith isNull isNotNull.
@@ -9,7 +11,7 @@
  * type and rendered as a literal, so the generated SQL is safe whatever the JSON contains.
  */
 public with sharing class Data360PersonFilterService {
-    public static final String DEFAULT_DMO = 'ssot__Individual__dlm';
+    public static final String DEFAULT_DMO = 'UnifiedIndividual__dlm';
     public static final Integer MAX_CONDITIONS = 25;
     public static final Integer MAX_VALUES = 100;
     public static final Integer MAX_VALUE_LENGTH = 255;
@@ -97,7 +99,10 @@ public with sharing class Data360PersonFilterService {
         }
         Object dmo = root.get('dmo');
         if (dmo != null && String.valueOf(dmo) != DEFAULT_DMO) {
-            throw new FilterException('Filters can only target ' + DEFAULT_DMO + '.');
+            throw new FilterException(
+                'This filter was built on ' + safeLabel(String.valueOf(dmo)) + '. Filters now use ' + DEFAULT_DMO
+                + ' (one row per unified person): open the value and rebuild the filter.'
+            );
         }
         return root;
     }

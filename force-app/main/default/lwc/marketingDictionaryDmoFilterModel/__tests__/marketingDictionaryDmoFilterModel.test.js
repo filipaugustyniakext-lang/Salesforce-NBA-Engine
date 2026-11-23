@@ -28,7 +28,7 @@ describe('marketingDictionaryDmoFilterModel', () => {
     it('round-trips conditions, lists and groups', () => {
         const json = JSON.stringify({
             version: 1,
-            dmo: 'ssot__Individual__dlm',
+            dmo: 'UnifiedIndividual__dlm',
             logic: 'OR',
             conditions: [
                 { field: 'Profile_Type__c', type: 'text', operator: 'in', values: ['B2C', 'B2B'] },

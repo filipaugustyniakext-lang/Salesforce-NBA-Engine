@@ -1,5 +1,5 @@
 /** Pure helpers for the Data360 filter builder: filter model, JSON (de)serialisation and column types. */
-export const DMO_API_NAME = 'ssot__Individual__dlm';
+export const DMO_API_NAME = 'UnifiedIndividual__dlm';
 export const MAX_CONDITIONS = 25;
 
 export const OPERATOR_LABELS = {

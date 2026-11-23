@@ -24,7 +24,7 @@ private class Data360PersonFilterServiceTest {
 
     private static String filter(List<Object> conditions, String logic) {
         return JSON.serialize(new Map<String, Object>{
-            'version' => 1, 'dmo' => 'ssot__Individual__dlm', 'logic' => logic, 'conditions' => conditions
+            'version' => 1, 'dmo' => 'UnifiedIndividual__dlm', 'logic' => logic, 'conditions' => conditions
         });
     }
 
@@ -168,7 +168,7 @@ private class Data360PersonFilterServiceTest {
         };
         String sql = Data360PersonFilterService.buildCountSql(filter(new List<Object>{ cond('brand__c', 'text', 'eq', 'X'), orGroup }, 'AND'));
         System.assertEquals(
-            'SELECT COUNT(*) AS cnt FROM ssot__Individual__dlm WHERE brand__c = \'X\' AND (Profile_Type__c = \'B2C\' OR Profile_Type__c IS NULL)',
+            'SELECT COUNT(*) AS cnt FROM UnifiedIndividual__dlm WHERE brand__c = \'X\' AND (Profile_Type__c = \'B2C\' OR Profile_Type__c IS NULL)',
             sql
         );
     }
@@ -192,7 +192,8 @@ private class Data360PersonFilterServiceTest {
         System.assert(errorOf('{').contains('not valid JSON'));
         System.assert(errorOf('[1]').contains('JSON object'));
         System.assert(errorOf('{"version":2,"conditions":[]}').contains('Unsupported filter version'));
-        System.assert(errorOf('{"dmo":"Other__dlm","conditions":[]}').contains('can only target'));
+        System.assert(errorOf('{"dmo":"Other__dlm","conditions":[]}').contains('rebuild the filter'));
+        System.assert(errorOf('{"dmo":"ssot__Individual__dlm","conditions":[]}').contains('built on ssot__Individual__dlm'));
         System.assert(errorOf('x'.repeat(31000)).contains('too large'));
         System.assert(errorOf(filter(new List<Object>{ 'not a condition' }, 'AND')).contains('not valid'));
     }
@@ -241,8 +242,8 @@ private class Data360PersonFilterServiceTest {
         System.assertEquals(42, Data360PersonFilterService.totalCount());
         System.assertEquals(
             new List<String>{
-                'SELECT COUNT(*) AS cnt FROM ssot__Individual__dlm WHERE Profile_Type__c = \'B2C\'',
-                'SELECT COUNT(*) AS cnt FROM ssot__Individual__dlm'
+                'SELECT COUNT(*) AS cnt FROM UnifiedIndividual__dlm WHERE Profile_Type__c = \'B2C\'',
+                'SELECT COUNT(*) AS cnt FROM UnifiedIndividual__dlm'
             },
             stub.sqls
         );
@@ -296,7 +297,7 @@ private class Data360PersonFilterServiceTest {
     @IsTest
     static void dataCloudExecutorSurfacesFailuresAsFilterExceptions() {
         try {
-            new Data360PersonFilterService.CdpExecutor().count('SELECT COUNT(*) AS cnt FROM ssot__Individual__dlm');
+            new Data360PersonFilterService.CdpExecutor().count('SELECT COUNT(*) AS cnt FROM UnifiedIndividual__dlm');
         } catch (Exception e) {
             System.assertNotEquals(null, e.getMessage());
         }

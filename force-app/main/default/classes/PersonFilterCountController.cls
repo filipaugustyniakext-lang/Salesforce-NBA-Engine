@@ -1,6 +1,6 @@
 /**
  * Entry points for the Person tab of the Marketing Dictionary: preview and count the individuals that match the
- * filter of a Customer Type or Audience Type value on the Data360 DMO ssot__Individual__dlm.
+ * filter of a Customer Type or Audience Type value on the Data360 DMO UnifiedIndividual__dlm.
  * Each value is counted in its own call so the tab fills in as results arrive and stays within governor limits.
  */
 public with sharing class PersonFilterCountController {

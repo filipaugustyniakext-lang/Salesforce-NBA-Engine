@@ -43,7 +43,7 @@ describe('c-marketing-dictionary-dmo-filter-builder', () => {
     beforeEach(() => {
         jest.useFakeTimers();
         getData360DmoFields.mockResolvedValue(COLUMNS);
-        previewSql.mockImplementation(({ filterJson }) => Promise.resolve(`SELECT COUNT(*) AS cnt FROM ssot__Individual__dlm WHERE /* ${filterJson.length} */`));
+        previewSql.mockImplementation(({ filterJson }) => Promise.resolve(`SELECT COUNT(*) AS cnt FROM UnifiedIndividual__dlm WHERE /* ${filterJson.length} */`));
         getFilterCount.mockResolvedValue(1234);
         getTotalCount.mockResolvedValue(10000);
     });
@@ -56,7 +56,7 @@ describe('c-marketing-dictionary-dmo-filter-builder', () => {
 
     it('loads the DMO columns and starts without conditions', async () => {
         const { element, events } = await mount();
-        expect(getData360DmoFields).toHaveBeenCalledWith({ dmoApiName: 'ssot__Individual__dlm' });
+        expect(getData360DmoFields).toHaveBeenCalledWith({ dmoApiName: 'UnifiedIndividual__dlm' });
         expect(all(element, '.dmo-filter__condition')).toHaveLength(0);
         expect(button(element, 'Add condition').disabled).toBe(false);
         expect(button(element, 'Test count')).toBeUndefined();
@@ -90,7 +90,7 @@ describe('c-marketing-dictionary-dmo-filter-builder', () => {
         await flush();
         expect(lastFilter(events)).toEqual({
             version: 1,
-            dmo: 'ssot__Individual__dlm',
+            dmo: 'UnifiedIndividual__dlm',
             logic: 'AND',
             conditions: [{ field: 'age__c', type: 'number', operator: 'gte', value: '18' }]
         });
@@ -202,7 +202,7 @@ describe('c-marketing-dictionary-dmo-filter-builder', () => {
     });
 
     it('tests the count and shows it with its share of the total', async () => {
-        const json = JSON.stringify({ version: 1, dmo: 'ssot__Individual__dlm', logic: 'AND', conditions: [{ field: 'Profile_Type__c', type: 'text', operator: 'eq', value: 'B2C' }] });
+        const json = JSON.stringify({ version: 1, dmo: 'UnifiedIndividual__dlm', logic: 'AND', conditions: [{ field: 'Profile_Type__c', type: 'text', operator: 'eq', value: 'B2C' }] });
         const { element } = await mount(json);
         jest.advanceTimersByTime(500);
         await flush();

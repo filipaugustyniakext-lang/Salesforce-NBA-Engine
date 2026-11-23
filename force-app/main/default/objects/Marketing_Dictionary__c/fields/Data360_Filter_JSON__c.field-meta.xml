@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Data360_Filter_JSON__c</fullName>
-    <description>For Customer Type and Audience Type records: filter definition (JSON, schema version 1) on the Data360 DMO ssot__Individual__dlm. Used by the Person tab of the Marketing Dictionary to count the matching individuals live; the count itself is never stored.</description>
+    <description>For Customer Type and Audience Type records: filter definition (JSON, schema version 1) on the Data360 DMO UnifiedIndividual__dlm. Used by the Person tab of the Marketing Dictionary to count the matching individuals live; the count itself is never stored.</description>
     <inlineHelpText>Filter on the Data360 Individual DMO that defines this value. Edit it in Marketing Dictionary > Person.</inlineHelpText>
     <label>Data360 Filter JSON</label>
     <length>32768</length>

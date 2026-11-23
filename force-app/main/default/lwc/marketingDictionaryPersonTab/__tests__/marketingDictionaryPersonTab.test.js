@@ -26,7 +26,7 @@ jest.mock('c/marketingDictionaryDeleteHelper', () => ({
     reportHasDependencies: jest.fn().mockReturnValue(false)
 }), { virtual: true });
 
-const filterFor = value => JSON.stringify({ version: 1, dmo: 'ssot__Individual__dlm', logic: 'AND', conditions: [{ field: 'Profile_Type__c', type: 'text', operator: 'eq', value }] });
+const filterFor = value => JSON.stringify({ version: 1, dmo: 'UnifiedIndividual__dlm', logic: 'AND', conditions: [{ field: 'Profile_Type__c', type: 'text', operator: 'eq', value }] });
 const record = (id, name, subType, filter) => ({ Id: id, Name: name, Dictionary_Sub_Type__c: subType, Data360_Filter_JSON__c: filter || null });
 
 const flush = async () => {
