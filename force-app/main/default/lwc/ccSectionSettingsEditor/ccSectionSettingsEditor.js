@@ -1,5 +1,6 @@
 import { LightningElement, api } from 'lwc';
 import { normalizeSectionSettings, defaultSectionSettings, uuid, isHexColor, clone } from 'c/ccTemplateSchema';
+import { isolateNativeEvents } from 'c/ccEventGuard';
 
 const DIRECTION_OPTIONS = [
     { label: 'Left to right', value: 'ltr' },
@@ -14,6 +15,10 @@ const LEVEL_LABELS = { container: 'Container', row: 'Row', column: 'Column' };
  * mode="content": marketer edits the settings of one message block section; emits change { value }.
  */
 export default class CcSectionSettingsEditor extends LightningElement {
+    connectedCallback() {
+        isolateNativeEvents(this);
+    }
+
     @api mode = 'content';
     @api disabled = false;
     directionOptions = DIRECTION_OPTIONS;

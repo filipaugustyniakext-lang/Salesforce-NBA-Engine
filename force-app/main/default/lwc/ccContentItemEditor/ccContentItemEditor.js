@@ -1,5 +1,6 @@
 import { LightningElement, api } from 'lwc';
 import { RICH_TEXT_COMPLEXITY, CONTENT_TYPE_LABELS, uuid, clone } from 'c/ccTemplateSchema';
+import { isolateNativeEvents } from 'c/ccEventGuard';
 
 const TARGET_TYPES = [
     { label: 'Web URL', value: 'WebURL' },
@@ -12,6 +13,10 @@ const BEHAVIORS = [
 
 /** Marketer editor of one content item in a message block. Emits change { item }. */
 export default class CcContentItemEditor extends LightningElement {
+    connectedCallback() {
+        isolateNativeEvents(this);
+    }
+
     @api disabled = false;
     targetTypes = TARGET_TYPES;
     behaviors = BEHAVIORS;

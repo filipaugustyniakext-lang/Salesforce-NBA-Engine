@@ -2,6 +2,7 @@ import { LightningElement, api } from 'lwc';
 import { parseTemplate, describeMarked } from 'c/ccTemplateParser';
 import { inspectNode, inspectGroup, applyMarking, wrapElements, insertBlocksZone, rangeBetween, nodeElement, isUnmarked } from 'c/ccElementMarking';
 import { validateDefinition, CONTENT_TYPE_LABELS, clone } from 'c/ccTemplateSchema';
+import { isolateNativeEvents } from 'c/ccEventGuard';
 
 const LEVEL_ICONS = { container: 'utility:layout', row: 'utility:rows', column: 'utility:column' };
 const TYPE_ICONS = {
@@ -18,6 +19,10 @@ const MAX_FILE_BYTES = 262144;
  * Emits change { html, definition, errors, warnings }.
  */
 export default class CcBindingWorkspace extends LightningElement {
+    connectedCallback() {
+        isolateNativeEvents(this);
+    }
+
     @api kind = 'block';
     @api disabled = false;
     html = '';
@@ -378,14 +383,16 @@ export default class CcBindingWorkspace extends LightningElement {
     }
 
     handleSectionChange(event) {
-        const section = event.detail.section;
+        const section = event.detail?.section;
+        if (!section) return;
         const definition = clone(this.definition);
         definition.sections = definition.sections.map(item => (item.sectionId === section.sectionId ? section : item));
         this.updateDefinition(definition);
     }
 
     handleSlotChange(event) {
-        const slot = event.detail.slot;
+        const slot = event.detail?.slot;
+        if (!slot) return;
         const definition = clone(this.definition);
         definition.contentSlots = definition.contentSlots.map(item => (item.bindingKey === slot.bindingKey ? slot : item));
         this.updateDefinition(definition);
@@ -401,7 +408,7 @@ export default class CcBindingWorkspace extends LightningElement {
     }
 
     emit() {
-        this.dispatchEvent(new CustomEvent('change', {
+        this.dispatchEvent(new CustomEvent('bindingchange', {
             detail: { html: this.html, definition: this.definition, errors: this.errors, warnings: this.warnings }
         }));
     }

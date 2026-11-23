@@ -1,11 +1,16 @@
 import { LightningElement, api } from 'lwc';
 import { normalizeBackground, defaultBackground, isHexColor } from 'c/ccTemplateSchema';
+import { isolateNativeEvents } from 'c/ccEventGuard';
 
 const SIZE_OPTIONS = ['cover', 'contain', 'auto', '100% auto'].map(value => ({ label: value, value }));
 const REPEAT_OPTIONS = ['no-repeat', 'repeat', 'repeat-x', 'repeat-y'].map(value => ({ label: value, value }));
 const POSITION_OPTIONS = ['center', 'top', 'bottom', 'left', 'right', 'top center', 'bottom center'].map(value => ({ label: value, value }));
 
 export default class CcBackgroundInput extends LightningElement {
+    connectedCallback() {
+        isolateNativeEvents(this);
+    }
+
     @api label = 'Background';
     @api disabled = false;
     /** Admin (definition) mode allows custom colors and gradients; marketers pick presets unless none exist. */

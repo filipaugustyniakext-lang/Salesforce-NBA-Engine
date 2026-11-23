@@ -1,6 +1,7 @@
 import { LightningElement, api } from 'lwc';
 import listCmsImages from '@salesforce/apex/ChannelTemplateController.listCmsImages';
 import contentVersionDownloadUrl from '@salesforce/apex/ChannelTemplateController.contentVersionDownloadUrl';
+import { isolateNativeEvents } from 'c/ccEventGuard';
 
 const SOURCE_OPTIONS = [
     { label: 'URL', value: 'url' },
@@ -9,6 +10,10 @@ const SOURCE_OPTIONS = [
 ];
 
 export default class CcImageSourceInput extends LightningElement {
+    connectedCallback() {
+        isolateNativeEvents(this);
+    }
+
     @api label = 'Image';
     @api required = false;
     @api disabled = false;

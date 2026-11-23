@@ -4,9 +4,14 @@ import LightningConfirm from 'lightning/confirm';
 import getTemplates from '@salesforce/apex/CcTemplateDefinitionController.getTemplates';
 import archiveTemplate from '@salesforce/apex/CcTemplateDefinitionController.archiveTemplate';
 import deleteTemplate from '@salesforce/apex/CcTemplateDefinitionController.deleteTemplate';
+import { isolateNativeEvents } from 'c/ccEventGuard';
 
 /** Marketing Dictionary > Channels > Templates: list of channel templates and the schema v1 wizard. */
 export default class CcTemplateManager extends LightningElement {
+    connectedCallback() {
+        isolateNativeEvents(this);
+    }
+
     @api channelName;
     templates = [];
     loading = false;

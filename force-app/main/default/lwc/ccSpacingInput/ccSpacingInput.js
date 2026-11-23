@@ -1,5 +1,6 @@
 import { LightningElement, api } from 'lwc';
 import { normalizeSpacing, defaultSpacing } from 'c/ccTemplateSchema';
+import { isolateNativeEvents } from 'c/ccEventGuard';
 
 const SIDES = [
     { key: 'top', label: 'Top' },
@@ -9,6 +10,10 @@ const SIDES = [
 ];
 
 export default class CcSpacingInput extends LightningElement {
+    connectedCallback() {
+        isolateNativeEvents(this);
+    }
+
     @api label = 'Padding';
     @api disabled = false;
     _value = defaultSpacing(0);

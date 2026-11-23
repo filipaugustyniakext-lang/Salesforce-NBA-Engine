@@ -14,6 +14,7 @@ import { parseJson, buildBlockConfig, newMessageBlock, CONTENT_TYPE_LABELS } fro
 import { renderMessage } from 'c/ccTemplateRenderer';
 import { parseTemplate } from 'c/ccTemplateParser';
 import { annotateNodes, isUnmarked } from 'c/ccElementMarking';
+import { isolateNativeEvents } from 'c/ccEventGuard';
 
 const STEPS = [
     { value: 'basic', label: 'Basics' },
@@ -29,6 +30,11 @@ const MODES = [
     { label: 'Multi-block (marketers add content blocks)', value: 'multi' },
     { label: 'Single-block (the template is the block)', value: 'single' }
 ];
+
+/** A workspace result always carries `html` and `definition`; anything else is not ours. */
+function isWorkspaceResult(detail) {
+    return !!detail && typeof detail === 'object' && 'html' in detail && 'definition' in detail;
+}
 
 function errorMessage(error) {
     return error?.body?.message || error?.message || 'Something went wrong.';
@@ -59,6 +65,7 @@ export default class CcTemplateWizard extends LightningElement {
     messageCount = 0;
 
     connectedCallback() {
+        isolateNativeEvents(this);
         this.load();
     }
 
@@ -236,6 +243,7 @@ export default class CcTemplateWizard extends LightningElement {
     }
 
     handleShellChange(event) {
+        if (!isWorkspaceResult(event.detail)) return;
         this.noteUpload(event.detail);
         this.shell = { ...event.detail };
     }
@@ -333,6 +341,7 @@ export default class CcTemplateWizard extends LightningElement {
     }
 
     handleBlockSource(event) {
+        if (!isWorkspaceResult(event.detail)) return;
         this.noteUpload(event.detail);
         this.blockDraft = { ...this.blockDraft, ...event.detail };
     }
@@ -493,6 +502,7 @@ export default class CcTemplateWizard extends LightningElement {
     }
 
     handleInspectSelect(event) {
+        if (!event.detail || typeof event.detail.key !== 'string') return;
         this.pickedNodes = [];
         this.inspectKey = event.detail.key;
     }

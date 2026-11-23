@@ -1,8 +1,13 @@
 import { LightningElement, api } from 'lwc';
 import { COMPLEXITY_OPTIONS, CONTENT_TYPE_LABELS, uuid, clone } from 'c/ccTemplateSchema';
+import { isolateNativeEvents } from 'c/ccEventGuard';
 
 /** Template admin configuration of one content binding (data-cc-content). Emits change { slot }. */
 export default class CcContentBindingEditor extends LightningElement {
+    connectedCallback() {
+        isolateNativeEvents(this);
+    }
+
     @api disabled = false;
     complexityOptions = COMPLEXITY_OPTIONS;
     _slot = {};

@@ -1,6 +1,7 @@
 import { LightningElement, api } from 'lwc';
 import { scopePreviewDocument, pinPreviewWidths } from 'c/copyTemplatePreview';
 import { describeMarked } from 'c/ccTemplateParser';
+import { isolateNativeEvents } from 'c/ccEventGuard';
 
 const MARKED_SELECTOR = '[data-cc-content], [data-cc-section], [data-cc-region]';
 const KIND_COLORS = { section: '#0176d3', content: '#2e844a', region: '#7f4bc4', pick: '#dd7a01' };
@@ -87,6 +88,7 @@ export default class CcTemplatePreview extends LightningElement {
     }
 
     connectedCallback() {
+        isolateNativeEvents(this);
         window.addEventListener('resize', this._resizeHandler);
     }
 

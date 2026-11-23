@@ -50,7 +50,7 @@ describe('c-cc-template-wizard layout', () => {
         expect(element.shadowRoot.querySelector('.cc-wizard__layout_split')).toBeNull();
 
         const parsed = parseTemplate(SHELL_EXAMPLE, { kind: 'shell', templateMode: 'multi' });
-        workspace.dispatchEvent(new CustomEvent('change', { detail: { html: parsed.html, definition: parsed.definition, errors: [], warnings: [] } }));
+        workspace.dispatchEvent(new CustomEvent('bindingchange', { detail: { html: parsed.html, definition: parsed.definition, errors: [], warnings: [] } }));
         await flush();
 
         const layout = element.shadowRoot.querySelector('.cc-wizard__layout_split');
@@ -66,7 +66,7 @@ describe('c-cc-template-wizard layout', () => {
         const element = await openShellStep();
         const workspace = element.shadowRoot.querySelector('c-cc-binding-workspace');
         const parsed = parseTemplate(SHELL_EXAMPLE, { kind: 'shell', templateMode: 'multi' });
-        workspace.dispatchEvent(new CustomEvent('change', { detail: { html: parsed.html, definition: parsed.definition, errors: [], warnings: [] } }));
+        workspace.dispatchEvent(new CustomEvent('bindingchange', { detail: { html: parsed.html, definition: parsed.definition, errors: [], warnings: [] } }));
         await flush();
 
         const preview = element.shadowRoot.querySelector('c-cc-template-preview');
@@ -88,7 +88,7 @@ describe('c-cc-template-wizard layout', () => {
         const workspace = element.shadowRoot.querySelector('c-cc-binding-workspace');
         const raw = '<div><table><tr><td><p>Hello</p></td></tr></table></div>';
         const parsed = parseTemplate(raw, { kind: 'shell', templateMode: 'multi' });
-        workspace.dispatchEvent(new CustomEvent('change', { detail: { html: parsed.html, definition: parsed.definition, errors: parsed.errors, warnings: [] } }));
+        workspace.dispatchEvent(new CustomEvent('bindingchange', { detail: { html: parsed.html, definition: parsed.definition, errors: parsed.errors, warnings: [] } }));
         await flush();
 
         const preview = element.shadowRoot.querySelector('c-cc-template-preview');
@@ -114,6 +114,30 @@ describe('c-cc-template-wizard layout', () => {
         expect(after.markMode).toBe(false);
         expect(after.renderFn('desktop', 'light')).not.toContain('data-cc-node');
         expect(element.shadowRoot.querySelector('c-cc-binding-workspace').pickedElements).toEqual([]);
+    });
+
+    it('is not wiped by change events that bubble out of inputs inside the marker panel', async () => {
+        const element = await openShellStep();
+        const workspace = element.shadowRoot.querySelector('c-cc-binding-workspace');
+        const raw = '<div><table><tr><td><p>Hello</p></td></tr></table></div>';
+        const parsed = parseTemplate(raw, { kind: 'shell', templateMode: 'multi' });
+        workspace.dispatchEvent(new CustomEvent('bindingchange', { detail: { html: parsed.html, definition: parsed.definition, errors: parsed.errors, warnings: [] } }));
+        await flush();
+        element.shadowRoot.querySelector('c-cc-template-preview').dispatchEvent(new CustomEvent('pick', { detail: { node: 3, extend: false } }));
+        await flush();
+
+        const marker = element.shadowRoot.querySelector('c-cc-binding-workspace').shadowRoot.querySelector('c-cc-element-marker');
+        const radios = marker.shadowRoot.querySelectorAll('lightning-radio-group');
+        expect(radios.length).toBeGreaterThan(1);
+        // lightning base components fire a bubbling, composed change event.
+        const leak = new CustomEvent('change', { bubbles: true, composed: true, detail: { value: 'fixed-edit' } });
+        radios[1].dispatchEvent(leak);
+        marker.shadowRoot.querySelector('lightning-input').dispatchEvent(new CustomEvent('change', { bubbles: true, composed: true, detail: { value: 'x' } }));
+        await flush();
+
+        expect(element.shadowRoot.querySelector('c-cc-template-preview')).not.toBeNull();
+        expect(element.shadowRoot.querySelector('c-cc-binding-workspace').source.html).toContain('<p>Hello</p>');
+        expect(element.shadowRoot.querySelector('c-cc-binding-workspace').pickedElements).toEqual([3]);
     });
 
     it('offers delete only for saved templates', async () => {

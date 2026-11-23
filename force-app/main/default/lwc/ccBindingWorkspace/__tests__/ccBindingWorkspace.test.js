@@ -25,7 +25,7 @@ describe('c-cc-binding-workspace', () => {
         element.kind = 'block';
         element.source = { html: BLOCK_HTML, definition: null };
         const changes = [];
-        element.addEventListener('change', event => changes.push(event.detail));
+        element.addEventListener('bindingchange', event => changes.push(event.detail));
         document.body.appendChild(element);
         await flush();
 
@@ -68,7 +68,7 @@ describe('c-cc-binding-workspace', () => {
         element.kind = 'block';
         element.source = { html: raw, definition: null };
         const events = [];
-        ['change', 'pick', 'select'].forEach(name => element.addEventListener(name, event => events.push([name, event.detail])));
+        ['bindingchange', 'pick', 'select'].forEach(name => element.addEventListener(name, event => events.push([name === 'bindingchange' ? 'change' : name, event.detail])));
         document.body.appendChild(element);
         await flush();
         expect(element.shadowRoot.textContent).toContain('No bindings were found in this file');
@@ -117,7 +117,7 @@ describe('c-cc-binding-workspace', () => {
         element.templateMode = templateMode;
         element.source = { html, definition: null };
         const events = [];
-        ['change', 'pick', 'select'].forEach(name => element.addEventListener(name, event => events.push([name, event.detail])));
+        ['bindingchange', 'pick', 'select'].forEach(name => element.addEventListener(name, event => events.push([name === 'bindingchange' ? 'change' : name, event.detail])));
         document.body.appendChild(element);
         await flush();
         return { element, events };

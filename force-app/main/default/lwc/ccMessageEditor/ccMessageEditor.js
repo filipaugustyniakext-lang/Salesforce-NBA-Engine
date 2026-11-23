@@ -14,6 +14,7 @@ import {
     CONTENT_TYPE_LABELS
 } from 'c/ccTemplateSchema';
 import { renderMessage } from 'c/ccTemplateRenderer';
+import { isolateNativeEvents } from 'c/ccEventGuard';
 
 const LOCKED_STATUSES = new Set(['Live', 'Published', 'Archived']);
 
@@ -35,6 +36,7 @@ export default class CcMessageEditor extends LightningElement {
     dirty = false;
 
     connectedCallback() {
+        isolateNativeEvents(this);
         this.load();
     }
 

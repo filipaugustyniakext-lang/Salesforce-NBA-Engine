@@ -1,5 +1,6 @@
 import { LightningElement, api } from 'lwc';
 import { COMPLEXITY_OPTIONS } from 'c/ccTemplateSchema';
+import { isolateNativeEvents } from 'c/ccEventGuard';
 
 const LEVEL_HELP = {
     container: 'The outermost wrapper of the block. Usually the main table or div.',
@@ -36,6 +37,10 @@ const BLANK = { role: 'none', level: 'container', id: '', binds: [], contentType
 
 /** Guided panel: tell the processor what the picked element is. Emits apply { marking }, remove, close, pick { node }. */
 export default class CcElementMarker extends LightningElement {
+    connectedCallback() {
+        isolateNativeEvents(this);
+    }
+
     @api kind = 'block';
     @api templateMode = 'multi';
     @api existingIds = [];
