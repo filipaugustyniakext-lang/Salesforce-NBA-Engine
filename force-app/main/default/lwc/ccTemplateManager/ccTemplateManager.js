@@ -53,7 +53,9 @@ export default class CcTemplateManager extends LightningElement {
                 formatLabel: template.isV1 ? 'v1' : 'Legacy',
                 openLabel: template.isV1 ? 'Open' : 'Upgrade to v1',
                 canArchive: template.status === 'Active',
-                canDelete: template.status !== 'Active' && !template.messageCount
+                deleteDisabled: !!template.deleteBlockedReason,
+                deleteTitle: template.deleteBlockedReason || 'Delete template',
+                deleteIcon: 'utility:delete'
             };
         });
     }

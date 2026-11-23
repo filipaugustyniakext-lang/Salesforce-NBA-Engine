@@ -6,6 +6,7 @@ import saveTemplate from '@salesforce/apex/CcTemplateDefinitionController.saveTe
 import saveBlock from '@salesforce/apex/CcTemplateDefinitionController.saveBlock';
 import setBlockStatus from '@salesforce/apex/CcTemplateDefinitionController.setBlockStatus';
 import deleteBlock from '@salesforce/apex/CcTemplateDefinitionController.deleteBlock';
+import deleteTemplate from '@salesforce/apex/CcTemplateDefinitionController.deleteTemplate';
 import validateTemplate from '@salesforce/apex/CcTemplateDefinitionController.validateTemplate';
 import activateTemplate from '@salesforce/apex/CcTemplateDefinitionController.activateTemplate';
 import getLocales from '@salesforce/apex/MarketingDictionaryManagerController.getLocales';
@@ -439,38 +440,93 @@ export default class CcTemplateWizard extends LightningElement {
     }
 
     get previewOptions() {
-        const options = [{ label: 'Shell with all Active blocks', value: 'all' }, { label: 'Shell only', value: 'shell' }];
+        const options = [{ label: 'Shell with all blocks', value: 'all' }, { label: 'Shell only', value: 'shell' }];
         this.blocks.forEach(block => options.push({ label: `Shell with ${block.name}`, value: block.id }));
         return options;
     }
 
     get showPreviewChoice() {
-        return this.isMulti;
+        return this.isMulti && this.isSummaryStep;
     }
 
     handlePreviewChoice(event) {
         this.previewChoice = event.detail.value;
-        this.template.querySelector('c-cc-template-preview')?.refresh();
     }
 
+    get hasShell() {
+        return !!this.shell.html && !!this.shell.definition;
+    }
+
+    get showSidePreview() {
+        return this.hasShell;
+    }
+
+    get layoutClass() {
+        return `cc-wizard__layout${this.showSidePreview ? ' cc-wizard__layout_split' : ''}`;
+    }
+
+    get previewHeading() {
+        if (this.isBlocksStep && this.blockDraft?.html) return 'Block inside the template shell';
+        return this.isMulti ? 'Template preview' : 'Template preview';
+    }
+
+    /** Preview follows the step: shell while uploading, the block being edited, or the chosen summary view. */
     get previewRender() {
+        if (!this.hasShell) return null;
         const shell = { html: this.shell.html, definition: this.shell.definition };
-        const choice = this.previewChoice;
-        const blocks = this.blocks.filter(block => block.definition && block.sourceHtml && (
-            choice === 'all' ? block.status === 'Active' : choice === block.id
-        ));
         const isMulti = this.isMulti;
+        const draft = this.blockDraft;
+        let blocks = [];
+        if (isMulti) {
+            if (this.isBlocksStep && draft?.html && draft.definition) {
+                blocks = [{ html: draft.html, definition: draft.definition, record: {} }];
+            } else if (this.isSummaryStep || this.isBlocksStep) {
+                const choice = this.isSummaryStep ? this.previewChoice : 'all';
+                blocks = this.blocks
+                    .filter(block => block.definition && block.sourceHtml && (
+                        choice === 'all' ? (this.isSummaryStep ? block.status === 'Active' : true) : choice === block.id
+                    ))
+                    .map(block => ({ html: block.sourceHtml, definition: block.definition, record: block }));
+            }
+        }
         return (device, theme) => renderMessage({
             shell,
-            shellContent: !isMulti && shell.definition ? { blockConfig: buildBlockConfig(shell.definition) } : null,
-            blocks: isMulti ? blocks.map((block, index) => ({
-                html: block.sourceHtml,
-                definition: block.definition,
-                block: newMessageBlock(block, block.definition, index + 1)
-            })) : [],
+            shellContent: !isMulti ? { blockConfig: buildBlockConfig(shell.definition) } : null,
+            blocks: blocks.map((entry, index) => ({
+                html: entry.html,
+                definition: entry.definition,
+                block: newMessageBlock(entry.record, entry.definition, index + 1)
+            })),
             device,
             theme
         });
+    }
+
+    // ─── Delete ──────────────────────────────────────────────────────────────
+
+    get canDelete() {
+        return !!this.templateId;
+    }
+
+    async handleDeleteTemplate() {
+        const confirmed = await LightningConfirm.open({
+            message: `Delete this template${this.isActive ? ' (it is Active)' : ''} and its content blocks? This cannot be undone.`,
+            label: 'Delete template',
+            theme: 'error'
+        });
+        if (!confirmed) return;
+        this.saving = true;
+        try {
+            await deleteTemplate({ templateId: this.templateId });
+            this.toast('Template deleted', '', 'success');
+            this.templateId = null;
+            this.dispatchEvent(new CustomEvent('saved', { detail: { templateId: null } }));
+            this.handleClose();
+        } catch (error) {
+            this.toast('Template could not be deleted', errorMessage(error), 'error');
+        } finally {
+            this.saving = false;
+        }
     }
 
     async handleActivate() {

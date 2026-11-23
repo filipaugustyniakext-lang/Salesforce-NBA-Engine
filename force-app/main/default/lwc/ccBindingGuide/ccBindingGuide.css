@@ -1,0 +1,46 @@
+.cc-guide {
+    border: 1px solid #e5e5e5;
+    border-radius: 0.25rem;
+    background: #f8fafc;
+}
+
+.cc-guide__summary {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    cursor: pointer;
+}
+
+.cc-guide__body {
+    padding: 0 0.75rem 0.75rem;
+}
+
+.cc-guide__steps {
+    margin-left: 1.25rem;
+    line-height: 1.5;
+}
+
+.cc-guide__table th,
+.cc-guide__table td {
+    vertical-align: top;
+    white-space: normal;
+}
+
+.cc-guide__actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.cc-guide__example {
+    margin-top: 0.5rem;
+    padding: 0.75rem;
+    max-height: 16rem;
+    overflow: auto;
+    background: #ffffff;
+    border: 1px solid #e5e5e5;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    white-space: pre;
+}

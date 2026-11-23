@@ -40,6 +40,7 @@ public with sharing class CcTemplateDefinitionController {
         @AuraEnabled public String validationMessage;
         @AuraEnabled public Boolean isV1 = false;
         @AuraEnabled public Integer messageCount = 0;
+        @AuraEnabled public String deleteBlockedReason;
         @AuraEnabled public Integer liveMessageCount = 0;
         @AuraEnabled public Datetime lastModifiedDate;
         @AuraEnabled public List<BlockSummary> blocks = new List<BlockSummary>();
@@ -184,16 +185,56 @@ public with sharing class CcTemplateDefinitionController {
         }
     }
 
+    /** Reasons a template cannot be deleted; empty when it can. Active templates are deletable when unused. */
+    public static String deleteBlockedReason(Id templateId) {
+        List<String> names = new List<String>();
+        Integer messages = 0;
+        for (CC_Message_Metadata__c message : [
+            SELECT Name FROM CC_Message_Metadata__c WHERE Source_Template__c = :templateId ORDER BY Name LIMIT 200
+        ]) {
+            messages++;
+            if (names.size() < 5) names.add(message.Name);
+        }
+        if (messages > 0) {
+            return 'Used by ' + messages + ' message variant(s): ' + String.join(names, ', ') + (messages > names.size() ? ', ...' : '')
+                + '. Change their source template or delete them first.';
+        }
+        Integer blocks = [SELECT COUNT() FROM CC_Message_Blocks__c WHERE BlockTemplateDefinitionId__r.Channel_Template__c = :templateId];
+        if (blocks > 0) {
+            return 'Its content blocks are used by ' + blocks + ' message block(s). Remove them from the messages first.';
+        }
+        return null;
+    }
+
     @AuraEnabled
     public static void deleteTemplate(Id templateId) {
-        Integer used = [SELECT COUNT() FROM CC_Message_Blocks__c WHERE BlockTemplateDefinitionId__r.Channel_Template__c = :templateId];
-        if (used > 0) {
-            throw error('Content blocks of this template are used by ' + used + ' message block(s). Remove them from the messages first.');
+        if (templateId == null) throw error('Template is required.');
+        String reason = deleteBlockedReason(templateId);
+        if (reason != null) throw error('This template cannot be deleted. ' + reason);
+        List<Channel_Template__c> templates = [SELECT Id FROM Channel_Template__c WHERE Id = :templateId LIMIT 1];
+        if (templates.isEmpty()) throw error('Template was not found.');
+        Set<Id> documentIds = new Set<Id>();
+        for (ContentDocumentLink link : [SELECT ContentDocumentId FROM ContentDocumentLink WHERE LinkedEntityId = :templateId]) {
+            documentIds.add(link.ContentDocumentId);
         }
+        Savepoint sp = Database.setSavepoint();
+        ChannelTemplateTriggerHandler.allowActiveDelete = true;
         try {
-            ChannelTemplateController.deleteTemplate(templateId);
-        } catch (AuraHandledException e) {
-            throw error(e.getMessage());
+            delete templates;
+        } catch (DmlException e) {
+            Database.rollback(sp);
+            throw error('The template could not be deleted: ' + e.getDmlMessage(0));
+        } finally {
+            ChannelTemplateTriggerHandler.allowActiveDelete = false;
+        }
+        if (!documentIds.isEmpty()) {
+            Set<Id> shared = new Set<Id>();
+            for (ContentDocumentLink link : [SELECT ContentDocumentId FROM ContentDocumentLink WHERE ContentDocumentId IN :documentIds]) {
+                shared.add(link.ContentDocumentId);
+            }
+            Set<Id> orphans = new Set<Id>(documentIds);
+            orphans.removeAll(shared);
+            if (!orphans.isEmpty()) Database.delete([SELECT Id FROM ContentDocument WHERE Id IN :orphans], false);
         }
     }
 
@@ -362,6 +403,10 @@ public with sharing class CcTemplateDefinitionController {
             if (status == 'Live' || status == 'Published') summary.liveMessageCount += total;
         }
 
+        for (TemplateSummary summary : ordered) {
+            if (summary.messageCount > 0) summary.deleteBlockedReason = deleteBlockedReason(summary.id);
+        }
+
         Map<Id, BlockSummary> blocksById = new Map<Id, BlockSummary>();
         for (Channel_Template_Block__c block : queryBlocks(byId.keySet(), null)) {
             BlockSummary blockSummary = new BlockSummary();
@@ -392,6 +437,14 @@ public with sharing class CcTemplateDefinitionController {
                 GROUP BY BlockTemplateDefinitionId__c
             ]) {
                 blocksById.get((Id) row.get('blockId')).usageCount = (Integer) row.get('total');
+            }
+            for (TemplateSummary summary : ordered) {
+                Integer blockUsage = 0;
+                for (BlockSummary blockSummary : summary.blocks) blockUsage += blockSummary.usageCount;
+                if (blockUsage > 0 && summary.deleteBlockedReason == null) {
+                    summary.deleteBlockedReason = 'Its content blocks are used by ' + blockUsage
+                        + ' message block(s). Remove them from the messages first.';
+                }
             }
         }
         return ordered;

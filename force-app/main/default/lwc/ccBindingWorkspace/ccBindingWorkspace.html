@@ -1,5 +1,6 @@
 <template>
     <div class="cc-workspace">
+        <c-cc-binding-guide kind={kind} template-mode={templateMode} open={guideOpen}></c-cc-binding-guide>
         <div class="cc-workspace__upload">
             <lightning-input
                 type="file"
@@ -70,11 +71,6 @@
                     </template>
                 </div>
             </div>
-            <template lwc:if={previewRender}>
-                <div class="cc-workspace__preview">
-                    <c-cc-template-preview heading={previewTitle} render-fn={previewRender}></c-cc-template-preview>
-                </div>
-            </template>
         </template>
     </div>
 </template>

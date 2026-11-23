@@ -47,21 +47,15 @@ describe('c-cc-binding-workspace', () => {
         expect(bindingEditor.binding.bindingKey).toBe('cta');
     });
 
-    it('shows a live preview that follows the definition', async () => {
+    it('shows the preparation guide, open until HTML is loaded', async () => {
         const element = createElement('c-cc-binding-workspace', { is: CcBindingWorkspace });
-        element.kind = 'block';
-        element.source = { html: BLOCK_HTML, definition: null };
+        element.kind = 'shell';
         document.body.appendChild(element);
         await flush();
-        const preview = element.shadowRoot.querySelector('c-cc-template-preview');
-        expect(preview).not.toBeNull();
-        expect(preview.heading).toBe('Block preview');
-        expect(typeof preview.renderFn).toBe('function');
-        expect(preview.renderFn('desktop', 'light')).toContain('data-cc-key="note"');
-
-        element.previewShell = { html: '<div data-cc-region="blocks"></div>', definition: { regions: [{ kind: 'blocks' }] } };
-        await flush();
-        expect(element.shadowRoot.querySelector("c-cc-template-preview").heading).toBe('Block preview inside the template shell');
+        const guide = element.shadowRoot.querySelector('c-cc-binding-guide');
+        expect(guide.kind).toBe('shell');
+        expect(guide.open).toBe(true);
+        expect(element.shadowRoot.querySelector('c-cc-template-preview')).toBeNull();
     });
 
     it('shows parse errors for invalid HTML', async () => {

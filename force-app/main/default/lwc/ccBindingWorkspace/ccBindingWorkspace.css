@@ -1,3 +1,7 @@
+.cc-workspace__upload {
+    margin-top: 0.75rem;
+}
+
 .cc-workspace__alert {
     justify-content: flex-start;
     margin-top: 0.75rem;
@@ -6,7 +10,7 @@
 
 .cc-workspace__body {
     display: grid;
-    grid-template-columns: 18rem minmax(0, 1fr);
+    grid-template-columns: minmax(11rem, 14rem) minmax(0, 1fr);
     gap: 1rem;
     margin-top: 1rem;
     min-height: 20rem;
@@ -68,8 +72,4 @@
     border-radius: 0.25rem;
     padding: 1rem;
     min-width: 0;
-}
-
-.cc-workspace__preview {
-    margin-top: 1rem;
 }

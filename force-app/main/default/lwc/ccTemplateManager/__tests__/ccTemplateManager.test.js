@@ -7,7 +7,7 @@ jest.mock('@salesforce/apex/CcTemplateDefinitionController.archiveTemplate', () 
 jest.mock('@salesforce/apex/CcTemplateDefinitionController.deleteTemplate', () => ({ default: jest.fn() }), { virtual: true });
 
 const TEMPLATES = [
-    { id: 't1', name: 'TEMP_pl_PL_Master_Commercial', status: 'Active', isV1: true, templateMode: 'multi', localeCode: 'pl_PL', classification: 'Commercial', messageCount: 3, liveMessageCount: 1, validationStatus: 'Valid', blocks: [{ status: 'Active' }, { status: 'Draft' }] },
+    { id: 't1', name: 'TEMP_pl_PL_Master_Commercial', status: 'Active', isV1: true, templateMode: 'multi', localeCode: 'pl_PL', classification: 'Commercial', messageCount: 3, liveMessageCount: 1, validationStatus: 'Valid', deleteBlockedReason: 'Used by 3 message variant(s): EM-1.', blocks: [{ status: 'Active' }, { status: 'Draft' }] },
     { id: 't2', name: 'TEMP_PL_mainBanner_Commercial', status: 'Draft', isV1: false, templateMode: 'multi', messageCount: 0, liveMessageCount: 0, blocks: [] }
 ];
 
@@ -34,9 +34,13 @@ describe('c-cc-template-manager', () => {
         expect(rows[0].textContent).toContain('1 active / 2');
         const firstButtons = Array.from(rows[0].querySelectorAll('lightning-button')).map(button => button.label);
         expect(firstButtons).toEqual(['Open', 'Archive']);
-        expect(rows[0].querySelector('lightning-button-icon')).toBeNull();
+        const blockedDelete = rows[0].querySelector('lightning-button-icon');
+        expect(blockedDelete.disabled).toBe(true);
+        expect(blockedDelete.title).toBe('Used by 3 message variant(s): EM-1.');
         const secondButtons = Array.from(rows[1].querySelectorAll('lightning-button')).map(button => button.label);
         expect(secondButtons).toEqual(['Upgrade to v1']);
-        expect(rows[1].querySelector('lightning-button-icon')).not.toBeNull();
+        const freeDelete = rows[1].querySelector('lightning-button-icon');
+        expect(freeDelete.disabled).toBeFalsy();
+        expect(freeDelete.title).toBe('Delete template');
     });
 });

@@ -60,9 +60,7 @@
                                         <template lwc:if={row.canArchive}>
                                             <lightning-button label="Archive" variant="base" data-id={row.id} onclick={handleArchive}></lightning-button>
                                         </template>
-                                        <template lwc:if={row.canDelete}>
-                                            <lightning-button-icon icon-name="utility:delete" variant="bare" alternative-text="Delete template" title="Delete" data-id={row.id} onclick={handleDelete}></lightning-button-icon>
-                                        </template>
+                                        <lightning-button-icon icon-name="utility:delete" variant="bare" alternative-text={row.deleteTitle} title={row.deleteTitle} data-id={row.id} disabled={row.deleteDisabled} onclick={handleDelete}></lightning-button-icon>
                                     </td>
                                 </tr>
                             </template>

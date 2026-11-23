@@ -1,7 +1,6 @@
 import { LightningElement, api } from 'lwc';
 import { parseTemplate } from 'c/ccTemplateParser';
-import { validateDefinition, buildBlockConfig, CONTENT_TYPE_LABELS, clone } from 'c/ccTemplateSchema';
-import { renderMessage, renderBlock } from 'c/ccTemplateRenderer';
+import { validateDefinition, CONTENT_TYPE_LABELS, clone } from 'c/ccTemplateSchema';
 
 const LEVEL_ICONS = { container: 'utility:layout', row: 'utility:rows', column: 'utility:column' };
 const TYPE_ICONS = {
@@ -20,8 +19,6 @@ const MAX_FILE_BYTES = 262144;
 export default class CcBindingWorkspace extends LightningElement {
     @api kind = 'block';
     @api disabled = false;
-    /** For kind="block": the master shell ({ html, definition }) the block is previewed in. */
-    @api previewShell = null;
     html = '';
     definition = null;
     errors = [];
@@ -62,36 +59,8 @@ export default class CcBindingWorkspace extends LightningElement {
         }
     }
 
-    /**
-     * Renders the uploaded HTML with the current definition. Section defaults and presets are applied
-     * and content bindings show their default content, so binding mistakes are visible immediately.
-     */
-    get previewRender() {
-        if (!this.html || !this.definition) return null;
-        const { html, definition, kind } = this;
-        const shell = this.previewShell;
-        const isSingleShell = kind === 'shell' && this._templateMode === 'single';
-        return (device, theme) => {
-            if (kind === 'shell') {
-                return renderMessage({
-                    shell: { html, definition },
-                    shellContent: isSingleShell ? { blockConfig: buildBlockConfig(definition) } : null,
-                    blocks: [],
-                    device,
-                    theme
-                });
-            }
-            const block = { blockConfig: buildBlockConfig(definition), blockOrderNumber: 1 };
-            if (shell?.html) {
-                return renderMessage({ shell, blocks: [{ html, definition, block }], device, theme });
-            }
-            return renderBlock(html, definition, block, { device, theme });
-        };
-    }
-
-    get previewTitle() {
-        if (this.kind === 'shell') return 'Template shell preview';
-        return this.previewShell?.html ? 'Block preview inside the template shell' : 'Block preview';
+    get guideOpen() {
+        return !this.html;
     }
 
     get hasHtml() {

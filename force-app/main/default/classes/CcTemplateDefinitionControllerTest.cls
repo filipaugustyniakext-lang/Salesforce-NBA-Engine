@@ -172,6 +172,33 @@ private class CcTemplateDefinitionControllerTest {
     }
 
     @IsTest
+    static void templatesInUseExplainWhyAndUnusedActiveTemplatesCanBeDeleted() {
+        Id templateId = createTemplate(SHELL_DEFINITION);
+        CcTemplateDefinitionController.setBlockStatus(createBlock(templateId, BLOCK_DEFINITION), 'Active');
+        CcTemplateDefinitionController.activateTemplate(templateId);
+        insert new CC_Message_Metadata__c(Name = 'EM-pl-PL-Spring-1', MessageName__c = 'EM-pl-PL-Spring', Source_Template__c = templateId);
+
+        CcTemplateDefinitionController.TemplateSummary summary = CcTemplateDefinitionController.getTemplates(channelId())[0];
+        System.assertEquals(1, summary.messageCount);
+        System.assert(summary.deleteBlockedReason.contains('EM-pl-PL-Spring-1'), summary.deleteBlockedReason);
+        Boolean blocked = false;
+        try {
+            CcTemplateDefinitionController.deleteTemplate(templateId);
+        } catch (AuraHandledException e) {
+            blocked = e.getMessage().contains('cannot be deleted') && e.getMessage().contains('EM-pl-PL-Spring-1');
+        }
+        System.assert(blocked);
+
+        delete [SELECT Id FROM CC_Message_Metadata__c];
+        System.assertEquals(null, CcTemplateDefinitionController.getTemplates(channelId())[0].deleteBlockedReason);
+        Test.startTest();
+        CcTemplateDefinitionController.deleteTemplate(templateId);
+        Test.stopTest();
+        System.assertEquals(0, [SELECT COUNT() FROM Channel_Template__c], 'An unused Active template is deleted in one step.');
+        System.assertEquals(0, [SELECT COUNT() FROM Channel_Template_Block__c]);
+    }
+
+    @IsTest
     static void activatingANewVersionOnlyArchivesTheSameTemplateFamily() {
         Id first = createTemplate(SHELL_DEFINITION);
         CcTemplateDefinitionController.setBlockStatus(createBlock(first, BLOCK_DEFINITION), 'Active');
