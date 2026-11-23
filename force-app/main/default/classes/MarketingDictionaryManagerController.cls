@@ -80,6 +80,7 @@ public with sharing class MarketingDictionaryManagerController {
     @AuraEnabled
     public static Id saveProductRecord(Marketing_Dictionary__c record) {
         try {
+            validatePersonFilter(record);
             Id productRecordTypeId = getRecordTypeId('Product');
             record.RecordTypeId = productRecordTypeId;
             String oldName = null;
@@ -108,6 +109,8 @@ public with sharing class MarketingDictionaryManagerController {
                 );
             }
             return record.Id;
+        } catch (AuraHandledException ahe) {
+            throw ahe;
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());
         }
@@ -748,7 +751,7 @@ public with sharing class MarketingDictionaryManagerController {
         }
     }
 
-    private static List<String> dataSpaceApiNames() {
+    public static List<String> dataSpaceApiNames() {
         List<String> names = new List<String>();
         Set<String> seen = new Set<String>();
         try {
@@ -2038,6 +2041,23 @@ public with sharing class MarketingDictionaryManagerController {
             }
         }
         return String.join(resolvedIds, '; ');
+    }
+
+    /** A Person filter must be valid before it is saved; a blank filter clears it. */
+    private static void validatePersonFilter(Marketing_Dictionary__c record) {
+        if (record == null || String.isBlank(record.Data360_Filter_JSON__c)) {
+            if (record != null) {
+                record.Data360_Filter_JSON__c = null;
+            }
+            return;
+        }
+        try {
+            Data360PersonFilterService.validate(record.Data360_Filter_JSON__c);
+        } catch (Data360PersonFilterService.FilterException e) {
+            AuraHandledException invalid = new AuraHandledException(e.getMessage());
+            invalid.setMessage(e.getMessage());
+            throw invalid;
+        }
     }
 
     private static Id getRecordTypeId(String developerName) {
