@@ -120,6 +120,23 @@ describe('c-cc-template-wizard layout', () => {
         expect(element.shadowRoot.querySelector('c-cc-binding-workspace').pickedElements).toEqual([]);
     });
 
+    it('turns marking off and lets the preview only select marked items in the inspect step', async () => {
+        const element = await openShellStep();
+        const workspace = element.shadowRoot.querySelector('c-cc-binding-workspace');
+        const raw = '<div><table><tr><td><p>Hello</p></td></tr></table></div>';
+        const parsed = parseTemplate(raw, { kind: 'shell', templateMode: 'multi' });
+        workspace.dispatchEvent(new CustomEvent('bindingchange', { detail: { html: parsed.html, definition: parsed.definition, errors: [], warnings: [] } }));
+        await flush();
+        workspace.dispatchEvent(new CustomEvent('stepchange', { detail: { step: 3, pickScope: 'inspect' } }));
+        await flush();
+        const preview = element.shadowRoot.querySelector('c-cc-template-preview');
+        expect(preview.markMode).toBe(false);
+        expect(preview.pickScope).toBe('any');
+        workspace.dispatchEvent(new CustomEvent('stepchange', { detail: { step: 2, pickScope: 'any' } }));
+        await flush();
+        expect(element.shadowRoot.querySelector('c-cc-template-preview').markMode).toBe(true);
+    });
+
     it('is not wiped by change events that bubble out of inputs inside the marker panel', async () => {
         const element = await openShellStep();
         const workspace = element.shadowRoot.querySelector('c-cc-binding-workspace');

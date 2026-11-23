@@ -504,14 +504,16 @@ export default class CcTemplateWizard extends LightningElement {
         return this.isBlocksStep ? 'blocks' : 'all';
     }
 
-    /** The shell steps decide what can be picked; everywhere else any element can. */
+    /** The guided steps decide what can be picked; 'inspect' (step 3) only selects what is already marked. */
     get pickScope() {
-        return this.isShellStep && this.isMulti ? this.shellPickScope : 'any';
+        if (!this.isShellStep && !this.isBlocksStep) return 'any';
+        return this.shellPickScope === 'inspect' ? 'any' : this.shellPickScope;
     }
 
     handleStepChange(event) {
-        this.shellPickScope = event.detail.pickScope || 'areas';
-        this.markOn = true;
+        const scope = event.detail.pickScope || 'any';
+        this.shellPickScope = scope;
+        this.markOn = scope !== 'inspect';
     }
 
     handleInspectSelect(event) {

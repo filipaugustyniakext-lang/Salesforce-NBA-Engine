@@ -672,3 +672,60 @@ export function shellProgress(definition) {
         firstOpenStep: !step1Done ? 1 : !step2Done ? 2 : 1
     };
 }
+
+// ─── Content blocks and single-block templates ───────────────────────────────
+
+/** Sections and content bindings of a block with their node indexes, for the summary list and the step panels. */
+export function listBindings(html) {
+    const { doc } = parseHtml(html);
+    const elements = bodyElements(doc);
+    const depthOf = element => {
+        let depth = 0;
+        for (let current = element.parentElement; current; current = current.parentElement) {
+            if (current.hasAttribute('data-cc-section')) depth += 1;
+        }
+        return depth;
+    };
+    const sections = [];
+    const content = [];
+    elements.forEach((element, node) => {
+        if (element.hasAttribute('data-cc-section')) {
+            sections.push({
+                sectionId: element.getAttribute('data-cc-id') || '',
+                level: element.getAttribute('data-cc-section'),
+                label: element.getAttribute('data-cc-label') || '',
+                binds: String(element.getAttribute('data-cc-bind') || '').split(/\s+/).filter(Boolean),
+                node,
+                depth: depthOf(element)
+            });
+        } else if (element.hasAttribute('data-cc-content')) {
+            content.push({
+                key: element.getAttribute('data-cc-key') || '',
+                type: element.getAttribute('data-cc-content'),
+                label: element.getAttribute('data-cc-label') || '',
+                node
+            });
+        }
+    });
+    return { sections, content };
+}
+
+/** Progress of the three block setup steps (layout sections, content, settings), from a parsed definition. */
+export function blockProgress(definition) {
+    const sectionCount = (definition?.sections || []).length;
+    const slotCount = (definition?.contentSlots || []).length;
+    const noSections = !!definition?.setup?.noSections;
+    const step1Done = sectionCount > 0 || noSections;
+    const step2Done = slotCount > 0;
+    return {
+        steps: [
+            { step: 1, done: step1Done, unlocked: true },
+            { step: 2, done: step2Done, unlocked: step1Done },
+            { step: 3, done: false, unlocked: step1Done && step2Done }
+        ],
+        sectionCount,
+        slotCount,
+        noSections,
+        firstOpenStep: !step1Done ? 1 : !step2Done ? 2 : 1
+    };
+}

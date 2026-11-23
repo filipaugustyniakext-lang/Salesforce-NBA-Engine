@@ -1,4 +1,4 @@
-import { annotateNodes, inspectNode, applyMarking, isUnmarked, nodeElement, rangeBetween, inspectGroup, wrapElements, insertBlocksZone, listAreas, updateArea, removeArea, removeContentIn, zonePlacement, removeBlocksZone, shellProgress } from 'c/ccElementMarking';
+import { annotateNodes, inspectNode, applyMarking, isUnmarked, nodeElement, rangeBetween, inspectGroup, wrapElements, insertBlocksZone, listAreas, updateArea, removeArea, removeContentIn, zonePlacement, removeBlocksZone, shellProgress, listBindings, blockProgress } from 'c/ccElementMarking';
 import { parseTemplate, parseHtml, describeMarked } from 'c/ccTemplateParser';
 
 const RAW = `<html><head><style>.cc-hide-dsk{} .cc-hide-mob{}</style></head><body>
@@ -427,5 +427,41 @@ describe('named areas, dropzone placement and setup progress', () => {
 
         const keeps = parseTemplate(SHELL, { kind: 'shell', templateMode: 'multi', previous: { setup: { noFixedAreas: true } } }).definition;
         expect(keeps.setup).toEqual({ noFixedAreas: true });
+    });
+});
+
+describe('block bindings and progress', () => {
+    const BLOCK = `<table data-cc-section="container" data-cc-id="block" data-cc-bind="padding"><tr><td data-cc-section="row" data-cc-id="main">
+        <table><tr><td data-cc-section="column" data-cc-id="main-col-1" data-cc-label="Text column"><p data-cc-content="richText" data-cc-key="headline" data-cc-label="Headline">Hi</p></td>
+        <td data-cc-section="column" data-cc-id="main-col-2"><img data-cc-content="image" data-cc-key="hero" src="a.png"></td></tr></table></td></tr></table>`;
+
+    it('lists sections with depth and content with node indexes', () => {
+        const { sections, content } = listBindings(BLOCK);
+        expect(sections.map(item => `${item.level}:${item.sectionId}:${item.depth}`)).toEqual(['container:block:0', 'row:main:1', 'column:main-col-1:2', 'column:main-col-2:2']);
+        expect(sections[0].binds).toEqual(['padding']);
+        expect(sections[2].label).toBe('Text column');
+        expect(content.map(item => [item.key, item.type, item.label])).toEqual([['headline', 'richText', 'Headline'], ['hero', 'image', '']]);
+        expect(nodeElement(BLOCK, content[1].node).tagName).toBe('IMG');
+        expect(listBindings('<p>plain</p>')).toEqual({ sections: [], content: [] });
+    });
+
+    it('computes block progress: sections, then content, then settings', () => {
+        const parse = html => parseTemplate(html, { kind: 'block' }).definition;
+        const empty = blockProgress(parse('<p>x</p>'));
+        expect(empty.steps.map(item => [item.done, item.unlocked])).toEqual([[false, true], [false, false], [false, false]]);
+        expect(empty.firstOpenStep).toBe(1);
+
+        const sectionsOnly = blockProgress(parse('<div data-cc-section="container"><p>x</p></div>'));
+        expect(sectionsOnly.steps.map(item => [item.done, item.unlocked])).toEqual([[true, true], [false, true], [false, false]]);
+        expect(sectionsOnly.firstOpenStep).toBe(2);
+
+        const full = blockProgress(parse(BLOCK));
+        expect(full.steps.map(item => [item.done, item.unlocked])).toEqual([[true, true], [true, true], [false, true]]);
+        expect(full).toMatchObject({ sectionCount: 4, slotCount: 2, firstOpenStep: 1 });
+
+        const none = blockProgress({ sections: [], contentSlots: [], setup: { noSections: true } });
+        expect(none.steps[0]).toEqual({ step: 1, done: true, unlocked: true });
+        expect(none.steps[1].unlocked).toBe(true);
+        expect(blockProgress(null).steps[0].done).toBe(false);
     });
 });

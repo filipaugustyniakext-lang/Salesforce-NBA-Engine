@@ -41,7 +41,7 @@
                 </div>
             </template>
             <template lwc:if={showSteps}>
-                <c-cc-shell-steps progress={progress} active-step={activeStep} onstepselect={handleStepSelect}></c-cc-shell-steps>
+                <c-cc-shell-steps variant={stepsVariant} progress={progress} active-step={activeStep} onstepselect={handleStepSelect}></c-cc-shell-steps>
             </template>
             <div class="cc-workspace__body">
                 <nav class="cc-workspace__nav" aria-label="Bindings">
@@ -108,23 +108,49 @@
                             </template>
                         </template>
                     </template>
-                    <template lwc:elseif={showMarker}>
-                        <c-cc-element-marker info={markerInfo} existing-keys={existingKeys} errors={markerErrors} onapply={handleMarkerApply} onremove={handleMarkerRemove} onclose={handleMarkerClose} onpick={handleMarkerPick}></c-cc-element-marker>
-                    </template>
                     <template lwc:else>
-                    <template lwc:if={selectedSection}>
-                        <c-cc-section-settings-editor mode="definition" section={selectedSection} disabled={disabled} onchange={handleSectionChange}></c-cc-section-settings-editor>
-                    </template>
-                    <template lwc:if={selectedSlot}>
-                        <c-cc-content-binding-editor binding={selectedSlot} disabled={disabled} onchange={handleSlotChange}></c-cc-content-binding-editor>
-                    </template>
-                    <template lwc:if={selectedRegion}>
-                        <h3 class="slds-text-heading_small">Region {selectedRegion.regionId}</h3>
-                        <p class="slds-text-body_small slds-m-top_x-small">{regionDescription}</p>
-                    </template>
-                    <template lwc:if={showEmptySelection}>
-                        <p class="slds-text-color_weak">Select a region, section or content binding to configure its defaults, presets and editor options. To mark more of the file, turn on Mark elements in the preview and click an element.</p>
-                    </template>
+                        <template lwc:if={isStep1}>
+                            <c-cc-section-panel
+                                sections={blockSections}
+                                info={markerInfo}
+                                no-sections={noSections}
+                                can-continue={step1Done}
+                                errors={markerErrors}
+                                onapply={handleMarkerApply}
+                                onremove={handleMarkerRemove}
+                                onpick={handleMarkerPick}
+                                onclear={handleMarkerClose}
+                                onnosections={handleNoSections}
+                                onnext={handleNextStep}>
+                            </c-cc-section-panel>
+                        </template>
+                        <template lwc:if={isStep2}>
+                            <h3 class="slds-text-heading_small">2. Content</h3>
+                            <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">Mark what marketers fill in: text, images, lists, dividers and buttons.</p>
+                            <template lwc:if={showContentMarker}>
+                                <c-cc-element-marker mode="content" info={markerInfo} existing-keys={existingKeys} errors={markerErrors} blocked-reason={contentBlockedReason} onapply={handleMarkerApply} onremove={handleMarkerRemove} onclose={handleMarkerClose} onpick={handleMarkerPick}></c-cc-element-marker>
+                            </template>
+                            <template lwc:else>
+                                <div class="cc-workspace__hint slds-text-body_small">{contentHintBlock}</div>
+                            </template>
+                            <template lwc:if={step2Done}>
+                                <div class="cc-workspace__actions">
+                                    <lightning-button label="Continue to settings and presets" icon-name="utility:chevronright" icon-position="right" variant="brand" onclick={handleNextStep}></lightning-button>
+                                </div>
+                            </template>
+                        </template>
+                        <template lwc:if={isStep3}>
+                            <h3 class="slds-text-heading_small">3. Settings and presets <span class="slds-text-body_small slds-text-color_weak">(optional)</span></h3>
+                            <template lwc:if={selectedSection}>
+                                <c-cc-section-settings-editor mode="definition" section={selectedSection} disabled={disabled} onchange={handleSectionChange}></c-cc-section-settings-editor>
+                            </template>
+                            <template lwc:elseif={selectedSlot}>
+                                <c-cc-content-binding-editor binding={selectedSlot} disabled={disabled} onchange={handleSlotChange}></c-cc-content-binding-editor>
+                            </template>
+                            <template lwc:else>
+                                <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">Select a section or content item in the list, or click it in the preview, to set its defaults, color and gradient presets, bullet icons and editor level.</p>
+                            </template>
+                        </template>
                     </template>
                 </div>
             </div>

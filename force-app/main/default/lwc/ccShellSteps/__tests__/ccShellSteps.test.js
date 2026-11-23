@@ -1,6 +1,6 @@
 import { createElement } from 'lwc';
 import CcShellSteps from 'c/ccShellSteps';
-import { shellProgress } from 'c/ccElementMarking';
+import { shellProgress, blockProgress } from 'c/ccElementMarking';
 
 const flush = () => Promise.resolve();
 
@@ -58,5 +58,38 @@ describe('c-cc-shell-steps', () => {
         expect(cards(element)[2].textContent).toContain('Nothing to edit');
         const editable = await mount({ regions: [{ regionId: 'e', kind: 'fixed-edit' }, { regionId: 'c', kind: 'blocks' }] });
         expect(cards(editable)[2].textContent).toContain('Mark what marketers can edit');
+    });
+
+    it('shows the block steps: layout sections, content, settings and presets', async () => {
+        const make = async (definition, activeStep = 1) => {
+            const element = createElement('c-cc-shell-steps', { is: CcShellSteps });
+            element.variant = 'block';
+            element.progress = blockProgress(definition);
+            element.activeStep = activeStep;
+            document.body.appendChild(element);
+            await flush();
+            return element;
+        };
+        const fresh = await make({ sections: [], contentSlots: [] });
+        expect(cards(fresh).map(card => card.textContent.replace(/\s+/g, ' ').trim())).toEqual([
+            '1. Layout sectionsMark container, rows and columns',
+            '2. ContentFinish step 1 first',
+            '3. Settings and presets (optional)Finish steps 1 and 2 first'
+        ]);
+        expect(cards(fresh).map(card => card.disabled)).toEqual([false, true, true]);
+
+        const sections = await make({ sections: [{ sectionId: 'a' }, { sectionId: 'b' }], contentSlots: [] }, 2);
+        expect(cards(sections)[0].textContent).toContain('2 sections');
+        expect(cards(sections).map(card => card.disabled)).toEqual([false, false, true]);
+        expect(cards(sections)[1].textContent).toContain('Mark text, images, lists and buttons');
+
+        const full = await make({ sections: [{ sectionId: 'a' }], contentSlots: [{ bindingKey: 'k' }] }, 3);
+        expect(cards(full).map(card => card.disabled)).toEqual([false, false, false]);
+        expect(cards(full)[1].textContent).toContain('1 binding');
+        expect(cards(full)[2].textContent).toContain('Defaults, color presets, editor levels');
+
+        const none = await make({ sections: [], contentSlots: [], setup: { noSections: true } });
+        expect(cards(none)[0].textContent).toContain('No layout settings');
+        expect(cards(none)[1].disabled).toBe(false);
     });
 });

@@ -76,3 +76,16 @@
 
 
 
+
+.cc-workspace__hint {
+    margin-top: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-left: 3px solid #0176d3;
+    background: #eef4ff;
+}
+
+.cc-workspace__actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 0.75rem;
+}

@@ -33,6 +33,14 @@ describe('c-cc-binding-workspace', () => {
         const items = Array.from(element.shadowRoot.querySelectorAll('.cc-workspace__nav-item'));
         expect(items.map(item => item.dataset.key)).toEqual(['section:block', 'section:column-1', 'slot:note', 'slot:cta']);
 
+        // Clicking a list item in step 1 selects that section's element for editing its marking.
+        items[0].click();
+        await flush();
+        expect(element.shadowRoot.querySelector('c-cc-section-panel').info.marks.id).toBe('block');
+
+        // Step 3 edits the defaults and presets of the selected item.
+        blockCards(element)[2].click();
+        await flush();
         items[0].click();
         await flush();
         const editor = element.shadowRoot.querySelector('c-cc-section-settings-editor');
@@ -74,6 +82,15 @@ describe('c-cc-binding-workspace', () => {
         await flush();
         expect(element.shadowRoot.textContent).toContain('No bindings were found in this file');
 
+        // Content cannot be marked before the layout step is done.
+        expect(blockCards(element).map(card => card.disabled)).toEqual([false, true, true]);
+        element.shadowRoot.querySelector('c-cc-section-panel').dispatchEvent(new CustomEvent('nosections', { detail: { value: true } }));
+        await flush();
+        blockCards(element)[1].click();
+        await flush();
+        await flush();
+        expect(events.filter(([name]) => name === 'stepchange').pop()[1]).toEqual({ step: 2, pickScope: 'any' });
+
         element.pickedElements = [5];
         await flush();
         const marker = element.shadowRoot.querySelector('c-cc-element-marker');
@@ -96,6 +113,11 @@ describe('c-cc-binding-workspace', () => {
         element.kind = 'block';
         element.source = { html: '<table><tr><td><p>Hello</p></td></tr></table>', definition: null };
         document.body.appendChild(element);
+        await flush();
+        element.shadowRoot.querySelector('c-cc-section-panel').dispatchEvent(new CustomEvent('nosections', { detail: { value: true } }));
+        await flush();
+        blockCards(element)[1].click();
+        await flush();
         await flush();
         element.pickedElements = [4];
         await flush();
@@ -131,6 +153,7 @@ describe('c-cc-binding-workspace', () => {
 
     const panel = (element, tag) => element.shadowRoot.querySelector(tag);
     const cards = element => Array.from(panel(element, 'c-cc-shell-steps').shadowRoot.querySelectorAll('.cc-steps__card'));
+    const blockCards = element => Array.from(panel(element, 'c-cc-shell-steps').shadowRoot.querySelectorAll('.cc-steps__card'));
     const lastChange = events => events.filter(([name]) => name === 'change').pop()[1];
 
     it('walks the three gated steps: areas, dropzone, editable content, and lets earlier steps be edited again', async () => {
@@ -275,10 +298,89 @@ describe('c-cc-binding-workspace', () => {
         expect(panel(element, 'c-cc-element-marker').blockedReason).toContain('inside an editable area');
     });
 
-    it('does not show the shell steps for blocks or single-block shells', async () => {
+    it('guides a content block through layout sections, content and settings, gated like the shell steps', async () => {
+        const html = '<div id="box"><div id="row"><p id="txt">Hello</p></div></div>';
+        const element = createElement('c-cc-binding-workspace', { is: CcBindingWorkspace });
+        element.kind = 'block';
+        element.source = { html, definition: null };
+        const events = [];
+        ['bindingchange', 'pick', 'select', 'stepchange'].forEach(name => element.addEventListener(name, event => events.push([name === 'bindingchange' ? 'change' : name, event.detail])));
+        document.body.appendChild(element);
+        await flush();
+        const nodeIn = selector => {
+            const { doc } = parseHtml(element.source.html);
+            return Array.from(doc.body.querySelectorAll('*')).indexOf(doc.body.querySelector(selector));
+        };
+
+        expect(events.filter(([name]) => name === 'stepchange')).toEqual([['stepchange', { step: 1, pickScope: 'any' }]]);
+        expect(panel(element, 'c-cc-section-panel')).not.toBeNull();
+        expect(panel(element, 'c-cc-area-panel')).toBeNull();
+        expect(blockCards(element).map(card => card.disabled)).toEqual([false, true, true]);
+
+        // Locked steps cannot be opened.
+        blockCards(element)[1].click();
+        await flush();
+        expect(panel(element, 'c-cc-section-panel')).not.toBeNull();
+
+        // Step 1: mark the outer element as the block container.
+        element.pickedElements = [nodeIn('#box')];
+        await flush();
+        expect(panel(element, 'c-cc-section-panel').info.tag).toBe('div');
+        panel(element, 'c-cc-section-panel').dispatchEvent(new CustomEvent('apply', { detail: { marking: { role: 'section', level: 'container', binds: ['padding'], id: 'box' } } }));
+        await flush();
+        expect(lastChange(events).definition.sections.map(section => section.sectionId)).toEqual(['box']);
+        expect(blockCards(element).map(card => card.disabled)).toEqual([false, false, true]);
+
+        // Step 2: content may be marked, but not on a layout section.
+        blockCards(element)[1].click();
+        await flush();
+        await flush();
+        expect(events.filter(([name]) => name === 'stepchange').pop()[1]).toEqual({ step: 2, pickScope: 'any' });
+        element.pickedElements = [nodeIn('#box')];
+        await flush();
+        expect(panel(element, 'c-cc-element-marker').blockedReason).toContain('layout section');
+        element.pickedElements = [nodeIn('#txt')];
+        await flush();
+        expect(panel(element, 'c-cc-element-marker').blockedReason).toBe('');
+        panel(element, 'c-cc-element-marker').dispatchEvent(new CustomEvent('apply', { detail: { marking: { role: 'content', contentType: 'richText', key: 'body' } } }));
+        await flush();
+        expect(lastChange(events).definition.contentSlots.map(slot => slot.bindingKey)).toEqual(['body']);
+        expect(blockCards(element).map(card => card.disabled)).toEqual([false, false, false]);
+
+        // The summary groups follow the steps.
+        const keys = Array.from(element.shadowRoot.querySelectorAll('.cc-workspace__nav-item')).map(item => item.dataset.key);
+        expect(keys).toEqual(['section:box', 'slot:body']);
+
+        // Step 3 lets the preview select marked items only (inspect mode) and edits their settings.
+        blockCards(element)[2].click();
+        await flush();
+        await flush();
+        expect(events.filter(([name]) => name === 'stepchange').pop()[1]).toEqual({ step: 3, pickScope: 'inspect' });
+        element.activeKey = 'section:box';
+        await flush();
+        expect(panel(element, 'c-cc-section-settings-editor').section.sectionId).toBe('box');
+        element.activeKey = 'slot:body';
+        await flush();
+        expect(panel(element, 'c-cc-content-binding-editor').binding.bindingKey).toBe('body');
+    });
+
+    it('opens the step a list item belongs to when an item is chosen in step 3 and then step 1', async () => {
+        const element = createElement('c-cc-binding-workspace', { is: CcBindingWorkspace });
+        element.kind = 'block';
+        element.source = { html: BLOCK_HTML, definition: null };
+        document.body.appendChild(element);
+        await flush();
+        element.activeKey = 'slot:note';
+        await flush();
+        await flush();
+        expect(blockCards(element)[1].classList.contains('cc-steps__card_active')).toBe(true);
+    });
+
+    it('uses the block steps for single-block shells and not the shell areas', async () => {
         const { element } = await shellWorkspace(PAGE, 'single');
-        expect(element.shadowRoot.querySelector('c-cc-shell-steps')).toBeNull();
-        expect(element.shadowRoot.querySelector('c-cc-area-panel')).toBeNull();
+        expect(panel(element, 'c-cc-shell-steps').variant).toBe('block');
+        expect(panel(element, 'c-cc-section-panel')).not.toBeNull();
+        expect(panel(element, 'c-cc-area-panel')).toBeNull();
     });
 
     it('shows parse errors for invalid HTML', async () => {

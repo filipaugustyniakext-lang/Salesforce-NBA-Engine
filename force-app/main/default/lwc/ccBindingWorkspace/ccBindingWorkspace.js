@@ -14,7 +14,9 @@ import {
     removeArea,
     removeBlocksZone,
     zonePlacement,
-    shellProgress
+    shellProgress,
+    blockProgress,
+    listBindings
 } from 'c/ccElementMarking';
 import { validateDefinition, CONTENT_TYPE_LABELS, clone } from 'c/ccTemplateSchema';
 import { isolateNativeEvents } from 'c/ccEventGuard';
@@ -32,8 +34,10 @@ const MAX_FILE_BYTES = 262144;
 /**
  * Upload + parse + configure bindings of one HTML file (shell or block).
  * Emits bindingchange { html, definition, errors, warnings }.
- * Multi-block shells are set up in three gated steps (fixed areas, dropzone, editable content); the workspace
- * announces the active step with stepchange { step, pickScope } so the preview only offers what the step needs.
+ * Both kinds of template are set up in three gated steps; the workspace announces the active step with
+ * stepchange { step, pickScope } so the preview only offers what the step needs.
+ *   multi-block shell:             fixed areas, dropzone, editable content
+ *   content block / single-block:  layout sections, content, settings and presets
  */
 export default class CcBindingWorkspace extends LightningElement {
     connectedCallback() {
@@ -63,7 +67,7 @@ export default class CcBindingWorkspace extends LightningElement {
         if ((key || null) === this.selectedKey) return;
         this.selectedKey = key || null;
         this._revealPending = !!key;
-        if (key && this.isMultiShell && this.html) this.routeKey(key, false);
+        if (key && this.isGuided && this.html) this.routeKey(key, false);
     }
 
     renderedCallback() {
@@ -145,6 +149,7 @@ export default class CcBindingWorkspace extends LightningElement {
     get navItems() {
         if (!this.definition) return [];
         if (this.isMultiShell) return this.shellNavItems;
+        if (this.isGuidedBlock) return this.blockNavItems;
         const sections = this.definition.sections.map(section => ({
             key: `section:${section.sectionId}`,
             label: section.label || section.sectionId,
@@ -234,14 +239,14 @@ export default class CcBindingWorkspace extends LightningElement {
         if (this.selectedKey && !this.navItems.some(group => group.items.some(item => item.key === this.selectedKey))) {
             this.selectedKey = null;
         }
-        if (this.isMultiShell && !this.stepUnlocked(this.activeStep)) this.setStep(this.highestUnlockedStep());
+        if (this.isGuided && !this.stepUnlocked(this.activeStep)) this.setStep(this.highestUnlockedStep());
         this.emit();
     }
 
     handleSelect(event) {
         const key = event.currentTarget.dataset.key;
         this.selectedKey = key;
-        if (this.isMultiShell && this.routeKey(key, true)) return;
+        if (this.isGuided && this.routeKey(key, true)) return;
         this.setPicked([]);
         this.dispatchEvent(new CustomEvent('select', { detail: { key } }));
     }
@@ -252,12 +257,37 @@ export default class CcBindingWorkspace extends LightningElement {
         return this.kind === 'shell' && this._templateMode !== 'single';
     }
 
+    /** A content block, or a single-block template (the template is the block). */
+    get isGuidedBlock() {
+        return this.kind === 'block' || (this.kind === 'shell' && this._templateMode === 'single');
+    }
+
+    get isGuided() {
+        return this.isMultiShell || this.isGuidedBlock;
+    }
+
+    get stepsVariant() {
+        return this.isMultiShell ? 'shell' : 'block';
+    }
+
     get showSteps() {
-        return this.isMultiShell && !!this.html;
+        return this.isGuided && !!this.html;
     }
 
     get progress() {
-        return shellProgress(this.definition);
+        return this.isMultiShell ? shellProgress(this.definition) : blockProgress(this.definition);
+    }
+
+    get bindings() {
+        return this.html && this.isGuidedBlock ? listBindings(this.html) : { sections: [], content: [] };
+    }
+
+    get blockSections() {
+        return this.bindings.sections;
+    }
+
+    get noSections() {
+        return !!this.progress.noSections;
     }
 
     get areas() {
@@ -292,8 +322,10 @@ export default class CcBindingWorkspace extends LightningElement {
         return this.progress.noFixedAreas;
     }
 
+    /** Step 3 of a block only selects what is already marked ('inspect'); the other steps pick elements. */
     get pickScope() {
-        return this.isMultiShell ? (this.activeStep === 3 ? 'editable' : 'areas') : 'any';
+        if (this.isMultiShell) return this.activeStep === 3 ? 'editable' : 'areas';
+        return this.isGuidedBlock && this.activeStep === 3 ? 'inspect' : 'any';
     }
 
     stepUnlocked(step) {
@@ -306,7 +338,7 @@ export default class CcBindingWorkspace extends LightningElement {
     }
 
     openFirstStep() {
-        if (this.isMultiShell && this.html) this.setStep(this.progress.firstOpenStep, true);
+        if (this.isGuided && this.html) this.setStep(this.progress.firstOpenStep, true);
     }
 
     /** Opens a step if it is unlocked. Changing the step clears the current selection. */
@@ -327,6 +359,7 @@ export default class CcBindingWorkspace extends LightningElement {
 
     /** Opens the step and selection that belong to a list key. Returns true when the key was handled here. */
     routeKey(key, announce) {
+        if (this.isGuidedBlock) return this.routeBlockKey(key, announce);
         if (key.startsWith('region:')) {
             const id = key.slice(7);
             const area = this.areas.find(item => item.regionId === id);
@@ -342,6 +375,63 @@ export default class CcBindingWorkspace extends LightningElement {
             return true;
         }
         return false;
+    }
+
+    routeBlockKey(key, announce) {
+        const isSection = key.startsWith('section:');
+        const isSlot = key.startsWith('slot:');
+        if (!isSection && !isSlot) return false;
+        // Step 3 edits defaults and presets of the selected item; the other steps edit the marking of its element.
+        if (this.activeStep === 3) {
+            if (announce) this.dispatchEvent(new CustomEvent('select', { detail: { key } }));
+            return true;
+        }
+        const id = key.slice(isSection ? 8 : 5);
+        const target = isSection
+            ? this.bindings.sections.find(item => item.sectionId === id)
+            : this.bindings.content.find(item => item.key === id);
+        if (!target || !this.setStep(isSection ? 1 : 2)) return false;
+        if (announce) this.setPicked([target.node]);
+        return true;
+    }
+
+    get blockNavItems() {
+        const { sections, content } = this.bindings;
+        const item = (key, label, meta, icon, depth) => ({
+            key,
+            label,
+            meta,
+            icon,
+            className: `cc-workspace__nav-item cc-workspace__nav-item_depth-${depth}${key === this.selectedKey ? ' cc-workspace__nav-item_selected' : ''}`
+        });
+        const state = step => this.progress.steps.find(entry => entry.step === step);
+        const title = (step, text) => `${step} · ${text}${state(step).unlocked ? '' : ' (locked)'}`;
+        return [
+            {
+                key: 'g-sections',
+                title: title(1, 'Layout sections'),
+                items: sections.map(section => item(
+                    `section:${section.sectionId}`,
+                    section.label || section.sectionId,
+                    `${section.level}${section.binds.length ? ` · ${section.binds.join(', ')}` : ''}`,
+                    LEVEL_ICONS[section.level],
+                    Math.min(section.depth, 2)
+                )),
+                empty: this.progress.noSections ? 'This block needs no layout settings.' : 'No sections yet.'
+            },
+            {
+                key: 'g-content',
+                title: title(2, 'Content'),
+                items: content.map(entry => item(`slot:${entry.key}`, entry.label || entry.key, `${CONTENT_TYPE_LABELS[entry.type] || entry.type} · ${entry.key}`, TYPE_ICONS[entry.type], 0)),
+                empty: 'No content marked yet.'
+            },
+            {
+                key: 'g-settings',
+                title: title(3, 'Settings and presets'),
+                items: [],
+                empty: 'Select a section or content item above to set its defaults.'
+            }
+        ].map(group => ({ ...group, isEmpty: group.items.length === 0 }));
     }
 
     get shellNavItems() {
@@ -409,6 +499,14 @@ export default class CcBindingWorkspace extends LightningElement {
         this.updateDefinition(definition);
     }
 
+    // Step 1 of a block (layout sections)
+
+    handleNoSections(event) {
+        const definition = clone(this.definition);
+        definition.setup = { ...(definition.setup || {}), noSections: !!event.detail.value };
+        this.updateDefinition(definition);
+    }
+
     handleNextStep() {
         this.setStep(this.activeStep + 1);
     }
@@ -431,8 +529,18 @@ export default class CcBindingWorkspace extends LightningElement {
 
     get contentBlockedReason() {
         const info = this.markerInfo;
-        if (!info || info.inEditableRegion) return '';
+        if (!info) return '';
+        if (this.isGuidedBlock) {
+            return info.marks.role === 'section'
+                ? 'This element is a layout section. Pick an element inside it for the content, or remove the section marking in step 1.'
+                : '';
+        }
+        if (info.inEditableRegion) return '';
         return 'Only elements inside an editable area can be edited by marketers. Pick an element inside an editable area, or make the surrounding area editable in step 1.';
+    }
+
+    get contentHintBlock() {
+        return 'Click a text, image, list, divider or button element in the preview and choose its content type. The path above the form helps you pick the right element.';
     }
 
     get contentHint() {

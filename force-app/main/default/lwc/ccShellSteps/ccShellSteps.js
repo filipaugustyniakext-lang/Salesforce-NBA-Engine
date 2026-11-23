@@ -1,19 +1,45 @@
 import { LightningElement, api } from 'lwc';
 
 /**
- * The three setup steps of a multi-block shell: fixed areas, dropzone, editable content.
- * `progress` comes from shellProgress() in c/ccElementMarking. Steps unlock in order; a done step can always
- * be reopened. Emits stepselect { step }.
+ * The three setup steps of a template: for a multi-block shell fixed areas, dropzone and editable content
+ * (`variant="shell"`, `progress` from shellProgress()); for a content block or single-block template layout
+ * sections, content and settings (`variant="block"`, `progress` from blockProgress()).
+ * Steps unlock in order; a done step can always be reopened. Emits stepselect { step }.
  */
 export default class CcShellSteps extends LightningElement {
     @api progress;
     @api activeStep = 1;
+    @api variant = 'shell';
 
-    get cards() {
+    get definitions() {
         const progress = this.progress || { steps: [] };
-        const state = step => progress.steps.find(item => item.step === step) || { done: false, unlocked: step === 1 };
         const plural = (count, word) => `${count} ${word}${count === 1 ? '' : 's'}`;
-        const cards = [
+        if (this.variant === 'block') {
+            return [
+                {
+                    step: 1,
+                    title: 'Layout sections',
+                    summary: progress.sectionCount
+                        ? plural(progress.sectionCount, 'section')
+                        : progress.noSections ? 'No layout settings' : 'Mark container, rows and columns',
+                    locked: 'Available'
+                },
+                {
+                    step: 2,
+                    title: 'Content',
+                    summary: progress.slotCount ? plural(progress.slotCount, 'binding') : 'Mark text, images, lists and buttons',
+                    locked: 'Finish step 1 first'
+                },
+                {
+                    step: 3,
+                    title: 'Settings and presets',
+                    optional: true,
+                    summary: 'Defaults, color presets, editor levels',
+                    locked: 'Finish steps 1 and 2 first'
+                }
+            ];
+        }
+        return [
             {
                 step: 1,
                 title: 'Fixed areas',
@@ -38,7 +64,12 @@ export default class CcShellSteps extends LightningElement {
                 locked: 'Finish steps 1 and 2 first'
             }
         ];
-        return cards.map(card => {
+    }
+
+    get cards() {
+        const progress = this.progress || { steps: [] };
+        const state = step => progress.steps.find(item => item.step === step) || { done: false, unlocked: step === 1 };
+        return this.definitions.map(card => {
             const { done, unlocked } = state(card.step);
             const active = Number(this.activeStep) === card.step;
             return {
