@@ -1340,6 +1340,107 @@ public with sharing class MarketingDictionaryManagerController {
         throw ex;
     }
 
+    /**
+     * Saves edits to existing Activation Paths (name, active flag, allocation) in one step and keeps the
+     * distribution consistent: after the change the active paths must add up to 100% (and at least one must be
+     * active), names must be filled in and unique, and an inactive path always carries 0%.
+     * The sum rule is only checked when the call changes the active flag or an allocation, so a rename never fails
+     * because of an older, unrelated distribution.
+     */
+    @AuraEnabled
+    public static void saveActivationPaths(List<Marketing_Dictionary__c> records) {
+        try {
+            if (records == null || records.isEmpty()) {
+                return;
+            }
+            Map<Id, Marketing_Dictionary__c> current = new Map<Id, Marketing_Dictionary__c>([
+                SELECT Id, Name, Is_Active__c, Distribution_Percent__c
+                FROM Marketing_Dictionary__c
+                WHERE RecordType.DeveloperName = 'Campaign'
+                AND Dictionary_Sub_Type__c = 'Activation Path'
+                LIMIT 200
+            ]);
+            Map<Id, Marketing_Dictionary__c> next = new Map<Id, Marketing_Dictionary__c>();
+            for (Marketing_Dictionary__c path : current.values()) {
+                next.put(path.Id, path.clone(true, true, true, true));
+            }
+            Boolean allocationTouched = false;
+            List<Marketing_Dictionary__c> changes = new List<Marketing_Dictionary__c>();
+            for (Marketing_Dictionary__c incoming : records) {
+                if (incoming.Id == null || !current.containsKey(incoming.Id)) {
+                    throwPathError('Only existing activation paths can be edited here.');
+                }
+                Marketing_Dictionary__c target = next.get(incoming.Id);
+                Marketing_Dictionary__c change = new Marketing_Dictionary__c(Id = incoming.Id);
+                if (incoming.isSet('Name')) {
+                    target.Name = incoming.Name == null ? null : incoming.Name.trim();
+                    change.Name = target.Name;
+                }
+                if (incoming.isSet('Is_Active__c')) {
+                    target.Is_Active__c = incoming.Is_Active__c == true;
+                    change.Is_Active__c = target.Is_Active__c;
+                    allocationTouched = true;
+                }
+                if (incoming.isSet('Distribution_Percent__c')) {
+                    target.Distribution_Percent__c = incoming.Distribution_Percent__c;
+                    allocationTouched = true;
+                }
+                if (target.Is_Active__c != true) {
+                    target.Distribution_Percent__c = 0;
+                }
+                if (allocationTouched) {
+                    change.Distribution_Percent__c = target.Distribution_Percent__c == null ? 0 : target.Distribution_Percent__c;
+                }
+                changes.add(change);
+            }
+
+            Set<String> names = new Set<String>();
+            for (Marketing_Dictionary__c path : next.values()) {
+                String name = path.Name == null ? '' : path.Name.trim();
+                if (String.isBlank(name)) {
+                    throwPathError('Every activation path needs a name.');
+                }
+                if (!names.add(name.toLowerCase())) {
+                    throwPathError('Activation path names must be unique. "' + name + '" is used more than once.');
+                }
+            }
+            if (allocationTouched) {
+                Decimal activeTotal = 0;
+                Integer activeCount = 0;
+                for (Marketing_Dictionary__c path : next.values()) {
+                    if (path.Is_Active__c != true) {
+                        continue;
+                    }
+                    Decimal percent = path.Distribution_Percent__c == null ? 0 : path.Distribution_Percent__c;
+                    if (percent < 0 || percent > 100) {
+                        throwPathError('Allocations must be between 0 and 100%.');
+                    }
+                    activeTotal += percent;
+                    activeCount++;
+                }
+                if (activeCount == 0) {
+                    throwPathError('At least one activation path must stay active.');
+                }
+                if (Math.abs(activeTotal - 100) > 0.005) {
+                    throwPathError(
+                        'The active paths add up to ' + activeTotal.setScale(2) + '%. They must add up to exactly 100%.'
+                    );
+                }
+            }
+            update changes;
+        } catch (AuraHandledException ahe) {
+            throw ahe;
+        } catch (Exception e) {
+            throwPathError(e.getMessage());
+        }
+    }
+
+    private static void throwPathError(String message) {
+        AuraHandledException ex = new AuraHandledException(message);
+        ex.setMessage(message);
+        throw ex;
+    }
+
     @AuraEnabled
     public static void saveCampaignRecordsBulk(List<Marketing_Dictionary__c> records) {
         try {
