@@ -28,6 +28,21 @@ The renderer writes settings directly onto the bound element:
 
 The shell CSS must contain the matching rules (`.cc-hide-dsk`, `.cc-hide-mob` in media queries, `.cc-stack-mob`). The validator reports a warning when they are missing.
 
+### Placeholders for padding, margin and background
+
+The wizard places a placeholder in the markup for each of these settings; the renderer replaces it with the value the marketer chose. A binding without a placeholder keeps the inline-style behaviour above, so older templates continue to work.
+
+| Placeholder | Replaced by |
+| --- | --- |
+| `{{cc-padding}}`, `{{cc-margin}}` | Four values, `Top px Right px Bottom px Left px`, for the current device (mobile inherits desktop), for example `style="padding: {{cc-padding}}"` renders `padding: 10px 20px 10px 20px`. |
+| `{{cc-bg-color}}` | A hex color, `#XXXXXX` (a preset or a custom color), for example `background-color: {{cc-bg-color}}` or `bgcolor="{{cc-bg-color}}"`. |
+| `{{cc-bg-gradient}}` | Complete declarations: `background-color: #2a7b9b; background-image: linear-gradient(135deg, ...); background-repeat: no-repeat; background-size: cover; min-height: 100vh;`. Presets only. |
+| `{{cc-bg-image}}` | Complete declarations: `background-color: #1a1a1a; background-image: url('...'); background-position: center center; background-repeat: no-repeat; background-size: cover; min-height: 100vh; width: 100%;`. Mobile inherits the desktop image, dark mode optionally has its own images. No presets. The source is a URL, an upload or Salesforce CMS. |
+
+Placeholders live in the attributes of the section element (normally `style`). Only the placeholder of the chosen background kind renders; the others render nothing. When a setting has no value the placeholder renders its **fallback**, which is the value the HTML had before the placeholder replaced it. Fallbacks are stored in the section definition as `targets.<padding|margin|bgColor|bgGradient|bgImage>.fallback`.
+
+A row without inner columns is marked `data-cc-as-column="true"` so it counts as its only column.
+
 ## 2. Content
 
 Content elements live inside a column (or a row with no columns).

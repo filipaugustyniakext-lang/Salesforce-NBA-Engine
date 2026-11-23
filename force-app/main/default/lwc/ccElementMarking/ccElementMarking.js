@@ -1,12 +1,21 @@
 import { parseHtml, serializeHtml } from 'c/ccTemplateParser';
-import { CONTENT_TYPES, SECTION_LEVELS, SECTION_BINDS, REGION_KINDS, isBindingKey } from 'c/ccTemplateSchema';
+import {
+    CONTENT_TYPES,
+    SECTION_LEVELS,
+    SECTION_BINDS,
+    REGION_KINDS,
+    TARGET_TOKENS,
+    TARGET_BINDS,
+    isBindingKey,
+    sidesFromCss
+} from 'c/ccTemplateSchema';
 
 /**
  * Guided marking of raw HTML: elements are addressed by their index among the descendants of <body>
  * (document order). `annotateNodes` stamps those indexes on a preview copy; `inspectNode` describes one
  * element; `applyMarking` writes the data-cc-* attributes into the clean HTML.
  */
-const MARK_ATTRS = ['data-cc-section', 'data-cc-id', 'data-cc-bind', 'data-cc-content', 'data-cc-key', 'data-cc-label', 'data-cc-complexity', 'data-cc-region'];
+const MARK_ATTRS = ['data-cc-section', 'data-cc-id', 'data-cc-bind', 'data-cc-content', 'data-cc-key', 'data-cc-label', 'data-cc-complexity', 'data-cc-region', 'data-cc-as-column'];
 const BLOCK_TAGS = new Set(['table', 'tr', 'td', 'th', 'tbody', 'thead', 'tfoot', 'div', 'section', 'article', 'header', 'footer', 'ul', 'ol', 'li', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 'img', 'a', 'center', 'body']);
 const INLINE_TEXT_TAGS = new Set(['span', 'b', 'strong', 'i', 'em', 'u', 'a', 'br', 'sup', 'sub', 'font', 'small']);
 
@@ -42,6 +51,73 @@ function camel(text, fallback) {
     if (!words.length) return fallback;
     const value = words.map((word, index) => (index ? word.charAt(0).toUpperCase() + word.slice(1) : word.charAt(0).toLowerCase() + word.slice(1))).join('');
     return /^[A-Za-z]/.test(value) ? value.slice(0, 40) : `${fallback}${value}`;
+}
+
+/** Splits a style attribute into declarations, keeping ';' inside quotes and parentheses (url(), gradients). */
+function splitStyle(text) {
+    const items = [];
+    let depth = 0;
+    let quote = null;
+    let current = '';
+    String(text || '').split('').forEach(character => {
+        if (quote) {
+            if (character === quote) quote = null;
+        } else if (character === '"' || character === "'") {
+            quote = character;
+        } else if (character === '(') {
+            depth += 1;
+        } else if (character === ')') {
+            depth = Math.max(0, depth - 1);
+        } else if (character === ';' && depth === 0) {
+            if (current.trim()) items.push(current.trim());
+            current = '';
+            return;
+        }
+        current += character;
+    });
+    if (current.trim()) items.push(current.trim());
+    return items.map(raw => {
+        const colon = raw.indexOf(':');
+        const isToken = raw.startsWith('{{');
+        if (colon < 0 || isToken) return { name: null, value: null, raw };
+        return { name: raw.slice(0, colon).trim().toLowerCase(), value: raw.slice(colon + 1).trim(), raw };
+    });
+}
+
+function joinStyle(items) {
+    return items.map(item => (item.name ? `${item.name}: ${item.value}` : item.raw)).join('; ');
+}
+
+function setStyleAttribute(element, items) {
+    const text = joinStyle(items);
+    if (text) element.setAttribute('style', `${text};`);
+    else element.removeAttribute('style');
+}
+
+const isBackgroundDeclaration = item => !!item.name && (item.name === 'background' || item.name.startsWith('background-'));
+
+function placedTargets(element) {
+    const placed = {};
+    Object.keys(TARGET_TOKENS).forEach(key => {
+        placed[key] = Array.from(element.attributes).some(attribute => attribute.value.includes(TARGET_TOKENS[key]));
+    });
+    return placed;
+}
+
+/** What the element's inline style already says about spacing and background, and which placeholders are placed. */
+function readStyleInfo(element) {
+    const items = splitStyle(element.getAttribute('style'));
+    const find = name => items.find(item => item.name === name)?.value || null;
+    const background = items.filter(isBackgroundDeclaration);
+    return {
+        style: String(element.getAttribute('style') || ''),
+        padding: find('padding'),
+        margin: find('margin'),
+        backgroundColor: find('background-color'),
+        bgcolorAttribute: element.getAttribute('bgcolor'),
+        backgroundDeclarations: background.map(item => `${item.name}: ${item.value}`).join('; '),
+        placed: placedTargets(element)
+    };
 }
 
 function readMarks(element) {
@@ -176,6 +252,8 @@ export function inspectNode(html, index, options = {}) {
         })(),
         hasBlocksZone: elements.some(item => item.getAttribute('data-cc-region') === 'blocks'),
         suggestion: suggestMarking(element, options),
+        styleInfo: readStyleInfo(element),
+        asColumn: element.getAttribute('data-cc-as-column') === 'true',
         isBlockish: BLOCK_TAGS.has(element.tagName.toLowerCase())
     };
 }
@@ -280,13 +358,17 @@ export function applyMarking(html, index, marking, { kind = 'block' } = {}) {
     }
     if (errors.length) return { html: null, markedNode: null, errors };
 
+    const keptBinds = String(target.getAttribute('data-cc-bind') || '').split(/\s+/).filter(Boolean);
+    const keptAsColumn = target.getAttribute('data-cc-as-column') === 'true';
     clearMarks(target);
     if (role === 'section') {
         target.setAttribute('data-cc-section', marking.level);
         const id = slugify(marking.id);
         if (id) target.setAttribute('data-cc-id', id);
-        const binds = (marking.binds || []).filter(bind => SECTION_BINDS.includes(bind));
+        const wanted = marking.binds === undefined ? keptBinds : marking.binds;
+        const binds = wanted.filter(bind => SECTION_BINDS.includes(bind) && (bind !== 'column-direction' || marking.level === 'row'));
         if (binds.length) target.setAttribute('data-cc-bind', binds.join(' '));
+        if (keptAsColumn && marking.level === 'row') target.setAttribute('data-cc-as-column', 'true');
         if (marking.label) target.setAttribute('data-cc-label', String(marking.label).trim());
     } else if (role === 'content') {
         if (marking.contentType === 'divider' && tag === 'hr') {
@@ -695,6 +777,8 @@ export function listBindings(html) {
                 level: element.getAttribute('data-cc-section'),
                 label: element.getAttribute('data-cc-label') || '',
                 binds: String(element.getAttribute('data-cc-bind') || '').split(/\s+/).filter(Boolean),
+                asColumn: element.getAttribute('data-cc-as-column') === 'true',
+                hasColumns: !!element.querySelector('[data-cc-section="column"]'),
                 node,
                 depth: depthOf(element)
             });
@@ -710,22 +794,188 @@ export function listBindings(html) {
     return { sections, content };
 }
 
-/** Progress of the three block setup steps (layout sections, content, settings), from a parsed definition. */
+/** Row without inner columns: treat the row itself as the one column. */
+export function setRowAsColumn(html, index, on) {
+    const { doc, isDocument } = parseHtml(html);
+    const element = bodyElements(doc)[index];
+    if (!element || element.getAttribute('data-cc-section') !== 'row') return { html: null, errors: ['Select a row first.'] };
+    if (on && element.querySelector('[data-cc-section="column"]')) {
+        return { html: null, errors: ['This row already has columns marked. Remove them first, or leave the row as it is.'] };
+    }
+    if (on) element.setAttribute('data-cc-as-column', 'true');
+    else element.removeAttribute('data-cc-as-column');
+    return { html: serializeHtml(doc, isDocument), errors: [] };
+}
+
+/** Sets which settings a section exposes (data-cc-bind). Placeholders of settings that are switched off are removed. */
+export function setSectionBinds(html, index, binds, fallbacks = {}) {
+    const { doc, isDocument } = parseHtml(html);
+    const element = bodyElements(doc)[index];
+    if (!element || !element.hasAttribute('data-cc-section')) return { html: null, errors: ['Select a container, row or column first.'], removed: [] };
+    const level = element.getAttribute('data-cc-section');
+    const next = (binds || []).filter(bind => SECTION_BINDS.includes(bind) && (bind !== 'column-direction' || level === 'row'));
+    const removed = Object.keys(TARGET_TOKENS).filter(key => !next.includes(TARGET_BINDS[key]) && placedTargets(element)[key]);
+    removed.forEach(key => restoreTarget(element, key, fallbacks[key] || ''));
+    if (next.length) element.setAttribute('data-cc-bind', next.join(' '));
+    else element.removeAttribute('data-cc-bind');
+    return { html: serializeHtml(doc, isDocument), errors: [], removed };
+}
+
+function replaceTokenInAttributes(element, token, replacement) {
+    Array.from(element.attributes).forEach(attribute => {
+        if (attribute.name === 'style' || !attribute.value.includes(token)) return;
+        const value = attribute.value.split(token).join(replacement);
+        if (value.trim()) element.setAttribute(attribute.name, value);
+        else element.removeAttribute(attribute.name);
+    });
+}
+
+const DECLARATION_TARGETS = { padding: 'padding', margin: 'margin', bgColor: 'background-color' };
+
+/**
+ * Writes a placeholder for one setting into the element's markup and returns what it replaced.
+ * padding / margin / bgColor: the existing declaration's value becomes the placeholder (that value is the fallback);
+ * without one, a declaration is added. bgGradient / bgImage: the existing background declarations are moved into the
+ * fallback and the placeholder (which renders complete declarations) takes their place.
+ * Returns { html, errors, fallback, captured, sides }.
+ */
+export function placeTarget(html, index, key, { fallback: typed } = {}) {
+    const token = TARGET_TOKENS[key];
+    if (!token) return { html: null, errors: ['Unknown setting.'] };
+    const { doc, isDocument } = parseHtml(html);
+    const element = bodyElements(doc)[index];
+    if (!element || !element.hasAttribute('data-cc-section')) return { html: null, errors: ['Mark the element as a container, row or column first.'] };
+    if (placedTargets(element)[key]) return { html: null, errors: ['This setting already has a placeholder.'] };
+    const items = splitStyle(element.getAttribute('style'));
+    let fallback = typed || '';
+    let captured = false;
+
+    const property = DECLARATION_TARGETS[key];
+    if (property) {
+        const existing = items.find(item => item.name === property);
+        if (existing) {
+            fallback = existing.value;
+            captured = true;
+            existing.value = token;
+        } else if (key === 'bgColor' && element.getAttribute('bgcolor') && !isTokenValue(element.getAttribute('bgcolor'))) {
+            fallback = element.getAttribute('bgcolor');
+            captured = true;
+        } else {
+            items.push({ name: property, value: token, raw: `${property}: ${token}` });
+        }
+        if (key === 'bgColor' && element.hasAttribute('bgcolor')) element.setAttribute('bgcolor', token);
+    } else {
+        const capturable = item => isBackgroundDeclaration(item) && !isTokenValue(item.value);
+        const firstIndex = items.findIndex(capturable);
+        const run = items.filter(capturable);
+        const placed = placedTargets(element);
+        const alreadyTokenised = ['bgGradient', 'bgImage'].some(other => other !== key && placed[other]);
+        if (run.length && !alreadyTokenised) {
+            fallback = joinStyle(run);
+            captured = true;
+        }
+        const rest = items.filter(item => !capturable(item) || alreadyTokenised);
+        const insertAt = firstIndex < 0 ? rest.length : Math.min(firstIndex, rest.length);
+        rest.splice(insertAt, 0, { name: null, value: null, raw: token });
+        items.length = 0;
+        items.push(...rest);
+    }
+    setStyleAttribute(element, items);
+    const binds = new Set(String(element.getAttribute('data-cc-bind') || '').split(/\s+/).filter(Boolean));
+    binds.add(TARGET_BINDS[key]);
+    element.setAttribute('data-cc-bind', Array.from(binds).join(' '));
+    return {
+        html: serializeHtml(doc, isDocument),
+        errors: [],
+        fallback,
+        captured,
+        sides: key === 'padding' || key === 'margin' ? sidesFromCss(fallback) : null
+    };
+}
+
+function isTokenValue(value) {
+    return Object.values(TARGET_TOKENS).some(token => String(value).includes(token));
+}
+
+/** Puts `fallback` back where the placeholder was (removes the declaration when there is nothing to restore). */
+function restoreTarget(element, key, fallback) {
+    const token = TARGET_TOKENS[key];
+    const items = splitStyle(element.getAttribute('style'));
+    const next = [];
+    items.forEach(item => {
+        if (item.name && item.value.includes(token)) {
+            const value = item.value.split(token).join(fallback).trim();
+            if (value) next.push({ ...item, value });
+        } else if (!item.name && item.raw.includes(token)) {
+            const text = item.raw.split(token).join(fallback).trim();
+            if (text) next.push(...splitStyle(text));
+        } else {
+            next.push(item);
+        }
+    });
+    setStyleAttribute(element, next);
+    replaceTokenInAttributes(element, token, fallback);
+}
+
+/** Removes one placeholder and restores its fallback value into the markup. */
+export function removeTarget(html, index, key, fallback = '') {
+    const { doc, isDocument } = parseHtml(html);
+    const element = bodyElements(doc)[index];
+    if (!element || !TARGET_TOKENS[key] || !placedTargets(element)[key]) return { html: null, errors: ['This setting has no placeholder.'] };
+    restoreTarget(element, key, fallback);
+    return { html: serializeHtml(doc, isDocument), errors: [] };
+}
+
+/** Settings that need a placeholder before marketers can use them: padding, margin and background. */
+export function pendingTargets(definition) {
+    const pending = [];
+    (definition?.sections || []).forEach(section => {
+        const targets = section.targets || {};
+        const binds = section.binds || [];
+        if (binds.includes('padding') && !targets.padding) pending.push({ sectionId: section.sectionId, bind: 'padding' });
+        if (binds.includes('margin') && !targets.margin) pending.push({ sectionId: section.sectionId, bind: 'margin' });
+        if (binds.includes('background') && !(targets.bgColor || targets.bgGradient || targets.bgImage)) {
+            pending.push({ sectionId: section.sectionId, bind: 'background' });
+        }
+    });
+    return pending;
+}
+
+/**
+ * Progress of the three block setup steps: containers, settings (placeholders), content.
+ * `stage` tells the container step what to identify next: the parent container, rows, or the columns of a row.
+ */
 export function blockProgress(definition) {
-    const sectionCount = (definition?.sections || []).length;
+    const sections = definition?.sections || [];
     const slotCount = (definition?.contentSlots || []).length;
     const noSections = !!definition?.setup?.noSections;
-    const step1Done = sectionCount > 0 || noSections;
-    const step2Done = slotCount > 0;
+    const rows = sections.filter(section => section.level === 'row');
+    const unresolvedRows = rows.filter(row => !row.asColumn && !sections.some(section => section.level === 'column' && section.parentId === row.sectionId));
+    const hasContainer = sections.some(section => section.level === 'container');
+    const step1Done = noSections || (sections.length > 0 && unresolvedRows.length === 0);
+    const pending = noSections ? [] : pendingTargets(definition);
+    const step2Done = step1Done && pending.length === 0;
+    const step3Done = slotCount > 0;
+    let stage = 'done';
+    if (!noSections) {
+        if (!hasContainer) stage = 'container';
+        else if (!rows.length) stage = 'rows';
+        else if (unresolvedRows.length) stage = 'columns';
+    }
     return {
         steps: [
             { step: 1, done: step1Done, unlocked: true },
             { step: 2, done: step2Done, unlocked: step1Done },
-            { step: 3, done: false, unlocked: step1Done && step2Done }
+            { step: 3, done: step3Done && step2Done, unlocked: step2Done }
         ],
-        sectionCount,
+        sectionCount: sections.length,
+        rowCount: rows.length,
+        columnCount: sections.filter(section => section.level === 'column').length,
+        unresolvedRowCount: unresolvedRows.length,
+        pendingCount: pending.length,
         slotCount,
         noSections,
-        firstOpenStep: !step1Done ? 1 : !step2Done ? 2 : 1
+        stage,
+        firstOpenStep: !step1Done ? 1 : !step2Done ? 2 : !step3Done ? 3 : 1
     };
 }

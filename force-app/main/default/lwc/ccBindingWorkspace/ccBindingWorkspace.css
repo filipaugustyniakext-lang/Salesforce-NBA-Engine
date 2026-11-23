@@ -95,3 +95,7 @@
     justify-content: flex-end;
     margin: 0.5rem 0;
 }
+
+.cc-workspace__slot {
+    margin-top: 1rem;
+}

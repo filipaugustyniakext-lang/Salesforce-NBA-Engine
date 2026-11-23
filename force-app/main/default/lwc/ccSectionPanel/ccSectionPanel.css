@@ -68,3 +68,35 @@
     flex-direction: column;
     min-width: 0;
 }
+
+.cc-sections__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0.75rem 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.cc-sections__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.125rem 0.625rem;
+    border: 1px solid #c9c9c9;
+    border-radius: 1rem;
+    color: #5c5c5c;
+    font-size: 0.75rem;
+}
+
+.cc-sections__chip_done {
+    border-color: #2e844a;
+    color: #2e844a;
+}
+
+.cc-sections__chip_current {
+    border-color: #0176d3;
+    background: #eef4ff;
+    color: #014486;
+    font-weight: 700;
+}

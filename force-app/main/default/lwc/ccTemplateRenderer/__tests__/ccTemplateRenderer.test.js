@@ -147,3 +147,88 @@ describe('ccTemplateRenderer.renderMessage', () => {
         expect(isV1Template('<div binding-container></div>')).toBe(false);
     });
 });
+
+describe('ccTemplateRenderer placeholders', () => {
+    const HTML = `<table data-cc-section="container" data-cc-id="box" style="padding: {{cc-padding}}; margin: {{cc-margin}}; color: #111111; {{cc-bg-gradient}}; {{cc-bg-image}}" bgcolor="{{cc-bg-color}}">
+      <tr><td data-cc-section="column" data-cc-id="col"><p data-cc-content="richText" data-cc-key="note">Hi</p></td></tr></table>`;
+
+    function prepare() {
+        const { definition, html } = parseTemplate(HTML, {
+            kind: 'block',
+            previous: { sections: [{ sectionId: 'box', targets: { padding: { fallback: '10px 20px' }, margin: { fallback: '' }, bgColor: { fallback: '#ffffff' }, bgGradient: { fallback: '' }, bgImage: { fallback: '' } } }] }
+        });
+        definition.sections[0].presets = {
+            colors: [{ id: 'blue', label: 'Blue', hex: '#0000ff' }],
+            gradients: [{ id: 'sun', label: 'Sun', css: 'linear-gradient(135deg, #2a7b9b 0%, #57c785 50%, #eddd53 100%)', fallbackColor: '#2a7b9b' }]
+        };
+        const block = newMessageBlock({ id: 'a0Y1', name: 'Box' }, definition, 1);
+        return { definition, html, config: block.blockConfig, block };
+    }
+    const box = markup => {
+        const host = document.createElement('div');
+        host.innerHTML = markup;
+        return host.querySelector('[data-cc-id="box"]');
+    };
+
+    it('detects the placeholders as targets with their binds', () => {
+        const { definition } = prepare();
+        expect(Object.keys(definition.sections[0].targets)).toEqual(['padding', 'margin', 'bgColor', 'bgGradient', 'bgImage']);
+        expect(definition.sections[0].binds).toEqual(expect.arrayContaining(['padding', 'margin', 'background']));
+    });
+
+    it('renders padding and margin as four values and a hex color as just the hex', () => {
+        const { definition, html, config, block } = prepare();
+        config.blockSettings.padding.desktop = { top: 10, right: 20, bottom: 30, left: 40, chained: false };
+        config.blockSettings.margin.desktop = { top: 1, right: 2, bottom: 3, left: 4, chained: false };
+        config.blockSettings.background.mode = 'color';
+        config.blockSettings.background.colorPresetId = 'blue';
+        const element = box(renderBlock(html, definition, block, { device: 'desktop' }));
+        expect(element.getAttribute('style')).toBe('padding: 10px 20px 30px 40px; margin: 1px 2px 3px 4px; color: #111111;');
+        expect(element.getAttribute('bgcolor')).toBe('#0000ff');
+    });
+
+    it('renders a gradient preset as complete declarations', () => {
+        const { definition, html, config, block } = prepare();
+        config.blockSettings.background.mode = 'gradient';
+        config.blockSettings.background.gradientPresetId = 'sun';
+        const element = box(renderBlock(html, definition, block, { device: 'desktop' }));
+        expect(element.getAttribute('style')).toContain('background-color: #2a7b9b; background-image: linear-gradient(135deg, #2a7b9b 0%, #57c785 50%, #eddd53 100%); background-repeat: no-repeat; background-size: cover; min-height: 100vh;');
+        expect(element.hasAttribute('bgcolor')).toBe(false);
+    });
+
+    it('renders a background image per device and theme, and mobile inherits desktop', () => {
+        const { definition, html, config, block } = prepare();
+        const background = config.blockSettings.background;
+        background.mode = 'image';
+        background.image.fallbackColor = '#1a1a1a';
+        background.image.desktop = { ...background.image.desktop, url: 'https://example.com/desktop.jpg' };
+        background.image.mobile = { ...background.image.mobile, inheritFromDesktop: false, url: 'https://example.com/mobile.jpg' };
+        background.image.dark = { inheritFromLight: false, desktop: { ...background.image.desktop, url: 'https://example.com/dark.jpg' }, mobile: { inheritFromDesktop: true, ...background.image.desktop, url: 'https://example.com/dark.jpg' } };
+
+        const desktop = box(renderBlock(html, definition, block, { device: 'desktop' })).getAttribute('style');
+        expect(desktop).toContain("background-color: #1a1a1a; background-image: url('https://example.com/desktop.jpg'); background-position: center center; background-repeat: no-repeat; background-size: cover; min-height: 100vh; width: 100%;");
+        expect(box(renderBlock(html, definition, block, { device: 'mobile' })).getAttribute('style')).toContain('mobile.jpg');
+        expect(box(renderBlock(html, definition, block, { device: 'mobile', theme: 'dark' })).getAttribute('style')).toContain('dark.jpg');
+
+        background.image.mobile.inheritFromDesktop = true;
+        expect(box(renderBlock(html, definition, block, { device: 'mobile' })).getAttribute('style')).toContain('desktop.jpg');
+    });
+
+    it('falls back to what the HTML had when a setting has no value, and never leaks a placeholder', () => {
+        const { definition, html, block } = prepare();
+        block.blockConfig.blockSettings.padding = null;
+        block.blockConfig.blockSettings.margin = null;
+        block.blockConfig.blockSettings.background.mode = 'none';
+        const element = box(renderBlock(html, definition, block, { device: 'desktop' }));
+        expect(element.getAttribute('style')).toBe('padding: 10px 20px; color: #111111;');
+        expect(element.getAttribute('bgcolor')).toBe('#ffffff');
+        expect(renderBlock(html, definition, block, { device: 'desktop' })).not.toContain('{{cc-');
+        expect(renderBlock(HTML, { sections: [], contentSlots: [] }, block, { device: 'desktop' })).not.toContain('{{cc-');
+    });
+
+    it('still writes inline styles for bindings without a placeholder', () => {
+        const { definition, html, block } = setup();
+        block.blockConfig.blockSettings.padding.desktop = { top: 5, right: 5, bottom: 5, left: 5, chained: true };
+        expect(renderBlock(html, definition, block, { device: 'desktop' })).toContain('padding: 5px 5px 5px 5px');
+    });
+});

@@ -1,21 +1,27 @@
 <template>
     <div class="cc-sections">
-        <h3 class="slds-text-heading_small">1. Layout sections</h3>
+        <h3 class="slds-text-heading_small">1. Containers</h3>
         <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">
-            Sections are the building blocks marketers can style: a <strong>container</strong> holds <strong>rows</strong>, a row holds <strong>columns</strong>, and content sits inside columns. Mark them from the outside in, and choose which settings marketers may change on each.
+            A <strong>container</strong> holds <strong>rows</strong>, a row holds <strong>columns</strong>, and content sits inside columns. Identify them from the outside in; what marketers may change on each comes next.
         </p>
+        <ol class="cc-sections__chips" aria-label="Containers to identify">
+            <template for:each={stageChips} for:item="chip">
+                <li key={chip.key} class={chip.className}>
+                    <lightning-icon icon-name={chip.icon} size="xx-small"></lightning-icon>
+                    <span>{chip.label}</span>
+                </li>
+            </template>
+        </ol>
 
         <c-cc-element-path info={info} onpick={handlePathPick}></c-cc-element-path>
 
         <template lwc:if={showIdleHint}>
-            <div class="cc-sections__hint slds-text-body_small">
-                Click the outermost layout element in the preview first (usually the main table), then its rows, then the columns.
-            </div>
+            <div class="cc-sections__hint slds-text-body_small">{stageHint}</div>
         </template>
 
         <template lwc:if={isContentElement}>
             <div class="slds-notify slds-notify_alert slds-alert_warning cc-sections__alert" role="status">
-                <span>This element is content ({info.marks.contentType}). Pick a layout element around it, or change the content marking in step 2.</span>
+                <span>This element is content ({info.marks.contentType}). Pick a layout element around it, or change the content marking in step 3.</span>
             </div>
         </template>
 
@@ -24,7 +30,9 @@
                 <p class="slds-text-title_bold">{heading}</p>
                 <lightning-combobox label="Section level" options={levelOptions} value={levelValue} onchange={handleLevel}></lightning-combobox>
                 <p class="slds-text-body_small slds-text-color_weak">{levelHelp}</p>
-                <lightning-checkbox-group label="Settings marketers can change" options={bindOptions} value={bindsValue} onchange={handleBinds}></lightning-checkbox-group>
+                <template lwc:if={isMarkedRow}>
+                    <lightning-input type="checkbox" label="Treat this row as a column (it has no inner column containers)" checked={asColumnChecked} onchange={handleAsColumn}></lightning-input>
+                </template>
                 <lightning-input label="Id (optional)" value={idValue} data-field="id" placeholder="Generated when empty" field-level-help="A stable name for this section. Set it if you reorder sections later." onchange={handleField}></lightning-input>
                 <lightning-input label="Label (optional)" value={labelValue} data-field="label" onchange={handleField}></lightning-input>
                 <div class="cc-sections__actions">
@@ -54,13 +62,13 @@
 
         <template lwc:if={hasSections}>
             <div class="cc-sections__list">
-                <p class="slds-text-title_bold">Sections in this block</p>
+                <p class="slds-text-title_bold">Containers in this block</p>
                 <template for:each={sectionRows} for:item="section">
                     <button key={section.key} class={section.className} type="button" data-node={section.node} onclick={handlePickSection}>
                         <lightning-icon icon-name="utility:layout" size="x-small"></lightning-icon>
                         <span class="cc-sections__row-text">
                             <span>{section.name}</span>
-                            <span class="slds-text-body_small slds-text-color_weak">{section.meta}</span>
+                            <span class={section.metaClass}>{section.meta}</span>
                         </span>
                     </button>
                 </template>
@@ -73,7 +81,7 @@
 
         <template lwc:if={canContinue}>
             <div class="cc-sections__actions slds-m-top_small">
-                <lightning-button label="Continue to content" icon-name="utility:chevronright" icon-position="right" variant="brand" onclick={handleNext}></lightning-button>
+                <lightning-button label="Continue to settings" icon-name="utility:chevronright" icon-position="right" variant="brand" onclick={handleNext}></lightning-button>
             </div>
         </template>
     </div>

@@ -118,8 +118,17 @@ public with sharing class CcTemplateValidator {
                     result.error(sectionId, 'Gradient preset "' + labelOf(preset) + '" needs a fallback hex color.');
                 }
             }
-            if (binds.contains('background') && colors.isEmpty() && gradients.isEmpty()) {
-                result.warn(sectionId, 'Background is bound but no color or gradient presets are configured.');
+            Map<String, Object> targets = asMap(section.get('targets'));
+            if (binds.contains('background')) {
+                if (targets.isEmpty() && colors.isEmpty() && gradients.isEmpty()) {
+                    result.warn(sectionId, 'Background is bound but no color or gradient presets are configured.');
+                }
+                if (targets.containsKey('bgColor') && colors.isEmpty()) {
+                    result.warn(sectionId, 'Background color is bound but no color presets are configured.');
+                }
+                if (targets.containsKey('bgGradient') && gradients.isEmpty()) {
+                    result.warn(sectionId, 'Background gradient is bound but no gradient presets are configured.');
+                }
             }
         }
 

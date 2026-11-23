@@ -94,6 +94,26 @@ export default class CcSectionSettingsEditor extends LightningElement {
         return this.binds.has('background');
     }
 
+    /** Background kinds this section's placeholders support; null when the section predates placeholders (everything is offered). */
+    get backgroundModes() {
+        const targets = this._section.targets || {};
+        const modes = [];
+        if (targets.bgColor) modes.push('color');
+        if (targets.bgGradient) modes.push('gradient');
+        if (targets.bgImage) modes.push('image');
+        return modes.length ? modes : null;
+    }
+
+    get showColorPresets() {
+        const modes = this.backgroundModes;
+        return !modes || modes.includes('color');
+    }
+
+    get showGradientPresets() {
+        const modes = this.backgroundModes;
+        return !modes || modes.includes('gradient');
+    }
+
     get hasHide() {
         return this.binds.has('hide');
     }

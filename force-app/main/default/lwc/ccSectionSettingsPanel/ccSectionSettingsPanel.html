@@ -1,0 +1,77 @@
+<template>
+    <div class="cc-settings">
+        <template lwc:if={hasSection}>
+            <h3 class="slds-text-heading_small">{heading}</h3>
+            <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">
+                Choose what marketers can change here and show where each value goes in the HTML. Padding, margin and background are written into the style of this element through a placeholder.
+            </p>
+            <lightning-checkbox-group class="slds-m-top_small" label="Settings marketers can change" options={bindOptions} value={binds} disabled={disabled} onchange={handleBinds}></lightning-checkbox-group>
+
+            <template for:each={groups} for:item="group">
+                <div key={group.key} class="cc-settings__group">
+                    <div class="slds-text-title_bold">{group.title}</div>
+                    <template lwc:if={group.hasNote}>
+                        <p class="slds-text-body_small slds-text-color_weak">{group.note}</p>
+                    </template>
+                    <template lwc:if={group.needsPlacement}>
+                        <p class="slds-text-body_small slds-text-color_error">Place at least one placeholder so the value reaches the HTML.</p>
+                    </template>
+                    <template for:each={group.cards} for:item="card">
+                        <div key={card.key} class="cc-settings__card">
+                            <div class="cc-settings__card-head">
+                                <span class="slds-text-title_bold">{card.title}</span>
+                                <template lwc:if={card.placed}>
+                                    <span class="cc-settings__badge cc-settings__badge_placed"><lightning-icon icon-name="utility:success" size="xx-small"></lightning-icon>Placed</span>
+                                </template>
+                            </div>
+                            <p class="slds-text-body_small slds-text-color_weak">{card.output}</p>
+                            <p class="slds-text-body_small">Placeholder: <code>{card.token}</code></p>
+                            <template lwc:if={card.notPlaced}>
+                                <p class="slds-text-body_small">{card.capture}</p>
+                            </template>
+                            <template lwc:if={card.canType}>
+                                <lightning-input label={card.fallbackLabel} value={card.fallback} data-target={card.key} disabled={disabled} onchange={handleTyped}></lightning-input>
+                            </template>
+                            <div class="cc-settings__actions">
+                                <template lwc:if={card.placed}>
+                                    <lightning-button label="Remove placeholder" variant="destructive-text" data-target={card.key} disabled={disabled} onclick={handleUnplace}></lightning-button>
+                                </template>
+                                <template lwc:else>
+                                    <lightning-button label="Place placeholder" variant="brand" data-target={card.key} disabled={disabled} onclick={handlePlace}></lightning-button>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </template>
+
+            <template lwc:if={hasErrors}>
+                <div class="slds-notify slds-notify_alert slds-alert_error cc-settings__alert" role="alert">
+                    <ul class="slds-list_dotted slds-text-align_left">
+                        <template for:each={errorItems} for:item="item"><li key={item.key}>{item.message}</li></template>
+                    </ul>
+                </div>
+            </template>
+
+            <template lwc:if={hasDefaults}>
+                <div class="cc-settings__group">
+                    <div class="slds-text-title_bold">Defaults and presets</div>
+                    <c-cc-section-settings-editor mode="definition" section={section} disabled={disabled} onchange={handleSectionChange}></c-cc-section-settings-editor>
+                </div>
+            </template>
+        </template>
+        <template lwc:else>
+            <h3 class="slds-text-heading_small">2. Settings</h3>
+            <div class="cc-settings__hint slds-text-body_small">
+                Select a container, row or column in the list, or click it in the preview, to choose the settings marketers can change and place their placeholders.
+            </div>
+        </template>
+
+        <p class={pendingClass}>{pendingText}</p>
+        <template lwc:if={canContinue}>
+            <div class="cc-settings__actions">
+                <lightning-button label="Continue to content" icon-name="utility:chevronright" icon-position="right" variant="brand" onclick={handleNext}></lightning-button>
+            </div>
+        </template>
+    </div>
+</template>

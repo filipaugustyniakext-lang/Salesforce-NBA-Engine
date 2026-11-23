@@ -2,8 +2,8 @@ import { LightningElement, api } from 'lwc';
 
 /**
  * The three setup steps of a template: for a multi-block shell fixed areas, dropzone and editable content
- * (`variant="shell"`, `progress` from shellProgress()); for a content block or single-block template layout
- * sections, content and settings (`variant="block"`, `progress` from blockProgress()).
+ * (`variant="shell"`, `progress` from shellProgress()); for a content block or single-block template containers,
+ * settings (placeholders for padding, margin, background) and content (`variant="block"`, `progress` from blockProgress()).
  * Steps unlock in order; a done step can always be reopened. Emits stepselect { step }.
  */
 export default class CcShellSteps extends LightningElement {
@@ -15,27 +15,36 @@ export default class CcShellSteps extends LightningElement {
         const progress = this.progress || { steps: [] };
         const plural = (count, word) => `${count} ${word}${count === 1 ? '' : 's'}`;
         if (this.variant === 'block') {
+            const stageText = {
+                container: 'Identify the parent container',
+                rows: 'Identify the rows',
+                columns: 'Identify the columns of each row',
+                done: ''
+            };
             return [
                 {
                     step: 1,
-                    title: 'Layout sections',
-                    summary: progress.sectionCount
-                        ? plural(progress.sectionCount, 'section')
-                        : progress.noSections ? 'No layout settings' : 'Mark container, rows and columns',
+                    title: 'Containers',
+                    summary: progress.noSections
+                        ? 'No layout settings'
+                        : progress.sectionCount && progress.stage === 'done'
+                            ? `${plural(progress.rowCount, 'row')}, ${plural(progress.columnCount, 'column')}`
+                            : stageText[progress.stage] || 'Mark container, rows and columns',
                     locked: 'Available'
                 },
                 {
                     step: 2,
-                    title: 'Content',
-                    summary: progress.slotCount ? plural(progress.slotCount, 'binding') : 'Mark text, images, lists and buttons',
+                    title: 'Settings',
+                    summary: progress.pendingCount
+                        ? `${plural(progress.pendingCount, 'placeholder')} to place`
+                        : 'Padding, margin, background, visibility',
                     locked: 'Finish step 1 first'
                 },
                 {
                     step: 3,
-                    title: 'Settings and presets',
-                    optional: true,
-                    summary: 'Defaults, color presets, editor levels',
-                    locked: 'Finish steps 1 and 2 first'
+                    title: 'Content',
+                    summary: progress.slotCount ? plural(progress.slotCount, 'binding') : 'Mark text, images, lists and buttons',
+                    locked: 'Finish step 2 first'
                 }
             ];
         }

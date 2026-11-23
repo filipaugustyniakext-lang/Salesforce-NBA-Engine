@@ -15,6 +15,8 @@ export default class CcBackgroundInput extends LightningElement {
     @api disabled = false;
     /** Admin (definition) mode allows custom colors and gradients; marketers pick presets unless none exist. */
     @api allowCustom = false;
+    /** Background kinds the template binds ('color', 'gradient', 'image'); null offers all. */
+    @api modes = null;
     sizeOptions = SIZE_OPTIONS;
     repeatOptions = REPEAT_OPTIONS;
     positionOptions = POSITION_OPTIONS;
@@ -39,9 +41,10 @@ export default class CcBackgroundInput extends LightningElement {
 
     get modeOptions() {
         const options = [{ label: 'None', value: 'none' }];
-        if (this.allowCustom || this._presets.colors.length) options.push({ label: 'Color', value: 'color' });
-        if (this.allowCustom || this._presets.gradients.length) options.push({ label: 'Gradient', value: 'gradient' });
-        options.push({ label: 'Image', value: 'image' });
+        const allowed = kind => (this.modes ? this.modes.includes(kind) : true);
+        if (allowed('color') && (this.modes || this.allowCustom || this._presets.colors.length)) options.push({ label: 'Color', value: 'color' });
+        if (allowed('gradient') && (this.modes || this.allowCustom || this._presets.gradients.length)) options.push({ label: 'Gradient', value: 'gradient' });
+        if (allowed('image')) options.push({ label: 'Image', value: 'image' });
         return options;
     }
 
@@ -109,6 +112,30 @@ export default class CcBackgroundInput extends LightningElement {
 
     get mobileInherits() {
         return this._value.image.mobile.inheritFromDesktop !== false;
+    }
+
+    get darkImage() {
+        return this._value.image.dark;
+    }
+
+    get darkDesktopImage() {
+        return this._value.image.dark.desktop;
+    }
+
+    get darkMobileImage() {
+        return this._value.image.dark.mobile;
+    }
+
+    get hasDarkImage() {
+        return this._value.image.dark.inheritFromLight === false;
+    }
+
+    get darkMobileInherits() {
+        return this._value.image.dark.mobile.inheritFromDesktop !== false;
+    }
+
+    get showDarkMobileImage() {
+        return this.hasDarkImage && !this.darkMobileInherits;
     }
 
     get showMobileImage() {
@@ -198,11 +225,17 @@ export default class CcBackgroundInput extends LightningElement {
         });
     }
 
+    /** data-device is 'desktop', 'mobile', 'dark.desktop' or 'dark.mobile'. */
+    imageAt(image, path) {
+        return path.split('.').reduce((node, key) => node[key], image);
+    }
+
     handleImageSource(event) {
-        const device = event.target.dataset.device;
+        const path = event.target.dataset.device;
         const value = event.detail.value;
         this.update(next => {
-            next.image[device] = { ...next.image[device], source: value.source, url: value.url, contentId: value.contentId };
+            const target = this.imageAt(next.image, path);
+            Object.assign(target, { source: value.source, url: value.url, contentId: value.contentId });
         });
     }
 
@@ -210,7 +243,21 @@ export default class CcBackgroundInput extends LightningElement {
         const { device, option } = event.target.dataset;
         const value = event.detail.value;
         this.update(next => {
-            next.image[device][option] = value;
+            this.imageAt(next.image, device)[option] = value;
+        });
+    }
+
+    handleDarkImage(event) {
+        const enabled = event.target.checked;
+        this.update(next => {
+            next.image.dark.inheritFromLight = !enabled;
+        });
+    }
+
+    handleDarkMobileInherit(event) {
+        const inherit = event.target.checked;
+        this.update(next => {
+            next.image.dark.mobile.inheritFromDesktop = inherit;
         });
     }
 

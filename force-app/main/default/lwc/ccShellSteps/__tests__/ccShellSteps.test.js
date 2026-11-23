@@ -60,36 +60,39 @@ describe('c-cc-shell-steps', () => {
         expect(cards(editable)[2].textContent).toContain('Mark what marketers can edit');
     });
 
-    it('shows the block steps: layout sections, content, settings and presets', async () => {
-        const make = async (definition, activeStep = 1) => {
+    it('shows the block steps: containers, settings, content', async () => {
+        const make = async (progress, activeStep = 1) => {
             const element = createElement('c-cc-shell-steps', { is: CcShellSteps });
             element.variant = 'block';
-            element.progress = blockProgress(definition);
+            element.progress = progress;
             element.activeStep = activeStep;
             document.body.appendChild(element);
             await flush();
             return element;
         };
-        const fresh = await make({ sections: [], contentSlots: [] });
-        expect(cards(fresh).map(card => card.textContent.replace(/\s+/g, ' ').trim())).toEqual([
-            '1. Layout sectionsMark container, rows and columns',
-            '2. ContentFinish step 1 first',
-            '3. Settings and presets (optional)Finish steps 1 and 2 first'
+        const text = element => cards(element).map(card => card.textContent.replace(/\s+/g, ' ').trim());
+        const fresh = await make(blockProgress({ sections: [], contentSlots: [] }));
+        expect(text(fresh)).toEqual([
+            '1. ContainersIdentify the parent container',
+            '2. SettingsFinish step 1 first',
+            '3. ContentFinish step 2 first'
         ]);
         expect(cards(fresh).map(card => card.disabled)).toEqual([false, true, true]);
 
-        const sections = await make({ sections: [{ sectionId: 'a' }, { sectionId: 'b' }], contentSlots: [] }, 2);
-        expect(cards(sections)[0].textContent).toContain('2 sections');
-        expect(cards(sections).map(card => card.disabled)).toEqual([false, false, true]);
-        expect(cards(sections)[1].textContent).toContain('Mark text, images, lists and buttons');
+        const rows = await make(blockProgress({ sections: [{ sectionId: 'a', level: 'container', binds: [] }], contentSlots: [] }));
+        expect(cards(rows)[0].textContent).toContain('Identify the rows');
 
-        const full = await make({ sections: [{ sectionId: 'a' }], contentSlots: [{ bindingKey: 'k' }] }, 3);
+        const pending = await make(blockProgress({ sections: [{ sectionId: 'a', level: 'container', binds: ['padding', 'background'] }], contentSlots: [] }), 2);
+        expect(text(pending)[1]).toContain('2 placeholders to place');
+        expect(cards(pending).map(card => card.disabled)).toEqual([false, false, true]);
+
+        const full = await make(blockProgress({ sections: [{ sectionId: 'a', level: 'container', binds: [] }, { sectionId: 'r', level: 'row', parentId: 'a', binds: [], asColumn: true }], contentSlots: [{ bindingKey: 'k' }] }), 3);
         expect(cards(full).map(card => card.disabled)).toEqual([false, false, false]);
-        expect(cards(full)[1].textContent).toContain('1 binding');
-        expect(cards(full)[2].textContent).toContain('Defaults, color presets, editor levels');
+        expect(text(full)[0]).toContain('1 row, 0 columns');
+        expect(text(full)[2]).toContain('1 binding');
 
-        const none = await make({ sections: [], contentSlots: [], setup: { noSections: true } });
-        expect(cards(none)[0].textContent).toContain('No layout settings');
+        const none = await make({ ...blockProgress({ sections: [], contentSlots: [], setup: { noSections: true } }) });
+        expect(text(none)[0]).toContain('No layout settings');
         expect(cards(none)[1].disabled).toBe(false);
     });
 });

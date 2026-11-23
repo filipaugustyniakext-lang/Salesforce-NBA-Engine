@@ -17,6 +17,7 @@
                         label={backgroundLabel}
                         value={settings.background}
                         presets={section.presets}
+                        modes={backgroundModes}
                         allow-custom={isDefinition}
                         disabled={readOnly}
                         onchange={handleBackground}>
@@ -45,6 +46,7 @@
         <template lwc:if={isDefinition}>
             <template lwc:if={hasBackground}>
                 <div class="cc-section-editor__presets slds-m-top_medium">
+                    <template lwc:if={showColorPresets}>
                     <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center">
                         <span class="slds-text-title_bold">Color presets</span>
                         <lightning-button label="Add color" icon-name="utility:add" variant="base" disabled={disabled} onclick={handleAddColor}></lightning-button>
@@ -56,6 +58,8 @@
                             <lightning-button-icon icon-name="utility:delete" variant="bare" alternative-text="Remove color preset" title="Remove" data-kind="colors" data-index={preset.index} disabled={disabled} onclick={handleRemovePreset}></lightning-button-icon>
                         </div>
                     </template>
+                    </template>
+                    <template lwc:if={showGradientPresets}>
                     <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-m-top_small">
                         <span class="slds-text-title_bold">Gradient presets</span>
                         <lightning-button label="Add gradient" icon-name="utility:add" variant="base" disabled={disabled} onclick={handleAddGradient}></lightning-button>
@@ -67,6 +71,7 @@
                             <lightning-input type="color" label="Fallback" value={preset.fallbackColor} data-kind="gradients" data-index={preset.index} data-field="fallbackColor" disabled={disabled} onchange={handlePresetField}></lightning-input>
                             <lightning-button-icon icon-name="utility:delete" variant="bare" alternative-text="Remove gradient preset" title="Remove" data-kind="gradients" data-index={preset.index} disabled={disabled} onclick={handleRemovePreset}></lightning-button-icon>
                         </div>
+                    </template>
                     </template>
                     <template lwc:if={hasPresetErrors}>
                         <ul class="slds-text-color_error slds-text-body_small slds-m-top_x-small">

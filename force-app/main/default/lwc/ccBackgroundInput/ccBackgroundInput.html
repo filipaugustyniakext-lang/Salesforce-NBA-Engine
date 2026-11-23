@@ -112,6 +112,42 @@
                 </template>
                 <lightning-input
                     class="slds-m-top_x-small"
+                    type="checkbox"
+                    label="Use different images in dark mode"
+                    checked={hasDarkImage}
+                    disabled={disabled}
+                    onchange={handleDarkImage}>
+                </lightning-input>
+                <template lwc:if={hasDarkImage}>
+                    <c-cc-image-source-input
+                        class="slds-m-top_x-small"
+                        label="Dark mode desktop image"
+                        data-device="dark.desktop"
+                        value={darkDesktopImage}
+                        disabled={disabled}
+                        onchange={handleImageSource}>
+                    </c-cc-image-source-input>
+                    <lightning-input
+                        class="slds-m-top_x-small"
+                        type="checkbox"
+                        label="Dark mode mobile uses the dark desktop image"
+                        checked={darkMobileInherits}
+                        disabled={disabled}
+                        onchange={handleDarkMobileInherit}>
+                    </lightning-input>
+                    <template lwc:if={showDarkMobileImage}>
+                        <c-cc-image-source-input
+                            class="slds-m-top_x-small"
+                            label="Dark mode mobile image"
+                            data-device="dark.mobile"
+                            value={darkMobileImage}
+                            disabled={disabled}
+                            onchange={handleImageSource}>
+                        </c-cc-image-source-input>
+                    </template>
+                </template>
+                <lightning-input
+                    class="slds-m-top_x-small"
                     type="color"
                     label="Fallback color"
                     value={imageFallback}

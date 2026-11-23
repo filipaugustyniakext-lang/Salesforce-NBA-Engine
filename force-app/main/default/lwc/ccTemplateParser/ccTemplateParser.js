@@ -4,6 +4,8 @@ import {
     SECTION_LEVELS,
     SECTION_BINDS,
     REGION_KINDS,
+    TARGET_TOKENS,
+    TARGET_BINDS,
     defaultSectionSettings,
     validateDefinition
 } from 'c/ccTemplateSchema';
@@ -127,6 +129,34 @@ export function upgradeLegacyHtml(html) {
     return serializeHtml(doc, isDocument);
 }
 
+/** Keeps the saved defaults and adds the ones a newly bound setting needs (a setting that is no longer bound is dropped). */
+function reconcileDefaults(prior, level, binds) {
+    const fresh = defaultSectionSettings(level, binds);
+    if (!prior) return fresh;
+    const defaults = { ...prior };
+    ['padding', 'margin', 'background'].forEach(key => {
+        if (!binds.includes(key)) defaults[key] = null;
+        else if (!defaults[key]) defaults[key] = fresh[key];
+    });
+    if (level === 'row') {
+        if (!binds.includes('column-direction')) defaults.columnDirection = null;
+        else if (!defaults.columnDirection) defaults.columnDirection = fresh.columnDirection;
+    }
+    return defaults;
+}
+
+/** Placeholders ({{cc-padding}} ...) found in the attributes of a section element. */
+function targetsOf(element, prior) {
+    const found = {};
+    Object.keys(TARGET_TOKENS).forEach(key => {
+        const token = TARGET_TOKENS[key];
+        if (Array.from(element.attributes).some(attribute => attribute.value.includes(token))) {
+            found[key] = { fallback: prior?.targets?.[key]?.fallback ?? '' };
+        }
+    });
+    return found;
+}
+
 function slugify(value) {
     return String(value || '').trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
 }
@@ -196,7 +226,15 @@ export function parseTemplate(html, { kind = 'block', templateMode = 'multi', pr
         }
         usedIds.add(sectionId);
         element.setAttribute('data-cc-id', sectionId);
+        const prior = previousSections.get(sectionId);
+        const targets = targetsOf(element, prior);
         const binds = String(element.getAttribute('data-cc-bind') || '').split(/\s+/).filter(Boolean);
+        Object.keys(targets).forEach(key => {
+            if (!binds.includes(TARGET_BINDS[key])) binds.push(TARGET_BINDS[key]);
+        });
+        if (binds.length && binds.join(' ') !== String(element.getAttribute('data-cc-bind') || '').trim()) {
+            element.setAttribute('data-cc-bind', binds.join(' '));
+        }
         binds.forEach(bind => {
             if (!SECTION_BINDS.includes(bind)) errors.push(`Section "${sectionId}" has unknown binding "${bind}".`);
         });
@@ -206,17 +244,19 @@ export function parseTemplate(html, { kind = 'block', templateMode = 'multi', pr
             if (level === 'row' && parentLevel === 'column') errors.push(`Row "${sectionId}" cannot be nested in a column.`);
             if (level === 'column' && parentLevel === 'column') errors.push(`Column "${sectionId}" cannot be nested in a column.`);
         }
-        const prior = previousSections.get(sectionId);
-        sections.push({
+        const section = {
             sectionId,
             level,
             parentId,
             label: element.getAttribute('data-cc-label') || null,
             regionKind: regionAncestor(element),
             binds: binds.filter(bind => SECTION_BINDS.includes(bind)),
-            defaults: prior?.defaults || defaultSectionSettings(level, binds),
+            defaults: reconcileDefaults(prior?.defaults, level, binds.filter(bind => SECTION_BINDS.includes(bind))),
             presets: prior?.presets || { colors: [], gradients: [] }
-        });
+        };
+        if (Object.keys(targets).length) section.targets = targets;
+        if (level === 'row' && element.getAttribute('data-cc-as-column') === 'true') section.asColumn = true;
+        sections.push(section);
     });
 
     const contentSlots = [];

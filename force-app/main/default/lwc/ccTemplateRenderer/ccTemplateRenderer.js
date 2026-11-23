@@ -1,4 +1,4 @@
-import { isHexColor } from 'c/ccTemplateSchema';
+import { isHexColor, TARGET_TOKENS } from 'c/ccTemplateSchema';
 import { parseHtml, serializeHtml } from 'c/ccTemplateParser';
 
 const EMPTY_BLOCKS_HTML = '<div class="cc-blocks-empty" style="border:1px dashed #939393;padding:48px 24px;text-align:center;color:#444444;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;">No content blocks yet. Add content blocks from the editor palette.</div>';
@@ -60,7 +60,20 @@ function presetById(list, id) {
     return (list || []).find(item => item.id === id) || null;
 }
 
-function applyBackground(element, background, device, presets) {
+/** Desktop or mobile image (mobile inherits desktop when not set), and the dark one when the theme is dark and set. */
+function backgroundImageVariant(image, device, theme) {
+    const pick = set => (device === 'mobile' && set?.mobile && set.mobile.inheritFromDesktop === false && safeUrl(set.mobile.url)
+        ? set.mobile
+        : set?.desktop || {});
+    const light = pick(image);
+    if (theme === 'dark' && image?.dark && image.dark.inheritFromLight === false) {
+        const dark = pick(image.dark);
+        if (safeUrl(dark.url)) return dark;
+    }
+    return light;
+}
+
+function applyBackground(element, background, device, presets, theme) {
     if (!background || background.mode === 'none') return;
     if (background.mode === 'color') {
         const color = background.colorPresetId
@@ -85,9 +98,7 @@ function applyBackground(element, background, device, presets) {
     }
     if (background.mode === 'image') {
         const image = background.image || {};
-        const variant = device === 'mobile' && image.mobile && image.mobile.inheritFromDesktop === false && image.mobile.url
-            ? image.mobile
-            : image.desktop || {};
+        const variant = backgroundImageVariant(image, device, theme);
         const url = safeUrl(variant.url);
         if (!url) return;
         if (isHexColor(image.fallbackColor)) {
@@ -102,19 +113,132 @@ function applyBackground(element, background, device, presets) {
     }
 }
 
+const TOKEN_PATTERN = /\{\{cc-(?:padding|margin|bg-color|bg-gradient|bg-image)\}\}/g;
+
+function tidyStyle(text) {
+    return String(text)
+        .replace(/(^|;)\s*[a-z-]+\s*:\s*(?=;|$)/gi, '$1')
+        .replace(/;(\s*;)+/g, ';')
+        .replace(/^\s*;\s*/, '')
+        .trim();
+}
+
+function placedKeys(element) {
+    const placed = new Set();
+    Object.keys(TARGET_TOKENS).forEach(key => {
+        if (Array.from(element.attributes).some(attribute => attribute.value.includes(TARGET_TOKENS[key]))) placed.add(key);
+    });
+    return placed;
+}
+
+function declarations(parts) {
+    return `${parts.filter(Boolean).join('; ')};`;
+}
+
+/** What each placeholder renders for these settings. A setting that has no value falls back to what the HTML had. */
+function placeholderValues(settings, section, device, theme) {
+    const targets = section?.targets || {};
+    const fallback = key => String(targets[key]?.fallback || '');
+    const values = {
+        padding: fallback('padding'),
+        margin: fallback('margin'),
+        bgColor: fallback('bgColor'),
+        bgGradient: fallback('bgGradient'),
+        bgImage: fallback('bgImage')
+    };
+    const padding = spacingFor(settings?.padding, device);
+    if (padding) values.padding = sidesCss(padding);
+    const margin = spacingFor(settings?.margin, device);
+    if (margin) values.margin = sidesCss(margin);
+    const background = settings?.background;
+    if (!background || background.mode === 'none') return values;
+    const presets = section?.presets;
+    if (background.mode === 'color') {
+        const color = background.colorPresetId ? presetById(presets?.colors, background.colorPresetId)?.hex : background.color;
+        if (isHexColor(color)) {
+            values.bgColor = color;
+            values.bgGradient = '';
+            values.bgImage = '';
+        }
+    } else if (background.mode === 'gradient') {
+        const preset = background.gradientPresetId ? presetById(presets?.gradients, background.gradientPresetId) : null;
+        const css = preset?.css || background.gradient?.css;
+        const base = preset?.fallbackColor || background.gradient?.fallbackColor;
+        if (css) {
+            values.bgGradient = declarations([
+                isHexColor(base) ? `background-color: ${base}` : '',
+                `background-image: ${css}`,
+                'background-repeat: no-repeat',
+                'background-size: cover',
+                'min-height: 100vh'
+            ]);
+            values.bgColor = '';
+            values.bgImage = '';
+        }
+    } else if (background.mode === 'image') {
+        const image = background.image || {};
+        const variant = backgroundImageVariant(image, device, theme);
+        const url = safeUrl(variant.url);
+        if (url) {
+            const position = !variant.position || variant.position === 'center' ? 'center center' : variant.position;
+            values.bgImage = declarations([
+                isHexColor(image.fallbackColor) ? `background-color: ${image.fallbackColor}` : '',
+                `background-image: url('${url.replace(/'/g, '%27')}')`,
+                `background-position: ${position}`,
+                `background-repeat: ${variant.repeat || 'no-repeat'}`,
+                `background-size: ${variant.size || 'cover'}`,
+                'min-height: 100vh',
+                'width: 100%'
+            ]);
+            values.bgColor = '';
+            values.bgGradient = '';
+        }
+    }
+    return values;
+}
+
+function substitutePlaceholders(element, values) {
+    const byToken = {
+        [TARGET_TOKENS.padding]: values.padding,
+        [TARGET_TOKENS.margin]: values.margin,
+        [TARGET_TOKENS.bgColor]: values.bgColor,
+        [TARGET_TOKENS.bgGradient]: values.bgGradient,
+        [TARGET_TOKENS.bgImage]: values.bgImage
+    };
+    Array.from(element.attributes).forEach(attribute => {
+        if (!attribute.value.includes('{{cc-')) return;
+        let text = attribute.value.replace(TOKEN_PATTERN, token => byToken[token] ?? '');
+        if (attribute.name === 'style') text = tidyStyle(text);
+        if (text) element.setAttribute(attribute.name, text);
+        else element.removeAttribute(attribute.name);
+    });
+}
+
+/** Removes placeholders no section settings were applied to (they must never reach the preview). */
+function stripPlaceholders(root) {
+    Array.from(root.querySelectorAll('*')).forEach(element => {
+        if (Array.from(element.attributes).some(attribute => attribute.value.includes('{{cc-'))) {
+            substitutePlaceholders(element, {});
+        }
+    });
+}
+
 /** Applies section settings onto the bound element. Only bound settings are written. */
-export function applySectionSettings(element, settings, section, device) {
+export function applySectionSettings(element, settings, section, device, theme = 'light') {
     if (!element || !settings) return;
     const binds = new Set(section?.binds || []);
-    if (binds.has('padding')) {
+    const placed = placedKeys(element);
+    if (placed.size) substitutePlaceholders(element, placeholderValues(settings, section, device, theme));
+    const hasBackgroundPlaceholder = placed.has('bgColor') || placed.has('bgGradient') || placed.has('bgImage');
+    if (binds.has('padding') && !placed.has('padding')) {
         const sides = spacingFor(settings.padding, device);
         if (sides) setStyle(element, 'padding', sidesCss(sides));
     }
-    if (binds.has('margin')) {
+    if (binds.has('margin') && !placed.has('margin')) {
         const sides = spacingFor(settings.margin, device);
         if (sides) setStyle(element, 'margin', sidesCss(sides));
     }
-    if (binds.has('background')) applyBackground(element, settings.background, device, section?.presets);
+    if (binds.has('background') && !hasBackgroundPlaceholder) applyBackground(element, settings.background, device, section?.presets, theme);
     if (binds.has('hide')) {
         element.classList.toggle('cc-hide-dsk', !!settings.visibility?.hideDesktop);
         element.classList.toggle('cc-hide-mob', !!settings.visibility?.hideMobile);
@@ -274,7 +398,7 @@ function renderBoundContent(root, definition, blockConfig, device, theme) {
     });
 }
 
-function renderSections(root, definition, blockConfig, device) {
+function renderSections(root, definition, blockConfig, device, theme = 'light') {
     const sectionDefs = new Map((definition?.sections || []).map(section => [section.sectionId, section]));
     const settings = sectionSettingsById(blockConfig);
     const nodes = Array.from(root.querySelectorAll('[data-cc-section]'));
@@ -285,10 +409,10 @@ function renderSections(root, definition, blockConfig, device) {
         const sectionSettings = settings.get(id) || section?.defaults;
         if (!section || !sectionSettings) return;
         if (section.regionKind === 'fixed-read' || section.regionKind === 'fixed-edit') {
-            applySectionSettings(element, section.defaults, section, device);
+            applySectionSettings(element, section.defaults, section, device, theme);
             return;
         }
-        applySectionSettings(element, sectionSettings, section, device);
+        applySectionSettings(element, sectionSettings, section, device, theme);
         if (isHidden(sectionSettings, device) && element.getAttribute('data-cc-preview-hide') !== 'off') {
             element.setAttribute('data-cc-hidden', 'true');
         }
@@ -299,9 +423,12 @@ function renderSections(root, definition, blockConfig, device) {
 export function renderBlock(blockHtml, definition, block, { device = 'desktop', theme = 'light', preview = true } = {}) {
     const { doc } = parseHtml(blockHtml);
     const root = doc.body;
-    renderSections(root, definition, block?.blockConfig, device);
+    renderSections(root, definition, block?.blockConfig, device, theme);
     renderBoundContent(root, definition, block?.blockConfig, device, theme);
-    if (preview) root.querySelectorAll('[data-cc-hidden="true"]').forEach(node => node.remove());
+    if (preview) {
+        stripPlaceholders(root);
+        root.querySelectorAll('[data-cc-hidden="true"]').forEach(node => node.remove());
+    }
     return root.innerHTML;
 }
 
@@ -314,7 +441,7 @@ export function renderMessage({ shell, blocks = [], shellContent = null, device 
     if (!shell?.html) return '';
     const { doc, isDocument } = parseHtml(shell.html);
     const definition = shell.definition || {};
-    renderSections(doc.body, definition, shellContent?.blockConfig, device);
+    renderSections(doc.body, definition, shellContent?.blockConfig, device, theme);
     if (shellContent) renderBoundContent(doc.body, definition, shellContent.blockConfig, device, theme);
     const zone = doc.querySelector('[data-cc-region="blocks"]');
     if (zone) {
@@ -323,6 +450,7 @@ export function renderMessage({ shell, blocks = [], shellContent = null, device 
         zone.innerHTML = html || (preview ? zonePlaceholder || EMPTY_BLOCKS_HTML : '');
     }
     if (preview) {
+        stripPlaceholders(doc.body);
         doc.querySelectorAll('[data-cc-hidden="true"]').forEach(node => node.remove());
         doc.querySelectorAll('script').forEach(node => node.remove());
         doc.documentElement.setAttribute('data-cc-device', device);

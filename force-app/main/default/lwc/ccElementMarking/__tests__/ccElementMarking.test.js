@@ -1,4 +1,4 @@
-import { annotateNodes, inspectNode, applyMarking, isUnmarked, nodeElement, rangeBetween, inspectGroup, wrapElements, insertBlocksZone, listAreas, updateArea, removeArea, removeContentIn, zonePlacement, removeBlocksZone, shellProgress, listBindings, blockProgress } from 'c/ccElementMarking';
+import { annotateNodes, inspectNode, applyMarking, isUnmarked, nodeElement, rangeBetween, inspectGroup, wrapElements, insertBlocksZone, listAreas, updateArea, removeArea, removeContentIn, zonePlacement, removeBlocksZone, shellProgress, listBindings, blockProgress, placeTarget, removeTarget, setSectionBinds, setRowAsColumn, pendingTargets } from 'c/ccElementMarking';
 import { parseTemplate, parseHtml, describeMarked } from 'c/ccTemplateParser';
 
 const RAW = `<html><head><style>.cc-hide-dsk{} .cc-hide-mob{}</style></head><body>
@@ -445,23 +445,145 @@ describe('block bindings and progress', () => {
         expect(listBindings('<p>plain</p>')).toEqual({ sections: [], content: [] });
     });
 
-    it('computes block progress: sections, then content, then settings', () => {
+    it('computes block progress: containers, then settings (placeholders), then content', () => {
         const parse = html => parseTemplate(html, { kind: 'block' }).definition;
+        const state = progress => progress.steps.map(item => [item.done, item.unlocked]);
         const empty = blockProgress(parse('<p>x</p>'));
-        expect(empty.steps.map(item => [item.done, item.unlocked])).toEqual([[false, true], [false, false], [false, false]]);
-        expect(empty.firstOpenStep).toBe(1);
+        expect(state(empty)).toEqual([[false, true], [false, false], [false, false]]);
+        expect(empty).toMatchObject({ firstOpenStep: 1, stage: 'container' });
 
-        const sectionsOnly = blockProgress(parse('<div data-cc-section="container"><p>x</p></div>'));
-        expect(sectionsOnly.steps.map(item => [item.done, item.unlocked])).toEqual([[true, true], [false, true], [false, false]]);
-        expect(sectionsOnly.firstOpenStep).toBe(2);
+        const containerOnly = blockProgress(parse('<div data-cc-section="container"><p>x</p></div>'));
+        expect(state(containerOnly)).toEqual([[true, true], [true, true], [false, true]]);
+        expect(containerOnly).toMatchObject({ firstOpenStep: 3, stage: 'rows' });
+
+        const openRow = blockProgress(parse('<div data-cc-section="container"><div data-cc-section="row"><p>x</p></div></div>'));
+        expect(state(openRow)[0]).toEqual([false, true]);
+        expect(openRow).toMatchObject({ stage: 'columns', unresolvedRowCount: 1, firstOpenStep: 1 });
+        const asColumn = blockProgress(parse('<div data-cc-section="container"><div data-cc-section="row" data-cc-as-column="true"><p>x</p></div></div>'));
+        expect(state(asColumn)[0]).toEqual([true, true]);
+        expect(asColumn.stage).toBe('done');
 
         const full = blockProgress(parse(BLOCK));
-        expect(full.steps.map(item => [item.done, item.unlocked])).toEqual([[true, true], [true, true], [false, true]]);
-        expect(full).toMatchObject({ sectionCount: 4, slotCount: 2, firstOpenStep: 1 });
+        expect(state(full)).toEqual([[true, true], [false, true], [false, false]]);
+        expect(full).toMatchObject({ sectionCount: 4, rowCount: 1, columnCount: 2, slotCount: 2, pendingCount: 1, firstOpenStep: 2, stage: 'done' });
+
+        const placed = placeTarget(BLOCK, 0, 'padding');
+        const afterPlacing = blockProgress(parse(placed.html));
+        expect(state(afterPlacing)).toEqual([[true, true], [true, true], [true, true]]);
+        expect(afterPlacing.firstOpenStep).toBe(1);
 
         const none = blockProgress({ sections: [], contentSlots: [], setup: { noSections: true } });
         expect(none.steps[0]).toEqual({ step: 1, done: true, unlocked: true });
         expect(none.steps[1].unlocked).toBe(true);
         expect(blockProgress(null).steps[0].done).toBe(false);
+    });
+});
+
+describe('placeholders for section settings', () => {
+    const BOX = '<div data-cc-section="container" data-cc-id="box" style="padding: 10px 20px; background-color: #112233; color: red"><p>x</p></div>';
+    const element = (html, selector = '[data-cc-section]') => parseHtml(html).doc.querySelector(selector);
+
+    it('turns an existing padding declaration into the placeholder and keeps its value as the fallback', () => {
+        const result = placeTarget(BOX, 0, 'padding');
+        expect(result.errors).toEqual([]);
+        expect(result.fallback).toBe('10px 20px');
+        expect(result.captured).toBe(true);
+        expect(result.sides).toEqual({ top: 10, right: 20, bottom: 10, left: 20, chained: false });
+        const box = element(result.html);
+        expect(box.getAttribute('style')).toBe('padding: {{cc-padding}}; background-color: #112233; color: red;');
+        expect(box.getAttribute('data-cc-bind')).toBe('padding');
+        expect(placeTarget(result.html, 0, 'padding').errors[0]).toContain('already');
+
+        const definition = parseTemplate(result.html, { kind: 'block', previous: { sections: [{ sectionId: 'box', targets: { padding: { fallback: '10px 20px' } } }] } }).definition;
+        expect(definition.sections[0].targets).toEqual({ padding: { fallback: '10px 20px' } });
+        expect(definition.sections[0].binds).toEqual(['padding']);
+    });
+
+    it('adds a declaration when there is none, and restores the fallback when the placeholder is removed', () => {
+        const added = placeTarget(BOX, 0, 'margin');
+        expect(element(added.html).getAttribute('style')).toContain('margin: {{cc-margin}}');
+        expect(added.fallback).toBe('');
+        expect(added.captured).toBe(false);
+
+        const removed = removeTarget(added.html, 0, 'margin', '');
+        expect(element(removed.html).getAttribute('style')).toBe('padding: 10px 20px; background-color: #112233; color: red;');
+
+        const padded = placeTarget(BOX, 0, 'padding');
+        const restored = removeTarget(padded.html, 0, 'padding', '10px 20px');
+        expect(element(restored.html).getAttribute('style')).toBe('padding: 10px 20px; background-color: #112233; color: red;');
+        expect(removeTarget(BOX, 0, 'padding').errors[0]).toContain('no placeholder');
+    });
+
+    it('captures the background color, including a bgcolor attribute', () => {
+        const color = placeTarget(BOX, 0, 'bgColor');
+        expect(color.fallback).toBe('#112233');
+        expect(element(color.html).getAttribute('style')).toContain('background-color: {{cc-bg-color}}');
+
+        const attribute = placeTarget('<table data-cc-section="container" bgcolor="#abcdef"><tr><td>x</td></tr></table>', 0, 'bgColor');
+        expect(attribute.fallback).toBe('#abcdef');
+        expect(element(attribute.html).getAttribute('bgcolor')).toBe('{{cc-bg-color}}');
+        expect(parseTemplate(attribute.html, { kind: 'block' }).definition.sections[0].targets.bgColor).toBeDefined();
+    });
+
+    it('moves the existing background declarations into the fallback of the first gradient or image placeholder', () => {
+        const html = '<div data-cc-section="container" style="color: red; background-color: #112233; background-image: url(\'a.png\'); padding: 4px"><p>x</p></div>';
+        const gradient = placeTarget(html, 0, 'bgGradient');
+        expect(gradient.fallback).toBe("background-color: #112233; background-image: url('a.png')");
+        expect(element(gradient.html).getAttribute('style')).toBe('color: red; {{cc-bg-gradient}}; padding: 4px;');
+        const image = placeTarget(gradient.html, 0, 'bgImage');
+        expect(image.fallback).toBe('');
+        expect(element(image.html).getAttribute('style')).toContain('{{cc-bg-image}}');
+        const back = removeTarget(image.html, 0, 'bgGradient', gradient.fallback);
+        expect(element(back.html).getAttribute('style')).toBe("color: red; background-color: #112233; background-image: url('a.png'); padding: 4px; {{cc-bg-image}};");
+    });
+
+    it('keeps urls with semicolons together when reading the style', () => {
+        const html = '<div data-cc-section="container" style="background-image: url(\'data:image/png;base64,AAA\'); padding: 4px"><p>x</p></div>';
+        const result = placeTarget(html, 0, 'bgImage');
+        expect(result.fallback).toBe("background-image: url('data:image/png;base64,AAA')");
+        expect(element(result.html).getAttribute('style')).toBe('{{cc-bg-image}}; padding: 4px;');
+    });
+
+    it('switches settings on and off, dropping the placeholders of settings that are off', () => {
+        const placed = placeTarget(placeTarget(BOX, 0, 'padding').html, 0, 'bgColor');
+        const off = setSectionBinds(placed.html, 0, ['padding', 'hide']);
+        expect(off.removed).toEqual(['bgColor']);
+        expect(element(off.html).getAttribute('style')).toBe('padding: {{cc-padding}}; color: red;');
+        expect(element(off.html).getAttribute('data-cc-bind')).toBe('padding hide');
+        expect(setSectionBinds(off.html, 0, []).removed).toEqual(['padding']);
+        expect(setSectionBinds('<p>x</p>', 0, ['padding']).errors).toHaveLength(1);
+        const row = setSectionBinds('<div data-cc-section="column"><p>x</p></div>', 0, ['column-direction', 'hide']);
+        expect(element(row.html).getAttribute('data-cc-bind')).toBe('hide');
+    });
+
+    it('reports settings that still need a placeholder', () => {
+        const definition = parseTemplate('<div data-cc-section="container" data-cc-bind="padding margin background hide"><p>x</p></div>', { kind: 'block' }).definition;
+        expect(pendingTargets(definition).map(item => item.bind)).toEqual(['padding', 'margin', 'background']);
+        const placed = placeTarget(BOX, 0, 'padding');
+        expect(pendingTargets(parseTemplate(placed.html, { kind: 'block' }).definition)).toEqual([]);
+    });
+
+    it('marks a row as a column and keeps binds and flags when a section is marked again', () => {
+        const ROW = '<div data-cc-section="container" data-cc-id="box"><div data-cc-section="row" data-cc-id="r1" data-cc-bind="padding"><p>x</p></div></div>';
+        const flagged = setRowAsColumn(ROW, 1, true);
+        expect(element(flagged.html, '#nope') || parseHtml(flagged.html).doc.querySelector('[data-cc-id="r1"]').getAttribute('data-cc-as-column')).toBe('true');
+        expect(setRowAsColumn(ROW, 0, true).errors).toHaveLength(1);
+
+        const again = applyMarking(flagged.html, 1, { role: 'section', level: 'row', id: 'r1' });
+        const row = parseHtml(again.html).doc.querySelector('[data-cc-id="r1"]');
+        expect(row.getAttribute('data-cc-bind')).toBe('padding');
+        expect(row.getAttribute('data-cc-as-column')).toBe('true');
+        const asColumn = applyMarking(flagged.html, 1, { role: 'section', level: 'column', id: 'r1' });
+        expect(parseHtml(asColumn.html).doc.querySelector('[data-cc-id="r1"]').hasAttribute('data-cc-as-column')).toBe(false);
+
+        const cleared = setRowAsColumn(flagged.html, 1, false);
+        expect(parseHtml(cleared.html).doc.querySelector('[data-cc-id="r1"]').hasAttribute('data-cc-as-column')).toBe(false);
+    });
+
+    it('describes the existing style of an inspected element', () => {
+        const info = inspectNode(placeTarget(BOX, 0, 'padding').html, 0).styleInfo;
+        expect(info.padding).toBe('{{cc-padding}}');
+        expect(info.backgroundColor).toBe('#112233');
+        expect(info.placed).toMatchObject({ padding: true, margin: false, bgColor: false });
     });
 });

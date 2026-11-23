@@ -6,18 +6,18 @@ const LEVEL_HELP = {
     row: 'A horizontal band inside the container. A row without columns counts as one column.',
     column: 'A cell of a row. Content (text, images, buttons) sits inside columns.'
 };
-const BIND_OPTIONS = [
-    { label: 'Padding', value: 'padding' },
-    { label: 'Margin', value: 'margin' },
-    { label: 'Background (color, gradient, image)', value: 'background' },
-    { label: 'Hide on desktop / mobile', value: 'hide' },
-    { label: 'Column order (rows only)', value: 'column-direction' }
-];
+const STAGE_HINTS = {
+    container: 'Click the outermost layout element in the preview (usually the main table) and mark it as the container.',
+    rows: 'Now click each row inside the container. A block without rows is fine: press Continue when you are done.',
+    columns: 'Click the columns of each row. A row without inner columns can be treated as a column: select the row and tick the box.',
+    done: 'The containers are identified. You can still select any element to rename it, change its level or remove it.'
+};
 const LEVEL_ORDER = ['container', 'row', 'column'];
 
 /**
- * Step 1 of a content block or single-block template: mark the layout sections (container, rows, columns) and
- * choose which settings marketers may change on each. Emits apply { marking }, remove, pick { node },
+ * Step 1 of a content block or single-block template: identify the containers, from the outside in: the parent
+ * container, its rows, and the columns of each row (or treat a row as its only column).
+ * Settings and placeholders are step 2. Emits apply { marking }, remove, pick { node }, ascolumn { value },
  * nosections { value }, clear, next.
  */
 export default class CcSectionPanel extends LightningElement {
@@ -28,6 +28,7 @@ export default class CcSectionPanel extends LightningElement {
     @api sections = [];
     @api info = null;
     @api noSections = false;
+    @api progress = null;
     @api errors = [];
     @api canContinue = false;
     edits = { key: null };
@@ -77,9 +78,36 @@ export default class CcSectionPanel extends LightningElement {
         return this.draft.level || (this.isMarkedSection ? this.info.marks.level : this.suggestedLevel);
     }
 
-    get bindsValue() {
-        const binds = this.draft.binds || (this.isMarkedSection ? this.info.marks.binds : []);
-        return this.levelValue === 'row' ? binds : binds.filter(bind => bind !== 'column-direction');
+    get stage() {
+        return this.progress?.stage || 'container';
+    }
+
+    get stageHint() {
+        return STAGE_HINTS[this.stage];
+    }
+
+    get stageChips() {
+        const progress = this.progress || {};
+        const stage = this.stage;
+        const chip = (key, label, done, current) => ({
+            key,
+            label,
+            className: `cc-sections__chip${done ? ' cc-sections__chip_done' : ''}${current ? ' cc-sections__chip_current' : ''}`,
+            icon: done ? 'utility:success' : 'utility:record'
+        });
+        return [
+            chip('container', 'Parent container', stage !== 'container', stage === 'container'),
+            chip('rows', 'Rows', (progress.rowCount || 0) > 0, stage === 'rows'),
+            chip('columns', 'Columns', stage === 'done' && (progress.rowCount || 0) > 0, stage === 'columns')
+        ];
+    }
+
+    get isMarkedRow() {
+        return this.isMarkedSection && this.info.marks.level === 'row';
+    }
+
+    get asColumnChecked() {
+        return !!this.info?.asColumn;
     }
 
     get idValue() {
@@ -104,9 +132,6 @@ export default class CcSectionPanel extends LightningElement {
         return LEVEL_HELP[this.levelValue];
     }
 
-    get bindOptions() {
-        return BIND_OPTIONS.filter(option => option.value !== 'column-direction' || this.levelValue === 'row');
-    }
 
     get heading() {
         const tag = this.info ? `<${this.info.tag}>` : '';
@@ -122,7 +147,8 @@ export default class CcSectionPanel extends LightningElement {
             ...section,
             key: `${section.node}`,
             name: section.label || section.sectionId || section.level,
-            meta: `${section.level}${section.binds.length ? ` · ${section.binds.join(', ')}` : ''}`,
+            meta: section.asColumn ? 'row · treated as a column' : section.level === 'row' && !section.hasColumns ? 'row · needs columns' : section.level,
+            metaClass: `slds-text-body_small ${section.level === 'row' && !section.asColumn && !section.hasColumns ? 'slds-text-color_error' : 'slds-text-color_weak'}`,
             className: `cc-sections__row cc-sections__row_depth-${Math.min(section.depth, 2)}${this.info && this.info.node === section.node ? ' cc-sections__row_selected' : ''}`
         }));
     }
@@ -155,8 +181,8 @@ export default class CcSectionPanel extends LightningElement {
         this.setDraft({ level: event.detail.value });
     }
 
-    handleBinds(event) {
-        this.setDraft({ binds: event.detail.value });
+    handleAsColumn(event) {
+        this.dispatchEvent(new CustomEvent('ascolumn', { detail: { value: !!event.target.checked } }));
     }
 
     handleField(event) {
@@ -169,7 +195,6 @@ export default class CcSectionPanel extends LightningElement {
                 marking: {
                     role: 'section',
                     level: this.levelValue,
-                    binds: this.bindsValue,
                     id: this.idValue,
                     label: this.labelValue
                 }

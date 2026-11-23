@@ -29,6 +29,21 @@ export const BUTTON_BEHAVIORS = ['newTab', 'sameTab'];
 export const IMAGE_SOURCES = ['url', 'upload', 'cms'];
 export const COLUMN_DIRECTIONS = ['ltr', 'rtl', 'stack', 'stack-reverse'];
 export const BACKGROUND_MODES = ['none', 'color', 'gradient', 'image'];
+/**
+ * Placeholders written into the HTML where a section setting is rendered. They replace the value of a CSS
+ * declaration (or a whole run of declarations for gradients and images) and are substituted when rendering.
+ */
+export const TARGET_TOKENS = {
+    padding: '{{cc-padding}}',
+    margin: '{{cc-margin}}',
+    bgColor: '{{cc-bg-color}}',
+    bgGradient: '{{cc-bg-gradient}}',
+    bgImage: '{{cc-bg-image}}'
+};
+export const TARGET_KEYS = Object.keys(TARGET_TOKENS);
+/** The data-cc-bind value each placeholder belongs to. */
+export const TARGET_BINDS = { padding: 'padding', margin: 'margin', bgColor: 'background', bgGradient: 'background', bgImage: 'background' };
+export const TARGET_LABELS = { padding: 'Padding', margin: 'Margin', bgColor: 'Background color', bgGradient: 'Background gradient', bgImage: 'Background image' };
 export const TEMPLATE_MODES = { single: 'Single Block', multi: 'Multi Block' };
 
 export const JSON_FIELD_LIMIT = 131072;
@@ -101,6 +116,17 @@ export function normalizeSpacing(source, fallback) {
     return { desktop, mobile: { inheritFromDesktop: inherit, ...mobile } };
 }
 
+/** Reads a CSS box shorthand ("10px", "10px 20px", "1px 2px 3px 4px") into sides; null when it is not plain pixels. */
+export function sidesFromCss(text) {
+    const parts = String(text || '').trim().split(/[\s,]+/).filter(Boolean);
+    if (!parts.length || parts.length > 4) return null;
+    const numbers = parts.map(part => (/^\d+(\.\d+)?(px)?$/i.test(part) ? Math.round(parseFloat(part)) : null));
+    if (numbers.some(value => value === null)) return null;
+    const [top, right = top, bottom = top, left = right] = numbers;
+    const chained = top === right && right === bottom && bottom === left;
+    return { top, right, bottom, left, chained };
+}
+
 export function defaultImageSource() {
     return { source: 'url', url: null, contentId: null, size: 'cover', repeat: 'no-repeat', position: 'center' };
 }
@@ -115,9 +141,23 @@ export function defaultBackground() {
         image: {
             desktop: defaultImageSource(),
             mobile: { inheritFromDesktop: true, ...defaultImageSource() },
+            dark: {
+                inheritFromLight: true,
+                desktop: defaultImageSource(),
+                mobile: { inheritFromDesktop: true, ...defaultImageSource() }
+            },
             fallbackColor: '#ffffff'
         }
     };
+}
+
+function normalizeImagePair(input, base) {
+    const desktop = { ...base.desktop, ...(input?.desktop || {}) };
+    const inherit = input?.mobile?.inheritFromDesktop !== false;
+    const mobile = inherit
+        ? { inheritFromDesktop: true, ...desktop }
+        : { ...base.mobile, ...(input.mobile || {}), inheritFromDesktop: false };
+    return { desktop, mobile };
 }
 
 export function normalizeBackground(source) {
@@ -126,11 +166,10 @@ export function normalizeBackground(source) {
     const input = source && typeof source === 'object' ? source : {};
     const mode = BACKGROUND_MODES.includes(input.mode) ? input.mode : base.mode;
     const image = input.image || {};
-    const desktop = { ...base.image.desktop, ...(image.desktop || {}) };
-    const mobileInherit = image.mobile?.inheritFromDesktop !== false;
-    const mobile = mobileInherit
-        ? { inheritFromDesktop: true, ...desktop }
-        : { ...base.image.mobile, ...(image.mobile || {}), inheritFromDesktop: false };
+    const { desktop, mobile } = normalizeImagePair(image, base.image);
+    const darkInput = image.dark || {};
+    const darkInherit = darkInput.inheritFromLight !== false;
+    const dark = { inheritFromLight: darkInherit, ...normalizeImagePair(darkInput, base.image.dark) };
     return {
         mode,
         color: isHexColor(input.color) ? input.color : null,
@@ -143,6 +182,7 @@ export function normalizeBackground(source) {
         image: {
             desktop,
             mobile,
+            dark,
             fallbackColor: isHexColor(image.fallbackColor) ? image.fallbackColor : base.image.fallbackColor
         }
     };
@@ -415,8 +455,18 @@ export function validateDefinition(definition) {
             if (!/gradient\(/i.test(preset.css || '')) pushIssue(errors, section.sectionId, `Gradient preset "${preset.label || preset.id}" has no CSS gradient.`);
             if (!isHexColor(preset.fallbackColor)) pushIssue(errors, section.sectionId, `Gradient preset "${preset.label || preset.id}" needs a fallback hex color.`);
         });
-        if ((section.binds || []).includes('background') && !(presets.colors || []).length && !(presets.gradients || []).length) {
-            pushIssue(warnings, section.sectionId, 'Background is bound but no color or gradient presets are configured.');
+        const targets = section.targets || {};
+        const hasTargets = Object.keys(targets).length > 0;
+        if ((section.binds || []).includes('background')) {
+            if (!hasTargets && !(presets.colors || []).length && !(presets.gradients || []).length) {
+                pushIssue(warnings, section.sectionId, 'Background is bound but no color or gradient presets are configured.');
+            }
+            if (targets.bgColor && !(presets.colors || []).length) {
+                pushIssue(warnings, section.sectionId, 'Background color is bound but no color presets are configured.');
+            }
+            if (targets.bgGradient && !(presets.gradients || []).length) {
+                pushIssue(warnings, section.sectionId, 'Background gradient is bound but no gradient presets are configured.');
+            }
         }
     });
     const keys = new Set();

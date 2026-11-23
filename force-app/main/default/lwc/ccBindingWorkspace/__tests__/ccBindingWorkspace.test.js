@@ -12,6 +12,9 @@ function flush() {
     return Promise.resolve();
 }
 
+const last = list => list[list.length - 1];
+const blockCards = element => Array.from(element.shadowRoot.querySelector('c-cc-shell-steps').shadowRoot.querySelectorAll('.cc-steps__card'));
+
 describe('c-cc-binding-workspace', () => {
     beforeAll(() => {
         Element.prototype.scrollIntoView = jest.fn();
@@ -21,43 +24,51 @@ describe('c-cc-binding-workspace', () => {
         while (document.body.firstChild) document.body.removeChild(document.body.firstChild);
     });
 
-    it('lists sections and content bindings and edits section presets', async () => {
+    it('lists containers and content, opens settings first when placeholders are missing, and edits presets', async () => {
         const element = createElement('c-cc-binding-workspace', { is: CcBindingWorkspace });
         element.kind = 'block';
         element.source = { html: BLOCK_HTML, definition: null };
         const changes = [];
+        const events = [];
         element.addEventListener('bindingchange', event => changes.push(event.detail));
+        element.addEventListener('stepchange', event => events.push(event.detail));
         document.body.appendChild(element);
+        await flush();
         await flush();
 
         const items = Array.from(element.shadowRoot.querySelectorAll('.cc-workspace__nav-item'));
         expect(items.map(item => item.dataset.key)).toEqual(['section:block', 'section:column-1', 'slot:note', 'slot:cta']);
+        // The container binds padding, background and hide but has no placeholders yet: settings is the first open step.
+        expect(events[0]).toEqual({ step: 2, pickScope: 'inspect' });
+        const settings = () => element.shadowRoot.querySelector('c-cc-section-settings-panel');
+        expect(settings().section.sectionId).toBe('block');
+        expect(settings().pendingCount).toBe(2);
+        expect(blockCards(element).map(card => card.disabled)).toEqual([false, false, true]);
 
-        // Clicking a list item in step 1 selects that section's element for editing its marking.
-        items[0].click();
+        // Placing the placeholders writes them into the HTML and records the fallback.
+        settings().dispatchEvent(new CustomEvent('place', { detail: { target: 'padding', fallback: '4px' } }));
         await flush();
-        expect(element.shadowRoot.querySelector('c-cc-section-panel').info.marks.id).toBe('block');
+        expect(last(changes).html).toContain('padding: {{cc-padding}}');
+        expect(last(changes).definition.sections[0].targets.padding).toEqual({ fallback: '4px' });
+        expect(settings().pendingCount).toBe(1);
+        settings().dispatchEvent(new CustomEvent('place', { detail: { target: 'bgColor', fallback: '#ffffff' } }));
+        await flush();
+        expect(settings().pendingCount).toBe(0);
+        expect(blockCards(element).map(card => card.disabled)).toEqual([false, false, false]);
 
-        // Step 3 edits the defaults and presets of the selected item.
-        blockCards(element)[2].click();
+        const updated = { ...settings().section, presets: { colors: [{ id: 'red', label: 'Red', hex: '#e2001a' }], gradients: [] } };
+        settings().dispatchEvent(new CustomEvent('sectionchange', { detail: { section: updated } }));
         await flush();
-        items[0].click();
-        await flush();
-        const editor = element.shadowRoot.querySelector('c-cc-section-settings-editor');
-        expect(editor.section.sectionId).toBe('block');
-        expect(editor.mode).toBe('definition');
+        expect(last(changes).definition.sections[0].presets.colors[0].hex).toBe('#e2001a');
+        expect(last(changes).errors).toEqual([]);
 
-        const updated = { ...editor.section, presets: { colors: [{ id: 'red', label: 'Red', hex: '#e2001a' }], gradients: [] } };
-        editor.dispatchEvent(new CustomEvent('change', { detail: { section: updated } }));
+        // Choosing a content item opens the content step with its editor.
+        const refreshed = Array.from(element.shadowRoot.querySelectorAll('.cc-workspace__nav-item'));
+        refreshed[3].click();
         await flush();
-        const last = changes[changes.length - 1];
-        expect(last.definition.sections[0].presets.colors[0].hex).toBe('#e2001a');
-        expect(last.errors).toEqual([]);
-
-        items[3].click();
         await flush();
-        const bindingEditor = element.shadowRoot.querySelector('c-cc-content-binding-editor');
-        expect(bindingEditor.binding.bindingKey).toBe('cta');
+        expect(events.pop()).toEqual({ step: 3, pickScope: 'any' });
+        expect(element.shadowRoot.querySelector('c-cc-content-binding-editor').binding.bindingKey).toBe('cta');
     });
 
     it('shows the preparation guide, open until HTML is loaded', async () => {
@@ -86,10 +97,10 @@ describe('c-cc-binding-workspace', () => {
         expect(blockCards(element).map(card => card.disabled)).toEqual([false, true, true]);
         element.shadowRoot.querySelector('c-cc-section-panel').dispatchEvent(new CustomEvent('nosections', { detail: { value: true } }));
         await flush();
-        blockCards(element)[1].click();
+        blockCards(element)[2].click();
         await flush();
         await flush();
-        expect(events.filter(([name]) => name === 'stepchange').pop()[1]).toEqual({ step: 2, pickScope: 'any' });
+        expect(events.filter(([name]) => name === 'stepchange').pop()[1]).toEqual({ step: 3, pickScope: 'any' });
 
         element.pickedElements = [5];
         await flush();
@@ -116,7 +127,7 @@ describe('c-cc-binding-workspace', () => {
         await flush();
         element.shadowRoot.querySelector('c-cc-section-panel').dispatchEvent(new CustomEvent('nosections', { detail: { value: true } }));
         await flush();
-        blockCards(element)[1].click();
+        blockCards(element)[2].click();
         await flush();
         await flush();
         element.pickedElements = [4];
@@ -153,7 +164,6 @@ describe('c-cc-binding-workspace', () => {
 
     const panel = (element, tag) => element.shadowRoot.querySelector(tag);
     const cards = element => Array.from(panel(element, 'c-cc-shell-steps').shadowRoot.querySelectorAll('.cc-steps__card'));
-    const blockCards = element => Array.from(panel(element, 'c-cc-shell-steps').shadowRoot.querySelectorAll('.cc-steps__card'));
     const lastChange = events => events.filter(([name]) => name === 'change').pop()[1];
 
     it('walks the three gated steps: areas, dropzone, editable content, and lets earlier steps be edited again', async () => {
@@ -298,8 +308,8 @@ describe('c-cc-binding-workspace', () => {
         expect(panel(element, 'c-cc-element-marker').blockedReason).toContain('inside an editable area');
     });
 
-    it('guides a content block through layout sections, content and settings, gated like the shell steps', async () => {
-        const html = '<div id="box"><div id="row"><p id="txt">Hello</p></div></div>';
+    it('guides a content block: containers, settings with placeholders, then content, gated like the shell steps', async () => {
+        const html = '<div id="box" style="padding: 10px 20px"><div id="row"><p id="txt">Hello</p></div></div>';
         const element = createElement('c-cc-binding-workspace', { is: CcBindingWorkspace });
         element.kind = 'block';
         element.source = { html, definition: null };
@@ -311,69 +321,114 @@ describe('c-cc-binding-workspace', () => {
             const { doc } = parseHtml(element.source.html);
             return Array.from(doc.body.querySelectorAll('*')).indexOf(doc.body.querySelector(selector));
         };
+        const steps = () => events.filter(([name]) => name === 'stepchange').map(([, detail]) => detail);
+        const sectionPanel = () => panel(element, 'c-cc-section-panel');
+        const settings = () => panel(element, 'c-cc-section-settings-panel');
+        const mark = marking => sectionPanel().dispatchEvent(new CustomEvent('apply', { detail: { marking } }));
 
-        expect(events.filter(([name]) => name === 'stepchange')).toEqual([['stepchange', { step: 1, pickScope: 'any' }]]);
-        expect(panel(element, 'c-cc-section-panel')).not.toBeNull();
+        expect(steps()).toEqual([{ step: 1, pickScope: 'any' }]);
         expect(panel(element, 'c-cc-area-panel')).toBeNull();
         expect(blockCards(element).map(card => card.disabled)).toEqual([false, true, true]);
+        expect(sectionPanel().progress.stage).toBe('container');
 
         // Locked steps cannot be opened.
         blockCards(element)[1].click();
         await flush();
-        expect(panel(element, 'c-cc-section-panel')).not.toBeNull();
+        expect(sectionPanel()).not.toBeNull();
 
-        // Step 1: mark the outer element as the block container.
+        // Step 1: the parent container, then a row, which needs columns or the "row as column" flag.
         element.pickedElements = [nodeIn('#box')];
         await flush();
-        expect(panel(element, 'c-cc-section-panel').info.tag).toBe('div');
-        panel(element, 'c-cc-section-panel').dispatchEvent(new CustomEvent('apply', { detail: { marking: { role: 'section', level: 'container', binds: ['padding'], id: 'box' } } }));
+        mark({ role: 'section', level: 'container', id: 'box' });
         await flush();
         expect(lastChange(events).definition.sections.map(section => section.sectionId)).toEqual(['box']);
-        expect(blockCards(element).map(card => card.disabled)).toEqual([false, false, true]);
+        expect(sectionPanel().progress.stage).toBe('rows');
+        element.pickedElements = [nodeIn('#row')];
+        await flush();
+        mark({ role: 'section', level: 'row', id: 'row' });
+        await flush();
+        expect(sectionPanel().progress.stage).toBe('columns');
+        expect(blockCards(element).map(card => card.disabled)).toEqual([false, true, true]);
+        element.pickedElements = [nodeIn('#row')];
+        await flush();
+        sectionPanel().dispatchEvent(new CustomEvent('ascolumn', { detail: { value: true } }));
+        await flush();
+        expect(lastChange(events).definition.sections.find(section => section.sectionId === 'row').asColumn).toBe(true);
+        expect(lastChange(events).html).toContain('data-cc-as-column="true"');
+        expect(sectionPanel().progress.stage).toBe('done');
+        expect(blockCards(element).map(card => card.disabled)).toEqual([false, false, false]);
 
-        // Step 2: content may be marked, but not on a layout section.
+        // Step 2: bind padding on the container, place the placeholder over the existing declaration.
         blockCards(element)[1].click();
         await flush();
         await flush();
-        expect(events.filter(([name]) => name === 'stepchange').pop()[1]).toEqual({ step: 2, pickScope: 'any' });
+        expect(steps().pop()).toEqual({ step: 2, pickScope: 'inspect' });
+        // The row that was edited last stays selected; choose the container in the list.
+        expect(settings().section.sectionId).toBe('row');
+        Array.from(element.shadowRoot.querySelectorAll('.cc-workspace__nav-item'))[0].click();
+        await flush();
+        expect(settings().section.sectionId).toBe('box');
+        expect(events.filter(([name]) => name === 'select').pop()[1]).toEqual({ key: 'section:box' });
+        expect(settings().info.styleInfo.padding).toBe('10px 20px');
+        settings().dispatchEvent(new CustomEvent('bindschange', { detail: { binds: ['padding'] } }));
+        await flush();
+        expect(settings().pendingCount).toBe(1);
+        expect(blockCards(element).map(card => card.disabled)).toEqual([false, false, true]);
+        settings().dispatchEvent(new CustomEvent('place', { detail: { target: 'padding', fallback: '' } }));
+        await flush();
+        const placed = lastChange(events);
+        expect(placed.html).toContain('padding: {{cc-padding}}');
+        const box = placed.definition.sections.find(section => section.sectionId === 'box');
+        expect(box.targets.padding).toEqual({ fallback: '10px 20px' });
+        expect(box.defaults.padding.desktop).toMatchObject({ top: 10, right: 20, bottom: 10, left: 20 });
+        expect(blockCards(element).map(card => card.disabled)).toEqual([false, false, false]);
+
+        settings().dispatchEvent(new CustomEvent('fallbackchange', { detail: { target: 'padding', fallback: '0px' } }));
+        await flush();
+        expect(lastChange(events).definition.sections.find(section => section.sectionId === 'box').targets.padding.fallback).toBe('0px');
+
+        // Step 3: content cannot be a container.
+        blockCards(element)[2].click();
+        await flush();
+        await flush();
+        expect(steps().pop()).toEqual({ step: 3, pickScope: 'any' });
         element.pickedElements = [nodeIn('#box')];
         await flush();
-        expect(panel(element, 'c-cc-element-marker').blockedReason).toContain('layout section');
+        expect(panel(element, 'c-cc-element-marker').blockedReason).toContain('container');
         element.pickedElements = [nodeIn('#txt')];
         await flush();
         expect(panel(element, 'c-cc-element-marker').blockedReason).toBe('');
         panel(element, 'c-cc-element-marker').dispatchEvent(new CustomEvent('apply', { detail: { marking: { role: 'content', contentType: 'richText', key: 'body' } } }));
         await flush();
         expect(lastChange(events).definition.contentSlots.map(slot => slot.bindingKey)).toEqual(['body']);
-        expect(blockCards(element).map(card => card.disabled)).toEqual([false, false, false]);
-
-        // The summary groups follow the steps.
-        const keys = Array.from(element.shadowRoot.querySelectorAll('.cc-workspace__nav-item')).map(item => item.dataset.key);
-        expect(keys).toEqual(['section:box', 'slot:body']);
-
-        // Step 3 lets the preview select marked items only (inspect mode) and edits their settings.
-        blockCards(element)[2].click();
-        await flush();
-        await flush();
-        expect(events.filter(([name]) => name === 'stepchange').pop()[1]).toEqual({ step: 3, pickScope: 'inspect' });
-        element.activeKey = 'section:box';
-        await flush();
-        expect(panel(element, 'c-cc-section-settings-editor').section.sectionId).toBe('box');
-        element.activeKey = 'slot:body';
-        await flush();
         expect(panel(element, 'c-cc-content-binding-editor').binding.bindingKey).toBe('body');
+
+        // The summary groups follow the steps; choosing a container from the content step opens its settings.
+        const keys = Array.from(element.shadowRoot.querySelectorAll('.cc-workspace__nav-item')).map(item => item.dataset.key);
+        expect(keys).toEqual(['section:box', 'section:row', 'slot:body']);
+        Array.from(element.shadowRoot.querySelectorAll('.cc-workspace__nav-item'))[0].click();
+        await flush();
+        await flush();
+        expect(steps().pop()).toEqual({ step: 2, pickScope: 'inspect' });
+        expect(settings().section.sectionId).toBe('box');
+
+        // Removing the placeholder puts the fallback back into the style.
+        settings().dispatchEvent(new CustomEvent('unplace', { detail: { target: 'padding' } }));
+        await flush();
+        expect(lastChange(events).html).toContain('padding: 0px');
+        expect(lastChange(events).html).not.toContain('{{cc-padding}}');
     });
 
-    it('opens the step a list item belongs to when an item is chosen in step 3 and then step 1', async () => {
+    it('goes to the content step when a content item is chosen', async () => {
         const element = createElement('c-cc-binding-workspace', { is: CcBindingWorkspace });
         element.kind = 'block';
-        element.source = { html: BLOCK_HTML, definition: null };
+        element.source = { html: '<table data-cc-section="container"><tr><td data-cc-section="column"><div data-cc-content="richText" data-cc-key="note">x</div></td></tr></table>', definition: null };
         document.body.appendChild(element);
         await flush();
         element.activeKey = 'slot:note';
         await flush();
         await flush();
-        expect(blockCards(element)[1].classList.contains('cc-steps__card_active')).toBe(true);
+        expect(blockCards(element)[2].classList.contains('cc-steps__card_active')).toBe(true);
     });
 
     it('uses the block steps for single-block shells and not the shell areas', async () => {

@@ -64,6 +64,25 @@ private class CcTemplateValidatorTest {
     }
 
     @IsTest
+    static void warnsOnlyForPresetsOfTheBoundBackgroundKinds() {
+        String block = '{"schemaVersion":"1.0","kind":"block","regions":[],'
+            + '"sections":[{"sectionId":"c","level":"container","binds":["background"],'
+            + '"targets":{"bgColor":{"fallback":"#ffffff"},"bgGradient":{"fallback":""},"bgImage":{"fallback":""}},"presets":{"colors":[],"gradients":[]}}],'
+            + '"contentSlots":[{"bindingKey":"t","type":"richText","sectionId":"c"}]}';
+        CcTemplateValidator.Result result = CcTemplateValidator.validateDefinition(block, 'block', 'single');
+        String warnings = String.join(result.warnings, ' ');
+        System.assert(warnings.contains('Background color is bound but no color presets'));
+        System.assert(warnings.contains('Background gradient is bound but no gradient presets'));
+        System.assert(!warnings.contains('Background is bound but no color or gradient presets'));
+
+        String imageOnly = '{"schemaVersion":"1.0","kind":"block","regions":[],'
+            + '"sections":[{"sectionId":"c","level":"container","binds":["background"],'
+            + '"targets":{"bgImage":{"fallback":""}},"presets":{}}],'
+            + '"contentSlots":[{"bindingKey":"t","type":"richText","sectionId":"c"}]}';
+        System.assertEquals(0, CcTemplateValidator.validateDefinition(imageOnly, 'block', 'single').warnings.size());
+    }
+
+    @IsTest
     static void validatesMessageBlockContent() {
         String definition = '{"schemaVersion":"1.0","kind":"block","regions":[],"sections":[],'
             + '"contentSlots":[{"bindingKey":"cta","type":"button"},{"bindingKey":"hero","type":"image"},{"bindingKey":"list","type":"bulletList"}]}';

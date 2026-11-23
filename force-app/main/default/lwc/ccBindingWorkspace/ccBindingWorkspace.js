@@ -16,9 +16,23 @@ import {
     zonePlacement,
     shellProgress,
     blockProgress,
-    listBindings
+    listBindings,
+    placeTarget,
+    removeTarget,
+    setSectionBinds,
+    setRowAsColumn,
+    pendingTargets
 } from 'c/ccElementMarking';
-import { validateDefinition, buildBlockConfig, CONTENT_TYPE_LABELS, clone } from 'c/ccTemplateSchema';
+import {
+    validateDefinition,
+    buildBlockConfig,
+    normalizeSpacing,
+    normalizeBackground,
+    defaultSpacing,
+    isHexColor,
+    CONTENT_TYPE_LABELS,
+    clone
+} from 'c/ccTemplateSchema';
 import { isolateNativeEvents } from 'c/ccEventGuard';
 
 const LEVEL_ICONS = { container: 'utility:layout', row: 'utility:rows', column: 'utility:column' };
@@ -39,7 +53,7 @@ const MAX_FILE_BYTES = 262144;
  * Both kinds of template are set up in three gated steps; the workspace announces the active step with
  * stepchange { step, pickScope } so the preview only offers what the step needs.
  *   multi-block shell:             fixed areas, dropzone, editable content
- *   content block / single-block:  layout sections, content, settings and presets
+ *   content block / single-block:  containers, settings (placeholders, defaults, presets), content
  */
 export default class CcBindingWorkspace extends LightningElement {
     connectedCallback() {
@@ -183,7 +197,7 @@ export default class CcBindingWorkspace extends LightningElement {
     get helpText() {
         return this.kind === 'shell'
             ? 'One HTML file with its CSS inlined in <style> tags. Mark sections with data-cc-section, regions with data-cc-region (fixed-read, fixed-edit, blocks) and content with data-cc-content.'
-            : 'One HTML file for this block. Mark container/row/column with data-cc-section and bind settings with data-cc-bind; mark content with data-cc-content and data-cc-key.';
+            : 'One HTML file for this block. The Master Template HTML shell must already contain the CSS this markup relies on (classes, media queries, resets); only the block markup is uploaded here.';
     }
 
     get hasErrors() {
@@ -378,10 +392,10 @@ export default class CcBindingWorkspace extends LightningElement {
         return this.progress.noFixedAreas;
     }
 
-    /** Step 3 of a block only selects what is already marked ('inspect'); the other steps pick elements. */
+    /** Step 2 of a block only selects what is already marked ('inspect'); the other steps pick elements. */
     get pickScope() {
         if (this.isMultiShell) return this.activeStep === 3 ? 'editable' : 'areas';
-        return this.isGuidedBlock && this.activeStep === 3 ? 'inspect' : 'any';
+        return this.isGuidedBlock && this.activeStep === 2 ? 'inspect' : 'any';
     }
 
     stepUnlocked(step) {
@@ -404,6 +418,7 @@ export default class CcBindingWorkspace extends LightningElement {
         this.activeStep = step;
         this.markerErrors = [];
         if (this.pickedNodes.length) this.setPicked([]);
+        if (step === 2 && this.isGuidedBlock) this.selectDefaultSection();
         const detail = { step, pickScope: this.pickScope };
         Promise.resolve().then(() => this.dispatchEvent(new CustomEvent('stepchange', { detail })));
         return true;
@@ -433,20 +448,39 @@ export default class CcBindingWorkspace extends LightningElement {
         return false;
     }
 
+    /** Step 2 works on a selected section; open it on the first one that still needs a placeholder. */
+    selectDefaultSection() {
+        if (this.selectedSection || !this.definition) return;
+        const pending = pendingTargets(this.definition)[0];
+        const target = pending
+            ? this.definition.sections.find(item => item.sectionId === pending.sectionId)
+            : this.definition.sections[0];
+        if (!target) return;
+        const key = `section:${target.sectionId}`;
+        this.selectedKey = key;
+        Promise.resolve().then(() => this.dispatchEvent(new CustomEvent('select', { detail: { key } })));
+    }
+
     routeBlockKey(key, announce) {
         const isSection = key.startsWith('section:');
         const isSlot = key.startsWith('slot:');
         if (!isSection && !isSlot) return false;
-        // Step 3 edits defaults and presets of the selected item; the other steps edit the marking of its element.
-        if (this.activeStep === 3) {
-            if (announce) this.dispatchEvent(new CustomEvent('select', { detail: { key } }));
-            return true;
-        }
         const id = key.slice(isSection ? 8 : 5);
         const target = isSection
             ? this.bindings.sections.find(item => item.sectionId === id)
             : this.bindings.content.find(item => item.key === id);
-        if (!target || !this.setStep(isSection ? 1 : 2)) return false;
+        if (!target) return false;
+        if (isSection) {
+            // Containers are identified in step 1 and configured in step 2; from the content step go to settings.
+            if (this.activeStep === 3 && !this.setStep(2)) return false;
+            if (this.activeStep === 2) {
+                if (announce) this.dispatchEvent(new CustomEvent('select', { detail: { key } }));
+                return true;
+            }
+            if (announce) this.setPicked([target.node]);
+            return true;
+        }
+        if (!this.setStep(3)) return false;
         if (announce) this.setPicked([target.node]);
         return true;
     }
@@ -462,30 +496,40 @@ export default class CcBindingWorkspace extends LightningElement {
         });
         const state = step => this.progress.steps.find(entry => entry.step === step);
         const title = (step, text) => `${step} · ${text}${state(step).unlocked ? '' : ' (locked)'}`;
+        const pending = new Set(pendingTargets(this.definition).map(entry => entry.sectionId));
+        const definitionOf = id => (this.definition?.sections || []).find(section => section.sectionId === id) || {};
+        const sectionMeta = section => {
+            const binds = definitionOf(section.sectionId).binds || section.binds;
+            const parts = [section.asColumn ? `${section.level} · as column` : section.level];
+            if (this.activeStep >= 2 && binds.length) parts.push(binds.join(', '));
+            if (pending.has(section.sectionId)) parts.push('placeholder missing');
+            return parts.join(' · ');
+        };
+        const pendingCount = this.progress.pendingCount || 0;
         return [
             {
                 key: 'g-sections',
-                title: title(1, 'Layout sections'),
+                title: title(1, 'Containers'),
                 items: sections.map(section => item(
                     `section:${section.sectionId}`,
                     section.label || section.sectionId,
-                    `${section.level}${section.binds.length ? ` · ${section.binds.join(', ')}` : ''}`,
+                    sectionMeta(section),
                     LEVEL_ICONS[section.level],
                     Math.min(section.depth, 2)
                 )),
-                empty: this.progress.noSections ? 'This block needs no layout settings.' : 'No sections yet.'
-            },
-            {
-                key: 'g-content',
-                title: title(2, 'Content'),
-                items: content.map(entry => item(`slot:${entry.key}`, entry.label || entry.key, `${CONTENT_TYPE_LABELS[entry.type] || entry.type} · ${entry.key}`, TYPE_ICONS[entry.type], 0)),
-                empty: 'No content marked yet.'
+                empty: this.progress.noSections ? 'This block needs no layout settings.' : 'No containers yet.'
             },
             {
                 key: 'g-settings',
-                title: title(3, 'Settings and presets'),
+                title: title(2, 'Settings'),
                 items: [],
-                empty: 'Select a section or content item above to set its defaults.'
+                empty: !sections.length ? 'Identify the containers first.' : pendingCount ? `${pendingCount} placeholder${pendingCount === 1 ? '' : 's'} to place.` : 'All placeholders are placed.'
+            },
+            {
+                key: 'g-content',
+                title: title(3, 'Content'),
+                items: content.map(entry => item(`slot:${entry.key}`, entry.label || entry.key, `${CONTENT_TYPE_LABELS[entry.type] || entry.type} · ${entry.key}`, TYPE_ICONS[entry.type], 0)),
+                empty: 'No content marked yet.'
             }
         ].map(group => ({ ...group, isEmpty: group.items.length === 0 }));
     }
@@ -563,6 +607,105 @@ export default class CcBindingWorkspace extends LightningElement {
         this.updateDefinition(definition);
     }
 
+    handleAsColumn(event) {
+        const node = this.primaryNode;
+        if (node === null) return;
+        const result = setRowAsColumn(this.html, node, !!event.detail.value);
+        this.finishStructureChange({ ...result, markedNode: node });
+    }
+
+    // Step 2 of a block (settings and placeholders)
+
+    get settingsSection() {
+        return this.isGuidedBlock && this.activeStep === 2 ? this.selectedSection : null;
+    }
+
+    get settingsNode() {
+        const section = this.settingsSection;
+        const entry = section ? this.bindings.sections.find(item => item.sectionId === section.sectionId) : null;
+        return entry ? entry.node : null;
+    }
+
+    get settingsInfo() {
+        const node = this.settingsNode;
+        if (!this.html || node === null) return null;
+        const cache = this._settingsCache || {};
+        if (cache.html !== this.html || cache.node !== node) {
+            this._settingsCache = { html: this.html, node, info: inspectNode(this.html, node, { kind: this.kind, templateMode: this._templateMode }) };
+        }
+        return this._settingsCache.info;
+    }
+
+    get pendingCount() {
+        return this.progress.pendingCount || 0;
+    }
+
+    patchSection(sectionId, mutator) {
+        const definition = clone(this.definition);
+        const section = definition.sections.find(item => item.sectionId === sectionId);
+        if (!section) return;
+        mutator(section);
+        this.updateDefinition(definition);
+    }
+
+    applyHtmlChange(result) {
+        if (result.errors.length) {
+            this.markerErrors = result.errors;
+            return false;
+        }
+        this.markerErrors = [];
+        this.html = result.html;
+        this.reparse();
+        return true;
+    }
+
+    handleBindsChange(event) {
+        const section = this.settingsSection;
+        const node = this.settingsNode;
+        if (!section || node === null) return;
+        const fallbacks = {};
+        Object.keys(section.targets || {}).forEach(key => {
+            fallbacks[key] = section.targets[key].fallback || '';
+        });
+        this.applyHtmlChange(setSectionBinds(this.html, node, event.detail.binds || [], fallbacks));
+    }
+
+    handlePlace(event) {
+        const section = this.settingsSection;
+        const node = this.settingsNode;
+        const { target, fallback } = event.detail || {};
+        if (!section || node === null || !target) return;
+        const result = placeTarget(this.html, node, target, { fallback });
+        if (!this.applyHtmlChange(result)) return;
+        this.patchSection(section.sectionId, item => {
+            item.targets = { ...(item.targets || {}), [target]: { fallback: result.fallback } };
+            item.defaults = { ...(item.defaults || {}) };
+            if (result.sides && (target === 'padding' || target === 'margin')) {
+                item.defaults[target] = normalizeSpacing({ desktop: result.sides, mobile: { inheritFromDesktop: true } }, defaultSpacing(0));
+            }
+            if (target === 'bgColor' && isHexColor(result.fallback) && (!item.defaults.background || item.defaults.background.mode === 'none')) {
+                item.defaults.background = normalizeBackground({ ...(item.defaults.background || {}), mode: 'color', color: result.fallback });
+            }
+        });
+    }
+
+    handleUnplace(event) {
+        const section = this.settingsSection;
+        const node = this.settingsNode;
+        const target = event.detail?.target;
+        if (!section || node === null || !target) return;
+        this.applyHtmlChange(removeTarget(this.html, node, target, section.targets?.[target]?.fallback || ''));
+    }
+
+    handleFallbackChange(event) {
+        const section = this.settingsSection;
+        const { target, fallback } = event.detail || {};
+        if (!section || !target) return;
+        this.patchSection(section.sectionId, item => {
+            item.targets = { ...(item.targets || {}), [target]: { fallback: fallback || '' } };
+        });
+    }
+
     handleNextStep() {
         this.setStep(this.activeStep + 1);
     }
@@ -588,7 +731,7 @@ export default class CcBindingWorkspace extends LightningElement {
         if (!info) return '';
         if (this.isGuidedBlock) {
             return info.marks.role === 'section'
-                ? 'This element is a layout section. Pick an element inside it for the content, or remove the section marking in step 1.'
+                ? 'This element is a container. Pick an element inside it for the content, or remove the container marking in step 1.'
                 : '';
         }
         if (info.inEditableRegion) return '';
