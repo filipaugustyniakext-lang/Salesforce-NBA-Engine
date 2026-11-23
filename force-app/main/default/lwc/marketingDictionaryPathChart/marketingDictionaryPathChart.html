@@ -1,0 +1,68 @@
+<template>
+    <div class="path-chart">
+        <div class="path-chart__head">
+            <span class="slds-text-title_bold">Allocation by audience type</span>
+            <ul class="path-chart__legend">
+                <template for:each={legend} for:item="item">
+                    <li key={item.key}>
+                        <span class="path-chart__dot" style={item.style}></span>
+                        <span class="slds-text-body_small">{item.name}</span>
+                    </li>
+                </template>
+            </ul>
+        </div>
+
+        <template lwc:if={hasRows}>
+            <template for:each={rows} for:item="row">
+                <div key={row.key} class="path-chart__row" data-role="chart-row">
+                    <div class="path-chart__label">
+                        <span class="slds-text-body_regular">{row.name}</span>
+                        <template lwc:if={row.populationText}>
+                            <span class="path-chart__population">{row.populationText}</span>
+                        </template>
+                    </div>
+                    <div class="path-chart__track">
+                        <template lwc:if={row.hasSegments}>
+                            <template for:each={row.segments} for:item="segment">
+                                <div key={segment.key} class="path-chart__segment" style={segment.style} tabindex="0" role="img"
+                                    aria-label={segment.aria} data-audience={segment.audienceId} data-path={segment.pathId}
+                                    onmouseenter={showTip} onmouseleave={hideTip} onfocus={showTip} onblur={hideTip}>
+                                    {segment.label}
+                                </div>
+                            </template>
+                            <template lwc:if={row.hasUnallocated}>
+                                <div class="path-chart__segment path-chart__segment_gap" style={row.unallocatedStyle}
+                                    title={row.unallocatedLabel}></div>
+                            </template>
+                        </template>
+                        <template lwc:else>
+                            <div class="path-chart__empty slds-text-body_small slds-text-color_weak">No active path</div>
+                        </template>
+                    </div>
+                </div>
+            </template>
+            <div class="path-chart__axis" aria-hidden="true">
+                <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>
+            </div>
+        </template>
+        <template lwc:else>
+            <p class="slds-text-body_small slds-text-color_weak">Add audience types in the Person section to see the allocation.</p>
+        </template>
+
+        <template lwc:if={tip}>
+            <div class="slds-popover slds-popover_tooltip path-chart__tip" role="tooltip" style={tipStyle}>
+                <div class="slds-popover__body">
+                    <p class="slds-text-title_bold">{tip.title}</p>
+                    <template lwc:if={tip.description}>
+                        <p class="slds-text-body_small">{tip.description}</p>
+                    </template>
+                    <p>{tip.allocation}</p>
+                    <p>{tip.population}</p>
+                    <template lwc:if={tip.audiencePopulation}>
+                        <p class="slds-text-body_small">{tip.audiencePopulation}</p>
+                    </template>
+                </div>
+            </div>
+        </template>
+    </div>
+</template>

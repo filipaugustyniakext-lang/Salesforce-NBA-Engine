@@ -279,25 +279,10 @@ thead th {
 .tier-excl-item { padding: 0.15rem 0; border-bottom: 1px solid var(--md-color-neutral-bg, var(--slds-g-color-neutral-base-95, #f3f3f3)); }
 .tier-select-all { font-weight: 600; }
 
-/* Path cards */
-.path-list { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.25rem; }
-.path-card {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border: 1px solid var(--md-color-border, var(--slds-g-color-border-base-1, #e0e5ee));
-    border-radius: 0.5rem;
-    padding: 0.625rem 0.75rem;
-    background: transparent;
-    gap: 0.75rem;
-}
-.path-card_inactive {
-    background: #f9f9f9;
-    border-color: #ddd;
-    opacity: 0.75;
-}
-.path-card__left  { display: flex; align-items: center; flex: 1; }
-.path-card__center { display: flex; align-items: center; min-width: 120px; }
-.path-card__right { display: flex; align-items: center; gap: 0.25rem; }
-.path-pct-input { max-width: 80px; }
-.path-toggle { white-space: nowrap; }
+/* Activation paths table */
+.path-row_inactive { background: #f9f9f9; color: var(--md-color-text-muted, var(--slds-g-color-on-surface-2, #706e6b)); }
+.path-actions-col { width: 3rem; }
+.path-sums { display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; margin: 0.25rem 0 0; padding: 0; list-style: none; }
+.path-sums__item { display: inline-flex; align-items: center; gap: 0.25rem; }
+
+.path-description-cell { white-space: normal; max-width: 28rem; }

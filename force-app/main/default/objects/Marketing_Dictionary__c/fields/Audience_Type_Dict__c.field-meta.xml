@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Audience_Type_Dict__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description>For Activation Path records: the Audience Type (Person section of the Marketing Dictionary, for example Customer or Prospect) this path definition applies to. Id-based, so renaming the audience type keeps the link. The active paths of one audience type share 100% of its baseline distribution.</description>
+    <inlineHelpText>The audience type this activation path applies to (a Marketing Dictionary Audience Type entry).</inlineHelpText>
+    <label>Audience Type (Activation Path)</label>
+    <lookupFilter>
+        <active>true</active>
+        <errorMessage>Only Audience Type dictionary entries are allowed.</errorMessage>
+        <filterItems>
+            <field>Marketing_Dictionary__c.Dictionary_Sub_Type__c</field>
+            <operation>equals</operation>
+            <value>Audience Type</value>
+        </filterItems>
+        <isOptional>false</isOptional>
+    </lookupFilter>
+    <referenceTo>Marketing_Dictionary__c</referenceTo>
+    <relationshipLabel>Activation Paths</relationshipLabel>
+    <relationshipName>Activation_Paths</relationshipName>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

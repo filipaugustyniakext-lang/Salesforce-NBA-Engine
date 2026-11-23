@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Path_Description__c</fullName>
+    <description>For Activation Path records: what this path does and when it applies (free text shown next to the path in Marketing Dictionary > Campaigns > Activation Paths).</description>
+    <inlineHelpText>Explain what this activation path does and who it is meant for.</inlineHelpText>
+    <label>Path Description</label>
+    <length>255</length>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

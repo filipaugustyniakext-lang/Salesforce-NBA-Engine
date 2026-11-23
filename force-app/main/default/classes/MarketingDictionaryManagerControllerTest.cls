@@ -360,4 +360,261 @@ private class MarketingDictionaryManagerControllerTest {
         MarketingDictionaryManagerController.saveProductRecord(record);
         System.assertEquals(null, [SELECT Data360_Filter_JSON__c FROM Marketing_Dictionary__c WHERE Name = 'Prospect'].Data360_Filter_JSON__c);
     }
+
+    // ─── Activation paths ────────────────────────────────────────────────────
+
+    private static Id campaignRt() {
+        return Schema.SObjectType.Marketing_Dictionary__c.getRecordTypeInfosByDeveloperName().get('Campaign').getRecordTypeId();
+    }
+
+    private static Marketing_Dictionary__c audience(String name) {
+        Marketing_Dictionary__c record = personValue(name, 'Audience Type');
+        insert record;
+        return record;
+    }
+
+    private static Marketing_Dictionary__c activationPath(String name, Id audienceId, Boolean active, Decimal percent) {
+        return new Marketing_Dictionary__c(
+            Name = name,
+            RecordTypeId = campaignRt(),
+            Dictionary_Sub_Type__c = 'Activation Path',
+            Audience_Type_Dict__c = audienceId,
+            Is_Active__c = active,
+            Distribution_Percent__c = percent
+        );
+    }
+
+    private static Map<String, Marketing_Dictionary__c> pathsByName() {
+        Map<String, Marketing_Dictionary__c> result = new Map<String, Marketing_Dictionary__c>();
+        for (Marketing_Dictionary__c path : [
+            SELECT Id, Name, Is_Active__c, Distribution_Percent__c, Audience_Type_Dict__c
+            FROM Marketing_Dictionary__c
+            WHERE Dictionary_Sub_Type__c = 'Activation Path'
+        ]) {
+            result.put(path.Name, path);
+        }
+        return result;
+    }
+
+    private static String pathSaveError(List<Marketing_Dictionary__c> changes) {
+        try {
+            MarketingDictionaryManagerController.saveActivationPaths(changes);
+        } catch (AuraHandledException e) {
+            return e.getMessage();
+        }
+        return null;
+    }
+
+    @IsTest
+    static void activationPathsAreRenamedAndReallocatedTogether() {
+        Marketing_Dictionary__c customer = audience('Customer');
+        insert new List<Marketing_Dictionary__c>{
+            activationPath('ML', customer.Id, true, 65), activationPath('Random', customer.Id, true, 35),
+            activationPath('Legacy', customer.Id, false, 0)
+        };
+        Map<String, Marketing_Dictionary__c> before = pathsByName();
+        MarketingDictionaryManagerController.saveActivationPaths(new List<Marketing_Dictionary__c>{
+            new Marketing_Dictionary__c(Id = before.get('ML').Id, Name = ' ML v2 ', Distribution_Percent__c = 50),
+            new Marketing_Dictionary__c(Id = before.get('Random').Id, Distribution_Percent__c = 25),
+            new Marketing_Dictionary__c(Id = before.get('Legacy').Id, Is_Active__c = true, Distribution_Percent__c = 25)
+        });
+        Map<String, Marketing_Dictionary__c> after = pathsByName();
+        System.assertEquals(true, after.containsKey('ML v2'));
+        System.assertEquals(50, after.get('ML v2').Distribution_Percent__c);
+        System.assertEquals(25, after.get('Random').Distribution_Percent__c);
+        System.assertEquals(true, after.get('Legacy').Is_Active__c);
+        System.assertEquals(customer.Id, after.get('Legacy').Audience_Type_Dict__c, 'The audience link is kept by Id.');
+    }
+
+    @IsTest
+    static void eachAudienceTypeSharesItsOwn100Percent() {
+        Marketing_Dictionary__c customer = audience('Customer');
+        Marketing_Dictionary__c prospect = audience('Prospect');
+        insert new List<Marketing_Dictionary__c>{
+            activationPath('ML', customer.Id, true, 60), activationPath('Random', customer.Id, true, 40),
+            activationPath('Prospect ML', prospect.Id, true, 100)
+        };
+        Map<String, Marketing_Dictionary__c> before = pathsByName();
+        // Customer paths change, the prospect path keeps its own 100%.
+        MarketingDictionaryManagerController.saveActivationPaths(new List<Marketing_Dictionary__c>{
+            new Marketing_Dictionary__c(Id = before.get('ML').Id, Distribution_Percent__c = 30),
+            new Marketing_Dictionary__c(Id = before.get('Random').Id, Distribution_Percent__c = 70)
+        });
+        System.assertEquals(30, pathsByName().get('ML').Distribution_Percent__c);
+        System.assertEquals(100, pathsByName().get('Prospect ML').Distribution_Percent__c);
+
+        String message = pathSaveError(new List<Marketing_Dictionary__c>{
+            new Marketing_Dictionary__c(Id = before.get('Prospect ML').Id, Distribution_Percent__c = 80)
+        });
+        System.assert(message != null && message.contains('"Prospect"') && message.contains('exactly 100%'), message);
+    }
+
+    @IsTest
+    static void movingAPathToAnotherAudienceRechecksBothAudiences() {
+        Marketing_Dictionary__c customer = audience('Customer');
+        Marketing_Dictionary__c prospect = audience('Prospect');
+        insert new List<Marketing_Dictionary__c>{
+            activationPath('ML', customer.Id, true, 60), activationPath('Random', customer.Id, true, 40),
+            activationPath('Other', prospect.Id, true, 100)
+        };
+        Map<String, Marketing_Dictionary__c> before = pathsByName();
+        String message = pathSaveError(new List<Marketing_Dictionary__c>{
+            new Marketing_Dictionary__c(Id = before.get('Random').Id, Audience_Type_Dict__c = prospect.Id)
+        });
+        System.assert(message != null && message.contains('exactly 100%'), message);
+
+        MarketingDictionaryManagerController.saveActivationPaths(new List<Marketing_Dictionary__c>{
+            new Marketing_Dictionary__c(Id = before.get('Random').Id, Audience_Type_Dict__c = prospect.Id, Distribution_Percent__c = 50),
+            new Marketing_Dictionary__c(Id = before.get('Other').Id, Distribution_Percent__c = 50),
+            new Marketing_Dictionary__c(Id = before.get('ML').Id, Distribution_Percent__c = 100)
+        });
+        System.assertEquals(prospect.Id, pathsByName().get('Random').Audience_Type_Dict__c);
+    }
+
+    @IsTest
+    static void everyPathNeedsAnExistingAudienceType() {
+        Marketing_Dictionary__c customer = audience('Customer');
+        Marketing_Dictionary__c notAnAudience = personValue('Retail', 'Customer Type');
+        insert notAnAudience;
+        insert new List<Marketing_Dictionary__c>{ activationPath('ML', customer.Id, true, 100), activationPath('Old', null, false, 0) };
+        Map<String, Marketing_Dictionary__c> before = pathsByName();
+
+        String message = pathSaveError(new List<Marketing_Dictionary__c>{
+            new Marketing_Dictionary__c(Id = before.get('ML').Id, Distribution_Percent__c = 100)
+        });
+        System.assert(message != null && message.contains('Select an audience type'), message);
+
+        message = pathSaveError(new List<Marketing_Dictionary__c>{
+            new Marketing_Dictionary__c(Id = before.get('Old').Id, Audience_Type_Dict__c = notAnAudience.Id)
+        });
+        System.assert(message != null && message.contains('does not exist'), message);
+
+        MarketingDictionaryManagerController.saveActivationPaths(new List<Marketing_Dictionary__c>{
+            new Marketing_Dictionary__c(Id = before.get('Old').Id, Audience_Type_Dict__c = customer.Id)
+        });
+        System.assertEquals(customer.Id, pathsByName().get('Old').Audience_Type_Dict__c);
+
+        message = pathSaveError(new List<Marketing_Dictionary__c>{
+            new Marketing_Dictionary__c(Id = before.get('Old').Id, Audience_Type_Dict__c = null)
+        });
+        System.assert(message != null && message.contains('Select an audience type'), message);
+    }
+
+    @IsTest
+    static void deactivatingAPathZeroesItsAllocation() {
+        Marketing_Dictionary__c customer = audience('Customer');
+        insert new List<Marketing_Dictionary__c>{ activationPath('ML', customer.Id, true, 65), activationPath('Random', customer.Id, true, 35) };
+        Map<String, Marketing_Dictionary__c> before = pathsByName();
+        MarketingDictionaryManagerController.saveActivationPaths(new List<Marketing_Dictionary__c>{
+            new Marketing_Dictionary__c(Id = before.get('ML').Id, Is_Active__c = false, Distribution_Percent__c = 65),
+            new Marketing_Dictionary__c(Id = before.get('Random').Id, Distribution_Percent__c = 100)
+        });
+        Map<String, Marketing_Dictionary__c> after = pathsByName();
+        System.assertEquals(false, after.get('ML').Is_Active__c);
+        System.assertEquals(0, after.get('ML').Distribution_Percent__c);
+        System.assertEquals(100, after.get('Random').Distribution_Percent__c);
+    }
+
+    @IsTest
+    static void activationPathAllocationsMustAddUpTo100() {
+        Marketing_Dictionary__c customer = audience('Customer');
+        insert new List<Marketing_Dictionary__c>{ activationPath('ML', customer.Id, true, 65), activationPath('Random', customer.Id, true, 35) };
+        Map<String, Marketing_Dictionary__c> before = pathsByName();
+        String message = pathSaveError(new List<Marketing_Dictionary__c>{
+            new Marketing_Dictionary__c(Id = before.get('ML').Id, Distribution_Percent__c = 70)
+        });
+        System.assert(message != null && message.contains('exactly 100%'), message);
+        message = pathSaveError(new List<Marketing_Dictionary__c>{
+            new Marketing_Dictionary__c(Id = before.get('ML').Id, Is_Active__c = false)
+        });
+        System.assert(message != null && message.contains('exactly 100%'), message);
+        System.assertEquals(65, pathsByName().get('ML').Distribution_Percent__c, 'Nothing is saved when validation fails.');
+
+        message = pathSaveError(new List<Marketing_Dictionary__c>{
+            new Marketing_Dictionary__c(Id = before.get('ML').Id, Is_Active__c = false, Distribution_Percent__c = 0),
+            new Marketing_Dictionary__c(Id = before.get('Random').Id, Is_Active__c = false, Distribution_Percent__c = 0)
+        });
+        System.assert(message != null && message.contains('at least one active path'), message);
+        message = pathSaveError(new List<Marketing_Dictionary__c>{
+            new Marketing_Dictionary__c(Id = before.get('ML').Id, Distribution_Percent__c = 130),
+            new Marketing_Dictionary__c(Id = before.get('Random').Id, Distribution_Percent__c = -30)
+        });
+        System.assert(message != null && message.contains('between 0 and 100'), message);
+    }
+
+    @IsTest
+    static void activationPathNamesMustBeFilledInAndUnique() {
+        Marketing_Dictionary__c customer = audience('Customer');
+        insert new List<Marketing_Dictionary__c>{ activationPath('ML', customer.Id, true, 65), activationPath('Random', customer.Id, true, 35) };
+        Map<String, Marketing_Dictionary__c> before = pathsByName();
+        String message = pathSaveError(new List<Marketing_Dictionary__c>{
+            new Marketing_Dictionary__c(Id = before.get('ML').Id, Name = ' random ')
+        });
+        System.assert(message != null && message.contains('must be unique'), message);
+        message = pathSaveError(new List<Marketing_Dictionary__c>{
+            new Marketing_Dictionary__c(Id = before.get('ML').Id, Name = '   ')
+        });
+        System.assert(message != null && message.contains('needs a name'), message);
+        message = pathSaveError(new List<Marketing_Dictionary__c>{ new Marketing_Dictionary__c(Name = 'New') });
+        System.assert(message != null && message.contains('Only existing'), message);
+        System.assertEquals(null, pathSaveError(null));
+        System.assertEquals(null, pathSaveError(new List<Marketing_Dictionary__c>()));
+    }
+
+    @IsTest
+    static void renamingAPathIgnoresAnOlderUnbalancedDistribution() {
+        insert new List<Marketing_Dictionary__c>{ activationPath('ML', null, true, 10), activationPath('Random', null, true, 20) };
+        Map<String, Marketing_Dictionary__c> before = pathsByName();
+        MarketingDictionaryManagerController.saveActivationPaths(new List<Marketing_Dictionary__c>{
+            new Marketing_Dictionary__c(Id = before.get('ML').Id, Name = 'ML renamed')
+        });
+        Map<String, Marketing_Dictionary__c> after = pathsByName();
+        System.assertEquals(10, after.get('ML renamed').Distribution_Percent__c);
+        System.assertEquals(20, after.get('Random').Distribution_Percent__c);
+    }
+
+    @IsTest
+    static void aNewActivationPathMustNameItsAudienceType() {
+        Marketing_Dictionary__c customer = audience('Customer');
+        String message;
+        try {
+            MarketingDictionaryManagerController.saveCampaignRecord(activationPath('New', null, false, 0));
+        } catch (AuraHandledException e) {
+            message = e.getMessage();
+        }
+        System.assert(message != null && message.contains('audience type'), message);
+        Id saved = MarketingDictionaryManagerController.saveCampaignRecord(activationPath('New', customer.Id, false, 0));
+        System.assertEquals(customer.Id, [SELECT Audience_Type_Dict__c FROM Marketing_Dictionary__c WHERE Id = :saved].Audience_Type_Dict__c);
+    }
+
+    @IsTest
+    static void anAudienceTypeUsedByAnActivationPathCannotBeDeleted() {
+        Marketing_Dictionary__c customer = audience('Customer');
+        insert activationPath('ML', customer.Id, true, 100);
+        MarketingDictionaryDeleteGuard.DependencyReport report = MarketingDictionaryDeleteGuard.getDictionaryDeleteDependencies(customer.Id);
+        System.assertEquals(true, MarketingDictionaryDeleteGuard.collectBlockingDependencies(customer).size() > 0);
+        System.assertNotEquals(null, report);
+    }
+
+    @IsTest
+    static void activationPathDescriptionsAreTrimmedClearedAndLimited() {
+        Marketing_Dictionary__c customer = audience('Customer');
+        insert new List<Marketing_Dictionary__c>{ activationPath('ML', customer.Id, true, 65), activationPath('Random', customer.Id, true, 35) };
+        Map<String, Marketing_Dictionary__c> before = pathsByName();
+        MarketingDictionaryManagerController.saveActivationPaths(new List<Marketing_Dictionary__c>{
+            new Marketing_Dictionary__c(Id = before.get('ML').Id, Path_Description__c = '  Scores customers with the ML model  ')
+        });
+        System.assertEquals('Scores customers with the ML model', [SELECT Path_Description__c FROM Marketing_Dictionary__c WHERE Id = :before.get('ML').Id].Path_Description__c);
+        System.assertEquals(65, pathsByName().get('ML').Distribution_Percent__c, 'A description change leaves the allocation alone.');
+
+        MarketingDictionaryManagerController.saveActivationPaths(new List<Marketing_Dictionary__c>{
+            new Marketing_Dictionary__c(Id = before.get('ML').Id, Path_Description__c = '   ')
+        });
+        System.assertEquals(null, [SELECT Path_Description__c FROM Marketing_Dictionary__c WHERE Id = :before.get('ML').Id].Path_Description__c);
+
+        String message = pathSaveError(new List<Marketing_Dictionary__c>{
+            new Marketing_Dictionary__c(Id = before.get('ML').Id, Path_Description__c = 'x'.repeat(256))
+        });
+        System.assert(message != null && message.contains('at most 255'), message);
+    }
 }

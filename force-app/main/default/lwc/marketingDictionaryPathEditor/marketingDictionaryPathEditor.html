@@ -1,0 +1,139 @@
+<template>
+    <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="path-editor-title"
+        class="slds-modal slds-fade-in-open slds-modal_large">
+        <div class="slds-modal__container">
+            <div class="slds-modal__header">
+                <h2 id="path-editor-title" class="slds-modal__title">Edit Activation Paths</h2>
+                <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse"
+                    onclick={handleClose} title="Close">
+                    <lightning-icon icon-name="utility:close" size="small" alternative-text="Close"></lightning-icon>
+                </button>
+            </div>
+            <div class="slds-modal__content slds-p-around_medium">
+                <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
+                    Each path applies to one audience type. The active paths of an audience type share 100% of its baseline distribution.
+                    Rename a path, describe it, change its audience type, switch it on or off, or change its allocation.
+                    An active path left at 0% behaves like an inactive one.
+                </p>
+
+                <template lwc:if={hasRenames}>
+                    <div class="slds-notify slds-notify_alert slds-alert_warning path-editor__alert" role="status">
+                        <lightning-icon icon-name="utility:warning" size="x-small" class="slds-m-right_x-small"
+                            alternative-text="Warning"></lightning-icon>
+                        <div class="slds-text-align_left">
+                            <p>{renameWarning}</p>
+                            <ul class="slds-list_dotted">
+                                <template for:each={renamedList} for:item="item">
+                                    <li key={item.key}>{item.text}</li>
+                                </template>
+                            </ul>
+                        </div>
+                    </div>
+                </template>
+
+                <template lwc:if={hasServerError}>
+                    <div class="slds-notify slds-notify_alert slds-alert_error path-editor__alert" role="alert">
+                        <span>{errorMessage}</span>
+                    </div>
+                </template>
+
+                <table class="slds-table slds-table_bordered slds-table_cell-buffer">
+                    <thead>
+                        <tr class="slds-line-height_reset">
+                            <th scope="col">Status</th>
+                            <th scope="col">Path name</th>
+                            <th scope="col">Audience type <abbr class="slds-required" title="required">*</abbr></th>
+                            <th scope="col">Active</th>
+                            <th scope="col" class="slds-text-align_right">Allocation (%)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template for:each={viewRows} for:item="row">
+                            <tr key={row.key} class={row.rowClass}>
+                                <td><span class={row.statusClass}>{row.statusLabel}</span></td>
+                                <td>
+                                    <lightning-input label="Path name" variant="label-hidden" value={row.name}
+                                        data-id={row.id} data-role="name" onchange={handleName} oncommit={handleNameCommit}>
+                                    </lightning-input>
+                                    <template lwc:if={row.nameError}>
+                                        <p class="slds-text-color_error slds-text-body_small">{row.nameError}</p>
+                                    </template>
+                                    <lightning-input label="Description" variant="label-hidden" value={row.description}
+                                        placeholder="Description (optional)" maxlength="255" class="path-editor__description"
+                                        data-id={row.id} data-role="description" onchange={handleDescription}>
+                                    </lightning-input>
+                                </td>
+                                <td>
+                                    <lightning-radio-group label="Audience type" variant="label-hidden" type="radio"
+                                        name={row.radioName} options={audienceOptions} value={row.audienceId}
+                                        required data-id={row.id} data-role="audience" onchange={handleAudience}>
+                                    </lightning-radio-group>
+                                    <template lwc:if={row.audienceMissing}>
+                                        <p class="slds-text-color_error slds-text-body_small">Select an audience type.</p>
+                                    </template>
+                                </td>
+                                <td>
+                                    <lightning-input type="toggle" label="Active" variant="label-hidden" checked={row.active}
+                                        data-id={row.id} data-role="active" onchange={handleActive}
+                                        message-toggle-active="Active" message-toggle-inactive="Inactive">
+                                    </lightning-input>
+                                </td>
+                                <td class="slds-text-align_right">
+                                    <div class="path-editor__percent">
+                                        <lightning-input type="number" label="Allocation" variant="label-hidden"
+                                            min="0" max="100" step="0.01" value={row.percentValue}
+                                            disabled={row.percentDisabled} data-id={row.id} data-role="percent"
+                                            onchange={handlePercent}>
+                                        </lightning-input>
+                                    </div>
+                                    <template lwc:if={row.zeroWarning}>
+                                        <p class="slds-text-color_weak slds-text-body_small">0% works like inactive</p>
+                                    </template>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                    <tfoot>
+                        <template for:each={groups} for:item="group">
+                            <tr key={group.key} data-role="group-total">
+                                <td colspan="4">
+                                    <strong>Total of active paths: {group.name}</strong>
+                                    <span class="slds-text-body_small slds-m-left_small">{group.balanceText}</span>
+                                </td>
+                                <td class="slds-text-align_right">
+                                    <span class={group.totalClass}>{group.totalText}</span>
+                                    <lightning-button label="Equal split" variant="base" class="slds-m-left_small"
+                                        data-audience={group.audienceId} disabled={group.equalDisabled}
+                                        onclick={handleGroupEqually}></lightning-button>
+                                </td>
+                            </tr>
+                        </template>
+                    </tfoot>
+                </table>
+
+                <template lwc:if={hasNoAudienceTypes}>
+                    <p class="slds-m-top_small slds-text-body_small slds-text-color_error">
+                        No audience types exist yet. Add them in Marketing Dictionary > Person > Audience Types.
+                    </p>
+                </template>
+                <template lwc:if={hasValidationMessages}>
+                    <ul class="slds-list_dotted slds-text-color_error slds-text-body_small slds-m-top_x-small" role="alert">
+                        <template for:each={validationMessages} for:item="message">
+                            <li key={message.key}>{message.text}</li>
+                        </template>
+                    </ul>
+                </template>
+            </div>
+            <div class="slds-modal__footer path-editor__footer">
+                <lightning-button label="Allocate equally" icon-name="utility:share" disabled={allocateDisabled}
+                    onclick={handleAllocateEqually}></lightning-button>
+                <div>
+                    <lightning-button label="Cancel" onclick={handleClose}></lightning-button>
+                    <lightning-button label="Save" variant="brand" class="slds-m-left_x-small"
+                        disabled={saveDisabled} onclick={handleSave}></lightning-button>
+                </div>
+            </div>
+        </div>
+    </section>
+    <div class="slds-backdrop slds-backdrop_open"></div>
+</template>

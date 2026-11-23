@@ -1411,6 +1411,16 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
+        <field>Marketing_Dictionary__c.Audience_Type_Dict__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Marketing_Dictionary__c.Path_Description__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
         <field>Marketing_Dictionary__c.Enabled_for_Offering_Definitions__c</field>
         <readable>true</readable>
     </fieldPermissions>

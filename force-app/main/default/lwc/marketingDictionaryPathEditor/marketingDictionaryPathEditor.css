@@ -1,0 +1,42 @@
+.path-editor__alert {
+    justify-content: flex-start;
+    margin-bottom: 0.75rem;
+}
+
+.path-editor__percent {
+    display: inline-block;
+    width: 7rem;
+}
+
+.path-editor__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.path-row_inactive {
+    background: #f9f9f9;
+}
+
+.path-badge_active {
+    background: #e3f5e1;
+    color: #2e844a;
+    border: 1px solid #91db8b;
+}
+
+.path-total {
+    font-weight: 700;
+}
+
+.path-total_ok {
+    color: #2e844a;
+}
+
+.path-total_bad {
+    color: #c23934;
+}
+
+.path-editor__description {
+    display: block;
+    margin-top: 0.25rem;
+}
