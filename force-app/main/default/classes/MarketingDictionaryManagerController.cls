@@ -269,7 +269,8 @@ public with sharing class MarketingDictionaryManagerController {
                 (SELECT Id, Day_Of_Week__c, Is_Fully_Blocked__c, Blocked_From_Hour__c, Blocked_To_Hour__c
                  FROM Blackout_Day_Rules__r ORDER BY Day_Of_Week__c ASC),
                 (SELECT Id, Name, Description__c, Image_URL__c FROM Channel_Banner_Types__r ORDER BY Name ASC),
-                (SELECT Id, Name, App_Screen__c, Banner_Type__c, Banner_Type__r.Name, Position_Description__c
+                (SELECT Id, Name, App_Screen__c, Banner_Type__c, Banner_Type__r.Name, Position_Description__c,
+                        Impact_Campaign_Score_Logic__c
                  FROM Channel_Banner_Placements__r ORDER BY App_Screen__c ASC, Name ASC),
                 (SELECT Id, Name FROM Channel_Banner_Intent_Targets__r ORDER BY Name ASC),
                 (SELECT Id, Name, Intent_Target__c, Intent_Target__r.Name
