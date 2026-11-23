@@ -282,3 +282,5 @@ thead th {
 /* Activation paths table */
 .path-row_inactive { background: #f9f9f9; color: var(--md-color-text-muted, var(--slds-g-color-on-surface-2, #706e6b)); }
 .path-actions-col { width: 3rem; }
+.path-sums { display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; margin: 0.25rem 0 0; padding: 0; list-style: none; }
+.path-sums__item { display: inline-flex; align-items: center; gap: 0.25rem; }

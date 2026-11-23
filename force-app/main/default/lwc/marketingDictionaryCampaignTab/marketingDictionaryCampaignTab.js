@@ -1,6 +1,7 @@
 import { LightningElement, track, wire } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import { refreshApex } from '@salesforce/apex';
+import getPersonRecords from '@salesforce/apex/MarketingDictionaryManagerController.getPersonRecords';
 import getCampaignRecords from '@salesforce/apex/MarketingDictionaryManagerController.getCampaignRecords';
 import saveCampaignRecord from '@salesforce/apex/MarketingDictionaryManagerController.saveCampaignRecord';
 import saveCampaignRecordsBulk from '@salesforce/apex/MarketingDictionaryManagerController.saveCampaignRecordsBulk';
@@ -67,7 +68,7 @@ const EMPTY_TOPIC            = () => ({
 const IMPACT_SCORE_LOGIC_HELP =
     'All Campaigns Associated with Topics marked with this flag will be considered for Customer Propensity Recount Logic in Data360 Transformation';
 const BULK_KEEP_GROUP = '__keep__';
-const EMPTY_PATH             = () => ({ Name: '', Dictionary_Sub_Type__c: 'Activation Path', Is_Active__c: true, Distribution_Percent__c: 0 });
+const EMPTY_PATH             = () => ({ Name: '', Dictionary_Sub_Type__c: 'Activation Path', Is_Active__c: true, Distribution_Percent__c: 0, Audience_Type_Dict__c: null });
 const EMPTY_SALES_PROCESS    = () => ({ Name: '', Dictionary_Sub_Type__c: 'Sales Process Type', Topic_Description__c: '' });
 const EMPTY_MODEL_GROUP      = () => ({ Name: '', Dictionary_Sub_Type__c: 'Scoring Model Group' });
 const EMPTY_TIER             = () => ({
@@ -404,6 +405,14 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
         } else if (result.error) {
             this._showToast('Error', 'Failed to load campaign records.', 'error');
         }
+    }
+
+    // Audience types come from the Person section, so activation paths can point at them by Id.
+    @track _personRecords = [];
+
+    @wire(getPersonRecords)
+    wiredPersonRecords({ data }) {
+        if (data) this._personRecords = data;
     }
 
     @wire(getCampaignTiers)
@@ -1085,6 +1094,24 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
     }
     get topicModalTitle() { return this.editTopic.Id ? 'Edit Topic' : 'Add Topic'; }
 
+    get audienceTypes() {
+        return this._personRecords.filter(r => r.Dictionary_Sub_Type__c === 'Audience Type');
+    }
+    get audienceOptions() {
+        return [...this.audienceTypes]
+            .sort((a, b) => String(a.Name || '').localeCompare(String(b.Name || '')))
+            .map(a => ({ label: a.Name, value: a.Id }));
+    }
+    get hasNoAudienceTypes() { return this.audienceTypes.length === 0; }
+    get pathEditorAudienceTypes() { return this.audienceTypes.map(a => ({ Id: a.Id, Name: a.Name })); }
+    get chartPaths() {
+        return this._localPaths.map(p => ({
+            Id: p.Id, Name: p.Name, Is_Active__c: p.Is_Active__c,
+            Distribution_Percent__c: p.Distribution_Percent__c, Audience_Type_Dict__c: p.Audience_Type_Dict__c
+        }));
+    }
+    _audienceName(id) { return this.audienceTypes.find(a => a.Id === id)?.Name || ''; }
+
     get paths() {
         return [...this._localPaths]
             .sort((a, b) => {
@@ -1096,23 +1123,38 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
                 statusLabel: p.Is_Active__c ? 'Active' : 'Inactive',
                 statusBadgeClass: p.Is_Active__c ? 'slds-badge cd-badge-active' : 'slds-badge slds-badge_lightest',
                 rowClass: p.Is_Active__c ? '' : 'path-row_inactive',
+                audienceName: this._audienceName(p.Audience_Type_Dict__c),
+                hasAudience: !!this._audienceName(p.Audience_Type_Dict__c),
                 allocationText: p.Is_Active__c ? `${Number(p.Distribution_Percent__c) || 0}%` : '—'
             }));
     }
     get hasPaths() { return this._localPaths.length > 0; }
     get noPaths() { return this._localPaths.length === 0; }
-    get activePathsSum() {
-        return parseFloat(
-            this._localPaths
-                .filter(p => p.Is_Active__c)
-                .reduce((s, p) => s + (Number(p.Distribution_Percent__c) || 0), 0)
-                .toFixed(2)
-        );
+
+    /** Per audience type: the active paths share 100%. Paths without an audience type are listed separately. */
+    get pathSums() {
+        const sums = this.audienceTypes
+            .filter(a => this._localPaths.some(p => p.Audience_Type_Dict__c === a.Id))
+            .map(a => {
+                const active = this._localPaths.filter(p => p.Audience_Type_Dict__c === a.Id && p.Is_Active__c);
+                const sum = parseFloat(active.reduce((t, p) => t + (Number(p.Distribution_Percent__c) || 0), 0).toFixed(2));
+                const off = !active.length || Math.abs(sum - 100) > 0.005;
+                return {
+                    key: a.Id,
+                    name: a.Name,
+                    sum,
+                    off,
+                    warning: !active.length ? 'no active path' : sum > 100 ? 'exceeds 100%' : 'does not reach 100%'
+                };
+            })
+            .sort((a, b) => a.name.localeCompare(b.name));
+        const unassigned = this._localPaths.filter(p => !this._audienceName(p.Audience_Type_Dict__c)).length;
+        if (unassigned) {
+            sums.push({ key: 'none', name: 'No audience type', sum: unassigned, off: true, warning: `${unassigned} path${unassigned === 1 ? '' : 's'} need an audience type`, isUnassigned: true });
+        }
+        return sums.map(item => ({ ...item, text: item.isUnassigned ? '' : `${item.sum}%` }));
     }
-    get pathSumWarning() { return this.hasPaths && Math.abs(this.activePathsSum - 100) > 0.005; }
-    get pathSumWarningText() {
-        return this.activePathsSum > 100 ? 'exceeds 100%' : 'does not reach 100%: open Edit to fix the allocation';
-    }
+    get pathSumWarning() { return this.pathSums.some(item => item.off); }
     get pathModalTitle() { return this.editPath.Id ? 'Edit Activation Path' : 'Add Activation Path'; }
 
     get salesProcessTypes() { return this._allRecords.filter(r => r.Dictionary_Sub_Type__c === 'Sales Process Type'); }
@@ -1734,8 +1776,12 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
     handlePathCheckboxChange(e) {
         this.editPath = { ...this.editPath, [e.target.dataset.field]: e.target.checked };
     }
+    handlePathAudienceChange(e) {
+        this.editPath = { ...this.editPath, Audience_Type_Dict__c: e.detail.value || null };
+    }
     async handleSavePath() {
         if (!this.editPath.Name?.trim()) { this._showToast('Validation', 'Name is required.', 'warning'); return; }
+        if (!this.editPath.Audience_Type_Dict__c) { this._showToast('Validation', 'Select the audience type this path applies to.', 'warning'); return; }
         await this._saveCampaignRecord(this.editPath, () => { this.isPathModalOpen = false; });
     }
 
@@ -1747,7 +1793,11 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
 
     handleOpenPathEditor() {
         this.pathEditorPaths = this._localPaths.map(p => ({
-            Id: p.Id, Name: p.Name, Is_Active__c: p.Is_Active__c, Distribution_Percent__c: p.Distribution_Percent__c
+            Id: p.Id,
+            Name: p.Name,
+            Is_Active__c: p.Is_Active__c,
+            Distribution_Percent__c: p.Distribution_Percent__c,
+            Audience_Type_Dict__c: p.Audience_Type_Dict__c
         }));
         this.pathEditorError = '';
         this.isPathEditorOpen = true;

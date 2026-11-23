@@ -1,0 +1,107 @@
+.path-chart {
+    position: relative;
+    margin-bottom: 1.25rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--slds-g-color-border-base-1, #e0e5ee);
+    border-radius: 0.25rem;
+}
+
+.path-chart__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.path-chart__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.path-chart__legend li {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+}
+
+.path-chart__dot {
+    display: inline-block;
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 50%;
+}
+
+.path-chart__row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+}
+
+.path-chart__label {
+    display: flex;
+    flex: 0 0 11rem;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.path-chart__track {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 2.25rem;
+    overflow: hidden;
+    border-radius: 0.125rem;
+    background: var(--slds-g-color-neutral-base-95, #f3f3f3);
+}
+
+.path-chart__segment {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-basis: 0;
+    min-width: 0;
+    border-right: 1px solid #ffffff;
+    color: #ffffff;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: default;
+    outline-offset: -2px;
+}
+
+.path-chart__segment:hover,
+.path-chart__segment:focus {
+    filter: brightness(0.92);
+}
+
+.path-chart__segment_gap {
+    background: repeating-linear-gradient(45deg, #e5e5e5, #e5e5e5 4px, #f3f3f3 4px, #f3f3f3 8px);
+}
+
+.path-chart__empty {
+    display: flex;
+    align-items: center;
+    padding-left: 0.75rem;
+}
+
+.path-chart__axis {
+    display: flex;
+    justify-content: space-between;
+    margin: 0.25rem 0 0 11.75rem;
+    color: var(--slds-g-color-on-surface-2, #706e6b);
+    font-size: 0.75rem;
+}
+
+.path-chart__tip {
+    position: absolute;
+    z-index: 10;
+    max-width: 18rem;
+    transform: translate(-50%, calc(-100% - 0.5rem));
+    pointer-events: none;
+}

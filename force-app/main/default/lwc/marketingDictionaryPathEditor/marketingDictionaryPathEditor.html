@@ -11,7 +11,8 @@
             </div>
             <div class="slds-modal__content slds-p-around_medium">
                 <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
-                    Active paths share 100% of the baseline distribution. Rename a path, switch it on or off, or change its allocation.
+                    Each path applies to one audience type. The active paths of an audience type share 100% of its baseline distribution.
+                    Rename a path, change its audience type, switch it on or off, or change its allocation.
                     An active path left at 0% behaves like an inactive one.
                 </p>
 
@@ -41,6 +42,7 @@
                         <tr class="slds-line-height_reset">
                             <th scope="col">Status</th>
                             <th scope="col">Path name</th>
+                            <th scope="col">Audience type <abbr class="slds-required" title="required">*</abbr></th>
                             <th scope="col">Active</th>
                             <th scope="col" class="slds-text-align_right">Allocation (%)</th>
                         </tr>
@@ -55,6 +57,15 @@
                                     </lightning-input>
                                     <template lwc:if={row.nameError}>
                                         <p class="slds-text-color_error slds-text-body_small">{row.nameError}</p>
+                                    </template>
+                                </td>
+                                <td>
+                                    <lightning-radio-group label="Audience type" variant="label-hidden" type="radio"
+                                        name={row.radioName} options={audienceOptions} value={row.audienceId}
+                                        required data-id={row.id} data-role="audience" onchange={handleAudience}>
+                                    </lightning-radio-group>
+                                    <template lwc:if={row.audienceMissing}>
+                                        <p class="slds-text-color_error slds-text-body_small">Select an audience type.</p>
                                     </template>
                                 </td>
                                 <td>
@@ -79,14 +90,28 @@
                         </template>
                     </tbody>
                     <tfoot>
-                        <tr>
-                            <td colspan="3"><strong>Total of active paths</strong></td>
-                            <td class="slds-text-align_right"><span class={totalClass}>{totalText}</span></td>
-                        </tr>
+                        <template for:each={groups} for:item="group">
+                            <tr key={group.key} data-role="group-total">
+                                <td colspan="4">
+                                    <strong>Total of active paths: {group.name}</strong>
+                                    <span class="slds-text-body_small slds-m-left_small">{group.balanceText}</span>
+                                </td>
+                                <td class="slds-text-align_right">
+                                    <span class={group.totalClass}>{group.totalText}</span>
+                                    <lightning-button label="Equal split" variant="base" class="slds-m-left_small"
+                                        data-audience={group.audienceId} disabled={group.equalDisabled}
+                                        onclick={handleGroupEqually}></lightning-button>
+                                </td>
+                            </tr>
+                        </template>
                     </tfoot>
                 </table>
 
-                <p class="slds-m-top_small slds-text-body_small">{balanceText}</p>
+                <template lwc:if={hasNoAudienceTypes}>
+                    <p class="slds-m-top_small slds-text-body_small slds-text-color_error">
+                        No audience types exist yet. Add them in Marketing Dictionary > Person > Audience Types.
+                    </p>
+                </template>
                 <template lwc:if={hasValidationMessages}>
                     <ul class="slds-list_dotted slds-text-color_error slds-text-body_small slds-m-top_x-small" role="alert">
                         <template for:each={validationMessages} for:item="message">

@@ -16,14 +16,26 @@ function sortPaths(list) {
 }
 
 /**
- * Edits the name, active flag and allocation of every Activation Path in one modal.
- * Active paths must add up to exactly 100%; an inactive path always carries 0%.
- * Emits save { records: [{ Id, Name, Is_Active__c, Distribution_Percent__c }] } (changed paths only) and close.
+ * Edits the name, audience type, active flag and allocation of every Activation Path in one modal.
+ * Every path applies to one audience type (referenced by its dictionary record Id). For each audience type the
+ * active paths must add up to exactly 100%; an inactive path always carries 0%.
+ * Emits save { records: [{ Id, Name, Audience_Type_Dict__c, Is_Active__c, Distribution_Percent__c }] }
+ * (changed paths only) and close.
  */
 export default class MarketingDictionaryPathEditor extends LightningElement {
     @api saving = false;
     @api errorMessage = '';
     @track rows = [];
+    _audienceTypes = [];
+
+    /** Audience types from the Person section: [{ Id, Name }]. Labels are shown, the Id is what is stored. */
+    @api
+    get audienceTypes() {
+        return this._audienceTypes;
+    }
+    set audienceTypes(list) {
+        this._audienceTypes = [...(list || [])].sort((a, b) => String(a.Name || '').localeCompare(String(b.Name || '')));
+    }
 
     @api
     get paths() {
@@ -34,6 +46,8 @@ export default class MarketingDictionaryPathEditor extends LightningElement {
             id: path.Id,
             name: path.Name || '',
             originalName: path.Name || '',
+            audienceId: path.Audience_Type_Dict__c || null,
+            originalAudienceId: path.Audience_Type_Dict__c || null,
             active: path.Is_Active__c === true,
             originalActive: path.Is_Active__c === true,
             percent: path.Is_Active__c === true ? round2(path.Distribution_Percent__c) : 0,
@@ -52,8 +66,16 @@ export default class MarketingDictionaryPathEditor extends LightningElement {
         return row.name.trim() !== row.originalName.trim();
     }
 
-    get total() {
-        return round2(this.rows.filter(row => row.active).reduce((sum, row) => sum + row.percent, 0));
+    get audienceOptions() {
+        return this._audienceTypes.map(audience => ({ label: audience.Name, value: audience.Id }));
+    }
+
+    get hasNoAudienceTypes() {
+        return this._audienceTypes.length === 0;
+    }
+
+    audienceName(id) {
+        return this._audienceTypes.find(audience => audience.Id === id)?.Name || 'Unknown audience type';
     }
 
     get activeCount() {
@@ -82,6 +104,9 @@ export default class MarketingDictionaryPathEditor extends LightningElement {
             id: row.id,
             name: row.name,
             active: row.active,
+            audienceId: row.audienceId,
+            audienceMissing: !row.audienceId,
+            radioName: `audience-${row.id}`,
             percentValue: String(row.percent),
             percentDisabled: !row.active,
             statusLabel: row.active ? 'Active' : 'Inactive',
@@ -103,30 +128,54 @@ export default class MarketingDictionaryPathEditor extends LightningElement {
             .map(row => ({ key: row.id, text: `"${row.originalName}" becomes "${row.name.trim()}"` }));
     }
 
-    get balance() {
-        return round2(TOTAL - this.total);
+    /** One group per audience type that has paths: the active paths of a group must add up to 100%. */
+    get groups() {
+        const known = this._audienceTypes.map(audience => audience.Id);
+        const ids = [...known.filter(id => this.rows.some(row => row.audienceId === id))];
+        this.rows.forEach(row => {
+            if (row.audienceId && !ids.includes(row.audienceId)) ids.push(row.audienceId);
+        });
+        return ids.map(id => {
+            const members = this.rows.filter(row => row.audienceId === id);
+            const active = members.filter(row => row.active);
+            const total = round2(active.reduce((sum, row) => sum + row.percent, 0));
+            const balance = round2(TOTAL - total);
+            const complete = active.length > 0 && balance === 0;
+            let balanceText;
+            if (!active.length) balanceText = 'Activate at least one path.';
+            else if (balance === 0) balanceText = 'Active paths add up to 100%.';
+            else if (balance > 0) balanceText = `${balance}% still to allocate. Active paths must add up to 100%.`;
+            else balanceText = `${round2(-balance)}% over. Active paths must add up to 100%.`;
+            return {
+                key: id,
+                audienceId: id,
+                name: this.audienceName(id),
+                total,
+                totalText: `${total}%`,
+                totalClass: `path-total ${complete ? 'path-total_ok' : 'path-total_bad'}`,
+                balanceText,
+                complete,
+                activeCount: active.length,
+                equalDisabled: !active.length || this.saving
+            };
+        });
     }
 
-    get totalText() {
-        return `${this.total}%`;
+    get unassignedCount() {
+        return this.rows.filter(row => !row.audienceId).length;
     }
 
-    get totalClass() {
-        return `path-total ${this.balance === 0 && this.activeCount > 0 ? 'path-total_ok' : 'path-total_bad'}`;
-    }
-
-    get balanceText() {
-        if (!this.activeCount) return 'Activate at least one path.';
-        if (this.balance === 0) return 'Active paths add up to 100%.';
-        return this.balance > 0
-            ? `${this.balance}% still to allocate. Active paths must add up to 100%.`
-            : `${round2(-this.balance)}% over. Active paths must add up to 100%.`;
+    get hasUnassigned() {
+        return this.unassignedCount > 0;
     }
 
     get validationMessages() {
         const messages = [];
-        if (!this.activeCount) messages.push('At least one path must be active.');
-        else if (this.balance !== 0) messages.push(`Allocation must be 100%: ${this.balanceText}`);
+        if (this.hasNoAudienceTypes) messages.push('Add audience types in the Person section first.');
+        if (this.hasUnassigned) messages.push('Select an audience type for every path.');
+        this.groups.forEach(group => {
+            if (!group.complete) messages.push(`${group.name}: ${group.balanceText}`);
+        });
         if (Object.keys(this.nameProblems).length) messages.push('Every path needs a unique name.');
         return messages.map((text, index) => ({ key: `m${index}`, text }));
     }
@@ -137,6 +186,7 @@ export default class MarketingDictionaryPathEditor extends LightningElement {
 
     get changedRows() {
         return this.rows.filter(row => this.isRenamed(row)
+            || row.audienceId !== row.originalAudienceId
             || row.active !== row.originalActive
             || row.percent !== row.originalPercent);
     }
@@ -155,6 +205,10 @@ export default class MarketingDictionaryPathEditor extends LightningElement {
 
     get allocateDisabled() {
         return !this.activeCount || this.saving;
+    }
+
+    get showGroups() {
+        return this.groups.length > 0;
     }
 
     // ─── Editing ─────────────────────────────────────────────────────────────
@@ -181,6 +235,11 @@ export default class MarketingDictionaryPathEditor extends LightningElement {
         await LightningAlert.open({ message: RENAME_WARNING, theme: 'warning', label: 'Path name changed' });
     }
 
+    handleAudience(event) {
+        const row = this.rowById(event.currentTarget.dataset.id);
+        if (row) row.audienceId = event.detail.value || null;
+    }
+
     handleActive(event) {
         const row = this.rowById(event.currentTarget.dataset.id);
         if (!row) return;
@@ -195,15 +254,26 @@ export default class MarketingDictionaryPathEditor extends LightningElement {
         row.percent = Number.isFinite(parsed) ? round2(Math.min(TOTAL, Math.max(0, parsed))) : 0;
     }
 
-    handleAllocateEqually() {
-        const active = this.rows.filter(row => row.active);
-        if (!active.length) return;
-        const base = Math.floor((TOTAL * 100) / active.length) / 100;
-        let leftoverCents = Math.round((TOTAL - base * active.length) * 100);
-        active.forEach(row => {
+    splitEqually(rows) {
+        if (!rows.length) return;
+        const base = Math.floor((TOTAL * 100) / rows.length) / 100;
+        let leftoverCents = Math.round((TOTAL - base * rows.length) * 100);
+        rows.forEach(row => {
             row.percent = round2(base + (leftoverCents > 0 ? 0.01 : 0));
             if (leftoverCents > 0) leftoverCents -= 1;
         });
+    }
+
+    /** Splits 100% equally across the active paths of every audience type. */
+    handleAllocateEqually() {
+        this.groups.forEach(group => {
+            this.splitEqually(this.rows.filter(row => row.audienceId === group.audienceId && row.active));
+        });
+    }
+
+    handleGroupEqually(event) {
+        const audienceId = event.currentTarget.dataset.audience;
+        this.splitEqually(this.rows.filter(row => row.audienceId === audienceId && row.active));
     }
 
     async handleSave() {
@@ -216,6 +286,7 @@ export default class MarketingDictionaryPathEditor extends LightningElement {
         const records = this.changedRows.map(row => ({
             Id: row.id,
             Name: row.name.trim(),
+            Audience_Type_Dict__c: row.audienceId,
             Is_Active__c: row.active,
             Distribution_Percent__c: row.active ? row.percent : 0
         }));

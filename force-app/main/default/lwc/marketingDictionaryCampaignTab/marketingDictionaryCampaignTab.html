@@ -402,15 +402,21 @@
                     <div>
                         <h2 class="slds-text-heading_small">Activation Paths</h2>
                         <p class="slds-text-body_small slds-text-color_weak">
-                            Active paths share 100% of baseline distribution.
-                            Sum of active path percentages: <strong>{activePathsSum}%</strong>
-                            <template lwc:if={pathSumWarning}>
-                                <lightning-icon icon-name="utility:warning" size="xx-small"
-                                    variant="warning" class="slds-m-left_xx-small" alternative-text="Warning">
-                                </lightning-icon>
-                                <span class="cd-warn-text"> {pathSumWarningText}</span>
-                            </template>
+                            Each path applies to one audience type. The active paths of an audience type share 100% of its baseline distribution.
                         </p>
+                        <ul class="path-sums slds-text-body_small">
+                            <template for:each={pathSums} for:item="item">
+                                <li key={item.key} class="path-sums__item">
+                                    <span class="slds-text-color_weak">{item.name}:</span>
+                                    <template lwc:if={item.text}><strong>{item.text}</strong></template>
+                                    <template lwc:if={item.off}>
+                                        <lightning-icon icon-name="utility:warning" size="xx-small" variant="warning"
+                                            class="slds-m-left_xx-small" alternative-text="Warning"></lightning-icon>
+                                        <span class="cd-warn-text">{item.warning}</span>
+                                    </template>
+                                </li>
+                            </template>
+                        </ul>
                     </div>
                     <div class="slds-grid slds-gutters_x-small">
                         <div class="slds-col slds-no-flex">
@@ -430,11 +436,14 @@
                     <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
                 </template>
                 <template lwc:elseif={hasPaths}>
+                    <c-marketing-dictionary-path-chart audience-types={audienceTypes} paths={chartPaths}>
+                    </c-marketing-dictionary-path-chart>
                     <table class="slds-table slds-table_bordered slds-table_cell-buffer">
                         <thead>
                             <tr class="slds-line-height_reset">
                                 <th scope="col">Status</th>
                                 <th scope="col">Path</th>
+                                <th scope="col">Audience type</th>
                                 <th scope="col" class="slds-text-align_right">Allocation</th>
                                 <th scope="col" class="path-actions-col"><span class="slds-assistive-text">Actions</span></th>
                             </tr>
@@ -444,6 +453,10 @@
                                 <tr key={path.Id} class={path.rowClass}>
                                     <td><span class={path.statusBadgeClass}>{path.statusLabel}</span></td>
                                     <th scope="row"><div class="slds-truncate" title={path.Name}>{path.Name}</div></th>
+                                    <td>
+                                        <template lwc:if={path.hasAudience}>{path.audienceName}</template>
+                                        <template lwc:else><span class="cd-warn-text">Not set</span></template>
+                                    </td>
                                     <td class="slds-text-align_right">{path.allocationText}</td>
                                     <td class="slds-text-align_right">
                                         <lightning-button-icon icon-name="utility:delete" variant="border-filled"
@@ -861,6 +874,15 @@
                     <lightning-input label="Path Name" required value={editPath.Name}
                         data-field="Name" onchange={handlePathFieldChange}>
                     </lightning-input>
+                    <lightning-radio-group label="Audience type" required options={audienceOptions}
+                        value={editPath.Audience_Type_Dict__c} name="path-audience" class="slds-m-top_small"
+                        onchange={handlePathAudienceChange}>
+                    </lightning-radio-group>
+                    <template lwc:if={hasNoAudienceTypes}>
+                        <p class="slds-text-body_small slds-text-color_error">
+                            No audience types exist yet. Add them in Person > Audience Types first.
+                        </p>
+                    </template>
                     <lightning-input type="checkbox" label="Active" checked={editPath.Is_Active__c}
                         data-field="Is_Active__c" onchange={handlePathCheckboxChange}
                         class="slds-m-top_small">
@@ -881,7 +903,7 @@
     </template>
 
     <template lwc:if={isPathEditorOpen}>
-        <c-marketing-dictionary-path-editor paths={pathEditorPaths} saving={isSaving} error-message={pathEditorError}
+        <c-marketing-dictionary-path-editor paths={pathEditorPaths} audience-types={pathEditorAudienceTypes} saving={isSaving} error-message={pathEditorError}
             onsave={handleSavePaths} onclose={handleClosePathEditor}>
         </c-marketing-dictionary-path-editor>
     </template>
