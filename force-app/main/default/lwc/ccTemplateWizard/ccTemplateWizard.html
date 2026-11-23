@@ -52,7 +52,7 @@
                 </template>
 
                 <template lwc:if={isShellStep}>
-                    <c-cc-binding-workspace kind="shell" template-mode={basics.templateMode} source={shellSource} onchange={handleShellChange}></c-cc-binding-workspace>
+                    <c-cc-binding-workspace kind="shell" template-mode={basics.templateMode} source={shellSource} active-key={inspectKey} onselect={handleInspectSelect} onchange={handleShellChange}></c-cc-binding-workspace>
                 </template>
 
                 <template lwc:if={isBlocksStep}>
@@ -108,7 +108,7 @@
                                 <lightning-input label="Block name" required value={blockDraft.name} data-field="name" onchange={handleBlockField}></lightning-input>
                                 <lightning-input label="Description" value={blockDraft.description} data-field="description" onchange={handleBlockField}></lightning-input>
                             </div>
-                            <c-cc-binding-workspace kind="block" template-mode="single" source={blockSource} onchange={handleBlockSource}></c-cc-binding-workspace>
+                            <c-cc-binding-workspace kind="block" template-mode="single" source={blockSource} active-key={inspectKey} onselect={handleInspectSelect} onchange={handleBlockSource}></c-cc-binding-workspace>
                             <div class="cc-wizard__actions slds-m-top_small">
                                 <lightning-button label="Cancel" onclick={handleCancelBlock}></lightning-button>
                                 <lightning-button label="Save block" variant="brand" disabled={saving} onclick={handleSaveBlock}></lightning-button>
@@ -149,7 +149,7 @@
                     <template lwc:if={showPreviewChoice}>
                         <lightning-combobox class="cc-wizard__preview-choice" label="Preview" options={previewOptions} value={previewChoice} onchange={handlePreviewChoice}></lightning-combobox>
                     </template>
-                    <c-cc-template-preview heading={previewHeading} render-fn={previewRender}></c-cc-template-preview>
+                    <c-cc-template-preview heading={previewHeading} render-fn={previewRender} inspectable={inspectable} inspect-scope={inspectScope} selected-key={inspectKey} onselect={handleInspectSelect}></c-cc-template-preview>
                 </aside>
             </template>
             </div>

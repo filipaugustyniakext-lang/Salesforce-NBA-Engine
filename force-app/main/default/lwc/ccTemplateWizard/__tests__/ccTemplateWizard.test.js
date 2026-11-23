@@ -33,6 +33,10 @@ async function openShellStep() {
 }
 
 describe('c-cc-template-wizard layout', () => {
+    beforeAll(() => {
+        Element.prototype.scrollIntoView = jest.fn();
+    });
+
     afterEach(() => {
         while (document.body.firstChild) document.body.removeChild(document.body.firstChild);
         jest.clearAllMocks();
@@ -56,6 +60,27 @@ describe('c-cc-template-wizard layout', () => {
         expect(typeof preview.renderFn).toBe('function');
         expect(preview.renderFn('desktop', 'light')).toContain('No content blocks yet');
         expect(layout.querySelector('.cc-wizard__body').contains(side)).toBe(false);
+    });
+
+    it('links preview clicks and list selection on the shell step', async () => {
+        const element = await openShellStep();
+        const workspace = element.shadowRoot.querySelector('c-cc-binding-workspace');
+        const parsed = parseTemplate(SHELL_EXAMPLE, { kind: 'shell', templateMode: 'multi' });
+        workspace.dispatchEvent(new CustomEvent('change', { detail: { html: parsed.html, definition: parsed.definition, errors: [], warnings: [] } }));
+        await flush();
+
+        const preview = element.shadowRoot.querySelector('c-cc-template-preview');
+        expect(preview.inspectable).toBe(true);
+        expect(preview.inspectScope).toBe('all');
+
+        preview.dispatchEvent(new CustomEvent('select', { detail: { key: 'region:footer' } }));
+        await flush();
+        expect(element.shadowRoot.querySelector('c-cc-binding-workspace').activeKey).toBe('region:footer');
+        expect(element.shadowRoot.querySelector('c-cc-template-preview').selectedKey).toBe('region:footer');
+
+        element.shadowRoot.querySelector('c-cc-binding-workspace').dispatchEvent(new CustomEvent('select', { detail: { key: 'slot:footerNote' } }));
+        await flush();
+        expect(element.shadowRoot.querySelector('c-cc-template-preview').selectedKey).toBe('slot:footerNote');
     });
 
     it('offers delete only for saved templates', async () => {

@@ -322,3 +322,31 @@ export function definitionStats(definition) {
         regions: (definition?.regions || []).length
     };
 }
+
+const SECTION_LABELS = { container: 'Container', row: 'Row', column: 'Column' };
+const CONTENT_LABELS = { richText: 'Rich text', image: 'Image', bulletList: 'Bullet list', divider: 'Divider', button: 'Button' };
+const REGION_LABELS = { 'fixed-read': 'Read-only region', 'fixed-edit': 'Editable region', blocks: 'Blocks zone' };
+
+/**
+ * Names a marked element of parsed or rendered HTML the way c/ccBindingWorkspace names its list items
+ * (section:id, slot:key, region:id). Returns { kind, key, label } or null for unmarked elements.
+ */
+export function describeMarked(element) {
+    if (!element || !element.getAttribute) return null;
+    if (element.hasAttribute('data-cc-content')) {
+        const key = element.getAttribute('data-cc-key') || '';
+        const type = element.getAttribute('data-cc-content');
+        return { kind: 'content', key: `slot:${key}`, label: `${CONTENT_LABELS[type] || type} · ${key}` };
+    }
+    if (element.hasAttribute('data-cc-section')) {
+        const id = element.getAttribute('data-cc-id') || '';
+        const level = element.getAttribute('data-cc-section');
+        return { kind: 'section', key: `section:${id}`, label: `${SECTION_LABELS[level] || level} · ${id}` };
+    }
+    if (element.hasAttribute('data-cc-region')) {
+        const id = element.getAttribute('data-cc-id') || '';
+        const kind = element.getAttribute('data-cc-region');
+        return { kind: 'region', key: `region:${id}`, label: `${REGION_LABELS[kind] || kind} · ${id}` };
+    }
+    return null;
+}

@@ -7,9 +7,22 @@
                 <lightning-radio-group label="Theme" variant="label-hidden" type="button" options={themeOptions} value={theme} onchange={handleTheme}></lightning-radio-group>
             </div>
         </div>
+        <template lwc:if={inspectable}>
+            <div class="cc-preview-panel__inspect">
+                <lightning-input type="toggle" label="Inspect bindings" checked={inspectOn} message-toggle-active="" message-toggle-inactive="" onchange={handleInspectToggle}></lightning-input>
+                <template lwc:if={inspectActive}>
+                    <ul class="cc-preview-panel__legend">
+                        <template for:each={legend} for:item="item">
+                            <li key={item.key}><span class="cc-preview-panel__swatch" style={item.style}></span>{item.label}</li>
+                        </template>
+                    </ul>
+                    <span class="slds-text-body_small slds-text-color_weak">Hover to identify, click to edit.</span>
+                </template>
+            </div>
+        </template>
         <div class="cc-preview-panel__stage">
             <div class={frameClass}>
-                <div data-preview-host lwc:dom="manual"></div>
+                <div data-preview-host lwc:dom="manual" style="position:relative;"></div>
             </div>
         </div>
     </div>

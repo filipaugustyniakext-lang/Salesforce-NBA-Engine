@@ -27,6 +27,26 @@ export default class CcBindingWorkspace extends LightningElement {
     fileName;
     _templateMode = 'multi';
 
+    /** Key of the selected list item (section:id, slot:key, region:id); set by the preview or the list. */
+    @api
+    get activeKey() {
+        return this.selectedKey;
+    }
+    set activeKey(key) {
+        if ((key || null) === this.selectedKey) return;
+        this.selectedKey = key || null;
+        this._revealPending = !!key;
+    }
+
+    renderedCallback() {
+        if (!this._revealPending) return;
+        this._revealPending = false;
+        const target = this.template.querySelector('.cc-workspace__nav-item_selected');
+        if (target) target.scrollIntoView({ block: 'nearest' });
+        const editor = this.template.querySelector('.cc-workspace__editor');
+        if (editor) editor.scrollIntoView({ block: 'nearest' });
+    }
+
     @api
     get templateMode() {
         return this._templateMode;
@@ -188,6 +208,7 @@ export default class CcBindingWorkspace extends LightningElement {
 
     handleSelect(event) {
         this.selectedKey = event.currentTarget.dataset.key;
+        this.dispatchEvent(new CustomEvent('select', { detail: { key: this.selectedKey } }));
     }
 
     handleSectionChange(event) {

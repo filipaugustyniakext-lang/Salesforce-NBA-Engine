@@ -49,6 +49,7 @@ export default class CcTemplateWizard extends LightningElement {
     blockDraft = null;
     validation = null;
     previewChoice = 'all';
+    inspectKey = null;
     isLegacy = false;
     messageCount = 0;
 
@@ -184,12 +185,14 @@ export default class CcTemplateWizard extends LightningElement {
             }
         }
         const order = this.stepOrder();
+        this.inspectKey = null;
         this.step = order[Math.min(order.indexOf(this.step) + 1, order.length - 1)];
         if (this.step === 'summary') this.runValidation();
     }
 
     handleBack() {
         const order = this.stepOrder();
+        this.inspectKey = null;
         this.step = order[Math.max(order.indexOf(this.step) - 1, 0)];
     }
 
@@ -199,6 +202,7 @@ export default class CcTemplateWizard extends LightningElement {
             this.toast('Save the shell first', 'Upload and save the template shell before configuring blocks.', 'info');
             return;
         }
+        this.inspectKey = null;
         this.step = target;
         if (target === 'summary') this.runValidation();
     }
@@ -293,10 +297,12 @@ export default class CcTemplateWizard extends LightningElement {
     }
 
     handleNewBlock() {
+        this.inspectKey = null;
         this.blockDraft = { id: null, name: '', description: '', html: '', definition: null, errors: [], status: 'Draft' };
     }
 
     handleEditBlock(event) {
+        this.inspectKey = null;
         const block = this.blocks.find(item => item.id === event.currentTarget.dataset.id);
         if (!block) return;
         this.blockDraft = {
@@ -321,6 +327,7 @@ export default class CcTemplateWizard extends LightningElement {
     }
 
     handleCancelBlock() {
+        this.inspectKey = null;
         this.blockDraft = null;
     }
 
@@ -463,6 +470,19 @@ export default class CcTemplateWizard extends LightningElement {
 
     get layoutClass() {
         return `cc-wizard__layout${this.showSidePreview ? ' cc-wizard__layout_split' : ''}`;
+    }
+
+    /** Hover/click inspection works while editing bindings: the shell step, or a block opened for editing. */
+    get inspectable() {
+        return this.hasShell && (this.isShellStep || (this.isBlocksStep && !!this.blockDraft?.html && !!this.blockDraft?.definition));
+    }
+
+    get inspectScope() {
+        return this.isBlocksStep ? 'blocks' : 'all';
+    }
+
+    handleInspectSelect(event) {
+        this.inspectKey = event.detail.key;
     }
 
     get previewHeading() {
