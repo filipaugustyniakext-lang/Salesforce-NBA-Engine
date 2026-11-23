@@ -42,6 +42,7 @@ export default class CcTemplatePreview extends LightningElement {
     set renderFn(fn) {
         this._render = fn;
         this._stamp = null;
+        this.refreshSoon();
     }
 
     @api
@@ -52,6 +53,7 @@ export default class CcTemplatePreview extends LightningElement {
         if (key === this._selectedKey) return;
         this._selectedKey = key;
         this._scrollPending = !!key;
+        this.scheduleOverlay();
     }
 
     /** Node ids (data-cc-node) of the element(s) being marked; highlighted solid orange. */
@@ -64,6 +66,18 @@ export default class CcTemplatePreview extends LightningElement {
         if (next.length === this._pickedNodes.length && next.every((node, index) => node === this._pickedNodes[index])) return;
         this._pickedNodes = next;
         this._scrollPickPending = next.length > 0;
+        this.scheduleOverlay();
+    }
+
+    /**
+     * Properties set by the parent do not always re-render this component, so changes that affect what is
+     * drawn (content, selection) repaint explicitly instead of waiting for renderedCallback.
+     */
+    refreshSoon() {
+        Promise.resolve().then(() => {
+            this.paint();
+            this.scheduleOverlay();
+        });
     }
 
     @api

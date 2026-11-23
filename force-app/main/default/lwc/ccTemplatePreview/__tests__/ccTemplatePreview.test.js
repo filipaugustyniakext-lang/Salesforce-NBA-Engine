@@ -103,6 +103,19 @@ describe('c-cc-template-preview mark mode', () => {
         expect(boxes(element, 'hover')[0].textContent).toBe('<i> · Rich text · n');
     });
 
+    it('redraws the highlight as soon as the parent changes the selection, without waiting for a re-render', async () => {
+        const element = await mountMark({ pickedNodes: [1] });
+        const frames = jest.spyOn(window, 'requestAnimationFrame');
+        element.pickedNodes = [3];
+        expect(frames).toHaveBeenCalledTimes(1);
+        await new Promise(resolve => setTimeout(resolve, 50));
+        const solid = boxes(element, 'marks').filter(box => box.style.border.includes('solid'));
+        expect(solid).toHaveLength(1);
+        element.selectedKey = 'slot:n';
+        expect(frames.mock.calls.length).toBeGreaterThanOrEqual(1);
+        frames.mockRestore();
+    });
+
     it('reports Shift-click as an extension of the selection', async () => {
         const element = await mountMark();
         const picks = [];
