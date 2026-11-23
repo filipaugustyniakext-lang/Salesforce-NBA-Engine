@@ -408,14 +408,14 @@
                                 <lightning-icon icon-name="utility:warning" size="xx-small"
                                     variant="warning" class="slds-m-left_xx-small" alternative-text="Warning">
                                 </lightning-icon>
-                                <span class="cd-warn-text"> exceeds 100%</span>
+                                <span class="cd-warn-text"> {pathSumWarningText}</span>
                             </template>
                         </p>
                     </div>
                     <div class="slds-grid slds-gutters_x-small">
                         <div class="slds-col slds-no-flex">
-                            <lightning-button label="Allocate Equally" icon-name="utility:share" variant="neutral"
-                                onclick={handleAllocateEqually} disabled={noActivePaths}>
+                            <lightning-button label="Edit" icon-name="utility:edit" variant="neutral"
+                                onclick={handleOpenPathEditor} disabled={noPaths}>
                             </lightning-button>
                         </div>
                         <div class="slds-col slds-no-flex">
@@ -430,53 +430,31 @@
                     <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
                 </template>
                 <template lwc:elseif={hasPaths}>
-                    <div class="path-list">
-                        <template for:each={paths} for:item="path">
-                            <div key={path.Id} class={path.cardClass}>
-                                <div class="path-card__left">
-                                    <span class={path.statusBadgeClass}>{path.statusLabel}</span>
-                                    <span class="slds-text-body_regular slds-m-left_x-small">{path.Name}</span>
-                                </div>
-                                <div class="path-card__center">
-                                    <template lwc:if={path.Is_Active__c}>
-                                        <lightning-input type="number" label="Distribution %" variant="label-hidden"
-                                            min="0" max="100" step="0.01"
-                                            value={path.Distribution_Percent__c}
-                                            data-id={path.Id}
-                                            onchange={handlePathPercentChange}
-                                            class="path-pct-input">
-                                        </lightning-input>
-                                        <span class="slds-m-left_xx-small slds-text-body_small">%</span>
-                                    </template>
-                                    <template lwc:else>
-                                        <span class="slds-text-body_small slds-text-color_weak">—</span>
-                                    </template>
-                                </div>
-                                <div class="path-card__right">
-                                    <lightning-input type="toggle" label={path.toggleLabel}
-                                        checked={path.Is_Active__c}
-                                        data-id={path.Id} onchange={handlePathToggle}
-                                        message-toggle-active="Active" message-toggle-inactive="Inactive"
-                                        class="path-toggle">
-                                    </lightning-input>
-                                    <lightning-button-icon icon-name="utility:edit" variant="border-filled"
-                                        size="x-small" alternative-text="Edit" title="Edit"
-                                        data-id={path.Id} onclick={handleEditPath}
-                                        class="slds-m-left_x-small">
-                                    </lightning-button-icon>
-                                    <lightning-button-icon icon-name="utility:delete" variant="border-filled"
-                                        size="x-small" alternative-text="Delete" title="Delete"
-                                        data-id={path.Id} data-name={path.Name} onclick={handleDeleteCampaignRecord}
-                                        class="slds-m-left_xx-small">
-                                    </lightning-button-icon>
-                                </div>
-                            </div>
-                        </template>
-                    </div>
-                    <lightning-button label="Save Distribution" variant="brand" icon-name="utility:save"
-                        onclick={handleSaveDistribution} disabled={isSaving}
-                        class="slds-m-top_small">
-                    </lightning-button>
+                    <table class="slds-table slds-table_bordered slds-table_cell-buffer">
+                        <thead>
+                            <tr class="slds-line-height_reset">
+                                <th scope="col">Status</th>
+                                <th scope="col">Path</th>
+                                <th scope="col" class="slds-text-align_right">Allocation</th>
+                                <th scope="col" class="path-actions-col"><span class="slds-assistive-text">Actions</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template for:each={paths} for:item="path">
+                                <tr key={path.Id} class={path.rowClass}>
+                                    <td><span class={path.statusBadgeClass}>{path.statusLabel}</span></td>
+                                    <th scope="row"><div class="slds-truncate" title={path.Name}>{path.Name}</div></th>
+                                    <td class="slds-text-align_right">{path.allocationText}</td>
+                                    <td class="slds-text-align_right">
+                                        <lightning-button-icon icon-name="utility:delete" variant="border-filled"
+                                            size="x-small" alternative-text="Delete" title="Delete"
+                                            data-id={path.Id} data-name={path.Name} onclick={handleDeleteCampaignRecord}>
+                                        </lightning-button-icon>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
                 </template>
                 <template lwc:else>
                     <p class="slds-text-body_small slds-text-color_weak">No activation paths defined yet.</p>
@@ -887,6 +865,9 @@
                         data-field="Is_Active__c" onchange={handlePathCheckboxChange}
                         class="slds-m-top_small">
                     </lightning-input>
+                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">
+                        A new path starts at 0%. Use Edit on the Activation Paths list to set its allocation so active paths add up to 100%.
+                    </p>
                 </div>
                 <div class="slds-modal__footer">
                     <lightning-button label="Cancel" onclick={closePathModal}></lightning-button>
@@ -897,6 +878,12 @@
             </div>
         </section>
         <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+    <template lwc:if={isPathEditorOpen}>
+        <c-marketing-dictionary-path-editor paths={pathEditorPaths} saving={isSaving} error-message={pathEditorError}
+            onsave={handleSavePaths} onclose={handleClosePathEditor}>
+        </c-marketing-dictionary-path-editor>
     </template>
 
     <!-- ══════════════════════════════════════════════════════════
