@@ -3,20 +3,20 @@ import { scopePreviewDocument, pinPreviewWidths } from 'c/copyTemplatePreview';
 
 /**
  * Renders already-merged HTML (see c/ccTemplateRenderer) in a scoped preview host.
- * `render` is a function (device, theme) => html so the parent re-renders per device/theme.
+ * `renderFn` is a function (device, theme) => html so the parent re-renders per device/theme.
  */
 export default class CcTemplatePreview extends LightningElement {
-    @api title = 'Preview';
+    @api heading = 'Preview';
     device = 'desktop';
     theme = 'light';
     _render;
     _stamp;
 
     @api
-    get render() {
+    get renderFn() {
         return this._render;
     }
-    set render(fn) {
+    set renderFn(fn) {
         this._render = fn;
         this._stamp = null;
     }

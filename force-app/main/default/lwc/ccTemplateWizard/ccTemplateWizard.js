@@ -311,18 +311,6 @@ export default class CcTemplateWizard extends LightningElement {
         };
     }
 
-    get blockPreviewRender() {
-        const shell = { html: this.shell.html, definition: this.shell.definition };
-        const draft = this.blockDraft;
-        if (!draft?.html || !draft.definition) return null;
-        return (device, theme) => renderMessage({
-            shell,
-            blocks: [{ html: draft.html, definition: draft.definition, block: newMessageBlock({}, draft.definition, 1) }],
-            device,
-            theme
-        });
-    }
-
     handleBlockField(event) {
         this.blockDraft = { ...this.blockDraft, [event.target.dataset.field]: event.target.value };
     }
