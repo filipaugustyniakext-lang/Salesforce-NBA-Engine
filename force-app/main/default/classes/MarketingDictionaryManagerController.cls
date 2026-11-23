@@ -242,7 +242,7 @@ public with sharing class MarketingDictionaryManagerController {
     @AuraEnabled(cacheable=true)
     public static List<Marketing_Dictionary__c> getPersonRecords() {
         return [
-            SELECT Id, Name, Dictionary_Sub_Type__c
+            SELECT Id, Name, Dictionary_Sub_Type__c, Data360_Filter_JSON__c
             FROM Marketing_Dictionary__c
             WHERE RecordType.DeveloperName = 'Product'
             AND Dictionary_Sub_Type__c IN ('Customer Type', 'Audience Type')
