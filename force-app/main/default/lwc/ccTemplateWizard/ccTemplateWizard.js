@@ -36,6 +36,8 @@ function isWorkspaceResult(detail) {
     return !!detail && typeof detail === 'object' && 'html' in detail && 'definition' in detail;
 }
 
+const DROPZONE_HTML = '<div style="border:2px dashed #7f4bc4;background:#f7f3fc;padding:40px 16px;text-align:center;color:#5a3a8a;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;">Content blocks dropzone<br><span style="font-size:12px;">Marketers add content blocks here</span></div>';
+
 function errorMessage(error) {
     return error?.body?.message || error?.message || 'Something went wrong.';
 }
@@ -59,6 +61,7 @@ export default class CcTemplateWizard extends LightningElement {
     previewChoice = 'all';
     inspectKey = null;
     pickedNodes = [];
+    shellPickScope = 'areas';
     markOn = false;
     _annotated = { html: null, out: null };
     isLegacy = false;
@@ -501,6 +504,16 @@ export default class CcTemplateWizard extends LightningElement {
         return this.isBlocksStep ? 'blocks' : 'all';
     }
 
+    /** The shell steps decide what can be picked; everywhere else any element can. */
+    get pickScope() {
+        return this.isShellStep && this.isMulti ? this.shellPickScope : 'any';
+    }
+
+    handleStepChange(event) {
+        this.shellPickScope = event.detail.pickScope || 'areas';
+        this.markOn = true;
+    }
+
     handleInspectSelect(event) {
         if (!event.detail || typeof event.detail.key !== 'string') return;
         this.pickedNodes = [];
@@ -574,6 +587,7 @@ export default class CcTemplateWizard extends LightningElement {
             }
         }
         return (device, theme) => renderMessage({
+            zonePlaceholder: DROPZONE_HTML,
             shell,
             shellContent: !isMulti ? { blockConfig: buildBlockConfig(shell.definition) } : null,
             blocks: blocks.map((entry, index) => ({

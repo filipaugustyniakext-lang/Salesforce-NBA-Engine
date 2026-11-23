@@ -65,17 +65,4 @@
     margin-top: 1rem;
 }
 
-.cc-marker__crumb_action {
-    border-style: dashed;
-    color: #0176d3;
-}
 
-.cc-marker__zone {
-    display: grid;
-    gap: 0.5rem;
-    margin-top: 1rem;
-    padding: 0.75rem;
-    border: 1px dashed #7f4bc4;
-    border-radius: 0.25rem;
-    justify-items: start;
-}

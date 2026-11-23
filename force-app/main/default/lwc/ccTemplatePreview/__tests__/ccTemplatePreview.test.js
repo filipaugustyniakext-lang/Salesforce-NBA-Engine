@@ -161,6 +161,33 @@ describe('c-cc-template-preview mark mode', () => {
         expect(selects).toEqual(['slot:n']);
     });
 
+    const AREA_HTML = '<div data-cc-node="0"><div data-cc-node="1" data-cc-region="fixed-read" data-cc-id="header"><p data-cc-node="2">Header text</p></div>'
+        + '<div data-cc-node="3"><p data-cc-node="4">Loose copy</p></div>'
+        + '<div data-cc-node="5" data-cc-region="fixed-edit" data-cc-id="footer"><p data-cc-node="6">Footer <b data-cc-node="7">text</b></p></div></div>';
+
+    it('areas scope picks fixed areas as a whole and layout elements outside them', async () => {
+        const element = await mountMark({ renderFn: () => AREA_HTML, pickScope: 'areas' });
+        const picks = [];
+        element.addEventListener('pick', event => picks.push(event.detail.node));
+        host(element).querySelector('[data-cc-node="2"]').dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+        expect(boxes(element, 'hover')[0].textContent).toBe('<div> · Read-only region · header');
+        host(element).querySelector('[data-cc-node="2"]').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        host(element).querySelector('[data-cc-node="7"]').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        host(element).querySelector('[data-cc-node="4"]').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        expect(picks).toEqual([1, 5, 4]);
+    });
+
+    it('editable scope only picks elements inside editable areas', async () => {
+        const element = await mountMark({ renderFn: () => AREA_HTML, pickScope: 'editable' });
+        const picks = [];
+        element.addEventListener('pick', event => picks.push(event.detail.node));
+        ['2', '4', '5', '0'].forEach(node => host(element).querySelector(`[data-cc-node="${node}"]`).dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })));
+        host(element).querySelector('[data-cc-node="7"]').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        host(element).querySelector('[data-cc-node="6"]').dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+        expect(picks).toEqual([7]);
+        expect(boxes(element, 'hover')[0].textContent).toBe('<p> · click to mark');
+    });
+
     it('hides the mark toggle when the content is not markable', async () => {
         const element = await mountMark({ markable: false });
         expect(Array.from(element.shadowRoot.querySelectorAll('lightning-input')).some(toggle => toggle.label === 'Mark elements')).toBe(false);

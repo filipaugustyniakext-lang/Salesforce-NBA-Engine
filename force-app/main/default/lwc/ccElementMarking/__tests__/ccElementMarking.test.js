@@ -1,4 +1,4 @@
-import { annotateNodes, inspectNode, applyMarking, isUnmarked, nodeElement, rangeBetween, inspectGroup, wrapElements, insertBlocksZone } from 'c/ccElementMarking';
+import { annotateNodes, inspectNode, applyMarking, isUnmarked, nodeElement, rangeBetween, inspectGroup, wrapElements, insertBlocksZone, listAreas, updateArea, removeArea, removeContentIn, zonePlacement, removeBlocksZone, shellProgress } from 'c/ccElementMarking';
 import { parseTemplate, parseHtml, describeMarked } from 'c/ccTemplateParser';
 
 const RAW = `<html><head><style>.cc-hide-dsk{} .cc-hide-mob{}</style></head><body>
@@ -185,7 +185,7 @@ describe('groups of siblings', () => {
     it('keeps comments between grouped elements, and rejects invalid groups', () => {
         const html = '<div><p id="a">a</p><!--[if mso]><i></i><![endif]--><p id="b">b</p></div>';
         const result = wrapElements(html, [node(html, '#a'), node(html, '#b')], { regionKind: 'fixed-read' }, { kind: 'shell' });
-        expect(result.html).toContain('<div data-cc-region="fixed-read"><p id="a">a</p><!--[if mso]><i></i><![endif]--><p id="b">b</p></div>');
+        expect(result.html).toContain('<div data-cc-region="fixed-read" data-cc-wrapper="area"><p id="a">a</p><!--[if mso]><i></i><![endif]--><p id="b">b</p></div>');
 
         const fail = (nodes, marking, options) => wrapElements(PAGE, nodes, marking, options).errors.join(' ');
         const two = [node(PAGE, '#footer-a'), node(PAGE, '#footer-b')];
@@ -273,5 +273,159 @@ describe('blocks zone', () => {
         expect(inside.suggestion.role).toBe('content');
         expect(inspectNode(PAGE, node(PAGE, '#footer-a'), { kind: 'block' }).suggestion.role).toBe('section');
         expect(parseTemplate('<div data-cc-region="fixed-read"><p data-cc-content="richText" data-cc-key="t">x</p></div><div data-cc-region="blocks"></div>', { kind: 'shell', templateMode: 'multi' }).warnings.join(' ')).toContain('not inside an editable region');
+    });
+});
+
+describe('named areas, dropzone placement and setup progress', () => {
+    const SHELL = `<div id="page">
+  <table id="viewonline"><tr><td>View online</td></tr></table>
+  <table id="head"><tr><td>Logo</td></tr></table>
+  <table id="copy"><tr><td>Promo</td></tr></table>
+  <table id="foot-a"><tr><td><p id="legal">Legal A</p></td></tr></table>
+  <table id="foot-b"><tr><td>Legal B</td></tr></table>
+</div>`;
+    const options = { kind: 'shell' };
+
+    function build() {
+        let html = SHELL;
+        const step = result => {
+            expect(result.errors).toEqual([]);
+            html = result.html;
+        };
+        step(applyMarking(html, node(html, '#viewonline'), { role: 'region', regionKind: 'fixed-read', name: 'View online' }, options));
+        step(applyMarking(html, node(html, '#head'), { role: 'region', regionKind: 'fixed-read', name: 'Header' }, options));
+        step(wrapElements(html, [node(html, '#foot-a'), node(html, '#foot-b')], { regionKind: 'fixed-edit', name: 'Footer' }, options));
+        return html;
+    }
+
+    it('creates areas with a name and a slug id, and lists them', () => {
+        const html = build();
+        const areas = listAreas(html);
+        expect(areas.map(area => [area.regionId, area.name, area.kind, area.wrapped])).toEqual([
+            ['view-online', 'View online', 'fixed-read', false],
+            ['header', 'Header', 'fixed-read', false],
+            ['footer', 'Footer', 'fixed-edit', true]
+        ]);
+        const parsed = parseTemplate(html, { kind: 'shell', templateMode: 'multi' });
+        expect(parsed.definition.regions[0]).toEqual({ regionId: 'view-online', kind: 'fixed-read', label: 'View online' });
+        const again = applyMarking(html, node(html, '#copy'), { role: 'region', regionKind: 'fixed-read', name: 'Header' }, options);
+        expect(nodeElement(again.html, again.markedNode).getAttribute('data-cc-id')).toBe('header-2');
+        expect(describeMarkedLabel(html, 'footer')).toBe('Editable region · Footer');
+    });
+
+    function describeMarkedLabel(html, id) {
+        const { doc } = parseHtml(html);
+        return describeMarked(doc.querySelector(`[data-cc-id="${id}"]`)).label;
+    }
+
+    it('renames an area and switches its type, asking before it drops editable content', () => {
+        let html = build();
+        const mark = applyMarking(html, node(html, '#legal'), { role: 'content', contentType: 'richText', key: 'legal' }, options);
+        html = mark.html;
+        expect(listAreas(html)[2]).toMatchObject({ bindingCount: 1, contentKeys: ['legal'] });
+
+        const renamed = updateArea(html, 'footer', { name: 'Legal footer' });
+        expect(renamed.errors).toEqual([]);
+        expect(listAreas(renamed.html)[2]).toMatchObject({ name: 'Legal footer', kind: 'fixed-edit', regionId: 'footer' });
+
+        const blocked = updateArea(html, 'footer', { kind: 'fixed-read' });
+        expect(blocked.errors.join(' ')).toContain('1 editable content binding');
+        const forced = updateArea(html, 'footer', { kind: 'fixed-read', removeContent: true });
+        expect(forced.errors).toEqual([]);
+        expect(forced.html).not.toContain('data-cc-content');
+        expect(listAreas(forced.html)[2].kind).toBe('fixed-read');
+
+        const toEditable = updateArea(forced.html, 'footer', { kind: 'fixed-edit' });
+        expect(listAreas(toEditable.html)[2].kind).toBe('fixed-edit');
+        expect(updateArea(html, 'footer', { name: '  ' }).errors.join(' ')).toContain('Enter a name');
+        expect(updateArea(html, 'nope', { name: 'x' }).errors.join(' ')).toContain('no longer exists');
+        expect(updateArea(html, 'footer', { kind: 'blocks' }).errors.join(' ')).toContain('read-only or editable');
+    });
+
+    it('removes content only, or the whole area (unwrapping wizard wrappers)', () => {
+        let html = build();
+        html = applyMarking(html, node(html, '#legal'), { role: 'content', contentType: 'richText', key: 'legal' }, options).html;
+        const stripped = removeContentIn(html, 'footer');
+        expect(stripped.html).not.toContain('data-cc-content');
+        expect(listAreas(stripped.html)).toHaveLength(3);
+
+        const gone = removeArea(html, 'footer');
+        expect(gone.errors).toEqual([]);
+        expect(gone.html).not.toContain('data-cc-wrapper');
+        expect(gone.html).not.toContain('data-cc-content');
+        const { doc } = parseHtml(gone.html);
+        expect(Array.from(doc.querySelector('#page').children).map(child => child.id)).toEqual(['viewonline', 'head', 'copy', 'foot-a', 'foot-b']);
+
+        const plain = removeArea(html, 'header');
+        const head = parseHtml(plain.html).doc.querySelector('#head');
+        expect(head.hasAttribute('data-cc-region')).toBe(false);
+        expect(removeArea(html, 'nope').errors.join(' ')).toContain('no longer exists');
+        expect(removeContentIn(html, 'nope').errors.join(' ')).toContain('no longer exists');
+    });
+
+    it('keeps tbody wrappers valid when an area made of table rows is removed', () => {
+        const table = '<table><tbody><tr><td>1</td></tr><tr><td>2</td></tr><tr><td>3</td></tr></tbody></table>';
+        const wrapped = wrapElements(table, [node(table, 'tr:nth-child(2)'), node(table, 'tr:nth-child(3)')], { regionKind: 'fixed-read', name: 'Rows' }, options);
+        const removed = removeArea(wrapped.html, 'rows');
+        const { doc } = parseHtml(removed.html);
+        expect(doc.querySelectorAll('tr')).toHaveLength(3);
+        expect(removed.html).not.toContain('data-cc-region');
+    });
+
+    it('reports where the dropzone sits and can remove or move it', () => {
+        const html = build();
+        expect(zonePlacement(html)).toBeNull();
+        expect(removeBlocksZone(html).errors.join(' ')).toContain('no dropzone');
+        const placed = insertBlocksZone(html, node(html, '[data-cc-id="header"]'), 'after', options);
+        const placement = zonePlacement(placed.html);
+        expect(placement).toMatchObject({ position: 'after', zoneId: 'content', text: 'After Header' });
+        const before = insertBlocksZone(placed.html, node(placed.html, '[data-cc-id="footer"]'), 'before', options);
+        expect(zonePlacement(before.html).text).toBe('After table#copy');
+        const first = insertBlocksZone(before.html, node(before.html, '[data-cc-id="view-online"]'), 'before', options);
+        expect(zonePlacement(first.html).text).toBe('Before View online');
+        const removed = removeBlocksZone(first.html);
+        expect(zonePlacement(removed.html)).toBeNull();
+        expect(removed.html).not.toContain('blocks');
+        const inside = insertBlocksZone('<div id="empty"></div>', 0, 'inside-start', options);
+        expect(zonePlacement(inside.html).text).toBe('Inside div#empty');
+
+        const table = '<table><tbody><tr><td>1</td></tr></tbody></table>';
+        const row = insertBlocksZone(table, node(table, 'tr'), 'after', options);
+        expect(zonePlacement(row.html).text).toBe('After tr');
+        expect(removeBlocksZone(row.html).html).not.toContain('data-cc-region');
+    });
+
+    it('describes areas for the step 1 and step 2 panels', () => {
+        const html = build();
+        const inFooter = inspectNode(html, node(html, '#foot-a td'), options);
+        expect(inFooter).toMatchObject({ isArea: false, areaName: 'Footer', insideRegion: true });
+        expect(inFooter.areaNode).toBe(node(html, '[data-cc-id="footer"]'));
+        const footer = inspectNode(html, node(html, '[data-cc-id="footer"]'), options);
+        expect(footer).toMatchObject({ isArea: true, isZone: false, areaNode: footer.node, areaName: 'Footer' });
+        expect(inspectNode(html, node(html, '#copy'), options)).toMatchObject({ isArea: false, areaNode: null, areaName: null });
+    });
+
+    it('computes setup progress and unlocks steps in order', () => {
+        const parse = html => parseTemplate(html, { kind: 'shell', templateMode: 'multi' }).definition;
+        const empty = shellProgress(parse(SHELL));
+        expect(empty.steps.map(item => [item.done, item.unlocked])).toEqual([[false, true], [false, false], [false, false]]);
+        expect(empty.firstOpenStep).toBe(1);
+
+        const areas = shellProgress(parse(build()));
+        expect(areas.steps.map(item => [item.done, item.unlocked])).toEqual([[true, true], [false, true], [false, false]]);
+        expect(areas).toMatchObject({ areaCount: 3, editableCount: 1, hasZone: false, firstOpenStep: 2 });
+
+        const html = insertBlocksZone(build(), node(build(), '[data-cc-id="header"]'), 'after', options).html;
+        const full = parse(html);
+        expect(shellProgress(full).steps.map(item => item.unlocked)).toEqual([true, true, true]);
+        expect(shellProgress(full).firstOpenStep).toBe(1);
+
+        const none = { regions: [], setup: { noFixedAreas: true } };
+        expect(shellProgress(none).steps[0]).toEqual({ step: 1, done: true, unlocked: true });
+        expect(shellProgress(none).steps[1].unlocked).toBe(true);
+        expect(shellProgress(null).steps[0].done).toBe(false);
+
+        const keeps = parseTemplate(SHELL, { kind: 'shell', templateMode: 'multi', previous: { setup: { noFixedAreas: true } } }).definition;
+        expect(keeps.setup).toEqual({ noFixedAreas: true });
     });
 });

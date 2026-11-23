@@ -40,15 +40,8 @@
                     <span>No bindings were found in this file. Turn on <strong>Mark elements</strong> in the preview and click an element to tell the processor what it is. Shift-click neighbouring elements to treat them as one.</span>
                 </div>
             </template>
-            <template lwc:if={showChecklist}>
-                <ol class="cc-workspace__todos" aria-label="Shell setup steps">
-                    <template for:each={checklist} for:item="todo">
-                        <li key={todo.key} class={todo.className}>
-                            <lightning-icon icon-name={todo.icon} size="x-small"></lightning-icon>
-                            <span>{todo.text}</span>
-                        </li>
-                    </template>
-                </ol>
+            <template lwc:if={showSteps}>
+                <c-cc-shell-steps progress={progress} active-step={activeStep} onstepselect={handleStepSelect}></c-cc-shell-steps>
             </template>
             <div class="cc-workspace__body">
                 <nav class="cc-workspace__nav" aria-label="Bindings">
@@ -71,8 +64,51 @@
                     </template>
                 </nav>
                 <div class="cc-workspace__editor">
-                    <template lwc:if={showMarker}>
-                        <c-cc-element-marker info={markerInfo} group={groupInfo} kind={markerKind} template-mode={templateMode} existing-keys={existingKeys} errors={markerErrors} onapply={handleMarkerApply} onremove={handleMarkerRemove} onclose={handleMarkerClose} onpick={handleMarkerPick} onwrap={handleMarkerWrap} onzone={handleMarkerZone} ongroupchildren={handleGroupChildren}></c-cc-element-marker>
+                    <template lwc:if={isMultiShell}>
+                        <template lwc:if={isStep1}>
+                            <c-cc-area-panel
+                                areas={areas}
+                                info={markerInfo}
+                                group={groupInfo}
+                                no-fixed-areas={noFixedAreas}
+                                can-continue={step1Done}
+                                errors={markerErrors}
+                                oncreate={handleAreaCreate}
+                                onupdate={handleAreaUpdate}
+                                onremove={handleAreaRemove}
+                                onnofixed={handleNoFixedAreas}
+                                onpick={handleMarkerPick}
+                                onclear={handleMarkerClose}
+                                onnext={handleNextStep}>
+                            </c-cc-area-panel>
+                        </template>
+                        <template lwc:if={isStep2}>
+                            <c-cc-dropzone-panel
+                                placement={placement}
+                                info={markerInfo}
+                                can-continue={step2Done}
+                                errors={markerErrors}
+                                onplace={handleZonePlace}
+                                onremovezone={handleZoneRemove}
+                                onpick={handleMarkerPick}
+                                onnext={handleNextStep}>
+                            </c-cc-dropzone-panel>
+                        </template>
+                        <template lwc:if={isStep3}>
+                            <h3 class="slds-text-heading_small">3. Editable content <span class="slds-text-body_small slds-text-color_weak">(optional)</span></h3>
+                            <template lwc:if={showContentMarker}>
+                                <c-cc-element-marker mode="content" info={markerInfo} existing-keys={existingKeys} errors={markerErrors} blocked-reason={contentBlockedReason} onapply={handleMarkerApply} onremove={handleMarkerRemove} onclose={handleMarkerClose} onpick={handleMarkerPick}></c-cc-element-marker>
+                            </template>
+                            <template lwc:elseif={selectedSlot}>
+                                <c-cc-content-binding-editor binding={selectedSlot} disabled={disabled} onchange={handleSlotChange}></c-cc-content-binding-editor>
+                            </template>
+                            <template lwc:else>
+                                <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">{contentHint}</p>
+                            </template>
+                        </template>
+                    </template>
+                    <template lwc:elseif={showMarker}>
+                        <c-cc-element-marker info={markerInfo} existing-keys={existingKeys} errors={markerErrors} onapply={handleMarkerApply} onremove={handleMarkerRemove} onclose={handleMarkerClose} onpick={handleMarkerPick}></c-cc-element-marker>
                     </template>
                     <template lwc:else>
                     <template lwc:if={selectedSection}>

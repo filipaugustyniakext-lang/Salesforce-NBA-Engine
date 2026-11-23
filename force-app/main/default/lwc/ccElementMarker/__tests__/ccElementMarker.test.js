@@ -89,48 +89,35 @@ describe('c-cc-element-marker', () => {
         expect(Array.from(element.shadowRoot.querySelectorAll('lightning-button')).some(button => button.label === 'Update marking')).toBe(true);
     });
 
-    it('offers the group action and the blocks zone for multi-block shells', async () => {
-        const element = await mount('td', { kind: 'shell', templateMode: 'multi' });
-        const events = [];
-        ['groupchildren', 'zone'].forEach(name => element.addEventListener(name, event => events.push([name, event.detail])));
-        q(element, '.cc-marker__crumb_action').click();
-        expect(q(element, '.cc-marker__zone lightning-button').label).toBe('Insert blocks zone');
-        q(element, '.cc-marker__zone lightning-radio-group').dispatchEvent(new CustomEvent('change', { detail: { value: 'before' } }));
-        await flush();
-        Array.from(element.shadowRoot.querySelectorAll('.cc-marker__zone lightning-button')).find(button => button.label === 'Insert blocks zone').click();
-        expect(events).toEqual([['groupchildren', null], ['zone', { position: 'before' }]]);
-        expect(q(element, 'lightning-radio-group').options.map(option => option.value)).toEqual(['content', 'region', 'none']);
-        const block = await mount('td', { kind: 'block' });
-        expect(q(block, '.cc-marker__zone')).toBeNull();
+    it('content mode offers content only, preselects it, and has no region, group or zone parts', async () => {
+        const element = await mount('td', { mode: 'content' });
+        const radio = q(element, 'lightning-radio-group');
+        expect(radio.options.map(option => option.value)).toEqual(['content', 'none']);
+        expect(radio.value).toBe('content');
+        expect(q(element, 'lightning-input[data-field="key"]').value).toBe('content');
+        expect(element.shadowRoot.textContent).toContain('Editable content: <td>');
+        expect(q(element, '.cc-marker__suggestion')).toBeNull();
+        expect(q(element, '.cc-marker__zone')).toBeNull();
+        expect(q(element, '.cc-marker__crumb_action')).toBeNull();
+        const applied = [];
+        element.addEventListener('apply', event => applied.push(event.detail.marking));
+        Array.from(element.shadowRoot.querySelectorAll('lightning-button')).find(button => button.label === 'Apply marking').click();
+        expect(applied[0]).toMatchObject({ role: 'content', contentType: 'richText', key: 'content' });
     });
 
-    it('shows a group panel that wraps selected neighbours in a region', async () => {
-        const group = { count: 2, nodes: [1, 2], labels: ['table#a', 'table#b'], parentLabel: 'div#page', wrapperTag: 'div', problem: '' };
-        const element = createElement('c-cc-element-marker', { is: CcElementMarker });
-        element.group = group;
-        element.kind = 'shell';
-        document.body.appendChild(element);
+    it('re-initialises when the mode arrives after the element, and keeps image suggestions in content mode', async () => {
+        const element = await mount('img');
+        expect(q(element, 'lightning-radio-group').options.map(option => option.value)).toEqual(['section', 'content', 'none']);
+        element.mode = 'content';
         await flush();
-        expect(element.shadowRoot.textContent).toContain('2 neighbouring elements selected');
-        expect(element.shadowRoot.textContent).toContain('new <div>');
-        const wraps = [];
-        element.addEventListener('wrap', event => wraps.push(event.detail.marking));
-        q(element, 'lightning-radio-group').dispatchEvent(new CustomEvent('change', { detail: { value: 'fixed-edit' } }));
-        q(element, 'lightning-input[data-field="id"]').dispatchEvent(new CustomEvent('change', { detail: { value: 'footer' } }));
-        await flush();
-        Array.from(element.shadowRoot.querySelectorAll('lightning-button')).find(button => button.label === 'Wrap in region').click();
-        expect(wraps).toEqual([{ regionKind: 'fixed-edit', id: 'footer' }]);
-
-        element.group = { ...group, problem: 'The selected elements must be next to each other.' };
-        await flush();
-        expect(element.shadowRoot.textContent).toContain('next to each other');
-        expect(Array.from(element.shadowRoot.querySelectorAll('lightning-button')).find(button => button.label === 'Wrap in region').disabled).toBe(true);
+        expect(q(element, 'lightning-radio-group').options.map(option => option.value)).toEqual(['content', 'none']);
+        expect(q(element, 'lightning-combobox').value).toBe('image');
+        expect(q(element, 'lightning-input[data-field="key"]').value).toBe('hero');
     });
 
-    it('offers regions only for multi-block shells', async () => {
-        const shell = await mount('p', { kind: 'shell', templateMode: 'multi' });
-        expect(q(shell, 'lightning-radio-group').options.map(option => option.value)).toContain('region');
-        const block = await mount('p', { kind: 'block' });
-        expect(q(block, 'lightning-radio-group').options.map(option => option.value)).not.toContain('region');
+    it('offers sections and content outside shells', async () => {
+        const block = await mount('td');
+        expect(q(block, 'lightning-radio-group').options.map(option => option.value)).toEqual(['section', 'content', 'none']);
+        expect(q(block, '.cc-marker__suggestion').textContent).toContain('Suggestion:');
     });
 });

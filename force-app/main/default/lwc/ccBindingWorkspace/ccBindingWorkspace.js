@@ -1,6 +1,21 @@
 import { LightningElement, api } from 'lwc';
 import { parseTemplate, describeMarked } from 'c/ccTemplateParser';
-import { inspectNode, inspectGroup, applyMarking, wrapElements, insertBlocksZone, rangeBetween, nodeElement, isUnmarked } from 'c/ccElementMarking';
+import {
+    inspectNode,
+    inspectGroup,
+    applyMarking,
+    wrapElements,
+    insertBlocksZone,
+    rangeBetween,
+    nodeElement,
+    isUnmarked,
+    listAreas,
+    updateArea,
+    removeArea,
+    removeBlocksZone,
+    zonePlacement,
+    shellProgress
+} from 'c/ccElementMarking';
 import { validateDefinition, CONTENT_TYPE_LABELS, clone } from 'c/ccTemplateSchema';
 import { isolateNativeEvents } from 'c/ccEventGuard';
 
@@ -16,7 +31,9 @@ const MAX_FILE_BYTES = 262144;
 
 /**
  * Upload + parse + configure bindings of one HTML file (shell or block).
- * Emits change { html, definition, errors, warnings }.
+ * Emits bindingchange { html, definition, errors, warnings }.
+ * Multi-block shells are set up in three gated steps (fixed areas, dropzone, editable content); the workspace
+ * announces the active step with stepchange { step, pickScope } so the preview only offers what the step needs.
  */
 export default class CcBindingWorkspace extends LightningElement {
     connectedCallback() {
@@ -32,6 +49,7 @@ export default class CcBindingWorkspace extends LightningElement {
     selectedKey;
     fileName;
     pickedNodes = [];
+    activeStep = 1;
     markerErrors = [];
     _markerCache = { html: null, node: null, mode: null, info: null };
     _templateMode = 'multi';
@@ -45,6 +63,7 @@ export default class CcBindingWorkspace extends LightningElement {
         if ((key || null) === this.selectedKey) return;
         this.selectedKey = key || null;
         this._revealPending = !!key;
+        if (key && this.isMultiShell && this.html) this.routeKey(key, false);
     }
 
     renderedCallback() {
@@ -82,6 +101,7 @@ export default class CcBindingWorkspace extends LightningElement {
             this.html = result.html;
             this.errors = result.errors;
             this.warnings = result.warnings;
+            this.openFirstStep();
         } else {
             this.errors = [];
             this.warnings = [];
@@ -124,6 +144,7 @@ export default class CcBindingWorkspace extends LightningElement {
 
     get navItems() {
         if (!this.definition) return [];
+        if (this.isMultiShell) return this.shellNavItems;
         const sections = this.definition.sections.map(section => ({
             key: `section:${section.sectionId}`,
             label: section.label || section.sectionId,
@@ -201,6 +222,7 @@ export default class CcBindingWorkspace extends LightningElement {
         const text = await file.text();
         this.html = text;
         this.reparse();
+        this.openFirstStep();
     }
 
     reparse() {
@@ -212,13 +234,211 @@ export default class CcBindingWorkspace extends LightningElement {
         if (this.selectedKey && !this.navItems.some(group => group.items.some(item => item.key === this.selectedKey))) {
             this.selectedKey = null;
         }
+        if (this.isMultiShell && !this.stepUnlocked(this.activeStep)) this.setStep(this.highestUnlockedStep());
         this.emit();
     }
 
     handleSelect(event) {
-        this.selectedKey = event.currentTarget.dataset.key;
+        const key = event.currentTarget.dataset.key;
+        this.selectedKey = key;
+        if (this.isMultiShell && this.routeKey(key, true)) return;
         this.setPicked([]);
-        this.dispatchEvent(new CustomEvent('select', { detail: { key: this.selectedKey } }));
+        this.dispatchEvent(new CustomEvent('select', { detail: { key } }));
+    }
+
+    // ─── Shell setup steps (multi-block shells) ───────────────────────────────
+
+    get isMultiShell() {
+        return this.kind === 'shell' && this._templateMode !== 'single';
+    }
+
+    get showSteps() {
+        return this.isMultiShell && !!this.html;
+    }
+
+    get progress() {
+        return shellProgress(this.definition);
+    }
+
+    get areas() {
+        return this.html && this.isMultiShell ? listAreas(this.html) : [];
+    }
+
+    get placement() {
+        return this.html && this.isMultiShell ? zonePlacement(this.html) : null;
+    }
+
+    get isStep1() {
+        return this.activeStep === 1;
+    }
+
+    get isStep2() {
+        return this.activeStep === 2;
+    }
+
+    get isStep3() {
+        return this.activeStep === 3;
+    }
+
+    get step1Done() {
+        return this.progress.steps[0].done;
+    }
+
+    get step2Done() {
+        return this.progress.steps[1].done;
+    }
+
+    get noFixedAreas() {
+        return this.progress.noFixedAreas;
+    }
+
+    get pickScope() {
+        return this.isMultiShell ? (this.activeStep === 3 ? 'editable' : 'areas') : 'any';
+    }
+
+    stepUnlocked(step) {
+        const state = this.progress.steps.find(item => item.step === step);
+        return !!state && state.unlocked;
+    }
+
+    highestUnlockedStep() {
+        return [3, 2, 1].find(step => this.stepUnlocked(step)) || 1;
+    }
+
+    openFirstStep() {
+        if (this.isMultiShell && this.html) this.setStep(this.progress.firstOpenStep, true);
+    }
+
+    /** Opens a step if it is unlocked. Changing the step clears the current selection. */
+    setStep(step, force = false) {
+        if (!this.stepUnlocked(step)) return false;
+        if (step === this.activeStep && !force) return true;
+        this.activeStep = step;
+        this.markerErrors = [];
+        if (this.pickedNodes.length) this.setPicked([]);
+        const detail = { step, pickScope: this.pickScope };
+        Promise.resolve().then(() => this.dispatchEvent(new CustomEvent('stepchange', { detail })));
+        return true;
+    }
+
+    handleStepSelect(event) {
+        this.setStep(event.detail.step);
+    }
+
+    /** Opens the step and selection that belong to a list key. Returns true when the key was handled here. */
+    routeKey(key, announce) {
+        if (key.startsWith('region:')) {
+            const id = key.slice(7);
+            const area = this.areas.find(item => item.regionId === id);
+            const zone = this.placement && this.placement.zoneId === id ? this.placement : null;
+            const target = area || zone;
+            if (!target || !this.setStep(area ? 1 : 2)) return false;
+            if (announce) this.setPicked([target.node]);
+            return true;
+        }
+        if (key.startsWith('slot:')) {
+            if (!this.setStep(3)) return false;
+            if (announce) this.dispatchEvent(new CustomEvent('select', { detail: { key } }));
+            return true;
+        }
+        return false;
+    }
+
+    get shellNavItems() {
+        const item = (key, label, meta, icon) => ({
+            key,
+            label,
+            meta,
+            icon,
+            className: `cc-workspace__nav-item cc-workspace__nav-item_depth-0${key === this.selectedKey ? ' cc-workspace__nav-item_selected' : ''}`
+        });
+        const areas = this.areas;
+        const placement = this.placement;
+        const slots = (this.definition.contentSlots || []).map(slot => {
+            const area = areas.find(entry => entry.contentKeys.includes(slot.bindingKey));
+            return item(`slot:${slot.bindingKey}`, slot.label || slot.bindingKey, `${CONTENT_TYPE_LABELS[slot.type]}${area ? ` · in ${area.name}` : ''}`, TYPE_ICONS[slot.type]);
+        });
+        const state = step => this.progress.steps.find(entry => entry.step === step);
+        const title = (step, text) => `${step} · ${text}${state(step).unlocked ? '' : ' (locked)'}`;
+        return [
+            {
+                key: 'g-areas',
+                title: title(1, 'Fixed areas'),
+                items: areas.map(area => item(`region:${area.regionId}`, area.name, area.kind === 'fixed-edit' ? 'Editable' : 'Read-only', 'utility:lock')),
+                empty: this.progress.noFixedAreas ? 'This template has no fixed areas.' : 'No fixed areas yet.'
+            },
+            {
+                key: 'g-zone',
+                title: title(2, 'Dropzone'),
+                items: placement ? [item(`region:${placement.zoneId}`, 'Content blocks dropzone', placement.text, 'utility:drag_and_drop')] : [],
+                empty: 'Not placed yet.'
+            },
+            {
+                key: 'g-content',
+                title: title(3, 'Editable content'),
+                items: slots,
+                empty: this.progress.editableCount ? 'Nothing marked yet.' : 'No editable areas.'
+            }
+        ].map(group => ({ ...group, isEmpty: group.items.length === 0 }));
+    }
+
+    // Step 1 (fixed areas)
+
+    handleAreaCreate(event) {
+        const { name, kind } = event.detail;
+        const marking = { regionKind: kind, name };
+        const result = this.pickedNodes.length > 1
+            ? wrapElements(this.html, this.pickedNodes, marking, { kind: this.kind })
+            : applyMarking(this.html, this.primaryNode, { role: 'region', ...marking }, { kind: this.kind });
+        this.finishStructureChange(result);
+    }
+
+    handleAreaUpdate(event) {
+        const { regionId, name, kind, removeContent } = event.detail;
+        this.finishStructureChange(updateArea(this.html, regionId, { name, kind, removeContent }));
+    }
+
+    handleAreaRemove(event) {
+        const result = removeArea(this.html, event.detail.regionId);
+        this.finishStructureChange({ ...result, markedNode: null }, true);
+    }
+
+    handleNoFixedAreas(event) {
+        const definition = clone(this.definition);
+        definition.setup = { ...(definition.setup || {}), noFixedAreas: !!event.detail.value };
+        this.updateDefinition(definition);
+    }
+
+    handleNextStep() {
+        this.setStep(this.activeStep + 1);
+    }
+
+    // Step 2 (dropzone)
+
+    handleZonePlace(event) {
+        this.finishStructureChange(insertBlocksZone(this.html, this.primaryNode, event.detail.position, { kind: this.kind, templateMode: this._templateMode }));
+    }
+
+    handleZoneRemove() {
+        this.finishStructureChange({ ...removeBlocksZone(this.html), markedNode: null }, true);
+    }
+
+    // Step 3 (editable content)
+
+    get showContentMarker() {
+        return !!this.markerInfo;
+    }
+
+    get contentBlockedReason() {
+        const info = this.markerInfo;
+        if (!info || info.inEditableRegion) return '';
+        return 'Only elements inside an editable area can be edited by marketers. Pick an element inside an editable area, or make the surrounding area editable in step 1.';
+    }
+
+    get contentHint() {
+        return this.progress.editableCount
+            ? 'Click an element inside an editable area in the preview, then choose its content type. Select an item in the list to change its editor options.'
+            : 'Nothing to edit yet. To let marketers change part of the template, make an area editable in step 1.';
     }
 
     // ─── Guided marking ──────────────────────────────────────────────────────
@@ -297,35 +517,6 @@ export default class CcBindingWorkspace extends LightningElement {
         return !!this.html && isUnmarked(this.definition);
     }
 
-    /** Checklist for multi-block shells: fixed areas, blocks zone, editable content. */
-    get isMultiShell() {
-        return this.kind === 'shell' && this._templateMode !== 'single';
-    }
-
-    get checklist() {
-        const regions = this.definition?.regions || [];
-        const fixed = regions.filter(region => region.kind !== 'blocks').length;
-        const zone = regions.some(region => region.kind === 'blocks');
-        const editable = regions.some(region => region.kind === 'fixed-edit');
-        const slots = (this.definition?.contentSlots || []).length;
-        const item = (key, done, text, optional) => ({
-            key,
-            done,
-            icon: done ? 'utility:success' : 'utility:routing_offline',
-            className: `cc-workspace__todo${done ? ' cc-workspace__todo_done' : ''}`,
-            text: optional ? `${text} (optional)` : text
-        });
-        return [
-            item('fixed', fixed > 0, 'Mark the fixed areas (header, footer): click an element, Shift-click its neighbours, choose Region.'),
-            item('zone', zone, 'Place the blocks zone: click an element next to a fixed area and choose Insert blocks zone.'),
-            item('content', slots > 0, editable ? 'Mark the editable content inside the editable regions.' : 'Mark editable content inside editable regions.', true)
-        ];
-    }
-
-    get showChecklist() {
-        return this.isMultiShell && !!this.html;
-    }
-
     handleMarkerPick(event) {
         this.setPicked([event.detail.node]);
     }
@@ -340,24 +531,6 @@ export default class CcBindingWorkspace extends LightningElement {
 
     handleMarkerRemove() {
         this.applyMarkingChange({ role: 'none' });
-    }
-
-    handleGroupChildren() {
-        const info = this.markerInfo;
-        if (!info || info.firstChild === null) return;
-        const range = rangeBetween(this.html, info.firstChild, info.lastChild);
-        if (range.error) this.markerErrors = [range.error];
-        else this.setPicked(range.nodes);
-    }
-
-    handleMarkerWrap(event) {
-        const result = wrapElements(this.html, this.pickedNodes, event.detail.marking, { kind: this.kind });
-        this.finishStructureChange(result);
-    }
-
-    handleMarkerZone(event) {
-        const result = insertBlocksZone(this.html, this.primaryNode, event.detail.position, { kind: this.kind, templateMode: this._templateMode });
-        this.finishStructureChange(result);
     }
 
     applyMarkingChange(marking) {

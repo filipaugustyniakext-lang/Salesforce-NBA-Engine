@@ -1,0 +1,67 @@
+<template>
+    <div class="cc-zone">
+        <h3 class="slds-text-heading_small">2. Dropzone for content blocks</h3>
+        <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">
+            The dropzone is the empty area where marketers add content blocks. Place it next to a fixed area, for example after the header. The preview shows it as a dashed box.
+        </p>
+
+        <template lwc:if={hasPlacement}>
+            <div class="cc-zone__current">
+                <lightning-icon icon-name="utility:drag_and_drop" size="x-small"></lightning-icon>
+                <span><strong>Dropzone placed:</strong> {placementText}</span>
+            </div>
+            <template lwc:if={confirmingRemove}>
+                <div class="cc-zone__actions">
+                    <span class="slds-text-body_small slds-text-color_error">Remove the dropzone?</span>
+                    <lightning-button label="Keep" onclick={handleRemoveCancel}></lightning-button>
+                    <lightning-button label="Remove dropzone" variant="destructive" onclick={handleRemoveConfirm}></lightning-button>
+                </div>
+            </template>
+            <template lwc:else>
+                <div class="cc-zone__actions">
+                    <lightning-button label="Remove dropzone" variant="destructive-text" onclick={handleRemoveAsk}></lightning-button>
+                </div>
+            </template>
+            <p class="slds-text-body_small slds-text-color_weak">To move it, click another element or area in the preview and choose where to put it.</p>
+        </template>
+
+        <template lwc:if={isZoneElement}>
+            <div class="cc-zone__hint slds-text-body_small">This is the dropzone. Click another element in the preview to move it.</div>
+        </template>
+
+        <template lwc:if={isInsideArea}>
+            <div class="slds-notify slds-notify_alert slds-alert_warning cc-zone__alert" role="status">
+                <span>This element is inside the area "{insideName}". The dropzone cannot be inside another area; place it before or after the area.</span>
+            </div>
+            <lightning-button class="slds-m-top_x-small" label="Select the area" onclick={handleUseEnclosing}></lightning-button>
+        </template>
+
+        <template lwc:if={canPlace}>
+            <div class="cc-zone__form">
+                <p class="slds-text-title_bold">Place the dropzone relative to {targetLabel}</p>
+                <lightning-radio-group label="Position" variant="label-hidden" options={positionOptions} value={position} onchange={handlePosition}></lightning-radio-group>
+                <div class="cc-zone__actions">
+                    <lightning-button label={placeLabel} icon-name="utility:drag_and_drop" variant="brand" onclick={handlePlace}></lightning-button>
+                </div>
+            </div>
+        </template>
+
+        <template lwc:if={hasErrors}>
+            <div class="slds-notify slds-notify_alert slds-alert_error cc-zone__alert" role="alert">
+                <ul class="slds-list_dotted slds-text-align_left">
+                    <template for:each={errorItems} for:item="item"><li key={item.key}>{item.message}</li></template>
+                </ul>
+            </div>
+        </template>
+
+        <template lwc:if={showIdleHint}>
+            <div class="cc-zone__hint slds-text-body_small">Click a fixed area (or any element) in the preview, then choose where the dropzone goes.</div>
+        </template>
+
+        <template lwc:if={canContinue}>
+            <div class="cc-zone__actions slds-m-top_small">
+                <lightning-button label="Continue to editable content" icon-name="utility:chevronright" icon-position="right" variant="brand" onclick={handleNext}></lightning-button>
+            </div>
+        </template>
+    </div>
+</template>

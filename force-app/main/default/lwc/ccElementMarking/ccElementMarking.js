@@ -163,6 +163,17 @@ export function inspectNode(html, index, options = {}) {
         inEditableRegion: !!regionAncestor(element, ['fixed-edit']),
         inReadOnlyRegion: !!regionAncestor(element, ['fixed-read']),
         insideRegion: !!regionAncestor(element),
+        isArea: ['fixed-read', 'fixed-edit'].includes(element.getAttribute('data-cc-region')),
+        isZone: element.getAttribute('data-cc-region') === 'blocks',
+        areaNode: (() => {
+            if (['fixed-read', 'fixed-edit'].includes(element.getAttribute('data-cc-region'))) return index;
+            const area = regionAncestor(element, ['fixed-read', 'fixed-edit']);
+            return area ? indexOf.get(area) : null;
+        })(),
+        areaName: (() => {
+            const area = ['fixed-read', 'fixed-edit'].includes(element.getAttribute('data-cc-region')) ? element : regionAncestor(element, ['fixed-read', 'fixed-edit']);
+            return area ? area.getAttribute('data-cc-label') || area.getAttribute('data-cc-id') || null : null;
+        })(),
         hasBlocksZone: elements.some(item => item.getAttribute('data-cc-region') === 'blocks'),
         suggestion: suggestMarking(element, options),
         isBlockish: BLOCK_TAGS.has(element.tagName.toLowerCase())
@@ -300,8 +311,9 @@ export function applyMarking(html, index, marking, { kind = 'block' } = {}) {
         }
     } else if (role === 'region') {
         target.setAttribute('data-cc-region', marking.regionKind);
-        const id = slugify(marking.id);
+        const id = slugify(marking.id) || (marking.name ? freeId(others, slugify(marking.name) || 'area') : '');
         if (id) target.setAttribute('data-cc-id', id);
+        if (marking.name) target.setAttribute('data-cc-label', String(marking.name).trim());
     }
     const markedNode = bodyElements(doc).indexOf(target);
     return { html: serializeHtml(doc, isDocument), markedNode, errors: [] };
@@ -396,7 +408,7 @@ export function wrapElements(html, nodes, marking, { kind = 'shell' } = {}) {
     const lo = Math.min(...targets.map(item => children.indexOf(item)));
     const hi = Math.max(...targets.map(item => children.indexOf(item)));
     const range = children.slice(lo, hi + 1);
-    if (range.length === 1) return applyMarking(html, nodes[0], { role: 'region', regionKind: marking.regionKind, id: marking.id }, { kind });
+    if (range.length === 1) return applyMarking(html, nodes[0], { role: 'region', regionKind: marking.regionKind, id: marking.id, name: marking.name }, { kind });
     const id = slugify(marking.id);
     if (id && elements.some(item => item.getAttribute('data-cc-id') === id)) return fail([`The id "${id}" is already used.`]);
     if (regionAncestor(range[0])) return fail(['These elements are already inside a region. Regions cannot be nested.']);
@@ -432,7 +444,10 @@ export function wrapElements(html, nodes, marking, { kind = 'shell' } = {}) {
         moving.forEach(node => wrapper.appendChild(node));
     }
     wrapper.setAttribute('data-cc-region', marking.regionKind);
-    if (id) wrapper.setAttribute('data-cc-id', id);
+    wrapper.setAttribute('data-cc-wrapper', 'area');
+    const wrapperId = id || (marking.name ? freeId(elements, slugify(marking.name) || 'area') : '');
+    if (wrapperId) wrapper.setAttribute('data-cc-id', wrapperId);
+    if (marking.name) wrapper.setAttribute('data-cc-label', String(marking.name).trim());
     return { html: serializeHtml(doc, isDocument), markedNode: bodyElements(doc).indexOf(wrapper), errors: [] };
 }
 
@@ -503,4 +518,157 @@ export function insertBlocksZone(html, node, position, { kind = 'shell', templat
     else if (position === 'inside-start') container.insertBefore(inserted, container.firstChild);
     else container.appendChild(inserted);
     return { html: serializeHtml(doc, isDocument), markedNode: bodyElements(doc).indexOf(zone), errors: [] };
+}
+
+// ─── Fixed areas, dropzone and setup progress (multi-block shells) ───────────
+
+const AREA_KINDS = ['fixed-read', 'fixed-edit'];
+const HELPER_ATTRS = ['data-cc-loop', 'data-cc-slot'];
+
+function areaElement(elements, regionId) {
+    return elements.find(item => AREA_KINDS.includes(item.getAttribute('data-cc-region')) && item.getAttribute('data-cc-id') === regionId) || null;
+}
+
+function stripContent(area) {
+    const contents = Array.from(area.querySelectorAll('[data-cc-content]'));
+    contents.forEach(item => {
+        clearMarks(item);
+        HELPER_ATTRS.forEach(name => item.removeAttribute(name));
+    });
+    return contents.length;
+}
+
+function areaName(element) {
+    return element.getAttribute('data-cc-label') || element.getAttribute('data-cc-id') || elementLabel(element);
+}
+
+/** Read-only and editable areas of a shell: [{ regionId, name, kind, node, wrapped, bindingCount, contentKeys }]. */
+export function listAreas(html) {
+    const { doc } = parseHtml(html);
+    return bodyElements(doc)
+        .map((element, node) => ({ element, node }))
+        .filter(({ element }) => AREA_KINDS.includes(element.getAttribute('data-cc-region')))
+        .map(({ element, node }) => {
+            const content = Array.from(element.querySelectorAll('[data-cc-content]'));
+            return {
+                regionId: element.getAttribute('data-cc-id') || '',
+                name: areaName(element),
+                kind: element.getAttribute('data-cc-region'),
+                node,
+                wrapped: element.getAttribute('data-cc-wrapper') === 'area',
+                bindingCount: content.length,
+                contentKeys: content.map(item => item.getAttribute('data-cc-key'))
+            };
+        });
+}
+
+/** Renames an area and/or switches it between read-only and editable. */
+export function updateArea(html, regionId, { kind, name, removeContent = false } = {}) {
+    const { doc, isDocument } = parseHtml(html);
+    const elements = bodyElements(doc);
+    const area = areaElement(elements, regionId);
+    const fail = errors => ({ html: null, markedNode: null, errors });
+    if (!area) return fail(['That area no longer exists.']);
+    if (kind && !AREA_KINDS.includes(kind)) return fail(['Choose read-only or editable.']);
+    if (name !== undefined && !String(name).trim()) return fail(['Enter a name for the area.']);
+    const target = kind || area.getAttribute('data-cc-region');
+    if (target === 'fixed-read') {
+        const bindings = area.querySelectorAll('[data-cc-content]').length;
+        if (bindings && !removeContent) {
+            return fail([`This area contains ${bindings} editable content binding(s). Remove them to make it read-only.`]);
+        }
+        stripContent(area);
+    }
+    area.setAttribute('data-cc-region', target);
+    if (name !== undefined) area.setAttribute('data-cc-label', String(name).trim());
+    return { html: serializeHtml(doc, isDocument), markedNode: bodyElements(doc).indexOf(area), errors: [] };
+}
+
+/** Removes the content bindings inside an area, keeping the HTML structure. */
+export function removeContentIn(html, regionId) {
+    const { doc, isDocument } = parseHtml(html);
+    const area = areaElement(bodyElements(doc), regionId);
+    if (!area) return { html: null, errors: ['That area no longer exists.'] };
+    stripContent(area);
+    return { html: serializeHtml(doc, isDocument), errors: [] };
+}
+
+/**
+ * Removes an area and the content bindings inside it. A wrapper the wizard added around a group is
+ * unwrapped again (table-body wrappers only lose their markings, which keeps the table valid).
+ */
+export function removeArea(html, regionId) {
+    const { doc, isDocument } = parseHtml(html);
+    const area = areaElement(bodyElements(doc), regionId);
+    if (!area) return { html: null, errors: ['That area no longer exists.'] };
+    stripContent(area);
+    const wrapped = area.getAttribute('data-cc-wrapper') === 'area';
+    const isTableBody = ['tbody', 'thead', 'tfoot'].includes(area.tagName.toLowerCase());
+    ['data-cc-region', 'data-cc-id', 'data-cc-label', 'data-cc-wrapper'].forEach(name => area.removeAttribute(name));
+    if (wrapped && !isTableBody) {
+        while (area.firstChild) area.parentNode.insertBefore(area.firstChild, area);
+        area.remove();
+    }
+    return { html: serializeHtml(doc, isDocument), errors: [] };
+}
+
+function placementLabel(element) {
+    return AREA_KINDS.includes(element.getAttribute('data-cc-region')) ? areaName(element) : elementLabel(element);
+}
+
+/** Where the blocks zone currently sits: { zoneId, node, position, relativeNode, text } or null. */
+export function zonePlacement(html) {
+    const { doc } = parseHtml(html);
+    const elements = bodyElements(doc);
+    const zone = elements.find(item => item.getAttribute('data-cc-region') === 'blocks');
+    if (!zone) return null;
+    const row = zone.parentElement && zone.parentElement.tagName.toLowerCase() === 'tr' && zone.parentElement.children.length === 1
+        ? zone.parentElement : zone;
+    const info = { zoneId: zone.getAttribute('data-cc-id') || '', node: elements.indexOf(zone) };
+    const previous = row.previousElementSibling;
+    const next = row.nextElementSibling;
+    if (previous) return { ...info, position: 'after', relativeNode: elements.indexOf(previous), text: `After ${placementLabel(previous)}` };
+    if (next) return { ...info, position: 'before', relativeNode: elements.indexOf(next), text: `Before ${placementLabel(next)}` };
+    const parent = row.parentElement;
+    return { ...info, position: 'inside', relativeNode: parent ? elements.indexOf(parent) : null, text: `Inside ${parent ? elementLabel(parent) : 'the page'}` };
+}
+
+export function removeBlocksZone(html) {
+    const { doc, isDocument } = parseHtml(html);
+    const zone = bodyElements(doc).find(item => item.getAttribute('data-cc-region') === 'blocks');
+    if (!zone) return { html: null, errors: ['The shell has no dropzone.'] };
+    const row = zone.parentElement && zone.parentElement.tagName.toLowerCase() === 'tr' && zone.parentElement.children.length === 1
+        ? zone.parentElement : zone;
+    if (zone.children.length || ownText(zone)) {
+        ['data-cc-region', 'data-cc-id', 'data-cc-label'].forEach(name => zone.removeAttribute(name));
+    } else {
+        row.remove();
+    }
+    return { html: serializeHtml(doc, isDocument), errors: [] };
+}
+
+/** Progress of the three shell setup steps, from a parsed definition. */
+export function shellProgress(definition) {
+    const regions = definition?.regions || [];
+    const areas = regions.filter(region => AREA_KINDS.includes(region.kind));
+    const hasZone = regions.some(region => region.kind === 'blocks');
+    const noFixedAreas = !!definition?.setup?.noFixedAreas;
+    const step1Done = areas.length > 0 || noFixedAreas;
+    const step2Done = hasZone;
+    const slotCount = (definition?.contentSlots || []).length;
+    const editableCount = areas.filter(region => region.kind === 'fixed-edit').length;
+    const steps = [
+        { step: 1, done: step1Done, unlocked: true },
+        { step: 2, done: step2Done, unlocked: step1Done },
+        { step: 3, done: slotCount > 0, unlocked: step1Done && step2Done }
+    ];
+    return {
+        steps,
+        areaCount: areas.length,
+        editableCount,
+        hasZone,
+        noFixedAreas,
+        slotCount,
+        firstOpenStep: !step1Done ? 1 : !step2Done ? 2 : 1
+    };
 }

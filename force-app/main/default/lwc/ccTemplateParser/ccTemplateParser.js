@@ -270,7 +270,8 @@ export function parseTemplate(html, { kind = 'block', templateMode = 'multi', pr
         if (outer) errors.push(`Region "${regionKind}" is inside another region ("${outer.getAttribute('data-cc-region')}"). Regions cannot be nested.`);
         const regionId = slugify(element.getAttribute('data-cc-id')) || `${regionKind}-${index + 1}`;
         element.setAttribute('data-cc-id', regionId);
-        return { regionId, kind: regionKind };
+        const label = element.getAttribute('data-cc-label');
+        return label ? { regionId, kind: regionKind, label } : { regionId, kind: regionKind };
     });
 
     if (kind === 'shell' && templateMode !== 'single') {
@@ -294,7 +295,8 @@ export function parseTemplate(html, { kind = 'block', templateMode = 'multi', pr
         templateMode: kind === 'shell' ? templateMode : 'single',
         regions,
         sections,
-        contentSlots
+        contentSlots,
+        setup: previous?.setup ? { ...previous.setup } : {}
     };
     const validation = validateDefinition(definition);
     return {
@@ -354,7 +356,7 @@ export function describeMarked(element) {
     if (element.hasAttribute('data-cc-region')) {
         const id = element.getAttribute('data-cc-id') || '';
         const kind = element.getAttribute('data-cc-region');
-        return { kind: 'region', key: `region:${id}`, label: `${REGION_LABELS[kind] || kind} · ${id}` };
+        return { kind: 'region', key: `region:${id}`, label: `${REGION_LABELS[kind] || kind} · ${element.getAttribute('data-cc-label') || id}` };
     }
     return null;
 }

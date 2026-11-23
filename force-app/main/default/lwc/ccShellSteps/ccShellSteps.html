@@ -1,0 +1,15 @@
+<template>
+    <ol class="cc-steps" aria-label="Shell setup steps">
+        <template for:each={cards} for:item="card">
+            <li key={card.step} class="cc-steps__item">
+                <button class={card.className} type="button" data-step={card.step} disabled={card.disabled} aria-current={card.ariaCurrent} onclick={handleSelect}>
+                    <lightning-icon icon-name={card.icon} size="x-small"></lightning-icon>
+                    <span class="cc-steps__text">
+                        <span class="cc-steps__title">{card.heading}</span>
+                        <span class="cc-steps__summary">{card.text}</span>
+                    </span>
+                </button>
+            </li>
+        </template>
+    </ol>
+</template>

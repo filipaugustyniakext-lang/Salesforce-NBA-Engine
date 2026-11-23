@@ -310,7 +310,7 @@ export function renderBlock(blockHtml, definition, block, { device = 'desktop', 
  * shell: { html, definition }, blocks: [{ html, definition, block }].
  * For single-block templates the shell itself is the block and `shellContent` holds its JSON block.
  */
-export function renderMessage({ shell, blocks = [], shellContent = null, device = 'desktop', theme = 'light', preview = true }) {
+export function renderMessage({ shell, blocks = [], shellContent = null, device = 'desktop', theme = 'light', preview = true, zonePlaceholder = null }) {
     if (!shell?.html) return '';
     const { doc, isDocument } = parseHtml(shell.html);
     const definition = shell.definition || {};
@@ -320,7 +320,7 @@ export function renderMessage({ shell, blocks = [], shellContent = null, device 
     if (zone) {
         const ordered = blocks.slice().sort((left, right) => (left.block?.blockOrderNumber || 0) - (right.block?.blockOrderNumber || 0));
         const html = ordered.map(entry => renderBlock(entry.html, entry.definition, entry.block, { device, theme, preview })).join('');
-        zone.innerHTML = html || (preview ? EMPTY_BLOCKS_HTML : '');
+        zone.innerHTML = html || (preview ? zonePlaceholder || EMPTY_BLOCKS_HTML : '');
     }
     if (preview) {
         doc.querySelectorAll('[data-cc-hidden="true"]').forEach(node => node.remove());

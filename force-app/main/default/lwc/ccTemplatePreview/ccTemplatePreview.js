@@ -20,6 +20,11 @@ export default class CcTemplatePreview extends LightningElement {
     @api heading = 'Preview';
     @api inspectable = false;
     @api inspectScope = 'all';
+    /**
+     * What mark mode may pick: 'any' element; 'areas' (fixed areas and the dropzone are picked as a whole,
+     * layout elements outside them individually); 'editable' (only elements inside editable areas).
+     */
+    @api pickScope = 'any';
     /** Mark mode is offered when the HTML being shown carries data-cc-node ids (see c/ccElementMarking). */
     @api markable = false;
     @api markMode = false;
@@ -256,6 +261,19 @@ export default class CcTemplatePreview extends LightningElement {
         let element = target && target.closest ? target.closest(NODE_SELECTOR) : null;
         while (element && !this.inScope(element)) {
             element = element.parentElement ? element.parentElement.closest(NODE_SELECTOR) : null;
+        }
+        return this.applyPickScope(element);
+    }
+
+    applyPickScope(element) {
+        if (!element) return null;
+        if (this.pickScope === 'areas') {
+            const region = element.closest('[data-cc-region]');
+            return region && region.hasAttribute('data-cc-node') ? region : element;
+        }
+        if (this.pickScope === 'editable') {
+            const region = element.closest('[data-cc-region="fixed-edit"]');
+            return region && region !== element ? element : null;
         }
         return element;
     }

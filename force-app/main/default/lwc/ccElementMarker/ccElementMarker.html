@@ -1,43 +1,5 @@
 <template>
-    <template lwc:if={hasGroup}>
-        <div class="cc-marker">
-            <div class="cc-marker__header">
-                <div>
-                    <h3 class="slds-text-heading_small">{group.count} neighbouring elements selected</h3>
-                    <p class="slds-text-body_small slds-text-color_weak">Inside {group.parentLabel}</p>
-                </div>
-                <lightning-button-icon icon-name="utility:close" variant="bare" alternative-text="Clear selection" title="Clear selection" onclick={handleClose}></lightning-button-icon>
-            </div>
-            <div class="cc-marker__children">
-                <template for:each={groupLabels} for:item="item">
-                    <span key={item.key} class="cc-marker__crumb cc-marker__crumb_current">{item.label}</span>
-                </template>
-            </div>
-            <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">Shift-click another element to change the selection, or click one element to start again.</p>
-            <template lwc:if={groupProblem}>
-                <div class="slds-notify slds-notify_alert slds-alert_warning cc-marker__alert" role="status">{groupProblem}</div>
-            </template>
-            <template lwc:else>
-                <div class="cc-marker__form">
-                    <lightning-radio-group label="Treat them as one region" options={groupRegionOptions} value={groupDraft.regionKind} data-field="regionKind" onchange={handleGroupField}></lightning-radio-group>
-                    <lightning-input label="Region id (optional)" value={groupDraft.id} data-field="id" placeholder="Generated when empty, e.g. footer" onchange={handleGroupField}></lightning-input>
-                    <p class="slds-text-body_small slds-text-color_weak">{wrapperNote}</p>
-                </div>
-            </template>
-            <template lwc:if={hasErrors}>
-                <div class="slds-notify slds-notify_alert slds-alert_error cc-marker__alert" role="alert">
-                    <ul class="slds-list_dotted slds-text-align_left">
-                        <template for:each={errorItems} for:item="item"><li key={item.key}>{item.message}</li></template>
-                    </ul>
-                </div>
-            </template>
-            <div class="cc-marker__actions">
-                <lightning-button label="Clear selection" onclick={handleClose}></lightning-button>
-                <lightning-button label="Wrap in region" variant="brand" disabled={wrapDisabled} onclick={handleWrap}></lightning-button>
-            </div>
-        </div>
-    </template>
-    <template lwc:elseif={hasInfo}>
+    <template lwc:if={hasInfo}>
         <div class="cc-marker">
             <div class="cc-marker__header">
                 <div>
@@ -59,12 +21,9 @@
                     <template for:each={children} for:item="child">
                         <button key={child.key} class="cc-marker__crumb" type="button" data-node={child.node} onclick={handlePick}>{child.label}</button>
                     </template>
-                    <template lwc:if={canGroupChildren}>
-                        <button class="cc-marker__crumb cc-marker__crumb_action" type="button" onclick={handleGroupChildren}>Group all children</button>
-                    </template>
                 </div>
             </template>
-            <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">Picked the wrong element? Choose a parent from the path or a child from "Inside", or click another element in the preview. Shift-click adds neighbouring elements to the selection.</p>
+            <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">Picked the wrong element? Choose a parent from the path or a child from "Inside", or click another element in the preview.</p>
 
             <template lwc:if={suggestionText}>
                 <div class="cc-marker__suggestion slds-text-body_small">{suggestionText}</div>
@@ -92,9 +51,6 @@
                     <template lwc:if={keyWarning}>
                         <div class="slds-text-color_error slds-text-body_small">{keyWarning}</div>
                     </template>
-                    <template lwc:if={contentWarning}>
-                        <div class="slds-text-color_error slds-text-body_small">{contentWarning}</div>
-                    </template>
                     <lightning-input label="Label shown to marketers (optional)" value={draft.label} data-field="label" onchange={handleField}></lightning-input>
                     <template lwc:if={usesComplexity}>
                         <lightning-combobox label="Rich text editor level" options={complexityOptions} value={draft.complexity} data-field="complexity" onchange={handleField}></lightning-combobox>
@@ -102,12 +58,8 @@
                 </div>
             </template>
 
-            <template lwc:if={isRegion}>
-                <div class="cc-marker__form">
-                    <lightning-radio-group label="Region type" options={regionOptions} value={draft.regionKind} data-field="regionKind" onchange={handleField}></lightning-radio-group>
-                    <p class="slds-text-body_small slds-text-color_weak">In the preview, a blocks zone shows a placeholder instead of its original content.</p>
-                    <lightning-input label="Id (optional)" value={draft.id} data-field="id" placeholder="Generated when empty" onchange={handleField}></lightning-input>
-                </div>
+            <template lwc:if={blockedReason}>
+                <div class="slds-notify slds-notify_alert slds-alert_warning cc-marker__alert" role="status">{blockedReason}</div>
             </template>
 
             <template lwc:if={hasErrors}>
@@ -115,15 +67,6 @@
                     <ul class="slds-list_dotted slds-text-align_left">
                         <template for:each={errorItems} for:item="item"><li key={item.key}>{item.message}</li></template>
                     </ul>
-                </div>
-            </template>
-
-            <template lwc:if={showZone}>
-                <div class="cc-marker__zone">
-                    <h4 class="slds-text-title_bold">Blocks zone</h4>
-                    <p class="slds-text-body_small slds-text-color_weak">{zoneHelp}</p>
-                    <lightning-radio-group label="Position" variant="label-hidden" options={zonePositions} value={zonePosition} onchange={handleZonePosition}></lightning-radio-group>
-                    <lightning-button label={zoneLabel} icon-name="utility:drag_and_drop" onclick={handleInsertZone}></lightning-button>
                 </div>
             </template>
 

@@ -1,5 +1,6 @@
 import { createElement } from 'lwc';
 import CcBindingWorkspace from 'c/ccBindingWorkspace';
+import { parseHtml } from 'c/ccTemplateParser';
 
 const BLOCK_HTML = `<style>.cc-hide-dsk{} .cc-hide-mob{}</style>
 <table data-cc-section="container" data-cc-bind="padding background hide">
@@ -68,7 +69,7 @@ describe('c-cc-binding-workspace', () => {
         element.kind = 'block';
         element.source = { html: raw, definition: null };
         const events = [];
-        ['bindingchange', 'pick', 'select'].forEach(name => element.addEventListener(name, event => events.push([name === 'bindingchange' ? 'change' : name, event.detail])));
+        ['bindingchange', 'pick', 'select', 'stepchange'].forEach(name => element.addEventListener(name, event => events.push([name === 'bindingchange' ? 'change' : name, event.detail])));
         document.body.appendChild(element);
         await flush();
         expect(element.shadowRoot.textContent).toContain('No bindings were found in this file');
@@ -117,62 +118,167 @@ describe('c-cc-binding-workspace', () => {
         element.templateMode = templateMode;
         element.source = { html, definition: null };
         const events = [];
-        ['bindingchange', 'pick', 'select'].forEach(name => element.addEventListener(name, event => events.push([name === 'bindingchange' ? 'change' : name, event.detail])));
+        ['bindingchange', 'pick', 'select', 'stepchange'].forEach(name => element.addEventListener(name, event => events.push([name === 'bindingchange' ? 'change' : name, event.detail])));
         document.body.appendChild(element);
         await flush();
         return { element, events };
     }
 
-    it('groups neighbouring elements into one region and walks the shell checklist', async () => {
+    function nodeOf(element, selector) {
+        const { doc } = parseHtml(element.source.html);
+        return Array.from(doc.body.querySelectorAll('*')).indexOf(doc.body.querySelector(selector));
+    }
+
+    const panel = (element, tag) => element.shadowRoot.querySelector(tag);
+    const cards = element => Array.from(panel(element, 'c-cc-shell-steps').shadowRoot.querySelectorAll('.cc-steps__card'));
+    const lastChange = events => events.filter(([name]) => name === 'change').pop()[1];
+
+    it('walks the three gated steps: areas, dropzone, editable content, and lets earlier steps be edited again', async () => {
         const { element, events } = await shellWorkspace();
-        const todos = () => Array.from(element.shadowRoot.querySelectorAll('.cc-workspace__todo')).map(item => item.classList.contains('cc-workspace__todo_done'));
-        expect(todos()).toEqual([false, false, false]);
+        const steps = () => events.filter(([name]) => name === 'stepchange').map(([, detail]) => detail);
+        await flush();
+        expect(steps()).toEqual([{ step: 1, pickScope: 'areas' }]);
+        expect(cards(element).map(card => card.disabled)).toEqual([false, true, true]);
+        expect(panel(element, 'c-cc-area-panel')).not.toBeNull();
 
-        element.pickedElements = [9];
+        // Step 1: a single element becomes the Header area.
+        element.pickedElements = [nodeOf(element, '#top')];
         await flush();
-        element.extendSelection(13);
+        panel(element, 'c-cc-area-panel').dispatchEvent(new CustomEvent('create', { detail: { name: 'Header', kind: 'fixed-read' } }));
         await flush();
-        expect(events.filter(([name]) => name === 'pick').pop()[1]).toEqual({ nodes: [9, 13] });
-        element.pickedElements = [9, 13];
-        await flush();
-        const marker = element.shadowRoot.querySelector('c-cc-element-marker');
-        expect(marker.group).toMatchObject({ count: 2, wrapperTag: 'div', problem: '' });
+        expect(lastChange(events).definition.regions).toEqual([{ regionId: 'header', kind: 'fixed-read', label: 'Header' }]);
+        expect(cards(element).map(card => card.disabled)).toEqual([false, false, true]);
 
-        marker.dispatchEvent(new CustomEvent('wrap', { detail: { marking: { regionKind: 'fixed-read', id: 'footer' } } }));
+        // Step 1: two neighbours become one editable Footer area (wrapped).
+        element.pickedElements = [nodeOf(element, '#f1')];
         await flush();
-        const change = events.filter(([name]) => name === 'change').pop()[1];
-        expect(change.definition.regions).toEqual([{ regionId: 'footer', kind: 'fixed-read' }]);
-        expect(events.filter(([name]) => name === 'select').pop()[1]).toEqual({ key: 'region:footer' });
-        expect(todos()).toEqual([true, false, false]);
+        element.extendSelection(nodeOf(element, '#f2'));
+        await flush();
+        element.pickedElements = events.filter(([name]) => name === 'pick').pop()[1].nodes;
+        await flush();
+        expect(panel(element, 'c-cc-area-panel').group.count).toBe(2);
+        panel(element, 'c-cc-area-panel').dispatchEvent(new CustomEvent('create', { detail: { name: 'Footer', kind: 'fixed-edit' } }));
+        await flush();
+        expect(lastChange(events).definition.regions.map(region => region.regionId)).toEqual(['header', 'footer']);
 
-        element.pickedElements = [1];
+        // Step 3 stays locked until the dropzone exists.
+        cards(element)[2].click();
         await flush();
-        element.shadowRoot.querySelector('c-cc-element-marker').dispatchEvent(new CustomEvent('zone', { detail: { position: 'after' } }));
+        expect(panel(element, 'c-cc-element-marker')).toBeNull();
+        expect(panel(element, 'c-cc-area-panel')).not.toBeNull();
+
+        // Step 2: place the dropzone after the Header.
+        cards(element)[1].click();
         await flush();
-        const placed = events.filter(([name]) => name === 'change').pop()[1];
-        expect(placed.definition.regions.map(region => region.kind)).toEqual(['blocks', 'fixed-read']);
-        expect(placed.errors).toEqual([]);
-        expect(todos()).toEqual([true, true, false]);
+        await flush();
+        expect(steps().pop()).toEqual({ step: 2, pickScope: 'areas' });
+        expect(panel(element, 'c-cc-dropzone-panel')).not.toBeNull();
+        element.pickedElements = [nodeOf(element, '[data-cc-id="header"]')];
+        await flush();
+        expect(panel(element, 'c-cc-dropzone-panel').info.isArea).toBe(true);
+        panel(element, 'c-cc-dropzone-panel').dispatchEvent(new CustomEvent('place', { detail: { position: 'after' } }));
+        await flush();
+        expect(lastChange(events).definition.regions.map(region => region.kind)).toEqual(['fixed-read', 'blocks', 'fixed-edit']);
+        expect(lastChange(events).errors).toEqual([]);
+        expect(panel(element, 'c-cc-dropzone-panel').placement.text).toBe('After Header');
+        expect(cards(element).map(card => card.disabled)).toEqual([false, false, false]);
+
+        // Step 3: mark editable content inside the editable Footer.
+        cards(element)[2].click();
+        await flush();
+        await flush();
+        expect(steps().pop()).toEqual({ step: 3, pickScope: 'editable' });
+        element.pickedElements = [nodeOf(element, '#f1 td')];
+        await flush();
+        const marker = panel(element, 'c-cc-element-marker');
+        expect(marker.mode).toBe('content');
+        expect(marker.blockedReason).toBe('');
+        marker.dispatchEvent(new CustomEvent('apply', { detail: { marking: { role: 'content', contentType: 'richText', key: 'legal', label: 'Legal text' } } }));
+        await flush();
+        expect(lastChange(events).definition.contentSlots.map(slot => slot.bindingKey)).toEqual(['legal']);
+        const summary = Array.from(element.shadowRoot.querySelectorAll('.cc-workspace__group')).map(group => group.textContent.replace(/\s+/g, ' ').trim());
+        expect(summary[0]).toContain('1 · Fixed areas');
+        expect(summary[0]).toContain('Header');
+        expect(summary[0]).toContain('Footer');
+        expect(summary[1]).toContain('After Header');
+        expect(summary[2]).toContain('Legal text');
+        expect(summary[2]).toContain('in Footer');
+
+        // Back to step 1: switch the Footer to read-only, which removes its content bindings.
+        cards(element)[0].click();
+        await flush();
+        element.pickedElements = [nodeOf(element, '[data-cc-id="footer"]')];
+        await flush();
+        const areaPanel = panel(element, 'c-cc-area-panel');
+        expect(areaPanel.info.isArea).toBe(true);
+        areaPanel.dispatchEvent(new CustomEvent('update', { detail: { regionId: 'footer', name: 'Footer', kind: 'fixed-read', removeContent: true } }));
+        await flush();
+        expect(lastChange(events).definition.contentSlots).toEqual([]);
+        expect(lastChange(events).definition.regions.map(region => region.kind)).toEqual(['fixed-read', 'blocks', 'fixed-read']);
+
+        // Step 2 again: move the dropzone after the Footer.
+        cards(element)[1].click();
+        await flush();
+        element.pickedElements = [nodeOf(element, '[data-cc-id="footer"]')];
+        await flush();
+        panel(element, 'c-cc-dropzone-panel').dispatchEvent(new CustomEvent('place', { detail: { position: 'after' } }));
+        await flush();
+        expect(panel(element, 'c-cc-dropzone-panel').placement.text).toContain('After Footer');
+        panel(element, 'c-cc-dropzone-panel').dispatchEvent(new CustomEvent('removezone'));
+        await flush();
+        expect(lastChange(events).definition.regions.some(region => region.kind === 'blocks')).toBe(false);
+        expect(cards(element).map(card => card.disabled)).toEqual([false, false, true]);
     });
 
-    it('reports problems for groups from different parents and groups all children', async () => {
+    it('accepts "no fixed areas" as step 1, and opens the step the list item belongs to', async () => {
         const { element, events } = await shellWorkspace();
-        element.pickedElements = [9];
+        panel(element, 'c-cc-area-panel').dispatchEvent(new CustomEvent('nofixed', { detail: { value: true } }));
         await flush();
-        element.extendSelection(10);
-        await flush();
-        expect(element.shadowRoot.querySelector('c-cc-element-marker').errors[0]).toContain('same parent');
+        expect(lastChange(events).definition.setup).toEqual({ noFixedAreas: true });
+        expect(cards(element).map(card => card.disabled)).toEqual([false, false, true]);
 
-        element.pickedElements = [0];
+        element.pickedElements = [nodeOf(element, '#top')];
         await flush();
-        element.shadowRoot.querySelector('c-cc-element-marker').dispatchEvent(new CustomEvent('groupchildren'));
+        panel(element, 'c-cc-dropzone-panel');
+        cards(element)[1].click();
         await flush();
-        expect(events.filter(([name]) => name === 'pick').pop()[1].nodes).toEqual([1, 5, 9, 13]);
+        element.pickedElements = [nodeOf(element, '#top')];
+        await flush();
+        panel(element, 'c-cc-dropzone-panel').dispatchEvent(new CustomEvent('place', { detail: { position: 'before' } }));
+        await flush();
+        const zoneItem = element.shadowRoot.querySelector('.cc-workspace__nav-item[data-key="region:content"]');
+        expect(zoneItem.textContent).toContain('Before table#top');
+        cards(element)[0].click();
+        await flush();
+        expect(panel(element, 'c-cc-area-panel')).not.toBeNull();
+        zoneItem.click();
+        await flush();
+        expect(panel(element, 'c-cc-dropzone-panel')).not.toBeNull();
+        expect(events.filter(([name]) => name === 'pick').pop()[1].nodes).toEqual([nodeOf(element, '[data-cc-region="blocks"]')]);
     });
 
-    it('does not show the checklist for blocks or single-block shells', async () => {
+    it('step 3 refuses elements outside editable areas and explains the empty state', async () => {
+        const { element } = await shellWorkspace();
+        panel(element, 'c-cc-area-panel').dispatchEvent(new CustomEvent('nofixed', { detail: { value: true } }));
+        await flush();
+        cards(element)[1].click();
+        await flush();
+        element.pickedElements = [nodeOf(element, '#top')];
+        await flush();
+        panel(element, 'c-cc-dropzone-panel').dispatchEvent(new CustomEvent('place', { detail: { position: 'after' } }));
+        await flush();
+        cards(element)[2].click();
+        await flush();
+        expect(element.shadowRoot.textContent).toContain('Nothing to edit yet');
+        element.pickedElements = [nodeOf(element, '#copy td')];
+        await flush();
+        expect(panel(element, 'c-cc-element-marker').blockedReason).toContain('inside an editable area');
+    });
+
+    it('does not show the shell steps for blocks or single-block shells', async () => {
         const { element } = await shellWorkspace(PAGE, 'single');
-        expect(element.shadowRoot.querySelector('.cc-workspace__todos')).toBeNull();
+        expect(element.shadowRoot.querySelector('c-cc-shell-steps')).toBeNull();
+        expect(element.shadowRoot.querySelector('c-cc-area-panel')).toBeNull();
     });
 
     it('shows parse errors for invalid HTML', async () => {

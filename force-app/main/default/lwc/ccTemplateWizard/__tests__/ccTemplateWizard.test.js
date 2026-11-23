@@ -58,7 +58,7 @@ describe('c-cc-template-wizard layout', () => {
         const side = layout.querySelector('.cc-wizard__side');
         const preview = side.querySelector('c-cc-template-preview');
         expect(typeof preview.renderFn).toBe('function');
-        expect(preview.renderFn('desktop', 'light')).toContain('No content blocks yet');
+        expect(preview.renderFn('desktop', 'light')).toContain('Content blocks dropzone');
         expect(layout.querySelector('.cc-wizard__body').contains(side)).toBe(false);
     });
 
@@ -108,6 +108,10 @@ describe('c-cc-template-wizard layout', () => {
         await flush();
         expect(element.shadowRoot.querySelector('c-cc-template-preview').pickedNodes).toEqual([3, 5]);
 
+        expect(preview.pickScope).toBe('areas');
+        element.shadowRoot.querySelector('c-cc-binding-workspace').dispatchEvent(new CustomEvent('stepchange', { detail: { step: 3, pickScope: 'editable' } }));
+        await flush();
+        expect(element.shadowRoot.querySelector('c-cc-template-preview').pickScope).toBe('editable');
         element.shadowRoot.querySelector('c-cc-template-preview').dispatchEvent(new CustomEvent('modechange', { detail: { mark: false } }));
         await flush();
         const after = element.shadowRoot.querySelector('c-cc-template-preview');
@@ -126,13 +130,14 @@ describe('c-cc-template-wizard layout', () => {
         element.shadowRoot.querySelector('c-cc-template-preview').dispatchEvent(new CustomEvent('pick', { detail: { node: 3, extend: false } }));
         await flush();
 
-        const marker = element.shadowRoot.querySelector('c-cc-binding-workspace').shadowRoot.querySelector('c-cc-element-marker');
-        const radios = marker.shadowRoot.querySelectorAll('lightning-radio-group');
-        expect(radios.length).toBeGreaterThan(1);
+        const areaPanel = element.shadowRoot.querySelector('c-cc-binding-workspace').shadowRoot.querySelector('c-cc-area-panel');
+        const radios = areaPanel.shadowRoot.querySelectorAll('lightning-radio-group');
+        expect(radios.length).toBe(1);
         // lightning base components fire a bubbling, composed change event.
-        const leak = new CustomEvent('change', { bubbles: true, composed: true, detail: { value: 'fixed-edit' } });
-        radios[1].dispatchEvent(leak);
-        marker.shadowRoot.querySelector('lightning-input').dispatchEvent(new CustomEvent('change', { bubbles: true, composed: true, detail: { value: 'x' } }));
+        radios[0].dispatchEvent(new CustomEvent('change', { bubbles: true, composed: true, detail: { value: 'fixed-edit' } }));
+        Array.from(areaPanel.shadowRoot.querySelectorAll('lightning-input')).forEach(input => {
+            input.dispatchEvent(new CustomEvent('change', { bubbles: true, composed: true, detail: { value: 'x' } }));
+        });
         await flush();
 
         expect(element.shadowRoot.querySelector('c-cc-template-preview')).not.toBeNull();
