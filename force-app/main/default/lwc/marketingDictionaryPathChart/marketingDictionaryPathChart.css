@@ -105,3 +105,9 @@
     transform: translate(-50%, calc(-100% - 0.5rem));
     pointer-events: none;
 }
+
+.path-chart__population {
+    color: var(--slds-g-color-accent-1, #006375);
+    font-size: 0.75rem;
+    font-weight: 700;
+}

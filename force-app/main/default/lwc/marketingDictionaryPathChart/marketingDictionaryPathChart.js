@@ -138,7 +138,7 @@ export default class MarketingDictionaryPathChart extends LightningElement {
                 hasUnallocated: gap > 0 && segments.length > 0,
                 unallocatedLabel: `${gap}% unallocated`,
                 populationText: population.status === 'ok'
-                    ? `${number.format(population.count)} individuals`
+                    ? `${number.format(population.count)} unified individuals`
                     : population.status === 'loading' ? 'counting...' : '',
                 over: total > 100.005
             };
@@ -164,7 +164,7 @@ export default class MarketingDictionaryPathChart extends LightningElement {
         const population = this.populationOf(audienceId);
         let populationLine;
         if (population.status === 'ok') {
-            populationLine = `≈ ${number.format(Math.round((population.count * percent) / 100))} individuals`;
+            populationLine = `≈ ${number.format(Math.round((population.count * percent) / 100))} unified individuals`;
         } else if (population.status === 'loading') {
             populationLine = 'Counting the audience...';
         } else if (population.status === 'error') {
@@ -181,7 +181,7 @@ export default class MarketingDictionaryPathChart extends LightningElement {
             audience: audience.Name,
             allocation: `${percent}% of ${audience.Name}`,
             population: populationLine,
-            audiencePopulation: population.status === 'ok' ? `${audience.Name} audience: ${number.format(population.count)} individuals` : ''
+            audiencePopulation: population.status === 'ok' ? `${audience.Name} audience: ${number.format(population.count)} unified individuals` : ''
         };
     }
 

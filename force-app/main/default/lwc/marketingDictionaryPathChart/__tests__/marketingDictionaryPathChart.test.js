@@ -73,7 +73,7 @@ describe('c-marketing-dictionary-path-chart', () => {
         expect(getFilterCount).toHaveBeenCalledTimes(1);
         expect(getFilterCount).toHaveBeenCalledWith({ filterJson: FILTER });
         const rows = all(element, '[data-role="chart-row"]');
-        expect(rows[0].textContent).toContain('10,000 individuals');
+        expect(rows[0].textContent).toContain('10,000 unified individuals');
         expect(rows[1].textContent).not.toContain('individuals');
     });
 
@@ -85,8 +85,8 @@ describe('c-marketing-dictionary-path-chart', () => {
         const tip = q(element, '[role="tooltip"]');
         expect(tip.textContent).toContain('Random');
         expect(tip.textContent).toContain('35% of Customer');
-        expect(tip.textContent).toContain('≈ 3,500 individuals');
-        expect(tip.textContent).toContain('Customer audience: 10,000 individuals');
+        expect(tip.textContent).toContain('≈ 3,500 unified individuals');
+        expect(tip.textContent).toContain('Customer audience: 10,000 unified individuals');
         segment.dispatchEvent(new CustomEvent('mouseleave'));
         await flush();
         expect(q(element, '[role="tooltip"]')).toBeNull();
@@ -99,7 +99,7 @@ describe('c-marketing-dictionary-path-chart', () => {
         expect(segment.getAttribute('aria-label')).toBe('ML: 65% of Customer');
         segment.dispatchEvent(new CustomEvent('focus'));
         await flush();
-        expect(q(element, '[role="tooltip"]').textContent).toContain('≈ 6,500 individuals');
+        expect(q(element, '[role="tooltip"]').textContent).toContain('≈ 6,500 unified individuals');
         segment.dispatchEvent(new CustomEvent('blur'));
         await flush();
         expect(q(element, '[role="tooltip"]')).toBeNull();
