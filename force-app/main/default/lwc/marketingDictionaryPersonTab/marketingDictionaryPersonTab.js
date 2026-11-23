@@ -1,9 +1,11 @@
-import { LightningElement, track, wire } from 'lwc';
+import { LightningElement, api, track, wire } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import { refreshApex } from '@salesforce/apex';
 import getPersonRecords from '@salesforce/apex/MarketingDictionaryManagerController.getPersonRecords';
 import saveProductRecord from '@salesforce/apex/MarketingDictionaryManagerController.saveProductRecord';
 import saveProductRecordsBulk from '@salesforce/apex/MarketingDictionaryManagerController.saveProductRecordsBulk';
+import getFilterCount from '@salesforce/apex/PersonFilterCountController.getFilterCount';
+import getTotalCount from '@salesforce/apex/PersonFilterCountController.getTotalCount';
 import deleteDictionaryRecord from '@salesforce/apex/MarketingDictionaryManagerController.deleteDictionaryRecord';
 import { confirmDictionaryRenameIfNeeded } from 'c/marketingDictionaryRenamePrompt';
 import {
@@ -17,6 +19,9 @@ let _key = 0;
 const newKey = () => String(++_key);
 const newRow = (i) => ({ key: newKey(), name: '', label: `Name ${i}` });
 const EMPTY_RECORD = () => ({ Name: '', Dictionary_Sub_Type__c: '' });
+const COUNT_CONCURRENCY = 4;
+const RESTART_GUARD_MS = 2000;
+const numberFormat = new Intl.NumberFormat();
 
 export default class MarketingDictionaryPersonTab extends LightningElement {
 
@@ -55,17 +60,138 @@ export default class MarketingDictionaryPersonTab extends LightningElement {
         this.isLoading = false;
         if (result.data) {
             this._allRecords = result.data;
+            this.startCounting();
         } else if (result.error) {
             this._showToast('Error', result.error.body?.message || 'Failed to load records', 'error');
         }
     }
 
-    get customerTypes()     { return this._allRecords.filter(r => r.Dictionary_Sub_Type__c === 'Customer Type'); }
-    get audienceTypes()     { return this._allRecords.filter(r => r.Dictionary_Sub_Type__c === 'Audience Type'); }
+    get customerTypes()     { return this.withCounts(this._allRecords.filter(r => r.Dictionary_Sub_Type__c === 'Customer Type')); }
+    get audienceTypes()     { return this.withCounts(this._allRecords.filter(r => r.Dictionary_Sub_Type__c === 'Audience Type')); }
     get customerTypeCount() { return this.customerTypes.length; }
     get audienceTypeCount() { return this.audienceTypes.length; }
     get hasCustomerTypes()  { return !this.isLoading && this.customerTypes.length > 0; }
     get hasAudienceTypes()  { return !this.isLoading && this.audienceTypes.length > 0; }
+
+    // ─── Live Data360 counts ─────────────────────────────────────────────────
+    // Every value that has a filter is counted in its own call, at most COUNT_CONCURRENCY at a time, so the list
+    // fills in as results arrive. Counts are never stored; they run whenever the tab opens or Refresh is pressed.
+
+    @track counts = {};
+    total = null;
+    _countRun = 0;
+    _countStartedAt = 0;
+
+    disconnectedCallback() {
+        this._countRun += 1;
+    }
+
+    /** Called by the app when the Person tab is opened again. */
+    @api
+    refreshCounts() {
+        if (!this._allRecords.length || Date.now() - this._countStartedAt < RESTART_GUARD_MS) return;
+        this.startCounting();
+    }
+
+    handleRefreshCounts() {
+        this.startCounting();
+    }
+
+    get isCounting() {
+        return Object.values(this.counts).some(entry => entry.status === 'loading');
+    }
+
+    get hasTotal() {
+        return this.total !== null && this.total !== undefined;
+    }
+
+    get totalText() {
+        return this.hasTotal ? `${numberFormat.format(this.total)} individuals in total` : '';
+    }
+
+    withCounts(records) {
+        return records.map(rec => {
+            const entry = this.counts[rec.Id] || { status: rec.Data360_Filter_JSON__c ? 'loading' : 'none' };
+            const share = entry.status === 'ok' && this.hasTotal && this.total > 0
+                ? (entry.count / this.total) * 100
+                : null;
+            return {
+                ...rec,
+                isLoadingCount: entry.status === 'loading',
+                hasCount: entry.status === 'ok',
+                hasNoFilter: entry.status === 'none',
+                hasCountError: entry.status === 'error',
+                countText: entry.status === 'ok' ? numberFormat.format(entry.count) : '',
+                shareText: share === null ? '' : `${share > 0 && share < 0.1 ? '<0.1' : share.toFixed(1)}%`,
+                countError: entry.error || ''
+            };
+        });
+    }
+
+    startCounting() {
+        const run = ++this._countRun;
+        this._countStartedAt = Date.now();
+        const next = {};
+        const queue = [];
+        this._allRecords.forEach(rec => {
+            if (rec.Data360_Filter_JSON__c) {
+                next[rec.Id] = { status: 'loading' };
+                queue.push(rec);
+            } else {
+                next[rec.Id] = { status: 'none' };
+            }
+        });
+        this.counts = next;
+        if (!queue.length) {
+            this.total = null;
+            return;
+        }
+        getTotalCount()
+            .then(total => {
+                if (run === this._countRun) this.total = total;
+            })
+            .catch(() => {
+                if (run === this._countRun) this.total = null;
+            });
+        const worker = async () => {
+            while (queue.length && run === this._countRun) {
+                const rec = queue.shift();
+                let entry;
+                try {
+                    const count = await getFilterCount({ filterJson: rec.Data360_Filter_JSON__c });
+                    entry = { status: 'ok', count };
+                } catch (error) {
+                    entry = { status: 'error', error: error?.body?.message || error?.message || 'The count failed.' };
+                }
+                if (run !== this._countRun) return;
+                this.counts = { ...this.counts, [rec.Id]: entry };
+            }
+        };
+        const workers = Math.min(COUNT_CONCURRENCY, queue.length);
+        for (let i = 0; i < workers; i++) {
+            worker();
+        }
+    }
+
+    // ─── Data360 filter in the edit modal ────────────────────────────────────
+
+    filterError = '';
+
+    get editFilterJson() {
+        return this.editRecord?.Data360_Filter_JSON__c || '';
+    }
+
+    handleFilterChange(event) {
+        this.editRecord = { ...this.editRecord, Data360_Filter_JSON__c: event.detail.value };
+    }
+
+    handleFilterValidity(event) {
+        this.filterError = event.detail.error || '';
+    }
+
+    get modalClass() {
+        return `slds-modal slds-fade-in-open${this._isEditMode ? ' slds-modal_medium' : ''}`;
+    }
 
     @track isModalOpen = false;
     @track isDeleteModalOpen = false;
@@ -107,6 +233,7 @@ export default class MarketingDictionaryPersonTab extends LightningElement {
         const found = this._allRecords.find(r => r.Id === id);
         this.editRecord = found ? { ...found } : EMPTY_RECORD();
         this._editOriginalName = this.editRecord.Name || '';
+        this.filterError = '';
         this.isModalOpen = true;
     }
 
@@ -128,6 +255,7 @@ export default class MarketingDictionaryPersonTab extends LightningElement {
     async handleSave() {
         if (this._isEditMode) {
             if (!this.editRecord.Name?.trim()) { this._showToast('Validation', 'Name is required', 'error'); return; }
+            if (this.filterError) { this._showToast('Validation', `Fix the Data360 filter first: ${this.filterError}`, 'error'); return; }
             this.isSaving = true;
             try {
                 const proceed = await confirmDictionaryRenameIfNeeded(

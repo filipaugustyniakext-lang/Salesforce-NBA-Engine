@@ -27,6 +27,12 @@
                         </h2>
                     </div>
                     <div class="slds-col slds-no-flex">
+                        <template lwc:if={hasTotal}>
+                            <span class="slds-text-body_small slds-text-color_weak slds-m-right_small">{totalText}</span>
+                        </template>
+                        <lightning-button label="Refresh counts" icon-name="utility:refresh" variant="neutral"
+                            class="slds-m-right_x-small" disabled={isCounting} onclick={handleRefreshCounts}>
+                        </lightning-button>
                         <lightning-button label="Add" icon-name="utility:add" variant="brand"
                             data-subtype="Customer Type" onclick={handleNewRecord}>
                         </lightning-button>
@@ -39,7 +45,26 @@
                     <ul class="slds-has-dividers_top-space scrollable-list">
                         <template for:each={customerTypes} for:item="rec">
                             <li key={rec.Id} class="slds-item slds-grid slds-grid_align-spread slds-p-vertical_x-small">
-                                <p class="slds-text-body_regular">{rec.Name}</p>
+                                <p class="slds-text-body_regular slds-col">{rec.Name}</p>
+                                <div class="person-count">
+                                    <template lwc:if={rec.isLoadingCount}>
+                                        <lightning-spinner alternative-text="Counting" size="x-small"></lightning-spinner>
+                                    </template>
+                                    <template lwc:if={rec.hasCount}>
+                                        <span class="person-count__value">{rec.countText}</span>
+                                        <template lwc:if={rec.shareText}>
+                                            <span class="slds-text-body_small slds-text-color_weak slds-m-left_x-small">{rec.shareText}</span>
+                                        </template>
+                                    </template>
+                                    <template lwc:if={rec.hasNoFilter}>
+                                        <span class="slds-text-body_small slds-text-color_weak">No filter</span>
+                                    </template>
+                                    <template lwc:if={rec.hasCountError}>
+                                        <lightning-icon icon-name="utility:warning" size="x-small" variant="warning"
+                                            alternative-text={rec.countError} title={rec.countError}></lightning-icon>
+                                        <span class="slds-text-body_small slds-text-color_error slds-m-left_xx-small" title={rec.countError}>Count failed</span>
+                                    </template>
+                                </div>
                                 <div class="slds-button-group">
                                     <lightning-button-icon icon-name="utility:edit" variant="bare"
                                         alternative-text="Edit" title="Edit"
@@ -73,6 +98,12 @@
                         </h2>
                     </div>
                     <div class="slds-col slds-no-flex">
+                        <template lwc:if={hasTotal}>
+                            <span class="slds-text-body_small slds-text-color_weak slds-m-right_small">{totalText}</span>
+                        </template>
+                        <lightning-button label="Refresh counts" icon-name="utility:refresh" variant="neutral"
+                            class="slds-m-right_x-small" disabled={isCounting} onclick={handleRefreshCounts}>
+                        </lightning-button>
                         <lightning-button label="Add" icon-name="utility:add" variant="brand"
                             data-subtype="Audience Type" onclick={handleNewRecord}>
                         </lightning-button>
@@ -85,7 +116,26 @@
                     <ul class="slds-has-dividers_top-space scrollable-list">
                         <template for:each={audienceTypes} for:item="rec">
                             <li key={rec.Id} class="slds-item slds-grid slds-grid_align-spread slds-p-vertical_x-small">
-                                <p class="slds-text-body_regular">{rec.Name}</p>
+                                <p class="slds-text-body_regular slds-col">{rec.Name}</p>
+                                <div class="person-count">
+                                    <template lwc:if={rec.isLoadingCount}>
+                                        <lightning-spinner alternative-text="Counting" size="x-small"></lightning-spinner>
+                                    </template>
+                                    <template lwc:if={rec.hasCount}>
+                                        <span class="person-count__value">{rec.countText}</span>
+                                        <template lwc:if={rec.shareText}>
+                                            <span class="slds-text-body_small slds-text-color_weak slds-m-left_x-small">{rec.shareText}</span>
+                                        </template>
+                                    </template>
+                                    <template lwc:if={rec.hasNoFilter}>
+                                        <span class="slds-text-body_small slds-text-color_weak">No filter</span>
+                                    </template>
+                                    <template lwc:if={rec.hasCountError}>
+                                        <lightning-icon icon-name="utility:warning" size="x-small" variant="warning"
+                                            alternative-text={rec.countError} title={rec.countError}></lightning-icon>
+                                        <span class="slds-text-body_small slds-text-color_error slds-m-left_xx-small" title={rec.countError}>Count failed</span>
+                                    </template>
+                                </div>
                                 <div class="slds-button-group">
                                     <lightning-button-icon icon-name="utility:edit" variant="bare"
                                         alternative-text="Edit" title="Edit"
@@ -114,7 +164,7 @@
     <!-- Add / Edit modal -->
     <template lwc:if={isModalOpen}>
         <section role="dialog" tabindex="-1" aria-modal="true"
-                 aria-labelledby="person-modal-heading" class="slds-modal slds-fade-in-open">
+                 aria-labelledby="person-modal-heading" class={modalClass}>
             <div class="slds-modal__container">
                 <header class="slds-modal__header">
                     <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse"
@@ -128,6 +178,11 @@
                         <lightning-input label="Name" value={editRecord.Name} required
                             data-field="Name" onchange={handleFieldChange}>
                         </lightning-input>
+                        <c-marketing-dictionary-dmo-filter-builder
+                            value={editFilterJson}
+                            onfilterchange={handleFilterChange}
+                            onvaliditychange={handleFilterValidity}>
+                        </c-marketing-dictionary-dmo-filter-builder>
                     </template>
                     <template lwc:else>
                         <div class="slds-m-bottom_x-small">

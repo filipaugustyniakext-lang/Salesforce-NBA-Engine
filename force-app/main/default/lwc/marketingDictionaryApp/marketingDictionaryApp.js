@@ -34,6 +34,10 @@ export default class MarketingDictionaryApp extends LightningElement {
         }
 
         this.activeTab = persistMainTab(nextTab);
+        if (nextTab === 'person') {
+            const personTab = this.template.querySelector('c-marketing-dictionary-person-tab');
+            if (personTab) personTab.refreshCounts();
+        }
     }
 
     handleChannelActiveChange(event) {

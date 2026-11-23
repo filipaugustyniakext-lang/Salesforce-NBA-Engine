@@ -67,3 +67,15 @@
     max-height: calc(100vh - 280px);
     overflow-y: auto;
 }
+.person-count {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    min-width: 9rem;
+    margin-right: 1rem;
+}
+.person-count__value {
+    font-weight: 600;
+    color: var(--md-color-text, var(--slds-g-color-on-surface-1, #181818));
+}

@@ -1,0 +1,102 @@
+<template>
+    <div class="dmo-filter">
+        <div class="dmo-filter__head">
+            <span class="slds-text-title_bold">Filter on {dmoName}</span>
+            <template lwc:if={isLoadingColumns}>
+                <lightning-spinner alternative-text="Loading columns" size="x-small"></lightning-spinner>
+            </template>
+        </div>
+        <p class="slds-text-body_small slds-text-color_weak">
+            Individuals that match this filter belong to this value. Without a filter no count is shown.
+        </p>
+
+        <template lwc:if={hasColumnError}>
+            <div class="slds-text-color_error slds-text-body_small slds-m-top_x-small" role="alert">{columnError}</div>
+        </template>
+
+        <template lwc:if={hasItems}>
+            <lightning-combobox class="dmo-filter__top-logic" label="Match" options={logicOptions} value={topLogic}
+                onchange={handleTopLogic}></lightning-combobox>
+        </template>
+
+        <template for:each={rows} for:item="row">
+            <div key={row.key} class={row.className}>
+                <template lwc:if={row.isGroup}>
+                    <div class="dmo-filter__group-head">
+                        <lightning-combobox label="Group matches" options={logicOptions} value={row.logic}
+                            data-id={row.id} onchange={handleGroupLogic}></lightning-combobox>
+                        <lightning-button label="Add condition" icon-name="utility:add" variant="base"
+                            data-id={row.id} disabled={addDisabled} onclick={handleAddToGroup}></lightning-button>
+                        <lightning-button label="Remove group" variant="destructive-text"
+                            data-id={row.id} onclick={handleRemoveGroup}></lightning-button>
+                    </div>
+                </template>
+                <template lwc:if={row.isCondition}>
+                    <div class="dmo-filter__condition">
+                        <lightning-combobox label="Column" options={row.columnOptions} value={row.field}
+                            placeholder="Choose a column" data-id={row.id} onchange={handleField}></lightning-combobox>
+                        <lightning-combobox label="Operator" options={row.operatorOptions} value={row.operator}
+                            data-id={row.id} onchange={handleOperator}></lightning-combobox>
+                        <template lwc:if={row.showSingle}>
+                            <lightning-input label="Value" type={row.inputType} step={row.step} value={row.value}
+                                data-id={row.id} data-prop="value" onchange={handleValue}></lightning-input>
+                        </template>
+                        <template lwc:if={row.isBoolean}>
+                            <lightning-combobox label="Value" options={booleanOptions} value={row.value}
+                                data-id={row.id} data-prop="value" onchange={handleValue}></lightning-combobox>
+                        </template>
+                        <template lwc:if={row.showSecond}>
+                            <lightning-input label="And" type={row.inputType} step={row.step} value={row.value2}
+                                data-id={row.id} data-prop="value2" onchange={handleValue}></lightning-input>
+                        </template>
+                        <template lwc:if={row.showList}>
+                            <lightning-input label="Values (comma separated)" value={row.valuesText}
+                                data-id={row.id} data-prop="valuesText" onchange={handleValue}></lightning-input>
+                        </template>
+                        <lightning-button-icon icon-name="utility:delete" variant="bare" alternative-text="Remove condition"
+                            title="Remove condition" data-id={row.id} onclick={handleRemoveCondition}></lightning-button-icon>
+                    </div>
+                    <template lwc:if={row.dayHint}>
+                        <p class="slds-text-body_small slds-text-color_weak">Dates are compared by whole days.</p>
+                    </template>
+                </template>
+            </div>
+        </template>
+
+        <div class="dmo-filter__actions">
+            <lightning-button label="Add condition" icon-name="utility:add" disabled={addDisabled}
+                onclick={handleAddCondition}></lightning-button>
+            <lightning-button label="Add group" icon-name="utility:groups" disabled={addDisabled}
+                onclick={handleAddGroup}></lightning-button>
+        </div>
+
+        <template lwc:if={hasItems}>
+            <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">
+                "Does not equal" and "is not one of" skip individuals whose column is empty. Add an OR group with "is empty" to include them.
+            </p>
+        </template>
+
+        <template lwc:if={hasValidationError}>
+            <div class="slds-text-color_error slds-text-body_small slds-m-top_x-small" role="alert">{validationError}</div>
+        </template>
+        <template lwc:if={hasSql}>
+            <pre class="dmo-filter__sql">{sqlPreview}</pre>
+        </template>
+
+        <template lwc:if={hasItems}>
+            <div class="dmo-filter__test">
+                <lightning-button label="Test count" icon-name="utility:data_mapping" disabled={testDisabled}
+                    onclick={handleTest}></lightning-button>
+                <template lwc:if={isCounting}>
+                    <lightning-spinner alternative-text="Counting" size="x-small"></lightning-spinner>
+                </template>
+                <template lwc:if={hasCountResult}>
+                    <span class="slds-text-body_regular slds-m-left_small">{countText}</span>
+                </template>
+                <template lwc:if={hasCountError}>
+                    <span class="slds-text-color_error slds-m-left_small">{countError}</span>
+                </template>
+            </div>
+        </template>
+    </div>
+</template>
