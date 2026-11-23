@@ -28,7 +28,10 @@
                     </div>
                     <div class="slds-col slds-no-flex">
                         <template lwc:if={hasTotal}>
-                            <span class="slds-text-body_small slds-text-color_weak slds-m-right_small">{totalText}</span>
+                            <span class="person-total slds-m-right_small" title={totalText}>
+                                <span class="person-total__value">{totalNumber}</span>
+                                <span class="person-total__label">unified individuals in total</span>
+                            </span>
                         </template>
                         <lightning-button label="Refresh counts" icon-name="utility:refresh" variant="neutral"
                             class="slds-m-right_x-small" disabled={isCounting} onclick={handleRefreshCounts}>
@@ -51,9 +54,9 @@
                                         <lightning-spinner alternative-text="Counting" size="x-small"></lightning-spinner>
                                     </template>
                                     <template lwc:if={rec.hasCount}>
-                                        <span class="person-count__value">{rec.countText}</span>
+                                        <span class="person-count__value" title={rec.countTitle}>{rec.countText}</span>
                                         <template lwc:if={rec.shareText}>
-                                            <span class="slds-text-body_small slds-text-color_weak slds-m-left_x-small">{rec.shareText}</span>
+                                            <span class="person-count__share" title={rec.countTitle}>{rec.shareText}</span>
                                         </template>
                                     </template>
                                     <template lwc:if={rec.hasNoFilter}>
@@ -99,7 +102,10 @@
                     </div>
                     <div class="slds-col slds-no-flex">
                         <template lwc:if={hasTotal}>
-                            <span class="slds-text-body_small slds-text-color_weak slds-m-right_small">{totalText}</span>
+                            <span class="person-total slds-m-right_small" title={totalText}>
+                                <span class="person-total__value">{totalNumber}</span>
+                                <span class="person-total__label">unified individuals in total</span>
+                            </span>
                         </template>
                         <lightning-button label="Refresh counts" icon-name="utility:refresh" variant="neutral"
                             class="slds-m-right_x-small" disabled={isCounting} onclick={handleRefreshCounts}>
@@ -122,9 +128,9 @@
                                         <lightning-spinner alternative-text="Counting" size="x-small"></lightning-spinner>
                                     </template>
                                     <template lwc:if={rec.hasCount}>
-                                        <span class="person-count__value">{rec.countText}</span>
+                                        <span class="person-count__value" title={rec.countTitle}>{rec.countText}</span>
                                         <template lwc:if={rec.shareText}>
-                                            <span class="slds-text-body_small slds-text-color_weak slds-m-left_x-small">{rec.shareText}</span>
+                                            <span class="person-count__share" title={rec.countTitle}>{rec.shareText}</span>
                                         </template>
                                     </template>
                                     <template lwc:if={rec.hasNoFilter}>

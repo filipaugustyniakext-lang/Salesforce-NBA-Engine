@@ -64,8 +64,12 @@ describe('c-marketing-dictionary-person-tab counts', () => {
         expect(getFilterCount).toHaveBeenCalledWith({ filterJson: filterFor('B2C') });
         expect(rowOf(element, 'Retail').textContent).toContain('1,234');
         expect(rowOf(element, 'Retail').textContent).toContain('12.3%');
+        const pill = rowOf(element, 'Retail').querySelector('.person-count__value');
+        expect(pill.title).toBe('1,234 unified individuals (12.3% of all unified individuals)');
+        expect(element.shadowRoot.querySelector('.person-total__value').textContent).toBe('10,000');
+        expect(element.shadowRoot.querySelector('.person-total__label').textContent).toBe('unified individuals in total');
         expect(rowOf(element, 'Unfiltered').textContent).toContain('No filter');
-        expect(element.shadowRoot.textContent).toContain('10,000 individuals in total');
+        expect(element.shadowRoot.querySelector('.person-total').title).toBe('10,000 unified individuals in total');
     });
 
     it('runs at most four counts at a time and fills rows in as they finish', async () => {
