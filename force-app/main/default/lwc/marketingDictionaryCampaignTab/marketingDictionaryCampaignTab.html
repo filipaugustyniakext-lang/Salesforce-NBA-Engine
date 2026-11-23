@@ -398,6 +398,10 @@
         ══════════════════════════════════════════════════════════ -->
         <template lwc:if={isTab.activationPaths}>
             <div class="slds-p-around_small">
+                <template lwc:if={hasPaths}>
+                    <c-marketing-dictionary-path-chart audience-types={audienceTypes} paths={chartPaths}>
+                    </c-marketing-dictionary-path-chart>
+                </template>
                 <div class="cd-toolbar slds-m-bottom_small">
                     <div>
                         <h2 class="slds-text-heading_small">Activation Paths</h2>
@@ -436,8 +440,6 @@
                     <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
                 </template>
                 <template lwc:elseif={hasPaths}>
-                    <c-marketing-dictionary-path-chart audience-types={audienceTypes} paths={chartPaths}>
-                    </c-marketing-dictionary-path-chart>
                     <table class="slds-table slds-table_bordered slds-table_cell-buffer">
                         <thead>
                             <tr class="slds-line-height_reset">
