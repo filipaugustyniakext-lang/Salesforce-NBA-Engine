@@ -10,7 +10,7 @@ const AUDIENCES = [
 ];
 const PATHS = [
     { Id: 'p3', Name: 'Legacy', Is_Active__c: false, Distribution_Percent__c: 0, Audience_Type_Dict__c: 'aud-customer' },
-    { Id: 'p2', Name: 'Random', Is_Active__c: true, Distribution_Percent__c: 35, Audience_Type_Dict__c: 'aud-customer' },
+    { Id: 'p2', Name: 'Random', Is_Active__c: true, Distribution_Percent__c: 35, Audience_Type_Dict__c: 'aud-customer', Path_Description__c: 'Random assignment' },
     { Id: 'p1', Name: 'ML', Is_Active__c: true, Distribution_Percent__c: 65, Audience_Type_Dict__c: 'aud-customer' },
     { Id: 'p4', Name: 'Prospect ML', Is_Active__c: true, Distribution_Percent__c: 100, Audience_Type_Dict__c: 'aud-prospect' }
 ];
@@ -205,7 +205,7 @@ describe('c-marketing-dictionary-path-editor', () => {
         button(element, 'Save').click();
         await flush();
         const byId = Object.fromEntries(events[0][1].map(record => [record.Id, record]));
-        expect(byId.p1).toEqual({ Id: 'p1', Name: 'ML', Audience_Type_Dict__c: 'aud-customer', Is_Active__c: false, Distribution_Percent__c: 0 });
+        expect(byId.p1).toEqual({ Id: 'p1', Name: 'ML', Path_Description__c: '', Audience_Type_Dict__c: 'aud-customer', Is_Active__c: false, Distribution_Percent__c: 0 });
         expect(byId.p2.Distribution_Percent__c).toBe(100);
         expect(byId.p4).toBeUndefined();
     });
@@ -281,8 +281,27 @@ describe('c-marketing-dictionary-path-editor', () => {
         await flush();
         expect(LightningAlert.open).toHaveBeenCalledTimes(1);
         expect(events).toEqual([['save', [{
-            Id: 'p2', Name: 'Random B', Audience_Type_Dict__c: 'aud-customer', Is_Active__c: true, Distribution_Percent__c: 35
+            Id: 'p2', Name: 'Random B', Path_Description__c: 'Random assignment', Audience_Type_Dict__c: 'aud-customer', Is_Active__c: true, Distribution_Percent__c: 35
         }]]]);
+    });
+
+    it('shows the description of every path and saves an edited one, trimmed, without any warning', async () => {
+        const { element, events } = await mount();
+        expect(field(element, 'description', 'p2').value).toBe('Random assignment');
+        expect(field(element, 'description', 'p1').value).toBe('');
+        expect(Number(field(element, 'description', 'p1').maxLength)).toBe(255);
+        expect(button(element, 'Save').disabled).toBe(true);
+
+        field(element, 'description', 'p1').dispatchEvent(new CustomEvent('change', { detail: { value: '  Scores customers with the ML model  ' } }));
+        await flush();
+        expect(LightningAlert.open).not.toHaveBeenCalled();
+        expect(button(element, 'Save').disabled).toBe(false);
+        button(element, 'Save').click();
+        await flush();
+        expect(events[0][1]).toEqual([{
+            Id: 'p1', Name: 'ML', Path_Description__c: 'Scores customers with the ML model',
+            Audience_Type_Dict__c: 'aud-customer', Is_Active__c: true, Distribution_Percent__c: 65
+        }]);
     });
 
     it('closes without saving and shows a server error', async () => {

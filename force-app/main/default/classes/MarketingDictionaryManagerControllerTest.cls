@@ -595,4 +595,26 @@ private class MarketingDictionaryManagerControllerTest {
         System.assertEquals(true, MarketingDictionaryDeleteGuard.collectBlockingDependencies(customer).size() > 0);
         System.assertNotEquals(null, report);
     }
+
+    @IsTest
+    static void activationPathDescriptionsAreTrimmedClearedAndLimited() {
+        Marketing_Dictionary__c customer = audience('Customer');
+        insert new List<Marketing_Dictionary__c>{ activationPath('ML', customer.Id, true, 65), activationPath('Random', customer.Id, true, 35) };
+        Map<String, Marketing_Dictionary__c> before = pathsByName();
+        MarketingDictionaryManagerController.saveActivationPaths(new List<Marketing_Dictionary__c>{
+            new Marketing_Dictionary__c(Id = before.get('ML').Id, Path_Description__c = '  Scores customers with the ML model  ')
+        });
+        System.assertEquals('Scores customers with the ML model', [SELECT Path_Description__c FROM Marketing_Dictionary__c WHERE Id = :before.get('ML').Id].Path_Description__c);
+        System.assertEquals(65, pathsByName().get('ML').Distribution_Percent__c, 'A description change leaves the allocation alone.');
+
+        MarketingDictionaryManagerController.saveActivationPaths(new List<Marketing_Dictionary__c>{
+            new Marketing_Dictionary__c(Id = before.get('ML').Id, Path_Description__c = '   ')
+        });
+        System.assertEquals(null, [SELECT Path_Description__c FROM Marketing_Dictionary__c WHERE Id = :before.get('ML').Id].Path_Description__c);
+
+        String message = pathSaveError(new List<Marketing_Dictionary__c>{
+            new Marketing_Dictionary__c(Id = before.get('ML').Id, Path_Description__c = 'x'.repeat(256))
+        });
+        System.assert(message != null && message.contains('at most 255'), message);
+    }
 }

@@ -12,7 +12,7 @@
             <div class="slds-modal__content slds-p-around_medium">
                 <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
                     Each path applies to one audience type. The active paths of an audience type share 100% of its baseline distribution.
-                    Rename a path, change its audience type, switch it on or off, or change its allocation.
+                    Rename a path, describe it, change its audience type, switch it on or off, or change its allocation.
                     An active path left at 0% behaves like an inactive one.
                 </p>
 
@@ -58,6 +58,10 @@
                                     <template lwc:if={row.nameError}>
                                         <p class="slds-text-color_error slds-text-body_small">{row.nameError}</p>
                                     </template>
+                                    <lightning-input label="Description" variant="label-hidden" value={row.description}
+                                        placeholder="Description (optional)" maxlength="255" class="path-editor__description"
+                                        data-id={row.id} data-role="description" onchange={handleDescription}>
+                                    </lightning-input>
                                 </td>
                                 <td>
                                     <lightning-radio-group label="Audience type" variant="label-hidden" type="radio"

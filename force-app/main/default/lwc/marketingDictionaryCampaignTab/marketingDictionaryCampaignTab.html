@@ -443,6 +443,7 @@
                             <tr class="slds-line-height_reset">
                                 <th scope="col">Status</th>
                                 <th scope="col">Path</th>
+                                <th scope="col">Description</th>
                                 <th scope="col">Audience type</th>
                                 <th scope="col" class="slds-text-align_right">Allocation</th>
                                 <th scope="col" class="path-actions-col"><span class="slds-assistive-text">Actions</span></th>
@@ -453,6 +454,10 @@
                                 <tr key={path.Id} class={path.rowClass}>
                                     <td><span class={path.statusBadgeClass}>{path.statusLabel}</span></td>
                                     <th scope="row"><div class="slds-truncate" title={path.Name}>{path.Name}</div></th>
+                                    <td class="path-description-cell">
+                                        <template lwc:if={path.Path_Description__c}>{path.Path_Description__c}</template>
+                                        <template lwc:else><span class="slds-text-color_weak">—</span></template>
+                                    </td>
                                     <td>
                                         <template lwc:if={path.hasAudience}>{path.audienceName}</template>
                                         <template lwc:else><span class="cd-warn-text">Not set</span></template>
@@ -873,6 +878,9 @@
                 <div class="slds-modal__content slds-p-around_medium">
                     <lightning-input label="Path Name" required value={editPath.Name}
                         data-field="Name" onchange={handlePathFieldChange}>
+                    </lightning-input>
+                    <lightning-input label="Description" value={editPath.Path_Description__c} maxlength="255"
+                        data-field="Path_Description__c" onchange={handlePathFieldChange} class="slds-m-top_small">
                     </lightning-input>
                     <lightning-radio-group label="Audience type" required options={audienceOptions}
                         value={editPath.Audience_Type_Dict__c} name="path-audience" class="slds-m-top_small"

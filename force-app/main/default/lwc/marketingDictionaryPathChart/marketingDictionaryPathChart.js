@@ -178,6 +178,7 @@ export default class MarketingDictionaryPathChart extends LightningElement {
             left: Math.round(segment.left - host.left + segment.width / 2),
             top: Math.round(segment.top - host.top),
             title: path.Name,
+            description: path.Path_Description__c || '',
             audience: audience.Name,
             allocation: `${percent}% of ${audience.Name}`,
             population: populationLine,

@@ -19,7 +19,7 @@ function sortPaths(list) {
  * Edits the name, audience type, active flag and allocation of every Activation Path in one modal.
  * Every path applies to one audience type (referenced by its dictionary record Id). For each audience type the
  * active paths must add up to exactly 100%; an inactive path always carries 0%.
- * Emits save { records: [{ Id, Name, Audience_Type_Dict__c, Is_Active__c, Distribution_Percent__c }] }
+ * Emits save { records: [{ Id, Name, Path_Description__c, Audience_Type_Dict__c, Is_Active__c, Distribution_Percent__c }] }
  * (changed paths only) and close.
  */
 export default class MarketingDictionaryPathEditor extends LightningElement {
@@ -46,6 +46,8 @@ export default class MarketingDictionaryPathEditor extends LightningElement {
             id: path.Id,
             name: path.Name || '',
             originalName: path.Name || '',
+            description: path.Path_Description__c || '',
+            originalDescription: path.Path_Description__c || '',
             audienceId: path.Audience_Type_Dict__c || null,
             originalAudienceId: path.Audience_Type_Dict__c || null,
             active: path.Is_Active__c === true,
@@ -103,6 +105,7 @@ export default class MarketingDictionaryPathEditor extends LightningElement {
             key: row.id,
             id: row.id,
             name: row.name,
+            description: row.description,
             active: row.active,
             audienceId: row.audienceId,
             audienceMissing: !row.audienceId,
@@ -186,6 +189,7 @@ export default class MarketingDictionaryPathEditor extends LightningElement {
 
     get changedRows() {
         return this.rows.filter(row => this.isRenamed(row)
+            || row.description.trim() !== row.originalDescription.trim()
             || row.audienceId !== row.originalAudienceId
             || row.active !== row.originalActive
             || row.percent !== row.originalPercent);
@@ -240,6 +244,11 @@ export default class MarketingDictionaryPathEditor extends LightningElement {
         if (row) row.audienceId = event.detail.value || null;
     }
 
+    handleDescription(event) {
+        const row = this.rowById(event.currentTarget.dataset.id);
+        if (row) row.description = event.detail.value || '';
+    }
+
     handleActive(event) {
         const row = this.rowById(event.currentTarget.dataset.id);
         if (!row) return;
@@ -286,6 +295,7 @@ export default class MarketingDictionaryPathEditor extends LightningElement {
         const records = this.changedRows.map(row => ({
             Id: row.id,
             Name: row.name.trim(),
+            Path_Description__c: row.description.trim(),
             Audience_Type_Dict__c: row.audienceId,
             Is_Active__c: row.active,
             Distribution_Percent__c: row.active ? row.percent : 0

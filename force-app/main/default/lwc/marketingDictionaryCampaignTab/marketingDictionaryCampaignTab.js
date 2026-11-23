@@ -68,7 +68,7 @@ const EMPTY_TOPIC            = () => ({
 const IMPACT_SCORE_LOGIC_HELP =
     'All Campaigns Associated with Topics marked with this flag will be considered for Customer Propensity Recount Logic in Data360 Transformation';
 const BULK_KEEP_GROUP = '__keep__';
-const EMPTY_PATH             = () => ({ Name: '', Dictionary_Sub_Type__c: 'Activation Path', Is_Active__c: true, Distribution_Percent__c: 0, Audience_Type_Dict__c: null });
+const EMPTY_PATH             = () => ({ Name: '', Dictionary_Sub_Type__c: 'Activation Path', Is_Active__c: true, Distribution_Percent__c: 0, Audience_Type_Dict__c: null, Path_Description__c: '' });
 const EMPTY_SALES_PROCESS    = () => ({ Name: '', Dictionary_Sub_Type__c: 'Sales Process Type', Topic_Description__c: '' });
 const EMPTY_MODEL_GROUP      = () => ({ Name: '', Dictionary_Sub_Type__c: 'Scoring Model Group' });
 const EMPTY_TIER             = () => ({
@@ -1106,7 +1106,7 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
     get pathEditorAudienceTypes() { return this.audienceTypes.map(a => ({ Id: a.Id, Name: a.Name })); }
     get chartPaths() {
         return this._localPaths.map(p => ({
-            Id: p.Id, Name: p.Name, Is_Active__c: p.Is_Active__c,
+            Id: p.Id, Name: p.Name, Is_Active__c: p.Is_Active__c, Path_Description__c: p.Path_Description__c,
             Distribution_Percent__c: p.Distribution_Percent__c, Audience_Type_Dict__c: p.Audience_Type_Dict__c
         }));
     }
@@ -1797,7 +1797,8 @@ export default class MarketingDictionaryCampaignTab extends LightningElement {
             Name: p.Name,
             Is_Active__c: p.Is_Active__c,
             Distribution_Percent__c: p.Distribution_Percent__c,
-            Audience_Type_Dict__c: p.Audience_Type_Dict__c
+            Audience_Type_Dict__c: p.Audience_Type_Dict__c,
+            Path_Description__c: p.Path_Description__c
         }));
         this.pathEditorError = '';
         this.isPathEditorOpen = true;

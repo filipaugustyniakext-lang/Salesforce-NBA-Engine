@@ -35,3 +35,8 @@
 .path-total_bad {
     color: #c23934;
 }
+
+.path-editor__description {
+    display: block;
+    margin-top: 0.25rem;
+}

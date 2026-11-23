@@ -284,3 +284,5 @@ thead th {
 .path-actions-col { width: 3rem; }
 .path-sums { display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; margin: 0.25rem 0 0; padding: 0; list-style: none; }
 .path-sums__item { display: inline-flex; align-items: center; gap: 0.25rem; }
+
+.path-description-cell { white-space: normal; max-width: 28rem; }

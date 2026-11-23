@@ -53,6 +53,9 @@
             <div class="slds-popover slds-popover_tooltip path-chart__tip" role="tooltip" style={tipStyle}>
                 <div class="slds-popover__body">
                     <p class="slds-text-title_bold">{tip.title}</p>
+                    <template lwc:if={tip.description}>
+                        <p class="slds-text-body_small">{tip.description}</p>
+                    </template>
                     <p>{tip.allocation}</p>
                     <p>{tip.population}</p>
                     <template lwc:if={tip.audiencePopulation}>

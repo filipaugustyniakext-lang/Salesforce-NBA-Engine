@@ -11,7 +11,7 @@ const AUDIENCES = [
 ];
 const PATHS = [
     { Id: 'p1', Name: 'ML', Is_Active__c: true, Distribution_Percent__c: 65, Audience_Type_Dict__c: 'aud-customer' },
-    { Id: 'p2', Name: 'Random', Is_Active__c: true, Distribution_Percent__c: 35, Audience_Type_Dict__c: 'aud-customer' },
+    { Id: 'p2', Name: 'Random', Is_Active__c: true, Distribution_Percent__c: 35, Audience_Type_Dict__c: 'aud-customer', Path_Description__c: 'Random assignment' },
     { Id: 'p3', Name: 'Legacy', Is_Active__c: false, Distribution_Percent__c: 0, Audience_Type_Dict__c: 'aud-customer' },
     { Id: 'p4', Name: 'Prospect ML', Is_Active__c: true, Distribution_Percent__c: 100, Audience_Type_Dict__c: 'aud-prospect' }
 ];
@@ -84,6 +84,7 @@ describe('c-marketing-dictionary-path-chart', () => {
         await flush();
         const tip = q(element, '[role="tooltip"]');
         expect(tip.textContent).toContain('Random');
+        expect(tip.textContent).toContain('Random assignment');
         expect(tip.textContent).toContain('35% of Customer');
         expect(tip.textContent).toContain('≈ 3,500 unified individuals');
         expect(tip.textContent).toContain('Customer audience: 10,000 unified individuals');
