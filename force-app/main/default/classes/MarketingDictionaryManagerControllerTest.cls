@@ -321,4 +321,43 @@ private class MarketingDictionaryManagerControllerTest {
         }
         System.assertEquals(1, defaults, 'Exactly one locale may be the default.');
     }
+
+    private static Marketing_Dictionary__c personValue(String name, String subType) {
+        return new Marketing_Dictionary__c(Name = name, RecordTypeId = productDictRt(), Dictionary_Sub_Type__c = subType);
+    }
+
+    @IsTest
+    static void personRecordsCarryTheirDmoFilter() {
+        String filterJson = '{"version":1,"logic":"AND","conditions":[{"field":"Profile_Type__c","type":"text","operator":"eq","value":"B2C"}]}';
+        Marketing_Dictionary__c record = personValue('Retail', 'Customer Type');
+        record.Data360_Filter_JSON__c = filterJson;
+        MarketingDictionaryManagerController.saveProductRecord(record);
+
+        Marketing_Dictionary__c found;
+        for (Marketing_Dictionary__c candidate : MarketingDictionaryManagerController.getPersonRecords()) {
+            if (candidate.Name == 'Retail') {
+                found = candidate;
+            }
+        }
+        System.assertNotEquals(null, found);
+        System.assertEquals(filterJson, found.Data360_Filter_JSON__c);
+    }
+
+    @IsTest
+    static void invalidPersonFilterIsRejectedAndBlankClearsIt() {
+        Marketing_Dictionary__c record = personValue('Prospect', 'Audience Type');
+        record.Data360_Filter_JSON__c = '{"version":1,"conditions":[{"field":"a; DROP","operator":"eq","value":"x"}]}';
+        String message;
+        try {
+            MarketingDictionaryManagerController.saveProductRecord(record);
+        } catch (AuraHandledException e) {
+            message = e.getMessage();
+        }
+        System.assert(message != null && message.contains('not a valid column name'), message);
+        System.assertEquals(0, [SELECT COUNT() FROM Marketing_Dictionary__c WHERE Name = 'Prospect']);
+
+        record.Data360_Filter_JSON__c = '   ';
+        MarketingDictionaryManagerController.saveProductRecord(record);
+        System.assertEquals(null, [SELECT Data360_Filter_JSON__c FROM Marketing_Dictionary__c WHERE Name = 'Prospect'].Data360_Filter_JSON__c);
+    }
 }

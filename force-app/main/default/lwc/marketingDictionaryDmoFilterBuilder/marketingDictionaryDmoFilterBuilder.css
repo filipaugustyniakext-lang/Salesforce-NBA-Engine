@@ -1,0 +1,77 @@
+.dmo-filter {
+    position: relative;
+    margin-top: 1rem;
+    padding: 0.75rem;
+    border: 1px solid var(--slds-g-color-border-base-1, #e0e5ee);
+    border-radius: 0.25rem;
+}
+
+.dmo-filter__head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.dmo-filter__top-logic {
+    display: block;
+    max-width: 16rem;
+    margin-top: 0.5rem;
+}
+
+.dmo-filter__row {
+    margin-top: 0.5rem;
+}
+
+.dmo-filter__row_nested {
+    margin-left: 1.25rem;
+    padding-left: 0.75rem;
+    border-left: 3px solid var(--slds-g-color-accent-2, #007a91);
+}
+
+.dmo-filter__group-head {
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.dmo-filter__condition {
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.dmo-filter__condition > * {
+    flex: 1 1 9rem;
+    min-width: 8rem;
+}
+
+.dmo-filter__condition > lightning-button-icon {
+    flex: 0 0 auto;
+    min-width: 0;
+}
+
+.dmo-filter__actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.dmo-filter__sql {
+    margin-top: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--slds-g-color-neutral-base-95, #f3f3f3);
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.dmo-filter__test {
+    position: relative;
+    display: flex;
+    align-items: center;
+    margin-top: 0.75rem;
+    min-height: 2rem;
+}
