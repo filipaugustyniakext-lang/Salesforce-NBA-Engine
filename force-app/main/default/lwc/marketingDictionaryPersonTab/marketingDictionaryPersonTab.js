@@ -105,8 +105,12 @@ export default class MarketingDictionaryPersonTab extends LightningElement {
         return this.total !== null && this.total !== undefined;
     }
 
+    get totalNumber() {
+        return this.hasTotal ? numberFormat.format(this.total) : '';
+    }
+
     get totalText() {
-        return this.hasTotal ? `${numberFormat.format(this.total)} individuals in total` : '';
+        return this.hasTotal ? `${numberFormat.format(this.total)} unified individuals in total` : '';
     }
 
     withCounts(records) {
@@ -122,6 +126,9 @@ export default class MarketingDictionaryPersonTab extends LightningElement {
                 hasNoFilter: entry.status === 'none',
                 hasCountError: entry.status === 'error',
                 countText: entry.status === 'ok' ? numberFormat.format(entry.count) : '',
+                countTitle: entry.status === 'ok'
+                    ? `${numberFormat.format(entry.count)} unified individuals${share === null ? '' : ` (${share > 0 && share < 0.1 ? '<0.1' : share.toFixed(1)}% of all unified individuals)`}`
+                    : '',
                 shareText: share === null ? '' : `${share > 0 && share < 0.1 ? '<0.1' : share.toFixed(1)}%`,
                 countError: entry.error || ''
             };

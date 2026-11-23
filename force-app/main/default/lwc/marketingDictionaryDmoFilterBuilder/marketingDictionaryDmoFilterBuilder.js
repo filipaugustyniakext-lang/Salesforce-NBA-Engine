@@ -323,9 +323,9 @@ export default class MarketingDictionaryDmoFilterBuilder extends LightningElemen
         const result = this.countResult;
         if (!result) return '';
         const formatted = new Intl.NumberFormat().format(result.count);
-        if (!result.total) return `${formatted} individuals match`;
+        if (!result.total) return `${formatted} unified individuals match`;
         const share = (result.count / result.total) * 100;
-        return `${formatted} of ${new Intl.NumberFormat().format(result.total)} individuals match (${share < 0.1 && result.count > 0 ? '<0.1' : share.toFixed(1)}%)`;
+        return `${formatted} of ${new Intl.NumberFormat().format(result.total)} unified individuals match (${share < 0.1 && result.count > 0 ? '<0.1' : share.toFixed(1)}%)`;
     }
 
     get hasCountError() {

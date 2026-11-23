@@ -209,7 +209,7 @@ describe('c-marketing-dictionary-dmo-filter-builder', () => {
         button(element, 'Test count').click();
         await flush();
         expect(JSON.parse(getFilterCount.mock.calls[0][0].filterJson)).toEqual(JSON.parse(json));
-        expect(element.shadowRoot.textContent).toContain('1,234 of 10,000 individuals match (12.3%)');
+        expect(element.shadowRoot.textContent).toContain('1,234 of 10,000 unified individuals match (12.3%)');
 
         getFilterCount.mockRejectedValue({ body: { message: "unknown column 'nope__c'" } });
         button(element, 'Test count').click();
