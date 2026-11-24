@@ -26,7 +26,7 @@
                     <div class="slds-m-bottom_medium cd-badge-row">
                         <template for:each={scoringModelGroups} for:item="grp">
                             <span key={grp.Id} class="slds-badge cd-group-badge slds-m-right_xx-small slds-m-bottom_xx-small">
-                                {grp.Name}
+                                {grp.Name}<c-marketing-dictionary-value-id record-id={grp.Id}></c-marketing-dictionary-value-id>
                                 <lightning-button-icon icon-name="utility:edit" variant="bare" size="x-small"
                                     alternative-text="Edit" title="Edit" class="slds-m-left_xx-small"
                                     data-id={grp.Id} onclick={handleEditModelGroup}>
@@ -126,7 +126,7 @@
                                             onchange={handleScoringChildCheckbox} />
                                     </td>
                                     <td class="scoring-col-name">
-                                        <span class="slds-truncate slds-text-title_bold" title={row.Name}>{row.Name}</span>
+                                        <div class="vid-row"><span class="slds-truncate slds-text-title_bold" title={row.Name}>{row.Name}</span><c-marketing-dictionary-value-id record-id={row.Id}></c-marketing-dictionary-value-id></div>
                                     </td>
                                     <td class="scoring-col-modelid">
                                         <code class="slds-truncate scoring-model-id" title={row.Model_Id__c}>{row.Model_Id__c}</code>

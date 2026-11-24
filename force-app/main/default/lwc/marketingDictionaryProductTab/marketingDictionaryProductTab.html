@@ -54,7 +54,7 @@
                         <template for:each={familyOfNeedsWithCt} for:item="rec">
                             <li key={rec.Id} class="slds-item slds-grid slds-grid_align-spread slds-p-vertical_xx-small">
                                 <div class="fon-row">
-                                    <p class="slds-text-body_regular">{rec.Name}</p>
+                                    <p class="slds-text-body_regular">{rec.Name}<c-marketing-dictionary-value-id record-id={rec.Id}></c-marketing-dictionary-value-id></p>
                                     <div class="badge-row slds-m-top_xx-small">
                                         <template for:each={rec.assignedCtList} for:item="ct">
                                             <span key={ct.Id} class="slds-badge badge-customer-type">{ct.Name}</span>
@@ -175,7 +175,7 @@
                                     aria-label="Select product family" onchange={handlePfRowSelect} />
                             </div>
                             <div class="pf-col pf-col_name">
-                                <span class="slds-text-body_regular">{rec.Name}</span>
+                                <span class="slds-text-body_regular">{rec.Name}</span><c-marketing-dictionary-value-id record-id={rec.Id}></c-marketing-dictionary-value-id>
                                 <template lwc:if={rec.showTaggingBadge}>
                                     <span class="slds-badge slds-badge_lightest slds-m-left_x-small">Tagging only</span>
                                 </template>
@@ -241,7 +241,7 @@
                 <ul class="slds-has-dividers_top-space scrollable-list">
                     <template for:each={productTypes} for:item="rec">
                         <li key={rec.Id} class="slds-item slds-grid slds-grid_align-spread slds-p-vertical_x-small">
-                            <p class="slds-text-body_regular">{rec.Name}</p>
+                            <p class="slds-text-body_regular">{rec.Name}<c-marketing-dictionary-value-id record-id={rec.Id}></c-marketing-dictionary-value-id></p>
                             <div class="slds-button-group">
                                 <lightning-button-icon icon-name="utility:edit" variant="bare"
                                     alternative-text="Edit" title="Edit"

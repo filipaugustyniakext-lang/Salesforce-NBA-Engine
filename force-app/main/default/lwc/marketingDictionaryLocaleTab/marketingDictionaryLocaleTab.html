@@ -83,10 +83,10 @@
                             <td>
                                 <template lwc:if={loc.localeLabel}>
                                     <span class="slds-text-title_bold">{loc.localeLabel}</span>
-                                    <span class="locale-code slds-m-left_x-small">{loc.Name}</span>
+                                    <span class="locale-code slds-m-left_x-small">{loc.Name}</span><c-marketing-dictionary-value-id record-id={loc.Id}></c-marketing-dictionary-value-id>
                                 </template>
                                 <template lwc:else>
-                                    <span class="slds-text-title_bold">{loc.Name}</span>
+                                    <span class="slds-text-title_bold">{loc.Name}</span><c-marketing-dictionary-value-id record-id={loc.Id}></c-marketing-dictionary-value-id>
                                 </template>
                             </td>
                             <td>{loc.Topic_Description__c}</td>

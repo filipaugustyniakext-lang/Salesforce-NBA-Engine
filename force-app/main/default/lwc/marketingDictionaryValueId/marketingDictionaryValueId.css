@@ -1,0 +1,34 @@
+:host {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 0.5rem;
+    vertical-align: middle;
+}
+
+.value-id {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.125rem;
+    white-space: nowrap;
+}
+
+.value-id__text {
+    color: var(--slds-g-color-neutral-base-50, #747474);
+    font-size: 0.6875rem;
+    font-style: italic;
+    font-weight: 400;
+    letter-spacing: 0.01em;
+    line-height: 1.25;
+    user-select: all;
+}
+
+.value-id__copy {
+    --slds-c-button-color-border: transparent;
+    --slds-c-icon-color-foreground-default: var(--slds-g-color-neutral-base-50, #747474);
+    --sds-c-icon-color-foreground-default: var(--slds-g-color-neutral-base-50, #747474);
+    opacity: 0.75;
+}
+
+.value-id__copy:hover {
+    opacity: 1;
+}

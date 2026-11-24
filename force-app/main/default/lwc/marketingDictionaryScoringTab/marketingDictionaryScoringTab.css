@@ -418,3 +418,9 @@
 .dmo-load-action {
     padding-bottom: 0.15rem;
 }
+/* Row with a truncating label and its value ID */
+.vid-row {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}

@@ -1,0 +1,11 @@
+<template>
+    <template lwc:if={hasId}>
+        <span class="value-id" onclick={handleContainerClick}>
+            <span class="value-id__text" title="Value ID: dictionary links use this ID, not the label">{recordId}</span>
+            <lightning-button-icon class="value-id__copy" icon-name={iconName} variant="bare" size="xx-small"
+                alternative-text="Copy value ID" title={buttonTitle} onclick={handleCopy}>
+            </lightning-button-icon>
+            <span class="slds-assistive-text" aria-live="polite">{liveText}</span>
+        </span>
+    </template>
+</template>

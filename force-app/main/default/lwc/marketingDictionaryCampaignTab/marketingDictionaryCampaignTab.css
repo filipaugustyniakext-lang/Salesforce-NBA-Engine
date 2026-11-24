@@ -286,3 +286,10 @@ thead th {
 .path-sums__item { display: inline-flex; align-items: center; gap: 0.25rem; }
 
 .path-description-cell { white-space: normal; max-width: 28rem; }
+
+/* Row with a truncating label and its value ID */
+.vid-row {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
