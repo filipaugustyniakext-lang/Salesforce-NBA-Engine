@@ -96,7 +96,7 @@
                                                         <span class="slds-text-color_weak">—</span>
                                                     </template>
                                                 </td>
-                                                <td class="rv-value-cell">{row.displayValue}</td>
+                                                <td class="rv-value-cell">{row.displayValue}<c-marketing-dictionary-value-id record-id={row.Id}></c-marketing-dictionary-value-id></td>
                                                 <td>
                                                     <template lwc:if={row.Value_Type__c}>
                                                         <span class="slds-badge rv-type-badge">{row.Value_Type__c}</span>
@@ -243,7 +243,7 @@
                                         <p class="ofa-section__label">Impacts Attractiveness Score</p>
                                         <template for:each={grp.attractAttrs} for:item="attr">
                                             <div key={attr.Id} class="ofa-attr-row">
-                                                <span class="ofa-attr-row__name">{attr.Name}</span>
+                                                <span class="ofa-attr-row__name">{attr.Name}</span><c-marketing-dictionary-value-id record-id={attr.Id}></c-marketing-dictionary-value-id>
                                                 <span class={attr.statusBadgeClass}>{attr.statusLabel}</span>
                                                 <template lwc:if={attr.weightBadgeLabel}>
                                                     <span class="slds-badge oa-badge-attract">{attr.weightBadgeLabel}</span>
@@ -272,7 +272,7 @@
                                         <p class="ofa-section__label">Other Required</p>
                                         <template for:each={grp.requiredAttrs} for:item="attr">
                                             <div key={attr.Id} class="ofa-attr-row">
-                                                <span class="ofa-attr-row__name">{attr.Name}</span>
+                                                <span class="ofa-attr-row__name">{attr.Name}</span><c-marketing-dictionary-value-id record-id={attr.Id}></c-marketing-dictionary-value-id>
                                                 <span class={attr.statusBadgeClass}>{attr.statusLabel}</span>
                                                 <template lwc:if={attr.typeBadgeLabel}>
                                                     <span class="slds-badge slds-badge_lightest ofa-attr-meta-badge">{attr.typeBadgeLabel}</span>
@@ -292,7 +292,7 @@
                                         <p class="ofa-section__label">Other Optional</p>
                                         <template for:each={grp.optionalAttrs} for:item="attr">
                                             <div key={attr.Id} class="ofa-attr-row">
-                                                <span class="ofa-attr-row__name">{attr.Name}</span>
+                                                <span class="ofa-attr-row__name">{attr.Name}</span><c-marketing-dictionary-value-id record-id={attr.Id}></c-marketing-dictionary-value-id>
                                                 <span class={attr.statusBadgeClass}>{attr.statusLabel}</span>
                                                 <template lwc:if={attr.typeBadgeLabel}>
                                                     <span class="slds-badge slds-badge_lightest ofa-attr-meta-badge">{attr.typeBadgeLabel}</span>
@@ -678,7 +678,7 @@
                                         </button>
 
                                         <!-- Name + new badge -->
-                                        <span class="fm-row-card__name">{row._label}</span>
+                                        <span class="fm-row-card__name">{row._label}</span><c-marketing-dictionary-value-id record-id={row._attrId}></c-marketing-dictionary-value-id>
                                         <template lwc:if={row._isNew}>
                                             <span class="slds-badge fm-badge-new">New</span>
                                         </template>

@@ -51,6 +51,10 @@
             <div class="ch-detail">
                 <template lwc:if={activeChannel}>
 
+                    <div class="ch-detail__value-id">
+                        <span class="slds-text-body_small slds-text-color_weak">{activeChannel.displayName}</span>
+                        <c-marketing-dictionary-value-id record-id={activeChannel.Id}></c-marketing-dictionary-value-id>
+                    </div>
                     <div class="ch-detail__tab-bar">
                         <div class="ch-detail__tab-nav">
                             <template lwc:if={showTabScrollPrev}>
@@ -307,7 +311,7 @@
                                                     <tbody>
                                                         <template for:each={activeChannel.filteredPlacements} for:item="pl">
                                                             <tr key={pl.Id}>
-                                                                <td><div class="slds-truncate slds-text-body_small" title={pl.Name}>{pl.Name}</div></td>
+                                                                <td><div class="vid-row"><div class="slds-truncate slds-text-body_small" title={pl.Name}>{pl.Name}</div><c-marketing-dictionary-value-id record-id={pl.Id}></c-marketing-dictionary-value-id></div></td>
                                                                 <td><div class="slds-truncate slds-text-body_small" title={pl.App_Screen__c}>{pl.App_Screen__c}</div></td>
                                                                 <td><div class="slds-truncate slds-text-body_small">{pl.bannerTypeName}</div></td>
                                                                 <td><div class="placement-desc slds-text-body_small">{pl.Position_Description__c}</div></td>
@@ -374,7 +378,7 @@
                                                 <template for:each={activeChannel.Channel_Banner_Intent_Targets__r} for:item="it">
                                                     <div key={it.Id} class="slds-col slds-no-flex slds-m-bottom_xx-small">
                                                         <span class="slds-badge intent-target-badge">
-                                                            {it.Name}
+                                                            {it.Name}<c-marketing-dictionary-value-id record-id={it.Id}></c-marketing-dictionary-value-id>
                                                             <lightning-button-icon icon-name="utility:close" variant="bare-inverse"
                                                                 size="xx-small" alternative-text="Remove" title="Remove"
                                                                 data-itid={it.Id} data-name={it.Name}
@@ -411,7 +415,7 @@
                                                     <tbody>
                                                         <template for:each={activeChannel.filteredIntents} for:item="intent">
                                                             <tr key={intent.Id}>
-                                                                <td><div class="slds-truncate slds-text-body_small" title={intent.Name}>{intent.Name}</div></td>
+                                                                <td><div class="vid-row"><div class="slds-truncate slds-text-body_small" title={intent.Name}>{intent.Name}</div><c-marketing-dictionary-value-id record-id={intent.Id}></c-marketing-dictionary-value-id></div></td>
                                                                 <td><div class="slds-truncate slds-text-body_small">{intent.intentTargetName}</div></td>
                                                                 <td class="action-col">
                                                                     <lightning-button-icon icon-name="utility:edit" variant="border-filled" size="x-small"

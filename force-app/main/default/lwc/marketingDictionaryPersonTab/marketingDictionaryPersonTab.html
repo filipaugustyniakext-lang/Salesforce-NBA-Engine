@@ -48,7 +48,7 @@
                     <ul class="slds-has-dividers_top-space scrollable-list">
                         <template for:each={customerTypes} for:item="rec">
                             <li key={rec.Id} class="slds-item slds-grid slds-grid_align-spread slds-p-vertical_x-small">
-                                <p class="slds-text-body_regular slds-col">{rec.Name}</p>
+                                <p class="slds-text-body_regular slds-col">{rec.Name}<c-marketing-dictionary-value-id record-id={rec.Id}></c-marketing-dictionary-value-id></p>
                                 <div class="person-count">
                                     <template lwc:if={rec.isLoadingCount}>
                                         <lightning-spinner alternative-text="Counting" size="x-small"></lightning-spinner>
@@ -122,7 +122,7 @@
                     <ul class="slds-has-dividers_top-space scrollable-list">
                         <template for:each={audienceTypes} for:item="rec">
                             <li key={rec.Id} class="slds-item slds-grid slds-grid_align-spread slds-p-vertical_x-small">
-                                <p class="slds-text-body_regular slds-col">{rec.Name}</p>
+                                <p class="slds-text-body_regular slds-col">{rec.Name}<c-marketing-dictionary-value-id record-id={rec.Id}></c-marketing-dictionary-value-id></p>
                                 <div class="person-count">
                                     <template lwc:if={rec.isLoadingCount}>
                                         <lightning-spinner alternative-text="Counting" size="x-small"></lightning-spinner>

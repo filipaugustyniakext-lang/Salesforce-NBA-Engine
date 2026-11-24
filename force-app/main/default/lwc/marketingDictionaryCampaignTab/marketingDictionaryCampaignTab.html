@@ -79,7 +79,7 @@
                                         </template>
                                     </td>
                                     <td>
-                                        <div class="slds-truncate slds-text-title_bold" title={ct.Name}>{ct.Name}</div>
+                                        <div class="vid-row"><div class="slds-truncate slds-text-title_bold" title={ct.Name}>{ct.Name}</div><c-marketing-dictionary-value-id record-id={ct.Id}></c-marketing-dictionary-value-id></div>
                                     </td>
                                     <td class="slds-text-align_center cd-col-flag">
                                         <template lwc:if={ct.Include_In_Emergency__c}>
@@ -138,7 +138,7 @@
                             <template for:each={campaignGroupRows} for:item="g">
                                 <tr key={g.Id}>
                                     <td>
-                                        <div class="slds-truncate slds-text-title_bold" title={g.Name}>{g.Name}</div>
+                                        <div class="vid-row"><div class="slds-truncate slds-text-title_bold" title={g.Name}>{g.Name}</div><c-marketing-dictionary-value-id record-id={g.Id}></c-marketing-dictionary-value-id></div>
                                     </td>
                                     <td>
                                         <div class="slds-truncate" title={g.activationTypeName}>{g.activationTypeName}</div>
@@ -191,7 +191,7 @@
                         <template for:each={tiers} for:item="tier">
                             <div key={tier.Id} class="tier-card">
                                 <div class="tier-card__header">
-                                    <div class="tier-card__number">Tier {tier.Tier_Number__c}</div>
+                                    <div class="tier-card__number">Tier {tier.Tier_Number__c}<c-marketing-dictionary-value-id record-id={tier.Id}></c-marketing-dictionary-value-id></div>
                                     <div class="tier-card__actions">
                                         <lightning-button-icon icon-name="utility:edit" variant="bare"
                                             size="x-small" alternative-text="Edit" title="Edit"
@@ -259,7 +259,7 @@
                         <template for:each={topicGroups} for:item="tg">
                             <div key={tg.Id} class="slds-col slds-no-flex slds-m-bottom_xx-small">
                                 <span class="slds-badge cd-group-badge">
-                                    {tg.Name}
+                                    {tg.Name}<c-marketing-dictionary-value-id record-id={tg.Id}></c-marketing-dictionary-value-id>
                                     <lightning-button-icon icon-name="utility:edit" variant="bare"
                                         size="xx-small" alternative-text="Edit" title="Edit group"
                                         data-id={tg.Id} onclick={handleEditTopicGroup}
@@ -356,7 +356,7 @@
                                             </label>
                                         </div>
                                     </td>
-                                    <td class="slds-truncate">{tp.Name}</td>
+                                    <td><div class="vid-row"><span class="slds-truncate">{tp.Name}</span><c-marketing-dictionary-value-id record-id={tp.Id}></c-marketing-dictionary-value-id></div></td>
                                     <td>
                                         <template lwc:if={tp.topicGroupName}>
                                             <span class="slds-badge cd-group-badge-sm">{tp.topicGroupName}</span>
@@ -455,7 +455,7 @@
                             <template for:each={paths} for:item="path">
                                 <tr key={path.Id} class={path.rowClass}>
                                     <td><span class={path.statusBadgeClass}>{path.statusLabel}</span></td>
-                                    <th scope="row"><div class="slds-truncate" title={path.Name}>{path.Name}</div></th>
+                                    <th scope="row"><div class="vid-row"><div class="slds-truncate" title={path.Name}>{path.Name}</div><c-marketing-dictionary-value-id record-id={path.Id}></c-marketing-dictionary-value-id></div></th>
                                     <td class="path-description-cell">
                                         <template lwc:if={path.Path_Description__c}>{path.Path_Description__c}</template>
                                         <template lwc:else><span class="slds-text-color_weak">—</span></template>
@@ -502,7 +502,7 @@
                         <template for:each={salesProcessTypes} for:item="sp">
                             <li key={sp.Id} class="slds-item slds-grid slds-grid_vertical-align-center slds-p-vertical_xx-small">
                                 <div class="slds-col">
-                                    <span class="slds-text-body_regular">{sp.Name}</span>
+                                    <span class="slds-text-body_regular">{sp.Name}</span><c-marketing-dictionary-value-id record-id={sp.Id}></c-marketing-dictionary-value-id>
                                     <template lwc:if={sp.Topic_Description__c}>
                                         <p class="slds-text-body_small slds-text-color_weak">{sp.Topic_Description__c}</p>
                                     </template>

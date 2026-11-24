@@ -401,3 +401,16 @@
 .placement-th-inline { display: flex; align-items: center; }
 .placement-flag-field { display: flex; align-items: center; gap: 0.25rem; }
 .placement-check-icon { color: var(--md-color-success, var(--slds-g-color-success-1, #2e844a)); }
+
+/* Row with a truncating label and its value ID */
+.vid-row {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+
+.ch-detail__value-id {
+    display: flex;
+    align-items: center;
+    margin: 0 0 0.25rem 0.25rem;
+}
