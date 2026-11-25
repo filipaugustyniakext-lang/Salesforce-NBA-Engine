@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<QuickAction xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Opens the Campaign Creation Wizard with the settings of this campaign copied, to be saved as a new draft campaign.</description>
+    <label>Clone</label>
+    <lightningWebComponent>campaignCloneAction</lightningWebComponent>
+    <optionsCreateFeedItem>false</optionsCreateFeedItem>
+    <type>LightningWebComponent</type>
+</QuickAction>

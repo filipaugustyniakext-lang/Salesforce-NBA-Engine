@@ -170,6 +170,7 @@
         <customTabListAdditionalFields>CAMPAIGN.NAME</customTabListAdditionalFields>
         <customTabListAdditionalFields>CAMPAIGN.STATUS</customTabListAdditionalFields>
         <customTabListAdditionalFields>CAMPAIGN.START_DATE</customTabListAdditionalFields>
+        <listViewButtons>Clone_Campaign_Button</listViewButtons>
         <listViewButtons>Delete_Campaigns</listViewButtons>
         <lookupDialogsAdditionalFields>CAMPAIGN.NAME</lookupDialogsAdditionalFields>
         <lookupPhoneDialogsAdditionalFields>CAMPAIGN.NAME</lookupPhoneDialogsAdditionalFields>

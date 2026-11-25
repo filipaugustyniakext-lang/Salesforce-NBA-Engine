@@ -50,6 +50,7 @@ import {
     isTierExclusionEnabled
 } from 'c/nbaTierConfig';
 import { campaignGroupGate, NO_CAMPAIGN_GROUPS_MESSAGE } from 'c/campaignGroupRules';
+import { cloneResetState, cloneBannerMessage, isActivationBlockedByClone, CLONE_ACTIVATION_NOTE } from 'c/campaignCloneRules';
 
 const COPY_STATUS_BADGE_CLASS = {
     draft: 'slds-badge slds-theme_lightest',
@@ -399,8 +400,26 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         }
     }
 
+    /** Source campaign to clone: opens the wizard with its settings copied, to be saved as a new draft campaign. */
+    @api
+    get cloneFromId() {
+        return this._cloneFromId;
+    }
+
+    set cloneFromId(value) {
+        this._cloneFromId = value;
+        if (value && !this._recordId && !this._campaignLoadStarted) {
+            this.isCloneMode = true;
+            this.loadExistingCampaign(value);
+        }
+    }
+
+    _cloneFromId;
+    cloneSourceName = '';
+
     @track isLoading = false;
     @track isEditMode = false;
+    @track isCloneMode = false;
     @track editRecordLoaded = false;
 
     // --- ACTIVATION TYPE + CAMPAIGN GROUP STATE ---
@@ -573,6 +592,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         if (this.recordId && !this._campaignLoadStarted) {
             this.isEditMode = true;
             this.loadExistingCampaign();
+        } else if (this.cloneFromId && !this._campaignLoadStarted) {
+            this.isCloneMode = true;
+            this.loadExistingCampaign(this.cloneFromId);
         }
     }
 
@@ -617,7 +639,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     /** Prefill the dictionary default locale when the campaign has none. */
     _applyDefaultLocale() {
         if (!this._localesLoaded) return;
-        if (this.isEditMode && !this.editRecordLoaded) return;
+        if ((this.isEditMode || this.isCloneMode) && !this.editRecordLoaded) return;
         if (this.selectedLocaleId) {
             const match = this._activeLocales.find(l => l.Id === this.selectedLocaleId);
             if (match) this.selectedLocaleName = match.Name;
@@ -1196,8 +1218,8 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         }
     }
 
-    loadExistingCampaign() {
-        const campaignId = this.recordId;
+    loadExistingCampaign(sourceId) {
+        const campaignId = sourceId || this.recordId;
         if (!campaignId || this._campaignLoadStarted) {
             return;
         }
@@ -1223,6 +1245,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 }
                 try {
                     this.populateFromRecord(campaign);
+                    if (this.isCloneMode) {
+                        this.applyCloneReset(campaign);
+                    }
                     this.editRecordLoaded = true;
                     this._applyDefaultLocale();
                     // Defer non-critical heal so it cannot compete with the edit load on the server.
@@ -1318,9 +1343,35 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         }
 
         this.applyEditOfferingSelections();
-        this.loadSavedCampaignOffers();
-        this.loadSavedCampaignCopyVariants();
+        const sourceId = this.isCloneMode ? this._cloneFromId : this.recordId;
+        this.loadSavedCampaignOffers(sourceId);
+        this.loadSavedCampaignCopyVariants(sourceId);
         this.loadScoringModels();
+    }
+
+    /** A clone keeps every setting of the source but must get its own name and active window. */
+    applyCloneReset(campaign) {
+        this.cloneSourceName = campaign.Name || '';
+        const reset = cloneResetState();
+        this.campaignName = reset.campaignName;
+        this.activeFrom = reset.activeFrom;
+        this.activeTo = reset.activeTo;
+    }
+
+    get cloneBanner() {
+        return cloneBannerMessage(this.cloneSourceName);
+    }
+
+    get cloneActivationNote() {
+        return CLONE_ACTIVATION_NOTE;
+    }
+
+    get showCloneActivationNote() {
+        return this.isCloneMode && this.isStep5;
+    }
+
+    get showSwitchToClassic() {
+        return !this.isCloneMode;
     }
 
     /**
@@ -1379,9 +1430,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         }
     }
 
-    loadSavedCampaignOffers() {
-        if (!this.recordId) return;
-        getCampaignOffers({ campaignId: this.recordId })
+    loadSavedCampaignOffers(sourceId = this.recordId) {
+        if (!sourceId) return;
+        getCampaignOffers({ campaignId: sourceId })
             .then(data => {
                 // Only currently-active offers are returned; expired/inactive ones are dropped.
                 this.editSavedOfferIds = (data || []).map(o => o.id);
@@ -1391,9 +1442,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             .catch(err => console.error('Error loading saved campaign offers:', err));
     }
 
-    loadSavedCampaignCopyVariants() {
-        if (!this.recordId) return;
-        getCampaignCopyVariants({ campaignId: this.recordId })
+    loadSavedCampaignCopyVariants(sourceId = this.recordId) {
+        if (!sourceId) return;
+        getCampaignCopyVariants({ campaignId: sourceId })
             .then(data => {
                 this.editSavedCopyVariantIds = (data || []).map(row => row.id);
                 this.selectedCopyVariantIds = [...this.editSavedCopyVariantIds];
@@ -3540,7 +3591,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get isActivationDisabled() {
-        return !this.isActivationReady;
+        return !this.isActivationReady || isActivationBlockedByClone(this.isCloneMode);
     }
 
     get showSummaryActivationBlocker() {
@@ -4448,12 +4499,16 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     handleActivate() {
-        if (!this.isActivationReady) return;
+        if (!this.isActivationReady || isActivationBlockedByClone(this.isCloneMode)) return;
         this.isLoading = true;
         this.executeSubCampaignSave({ activate: true, closeOnSuccess: true });
     }
 
     executeSubCampaignSave({ activate = false, closeOnSuccess = true } = {}) {
+        if (isActivationBlockedByClone(this.isCloneMode)) {
+            // The first save of a clone is always a draft.
+            activate = false;
+        }
         const exclusionError = this._validateExclusionMappingsForSave();
         if (exclusionError) {
             this.isLoading = false;
@@ -4544,6 +4599,7 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             if (closeOnSuccess || activate) {
                 this.navigateToRecord(campId);
             } else {
+                this.isCloneMode = false;
                 this.recordId = campId;
                 this.isEditMode = true;
             }
