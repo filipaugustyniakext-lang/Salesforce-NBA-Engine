@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Clone_Link__c</fullName>
+    <description>Link shown in the Campaign list view that opens the Campaign Creation Wizard to create a new draft campaign from this one.</description>
+    <externalId>false</externalId>
+    <formula>HYPERLINK(&quot;/lightning/cmp/c__campaignCloneApp?c__sourceId=&quot; &amp; Id, &quot;Clone&quot;, &quot;_self&quot;)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <inlineHelpText>Create a new draft campaign with the settings of this campaign.</inlineHelpText>
+    <label>Clone</label>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

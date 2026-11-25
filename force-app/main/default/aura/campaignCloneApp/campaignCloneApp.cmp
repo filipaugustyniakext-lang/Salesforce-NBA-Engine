@@ -1,0 +1,9 @@
+<aura:component implements="lightning:isUrlAddressable" access="global">
+    <aura:attribute name="sourceId" type="String" />
+    <aura:handler name="init" value="{!this}" action="{!c.doInit}" />
+    <aura:handler name="change" value="{!v.pageReference}" action="{!c.doInit}" />
+
+    <aura:if isTrue="{!v.sourceId}">
+        <c:agentforceCampaignWizard cloneFromId="{!v.sourceId}" onclose="{!c.handleNavigateToHome}"/>
+    </aura:if>
+</aura:component>

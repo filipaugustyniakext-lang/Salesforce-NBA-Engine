@@ -2233,3 +2233,16 @@
     font-weight: 500;
     line-height: 1.4;
 }
+
+.clone-banner {
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    text-align: left;
+}
+
+.clone-banner__text {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    line-height: 1.4;
+}

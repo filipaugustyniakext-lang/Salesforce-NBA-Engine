@@ -5,7 +5,6 @@
     <columns>Activation_Type__c</columns>
     <columns>CAMPAIGN.ID</columns>
     <columns>CAMPAIGN.NUM_CONTACTS</columns>
-    <columns>CAMPAIGN.CAMPAIGN_TYPE</columns>
     <columns>CAMPAIGN.STATUS</columns>
     <columns>Priority_Tier__c</columns>
     <columns>Scoring_Method__c</columns>
@@ -16,6 +15,7 @@
     <columns>Assigned_Channels__c</columns>
     <columns>Active_From__c</columns>
     <columns>Active_To__c</columns>
+    <columns>Clone_Link__c</columns>
     <filterScope>Everything</filterScope>
     <filters>
         <field>CAMPAIGN.RECORDTYPE</field>

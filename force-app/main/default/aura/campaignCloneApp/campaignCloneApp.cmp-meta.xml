@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<AuraDefinitionBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>60.0</apiVersion>
+    <description>URL entry point (/lightning/cmp/c__campaignCloneApp?c__sourceId=) that opens the Campaign Creation Wizard in clone mode, used by the Clone link in the Campaign list view</description>
+</AuraDefinitionBundle>
