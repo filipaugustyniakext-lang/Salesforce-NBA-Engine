@@ -1,0 +1,32 @@
+<apex:page standardController="Campaign" recordSetVar="campaigns" extensions="CloneCampaignController" lightningStylesheets="true">
+    <apex:form >
+        <apex:pageBlock title="Clone Campaign">
+            <apex:pageMessages />
+
+            <apex:pageBlockSection columns="1">
+                <apex:outputText value="No campaign selected. Go back, select the campaign you want to clone, then click Clone Campaign."
+                                 rendered="{!selectedCount == 0}" style="color:red; font-weight:bold;"/>
+                <apex:outputText value="You selected {!selectedCount} campaigns. Select exactly one campaign to clone."
+                                 rendered="{!selectedCount > 1}" style="color:red; font-weight:bold;"/>
+                <apex:outputText value="Opening the Campaign Creation Wizard..." rendered="{!selectedCount == 1}" />
+            </apex:pageBlockSection>
+
+            <apex:pageBlockButtons location="bottom">
+                <apex:commandButton value="Back to list" action="{!cancel}" immediate="true" />
+            </apex:pageBlockButtons>
+        </apex:pageBlock>
+    </apex:form>
+
+    <apex:outputPanel rendered="{!selectedCount == 1}">
+        <script>
+            (function () {
+                var url = '/lightning/cmp/c__campaignCloneApp?c__sourceId={!JSENCODE(selectedId)}';
+                if (typeof sforce !== 'undefined' && sforce.one) {
+                    sforce.one.navigateToURL(url);
+                } else {
+                    window.top.location.href = url;
+                }
+            })();
+        </script>
+    </apex:outputPanel>
+</apex:page>
