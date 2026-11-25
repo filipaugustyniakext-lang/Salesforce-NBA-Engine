@@ -84,19 +84,25 @@
                                         </template>
                                     </div>
 
-                                    <!-- Campaign Group (required only when this activation type has groups) -->
+                                    <!-- Campaign Group: always shown once an activation type is chosen; a campaign needs one to be activated -->
                                     <template lwc:if={showCampaignGroup}>
                                         <div class="slds-m-top_medium">
                                             <lightning-combobox
                                                 name="campaignGroup"
                                                 label="Campaign Group"
-                                                placeholder="Select a campaign group..."
+                                                placeholder={campaignGroupPlaceholder}
                                                 value={selectedCampaignGroupId}
                                                 options={campaignGroupOptions}
                                                 onchange={handleCampaignGroupChange}
                                                 required
                                                 class="custom-form-input">
                                             </lightning-combobox>
+                                            <template lwc:if={showNoCampaignGroupsAlert}>
+                                                <div class="slds-notify slds-notify_alert slds-alert_warning campaign-group-alert slds-m-top_x-small" role="alert">
+                                                    <lightning-icon icon-name="utility:warning" size="x-small" class="slds-m-right_x-small" alternative-text="Warning"></lightning-icon>
+                                                    <span class="campaign-group-alert__text">{noCampaignGroupsMessage}</span>
+                                                </div>
+                                            </template>
                                         </div>
                                     </template>
 
