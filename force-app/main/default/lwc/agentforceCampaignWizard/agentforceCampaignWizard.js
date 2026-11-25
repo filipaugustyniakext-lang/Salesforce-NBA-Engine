@@ -49,6 +49,7 @@ import {
     buildTierTypeChips,
     isTierExclusionEnabled
 } from 'c/nbaTierConfig';
+import { campaignGroupGate, NO_CAMPAIGN_GROUPS_MESSAGE } from 'c/campaignGroupRules';
 
 const COPY_STATUS_BADGE_CLASS = {
     draft: 'slds-badge slds-theme_lightest',
@@ -63,11 +64,6 @@ function copyStatusBadgeClass(status) {
 
 function normalizeDictionaryLookupKey(value) {
     return String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-}
-
-function campaignGroupsForType(typeRecord) {
-    const groups = typeRecord?.Campaign_Groups_by_Type__r;
-    return Array.isArray(groups) ? groups : (groups?.records || []);
 }
 
 const BATCH_EVENTS_GROUP_KEY = 'batchevents';
@@ -1437,20 +1433,29 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         return (this._allCampaignTypes || []).find(ct => this._activationTypeKey(ct.Name) === key) || null;
     }
 
+    /** Campaign group rules for the chosen activation type (see c/campaignGroupRules). */
+    get campaignGroupGate() {
+        return campaignGroupGate(this.matchedCampaignType, this.selectedCampaignGroupId);
+    }
+
     get showCampaignGroup() {
-        return this.campaignGroupOptions.length > 0;
+        return this.campaignGroupGate.showPicklist;
     }
 
     get campaignGroupOptions() {
-        const ct = this.matchedCampaignType;
-        if (!ct) return [];
-        return campaignGroupsForType(ct)
-            .filter(g => g?.Id)
-            .map(g => ({
-                label: g.Name,
-                value: g.Id,
-                timing: g.Timing_Evaluation_Type__c || ''
-            }));
+        return this.campaignGroupGate.options;
+    }
+
+    get showNoCampaignGroupsAlert() {
+        return this.campaignGroupGate.showNoGroupsAlert;
+    }
+
+    get noCampaignGroupsMessage() {
+        return NO_CAMPAIGN_GROUPS_MESSAGE;
+    }
+
+    get campaignGroupPlaceholder() {
+        return this.campaignGroupGate.hasGroups ? 'Select a campaign group...' : 'No campaign groups configured';
     }
 
     _selectedCampaignGroupLabel() {
@@ -3380,8 +3385,9 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         if (this.activeFrom && this.activeTo && !this.hasValidActiveWindow) {
             issues.push(this._issue('active-window', 'Active To must be on or after Active From.'));
         }
-        if (this.showCampaignGroup && !this.selectedCampaignGroupId) {
-            issues.push(this._issue('campaign-group', 'Select a campaign group.'));
+        const groupIssue = this.campaignGroupGate.issue;
+        if (groupIssue) {
+            issues.push(this._issue(groupIssue.id, groupIssue.message));
         }
         if (this.showCampaignDurationField) {
             const days = Number(this.campaignDurationDays);
