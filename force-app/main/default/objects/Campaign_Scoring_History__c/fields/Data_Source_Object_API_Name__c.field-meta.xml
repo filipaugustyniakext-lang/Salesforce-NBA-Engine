@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Data_Source_Object_API_Name__c</fullName>
+    <externalId>false</externalId>
+    <description>ML: Data 360 object holding the model scores.</description>
+    <label>Model Source Data Lake Object API Name</label>
+    <length>255</length>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

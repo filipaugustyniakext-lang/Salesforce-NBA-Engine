@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Apriori_Score__c</fullName>
+    <externalId>false</externalId>
+    <description>Apriori score (0-1000). Populated only when Scoring Type is APR.</description>
+    <label>Apriori Score</label>
+    <precision>4</precision>
+    <scale>0</scale>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

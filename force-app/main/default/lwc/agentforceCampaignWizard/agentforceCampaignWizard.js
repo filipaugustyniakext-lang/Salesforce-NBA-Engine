@@ -23,8 +23,8 @@ import getCampaignCopyVariants from '@salesforce/apex/MarketingDictionaryControl
 import saveCampaignCopyVariants from '@salesforce/apex/MarketingDictionaryController.saveCampaignCopyVariants';
 import getOfferSummaries from '@salesforce/apex/MarketingDictionaryController.getOfferSummaries';
 import getPublishedVariantsForWizard from '@salesforce/apex/CopyCockpitController.getPublishedVariantsForWizard';
-import getAprioriContext from '@salesforce/apex/CampaignScoringAprioriController.getAprioriContext';
-import publishAprioriScores from '@salesforce/apex/CampaignScoringAprioriController.publishAprioriScores';
+import getAprioriContext from '@salesforce/apex/CampaignScoringService.getAprioriContext';
+import { aprioriChangeAlertMessage, aprioriSharedStateHint } from 'c/campaignAprioriCopy';
 import { parseFullName } from 'c/copyMessageNaming';
 import getCampaignTiers from '@salesforce/apex/MarketingDictionaryController.getCampaignTiers';
 import getCampaignTypes from '@salesforce/apex/MarketingDictionaryController.getCampaignTypes';
@@ -3295,22 +3295,15 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get aprioriSummaryChangeAlertMessage() {
-        const baseline = this.aprioriBaselineScore;
-        const current = this.aprioriScore;
-        if (baseline === null || baseline === undefined) {
-            return 'This apriori score will be stored for all campaigns sharing the same Topic and Product Family combination.';
-        }
-        return `Apriori score changed from ${baseline} to ${current}. Saving or activating updates the shared score for every campaign with this Topic and Product Family combination.`;
+        return aprioriChangeAlertMessage(this.aprioriBaselineScore, this.aprioriScore);
     }
 
     get aprioriSharedStateHint() {
-        if (this.aprioriHasMixedSharedScores) {
-            return 'Selected product families have different shared apriori scores for this topic. Resolve in Marketing Dictionary or adjust selections.';
-        }
-        if (this.aprioriHasSharedState && this.aprioriBaselineScore !== null) {
-            return `A shared apriori score (${this.aprioriBaselineScore}) already exists for this topic and product family selection. Changing it updates all campaigns using the same combination.`;
-        }
-        return 'No shared apriori score exists yet for this topic and product family selection. You can set a value from 0 to 1000.';
+        return aprioriSharedStateHint({
+            hasMixedScores: this.aprioriHasMixedSharedScores,
+            hasSharedState: this.aprioriHasSharedState,
+            baselineScore: this.aprioriBaselineScore
+        });
     }
 
     get scoringContentBoxClass() {
@@ -4611,7 +4604,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             updateRecord(recordInput)
                 .then(() => this.persistCampaignOffers(this.recordId))
                 .then(() => this.persistCampaignCopyVariants(this.recordId))
-                .then(() => this.persistAprioriScoresIfNeeded(this.recordId))
                 .then(() => finishSuccess(this.recordId))
                 .catch(err => {
                     this.isLoading = false;
@@ -4621,7 +4613,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             createRecord({ apiName: 'Campaign', fields })
                 .then(camp => this.persistCampaignOffers(camp.id)
                     .then(() => this.persistCampaignCopyVariants(camp.id))
-                    .then(() => this.persistAprioriScoresIfNeeded(camp.id))
                     .then(() => camp.id))
                 .then(campId => finishSuccess(campId))
                 .catch(err => {
@@ -4642,26 +4633,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
         return saveCampaignCopyVariants({
             campaignId,
             messageVariantIds: this.selectedCopyVariantIds || []
-        });
-    }
-
-    persistAprioriScoresIfNeeded(campaignId) {
-        if (!this.isScoringStepRequired || this.scoringConfigurationMethod !== 'apriori') {
-            return Promise.resolve();
-        }
-        if (!this.aprioriContextReady || this.aprioriHasMixedSharedScores) {
-            return Promise.resolve();
-        }
-        if (!this.isValidScoreValue(this.aprioriScore)) {
-            return Promise.resolve();
-        }
-        const campaignName = this._composeCampaignName(this.toCamelCase(this._resolveCampaignBaseNameForSave()));
-        return publishAprioriScores({
-            topicId: this.selectedTopicId,
-            productFamilyIds: this.aprioriProductFamilyIds,
-            score: this.aprioriScore,
-            campaignId,
-            campaignName
         });
     }
 
