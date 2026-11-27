@@ -476,4 +476,102 @@ private class CampaignScoringServiceTest {
         System.assertEquals(model.Id, newPair.Model_Definition__c);
         System.assertNotEquals(null, newPair.ML_Score_Definition_Setting__c);
     }
+
+    @IsTest
+    static void editingTheScoreOfAnActiveCampaignPublishesIt() {
+        Campaign camp = aprioriCampaign(250, true);
+
+        camp.Name = 'Renamed Source';
+        update camp;
+        System.assertEquals(2, [SELECT COUNT() FROM Campaign_Scoring_History__c], 'A save without a score change publishes nothing');
+
+        camp.Overall_Score__c = 400;
+        update camp;
+
+        List<Campaign_Scoring_History__c> history = [
+            SELECT Version_Number__c, Apriori_Score__c, End_Date_Time__c, Last_Modified_By_Campaign_Name__c
+            FROM Campaign_Scoring_History__c
+            WHERE Product_Family_Dict__c = :pf('PF Test').Id
+            ORDER BY Version_Number__c
+        ];
+        System.assertEquals(2, history.size());
+        System.assertEquals(250, history[0].Apriori_Score__c);
+        System.assertNotEquals(null, history[0].End_Date_Time__c);
+        System.assertEquals(400, history[1].Apriori_Score__c);
+        System.assertEquals('Renamed Source', history[1].Last_Modified_By_Campaign_Name__c);
+        System.assertEquals(null, history[1].End_Date_Time__c);
+    }
+
+    @IsTest
+    static void changingTheProductFamilyOfAnActiveCampaignPublishesTheNewPair() {
+        Campaign camp = new Campaign(
+            Name = 'Single PF Source',
+            Status = 'Active',
+            IsActive = true,
+            Scoring_Method__c = 'A-priori',
+            Overall_Score__c = 250,
+            Topic_Dict__c = topic().Id,
+            Product_Family_Ids__c = String.valueOf(pf('PF Test').Id)
+        );
+        insert camp;
+        System.assertEquals(1, [SELECT COUNT() FROM Campaign_Scoring_State__c]);
+
+        camp.Product_Family_Ids__c = String.valueOf(pf('PF Other').Id);
+        update camp;
+
+        System.assertEquals(2, [SELECT COUNT() FROM Campaign_Scoring_State__c]);
+        Campaign_Scoring_State__c oldPair = [
+            SELECT Apriori_Score__c, Apriori_Status__c FROM Campaign_Scoring_State__c WHERE Product_Family_Dict__c = :pf('PF Test').Id
+        ];
+        System.assertEquals(250, oldPair.Apriori_Score__c, 'The score of the old pair stays live');
+        System.assertEquals('Active', oldPair.Apriori_Status__c);
+        System.assertEquals(250, [
+            SELECT Apriori_Score__c FROM Campaign_Scoring_State__c WHERE Product_Family_Dict__c = :pf('PF Other').Id
+        ].Apriori_Score__c);
+    }
+
+    @IsTest
+    static void publishCheckComparesTheLiveScoreWithTheNewOne() {
+        List<Id> pfs = new List<Id>{ pf('PF Test').Id };
+        CampaignScoringService.AprioriPublishCheck none = CampaignScoringService.checkAprioriBeforePublish(topic().Id, pfs, 300);
+        System.assertEquals(false, none.hasLiveScore);
+        System.assertEquals(false, none.differs);
+
+        Campaign camp = aprioriCampaign(250, true);
+
+        CampaignScoringService.AprioriPublishCheck other = CampaignScoringService.checkAprioriBeforePublish(topic().Id, pfs, 400);
+        System.assertEquals(true, other.hasLiveScore);
+        System.assertEquals(true, other.differs);
+        System.assertEquals(250, other.liveScore);
+        System.assertEquals('Apriori Source', other.sourceCampaignName);
+        System.assertEquals(camp.Id, other.sourceCampaignId);
+        System.assertNotEquals(null, other.liveSince);
+
+        CampaignScoringService.AprioriPublishCheck same = CampaignScoringService.checkAprioriBeforePublish(topic().Id, pfs, 250);
+        System.assertEquals(false, same.differs);
+
+        CampaignScoringService.AprioriContextResult context = CampaignScoringService.getAprioriContext(topic().Id, pfs);
+        System.assertEquals('Apriori Source', context.sourceCampaignName);
+    }
+
+    @IsTest
+    static void publishCheckFlagsPairsWithDifferentLiveScores() {
+        aprioriCampaign(250, true);
+        Campaign onlyOther = new Campaign(
+            Name = 'Other Source',
+            Status = 'Active',
+            IsActive = true,
+            Scoring_Method__c = 'A-priori',
+            Overall_Score__c = 600,
+            Topic_Dict__c = topic().Id,
+            Product_Family_Ids__c = String.valueOf(pf('PF Other').Id)
+        );
+        insert onlyOther;
+        // PF Other already carries 250 from the first campaign, so the second publish moved it to 600.
+        CampaignScoringService.AprioriPublishCheck check = CampaignScoringService.checkAprioriBeforePublish(
+            topic().Id, new List<Id>{ pf('PF Test').Id, pf('PF Other').Id }, 250
+        );
+        System.assertEquals(true, check.hasMixedScores);
+        System.assertEquals(true, check.differs);
+    }
 }

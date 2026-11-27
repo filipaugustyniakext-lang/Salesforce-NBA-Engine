@@ -46,6 +46,20 @@ public with sharing class CampaignScoringService {
         @AuraEnabled public Decimal suggestedScore;
         @AuraEnabled public Boolean hasExistingState;
         @AuraEnabled public Boolean hasMixedScores;
+        @AuraEnabled public String sourceCampaignName;
+        @AuraEnabled public Id sourceCampaignId;
+        @AuraEnabled public Datetime liveSince;
+    }
+
+    /** What activating a campaign with a given score would do to the live apriori score of its pairs. */
+    public class AprioriPublishCheck {
+        @AuraEnabled public Boolean hasLiveScore = false;
+        @AuraEnabled public Boolean hasMixedScores = false;
+        @AuraEnabled public Boolean differs = false;
+        @AuraEnabled public Decimal liveScore;
+        @AuraEnabled public String sourceCampaignName;
+        @AuraEnabled public Id sourceCampaignId;
+        @AuraEnabled public Datetime liveSince;
     }
 
     /** One source's new value for one pair. */
@@ -78,6 +92,10 @@ public with sharing class CampaignScoringService {
 
     @AuraEnabled(cacheable=true)
     public static AprioriContextResult getAprioriContext(Id topicId, List<Id> productFamilyIds) {
+        return loadAprioriContext(topicId, productFamilyIds);
+    }
+
+    private static AprioriContextResult loadAprioriContext(Id topicId, List<Id> productFamilyIds) {
         AprioriContextResult result = new AprioriContextResult();
         result.suggestedScore = null;
         result.hasExistingState = false;
@@ -96,13 +114,7 @@ public with sharing class CampaignScoringService {
             return result;
         }
 
-        List<Campaign_Scoring_State__c> states = [
-            SELECT Apriori_Score__c
-            FROM Campaign_Scoring_State__c
-            WHERE Topic_Dict__c = :topicId
-            AND Product_Family_Dict__c IN :pfIds
-            AND Apriori_Score__c != NULL
-        ];
+        List<Campaign_Scoring_State__c> states = queryLiveAprioriStates(topicId, pfIds);
         if (states.isEmpty()) {
             return result;
         }
@@ -110,30 +122,74 @@ public with sharing class CampaignScoringService {
         result.hasExistingState = true;
         Decimal firstScore = states[0].Apriori_Score__c;
         result.suggestedScore = firstScore;
+        result.sourceCampaignName = states[0].Last_Modified_By_Campaign_Name__c;
+        result.sourceCampaignId = states[0].Last_Modified_By_Campaign__c;
+        result.liveSince = states[0].Apriori_Live_Since__c;
         for (Campaign_Scoring_State__c state : states) {
             if (state.Apriori_Score__c != firstScore) {
                 result.hasMixedScores = true;
                 result.suggestedScore = null;
+                result.sourceCampaignName = null;
+                result.sourceCampaignId = null;
+                result.liveSince = null;
                 break;
             }
         }
         return result;
     }
 
-    /** Trigger entry point: campaigns that just became active publish their a-priori score. */
-    public static void handleCampaignActivations(List<Campaign> newRows, Map<Id, Campaign> oldById) {
-        List<Campaign> activated = new List<Campaign>();
+    /**
+     * Not cacheable on purpose: the wizard calls this right before activating, so it must see the live score as it is
+     * now, not as it was when the wizard opened.
+     */
+    @AuraEnabled
+    public static AprioriPublishCheck checkAprioriBeforePublish(Id topicId, List<Id> productFamilyIds, Decimal score) {
+        AprioriPublishCheck check = new AprioriPublishCheck();
+        AprioriContextResult live = loadAprioriContext(topicId, productFamilyIds);
+        check.hasLiveScore = live.hasExistingState;
+        check.hasMixedScores = live.hasMixedScores;
+        check.liveScore = live.suggestedScore;
+        check.sourceCampaignName = live.sourceCampaignName;
+        check.sourceCampaignId = live.sourceCampaignId;
+        check.liveSince = live.liveSince;
+        check.differs = live.hasExistingState && (live.hasMixedScores || live.suggestedScore != score);
+        return check;
+    }
+
+    private static List<Campaign_Scoring_State__c> queryLiveAprioriStates(Id topicId, Set<Id> pfIds) {
+        return [
+            SELECT Apriori_Score__c, Last_Modified_By_Campaign_Name__c, Last_Modified_By_Campaign__c, Apriori_Live_Since__c
+            FROM Campaign_Scoring_State__c
+            WHERE Topic_Dict__c = :topicId
+            AND Product_Family_Dict__c IN :pfIds
+            AND Apriori_Score__c != NULL
+            ORDER BY Apriori_Live_Since__c DESC NULLS LAST
+        ];
+    }
+
+    /**
+     * Trigger entry point. An active campaign publishes its a-priori score when it is created active, when it becomes
+     * active, and when it is saved with a different score, Topic, Product Family or scoring method. A save that changes
+     * none of these publishes nothing, and an unchanged score never creates a History version.
+     */
+    public static void handleCampaignChanges(List<Campaign> newRows, Map<Id, Campaign> oldById) {
+        List<Campaign> toPublish = new List<Campaign>();
         for (Campaign camp : newRows) {
             if (camp.IsActive != true) {
                 continue;
             }
             Campaign previous = oldById == null ? null : oldById.get(camp.Id);
-            if (previous == null || previous.IsActive != true) {
-                activated.add(camp);
+            if (previous == null
+                || previous.IsActive != true
+                || previous.Overall_Score__c != camp.Overall_Score__c
+                || previous.Topic_Dict__c != camp.Topic_Dict__c
+                || previous.Product_Family_Ids__c != camp.Product_Family_Ids__c
+                || previous.Scoring_Method__c != camp.Scoring_Method__c) {
+                toPublish.add(camp);
             }
         }
-        if (!activated.isEmpty()) {
-            publishAprioriForCampaigns(activated);
+        if (!toPublish.isEmpty()) {
+            publishAprioriForCampaigns(toPublish);
         }
     }
 

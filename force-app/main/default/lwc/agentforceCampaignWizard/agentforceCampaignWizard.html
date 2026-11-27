@@ -1603,4 +1603,23 @@
         </div>
     </section>
     <div class="slds-backdrop slds-backdrop_open" role="presentation" onclick={handleBackdropClick}></div>
+
+    <template lwc:if={showAprioriOverwriteModal}>
+        <section role="alertdialog" tabindex="-1" aria-modal="true" aria-labelledby="apriori-overwrite-title"
+            class="slds-modal slds-fade-in-open apriori-overwrite-frame">
+            <div class="slds-modal__container">
+                <div class="slds-modal__header slds-theme_warning slds-theme_alert-texture">
+                    <h2 id="apriori-overwrite-title" class="slds-modal__title">Replace the live apriori score?</h2>
+                </div>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <p>{aprioriOverwriteText}</p>
+                </div>
+                <div class="slds-modal__footer">
+                    <button class="pill-action-btn secondary-pill slds-m-right_small" onclick={handleAprioriOverwriteCancel}>Cancel</button>
+                    <button class="pill-action-btn primary-pill" onclick={handleAprioriOverwriteConfirm}>Activate and replace</button>
+                </div>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open apriori-overwrite-backdrop" role="presentation"></div>
+    </template>
 </template>
