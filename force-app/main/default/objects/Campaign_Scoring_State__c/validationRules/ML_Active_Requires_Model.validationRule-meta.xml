@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ML_Active_Requires_Model</fullName>
+    <active>true</active>
+    <description>Active ML rows need a model definition and source.</description>
+    <errorConditionFormula>AND(ISPICKVAL(ML_Status__c, 'Active'), OR(ISBLANK(Model_Definition__c), ISBLANK(Data_Source_Object_API_Name__c)))</errorConditionFormula>
+    <errorDisplayField>Model_Definition__c</errorDisplayField>
+    <errorMessage>An active ML source needs a Model Definition and a Model Source Data Lake Object API Name.</errorMessage>
+</ValidationRule>

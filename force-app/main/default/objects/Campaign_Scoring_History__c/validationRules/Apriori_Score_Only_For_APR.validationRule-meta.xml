@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
-    <fullName>Apriori_Score_Only_For_APR</fullName>
-    <active>true</active>
-    <description>Only APR rows hold an apriori score.</description>
-    <errorConditionFormula>AND(NOT(ISPICKVAL(Scoring_Type__c, 'APR')), NOT(ISBLANK(Apriori_Score__c)))</errorConditionFormula>
-    <errorDisplayField>Apriori_Score__c</errorDisplayField>
-    <errorMessage>Apriori Score can only be set when Scoring Type is APR.</errorMessage>
-</ValidationRule>

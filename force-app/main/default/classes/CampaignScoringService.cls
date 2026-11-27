@@ -1,23 +1,42 @@
 /**
- * Maintains Campaign Scoring State (current snapshot) and Campaign Scoring History (versioned snapshots) per
- * Scoring Type (APR, ML), Product Family and Topic.
+ * Maintains Campaign Scoring State (the current picture) and Campaign Scoring History (versioned snapshots) with ONE
+ * record per Product Family + Topic pair. Each pair can carry an apriori source and an ML source side by side; a
+ * publish only touches the fields of its own source.
  *
- * APR rows are published when a campaign with an a-priori score is activated (CampaignScoringPublishTrigger).
- * ML rows are published when an active Scoring Model has a Model Setting (Scoring_Model_Setting__c and
- * Marketing_Dictionary__c triggers). An unchanged snapshot never creates a new version.
+ * Apriori scores are published when a campaign with an a-priori score is activated (CampaignScoringPublishTrigger).
+ * ML scores are published when an active Scoring Model has a Model Setting (Scoring_Model_Setting__c and
+ * Marketing_Dictionary__c triggers). Each time at least one source changes, the pair gets a new History version
+ * holding the full picture (both sources) and the source that triggered it. Unchanged input never creates a version.
  */
 public with sharing class CampaignScoringService {
-    public static final String TYPE_APRIORI = 'APR';
-    public static final String TYPE_ML = 'ML';
+    public static final String SOURCE_APRIORI = 'Apriori';
+    public static final String SOURCE_ML = 'ML';
+    public static final String SOURCE_BOTH = 'Both';
+    public static final String STATUS_ACTIVE = 'Active';
+    public static final String STATUS_INACTIVE = 'Inactive';
 
     private static final Decimal MIN_SCORE = 0;
     private static final Decimal MAX_SCORE = 1000;
     private static final Integer NAME_MAX_LENGTH = 80;
-    public static final String STATUS_ACTIVE = 'Active';
-    public static final String STATUS_INACTIVE = 'Inactive';
     private static final String MANUAL_DELETE_MESSAGE =
         'Campaign Scoring State and History rows are maintained by the system and cannot be deleted one by one. '
         + 'Use the Delete All Scoring Records button to remove them.';
+
+    /** Fields that State and History both carry as the "current picture" of a pair. */
+    private static final List<String> PICTURE_FIELDS = new List<String>{
+        'Apriori_Score__c', 'Apriori_Status__c', 'Apriori_Status_Description__c', 'Apriori_Live_Since__c',
+        'Apriori_Last_Modified_By__c', 'Last_Modified_By_Campaign__c', 'Last_Modified_By_Campaign_Name__c',
+        'ML_Status__c', 'ML_Status_Description__c', 'ML_Live_Since__c', 'ML_Last_Modified_By__c',
+        'Model_Definition__c', 'Model_Definition_Id__c', 'Data_Source_Object_API_Name__c', 'Source_Model_Id__c',
+        'Model_Source__c', 'ML_Score_Definition_Setting__c'
+    };
+
+    /** ML setting detail that only History keeps. */
+    private static final List<String> ML_DETAIL_FIELDS = new List<String>{
+        'Base_Score_Column__c', 'Base_Score_Formula_Mode__c', 'Base_Score_Factor__c', 'Base_Score_Formula__c',
+        'Calibrated_Base_Score_Column__c', 'Calibrated_Score_Formula_Mode__c', 'Calibrated_Score_Factor__c',
+        'Calibrated_Score_Formula__c', 'Model_From_Date__c', 'Model_To_Date__c'
+    };
 
     /** Set only by the bulk delete paths (Delete All Scoring Records). Manual deletes are blocked otherwise. */
     public static Boolean maintenanceDeleteInProgress = false;
@@ -28,9 +47,10 @@ public with sharing class CampaignScoringService {
         @AuraEnabled public Boolean hasMixedScores;
     }
 
+    /** One source's new value for one pair. */
     @TestVisible
-    private class ScoreInput {
-        String scoringType;
+    private class SourceInput {
+        String source;
         Id productFamilyId;
         Id topicId;
         Decimal aprioriScore;
@@ -41,8 +61,18 @@ public with sharing class CampaignScoringService {
         Scoring_Model_Setting__c setting;
 
         String key() {
-            return buildScoringKey(scoringType, productFamilyId, topicId);
+            return buildScoringKey(productFamilyId, topicId);
         }
+    }
+
+    /** The changes requested for one pair in this transaction. */
+    private class PairChange {
+        Id productFamilyId;
+        Id topicId;
+        SourceInput apriori;
+        SourceInput ml;
+        Boolean aprioriChanged = false;
+        Boolean mlChanged = false;
     }
 
     @AuraEnabled(cacheable=true)
@@ -68,9 +98,9 @@ public with sharing class CampaignScoringService {
         List<Campaign_Scoring_State__c> states = [
             SELECT Apriori_Score__c
             FROM Campaign_Scoring_State__c
-            WHERE Scoring_Type__c = :TYPE_APRIORI
-            AND Topic_Dict__c = :topicId
+            WHERE Topic_Dict__c = :topicId
             AND Product_Family_Dict__c IN :pfIds
+            AND Apriori_Score__c != NULL
         ];
         if (states.isEmpty()) {
             return result;
@@ -133,7 +163,7 @@ public with sharing class CampaignScoringService {
      * a Topic, and at least one Product Family. Campaigns are expected to be activated by the caller.
      */
     public static void publishAprioriForCampaigns(List<Campaign> campaigns) {
-        List<ScoreInput> inputs = new List<ScoreInput>();
+        List<SourceInput> inputs = new List<SourceInput>();
         for (Campaign camp : campaigns) {
             if (camp.Scoring_Method__c != 'A-priori'
                 || camp.Topic_Dict__c == null
@@ -143,8 +173,8 @@ public with sharing class CampaignScoringService {
                 continue;
             }
             for (Id pfId : parseIds(camp.Product_Family_Ids__c)) {
-                ScoreInput input = new ScoreInput();
-                input.scoringType = TYPE_APRIORI;
+                SourceInput input = new SourceInput();
+                input.source = SOURCE_APRIORI;
                 input.productFamilyId = pfId;
                 input.topicId = camp.Topic_Dict__c;
                 input.aprioriScore = camp.Overall_Score__c.setScale(0);
@@ -178,7 +208,7 @@ public with sharing class CampaignScoringService {
             return;
         }
 
-        List<ScoreInput> inputs = new List<ScoreInput>();
+        List<SourceInput> inputs = new List<SourceInput>();
         for (Scoring_Model_Setting__c setting : [
             SELECT Id, Scoring_Model__c, Data360_DMO__c, Source_Model_Id_Column__c, Model_Source__c,
                    Base_Score_Column__c, Base_Score_Formula_Mode__c, Base_Score_Factor__c, Base_Score_Formula__c,
@@ -190,8 +220,8 @@ public with sharing class CampaignScoringService {
         ]) {
             Marketing_Dictionary__c model = models.get(setting.Scoring_Model__c);
             for (Id pfId : parseIds(model.Product_Family__c)) {
-                ScoreInput input = new ScoreInput();
-                input.scoringType = TYPE_ML;
+                SourceInput input = new SourceInput();
+                input.source = SOURCE_ML;
                 input.productFamilyId = pfId;
                 input.topicId = model.Assigned_Topic_Dict__c;
                 input.activatedBy = UserInfo.getUserId();
@@ -204,15 +234,28 @@ public with sharing class CampaignScoringService {
     }
 
     @TestVisible
-    private static void publish(List<ScoreInput> rawInputs) {
+    private static void publish(List<SourceInput> rawInputs) {
         if (rawInputs == null || rawInputs.isEmpty()) {
             return;
         }
-        Map<String, ScoreInput> inputsByKey = new Map<String, ScoreInput>();
-        for (ScoreInput input : rawInputs) {
-            inputsByKey.put(input.key(), input);
+
+        Map<String, PairChange> pairs = new Map<String, PairChange>();
+        for (SourceInput input : rawInputs) {
+            String key = input.key();
+            PairChange pair = pairs.get(key);
+            if (pair == null) {
+                pair = new PairChange();
+                pair.productFamilyId = input.productFamilyId;
+                pair.topicId = input.topicId;
+                pairs.put(key, pair);
+            }
+            if (input.source == SOURCE_APRIORI) {
+                pair.apriori = input;
+            } else {
+                pair.ml = input;
+            }
         }
-        Set<String> keys = inputsByKey.keySet();
+        Set<String> keys = pairs.keySet();
 
         Map<String, Campaign_Scoring_State__c> statesByKey = new Map<String, Campaign_Scoring_State__c>();
         for (Campaign_Scoring_State__c state : [
@@ -223,10 +266,170 @@ public with sharing class CampaignScoringService {
             statesByKey.put(state.Scoring_Key__c, state);
         }
 
-        Map<String, List<Campaign_Scoring_History__c>> openHistoryByKey = new Map<String, List<Campaign_Scoring_History__c>>();
+        Map<String, List<Campaign_Scoring_History__c>> openHistoryByKey = loadOpenHistory(keys);
+
+        List<String> changedKeys = new List<String>();
+        for (String key : keys) {
+            PairChange pair = pairs.get(key);
+            List<Campaign_Scoring_History__c> openRows = openHistoryByKey.get(key);
+            Boolean hasPicture = statesByKey.containsKey(key) && openRows != null && openRows.size() == 1;
+            Campaign_Scoring_History__c current = hasPicture ? openRows[0] : null;
+            if (pair.apriori != null) {
+                pair.aprioriChanged = current == null || !aprioriMatches(current, pair.apriori);
+            }
+            if (pair.ml != null) {
+                pair.mlChanged = current == null || !mlMatches(current, pair.ml);
+            }
+            if (pair.aprioriChanged || pair.mlChanged) {
+                changedKeys.add(key);
+            }
+        }
+        if (changedKeys.isEmpty()) {
+            return;
+        }
+
+        Datetime now = System.now();
+        Map<Id, String> names = loadDictionaryNames(pairs, changedKeys);
+        Decimal nextScoreId = loadMaxScoreId();
+
+        List<Campaign_Scoring_State__c> statesToUpsert = new List<Campaign_Scoring_State__c>();
+        for (String key : changedKeys) {
+            PairChange pair = pairs.get(key);
+            Campaign_Scoring_State__c state = new Campaign_Scoring_State__c();
+            state.Scoring_Key__c = key;
+            state.Name = buildScoringName(pair.productFamilyId, pair.topicId, names);
+            state.Product_Family_Dict__c = pair.productFamilyId;
+            state.Topic_Dict__c = pair.topicId;
+            Campaign_Scoring_State__c existing = statesByKey.get(key);
+            if (existing == null || existing.Score_Id__c == null) {
+                nextScoreId += 1;
+                state.Score_Id__c = nextScoreId;
+            }
+            if (pair.aprioriChanged) {
+                applyApriori(state, pair.apriori, now);
+            }
+            if (pair.mlChanged) {
+                applyMl(state, pair.ml, now);
+            }
+            statesToUpsert.add(state);
+        }
+        upsert statesToUpsert Campaign_Scoring_State__c.Fields.Scoring_Key__c;
+
+        Map<String, Campaign_Scoring_State__c> currentByKey = reloadStates(changedKeys);
+        Map<String, Decimal> lastVersionByKey = loadLastVersions(changedKeys);
+
+        List<Campaign_Scoring_History__c> toClose = new List<Campaign_Scoring_History__c>();
+        List<Campaign_Scoring_History__c> toInsert = new List<Campaign_Scoring_History__c>();
+        for (String key : changedKeys) {
+            PairChange pair = pairs.get(key);
+            Campaign_Scoring_State__c state = currentByKey.get(key);
+            List<Campaign_Scoring_History__c> openRows = openHistoryByKey.get(key);
+            Campaign_Scoring_History__c previous = openRows != null && !openRows.isEmpty() ? openRows[0] : null;
+            if (openRows != null) {
+                for (Campaign_Scoring_History__c hist : openRows) {
+                    toClose.add(new Campaign_Scoring_History__c(Id = hist.Id, End_Date_Time__c = now));
+                }
+            }
+
+            Decimal version = lastVersionByKey.containsKey(key) ? lastVersionByKey.get(key) + 1 : 1;
+            Campaign_Scoring_History__c snapshot = new Campaign_Scoring_History__c();
+            for (String field : PICTURE_FIELDS) {
+                snapshot.put(field, state.get(field));
+            }
+            snapshot.Scoring_Key__c = key;
+            snapshot.Score_Id__c = state.Score_Id__c;
+            snapshot.Product_Family_Dict__c = state.Product_Family_Dict__c;
+            snapshot.Topic_Dict__c = state.Topic_Dict__c;
+            snapshot.Scoring_State__c = state.Id;
+            snapshot.Name = buildHistoryName(pair.productFamilyId, pair.topicId, names, version);
+            snapshot.Version_Number__c = version;
+            snapshot.Start_Date_Time__c = now;
+            snapshot.End_Date_Time__c = null;
+            snapshot.Changed_Source__c = pair.aprioriChanged && pair.mlChanged
+                ? SOURCE_BOTH
+                : (pair.aprioriChanged ? SOURCE_APRIORI : SOURCE_ML);
+
+            if (pair.mlChanged) {
+                applyMlDetail(snapshot, pair.ml.setting);
+            } else if (previous != null) {
+                for (String field : ML_DETAIL_FIELDS) {
+                    snapshot.put(field, previous.get(field));
+                }
+            }
+            toInsert.add(snapshot);
+        }
+        if (!toClose.isEmpty()) {
+            update toClose;
+        }
+        insert toInsert;
+    }
+
+    private static void applyApriori(Campaign_Scoring_State__c state, SourceInput input, Datetime now) {
+        state.Apriori_Score__c = input.aprioriScore;
+        state.Apriori_Status__c = STATUS_ACTIVE;
+        state.Apriori_Status_Description__c = null;
+        state.Apriori_Live_Since__c = now;
+        state.Apriori_Last_Modified_By__c = input.activatedBy;
+        state.Last_Modified_By_Campaign__c = input.campaignId;
+        state.Last_Modified_By_Campaign_Name__c = input.campaignName;
+    }
+
+    private static void applyMl(Campaign_Scoring_State__c state, SourceInput input, Datetime now) {
+        state.ML_Status__c = STATUS_ACTIVE;
+        state.ML_Status_Description__c = null;
+        state.ML_Live_Since__c = now;
+        state.ML_Last_Modified_By__c = input.activatedBy;
+        state.Model_Definition__c = input.modelDefinition.Id;
+        state.Model_Definition_Id__c = input.modelDefinition.Model_Id__c;
+        state.Data_Source_Object_API_Name__c = input.setting.Data360_DMO__c;
+        state.Source_Model_Id__c = input.setting.Source_Model_Id_Column__c;
+        state.Model_Source__c = input.setting.Model_Source__c;
+        state.ML_Score_Definition_Setting__c = input.setting.Id;
+    }
+
+    private static void applyMlDetail(Campaign_Scoring_History__c snapshot, Scoring_Model_Setting__c s) {
+        snapshot.Base_Score_Column__c = s.Base_Score_Column__c;
+        snapshot.Base_Score_Formula_Mode__c = s.Base_Score_Formula_Mode__c;
+        snapshot.Base_Score_Factor__c = s.Base_Score_Factor__c;
+        snapshot.Base_Score_Formula__c = s.Base_Score_Formula__c;
+        snapshot.Calibrated_Base_Score_Column__c = s.Calibrated_Base_Score_Column__c;
+        snapshot.Calibrated_Score_Formula_Mode__c = s.Calibrated_Score_Formula_Mode__c;
+        snapshot.Calibrated_Score_Factor__c = s.Calibrated_Score_Factor__c;
+        snapshot.Calibrated_Score_Formula__c = s.Calibrated_Score_Formula__c;
+        snapshot.Model_From_Date__c = s.Model_From_Date__c;
+        snapshot.Model_To_Date__c = s.Model_To_Date__c;
+    }
+
+    private static Boolean aprioriMatches(Campaign_Scoring_History__c current, SourceInput input) {
+        return current.Apriori_Status__c == STATUS_ACTIVE && current.Apriori_Score__c == input.aprioriScore;
+    }
+
+    private static Boolean mlMatches(Campaign_Scoring_History__c current, SourceInput input) {
+        Scoring_Model_Setting__c s = input.setting;
+        return current.ML_Status__c == STATUS_ACTIVE
+            && current.ML_Score_Definition_Setting__c == s.Id
+            && current.Model_Definition__c == input.modelDefinition.Id
+            && current.Data_Source_Object_API_Name__c == s.Data360_DMO__c
+            && current.Source_Model_Id__c == s.Source_Model_Id_Column__c
+            && current.Model_Source__c == s.Model_Source__c
+            && current.Base_Score_Column__c == s.Base_Score_Column__c
+            && current.Base_Score_Formula_Mode__c == s.Base_Score_Formula_Mode__c
+            && current.Base_Score_Factor__c == s.Base_Score_Factor__c
+            && current.Base_Score_Formula__c == s.Base_Score_Formula__c
+            && current.Calibrated_Base_Score_Column__c == s.Calibrated_Base_Score_Column__c
+            && current.Calibrated_Score_Formula_Mode__c == s.Calibrated_Score_Formula_Mode__c
+            && current.Calibrated_Score_Factor__c == s.Calibrated_Score_Factor__c
+            && current.Calibrated_Score_Formula__c == s.Calibrated_Score_Formula__c
+            && current.Model_From_Date__c == s.Model_From_Date__c
+            && current.Model_To_Date__c == s.Model_To_Date__c;
+    }
+
+    private static Map<String, List<Campaign_Scoring_History__c>> loadOpenHistory(Set<String> keys) {
+        Map<String, List<Campaign_Scoring_History__c>> byKey = new Map<String, List<Campaign_Scoring_History__c>>();
         for (Campaign_Scoring_History__c hist : [
-            SELECT Id, Scoring_Key__c, Apriori_Score__c, Model_Definition__c, Model_Definition_Id__c,
-                   Data_Source_Object_API_Name__c, Source_Model_Id__c, Model_Source__c,
+            SELECT Id, Scoring_Key__c, Apriori_Score__c, Apriori_Status__c, ML_Status__c,
+                   ML_Score_Definition_Setting__c, Model_Definition__c, Data_Source_Object_API_Name__c,
+                   Source_Model_Id__c, Model_Source__c,
                    Base_Score_Column__c, Base_Score_Formula_Mode__c, Base_Score_Factor__c, Base_Score_Formula__c,
                    Calibrated_Base_Score_Column__c, Calibrated_Score_Formula_Mode__c,
                    Calibrated_Score_Factor__c, Calibrated_Score_Formula__c,
@@ -235,153 +438,49 @@ public with sharing class CampaignScoringService {
             WHERE Scoring_Key__c IN :keys
             AND End_Date_Time__c = NULL
         ]) {
-            if (!openHistoryByKey.containsKey(hist.Scoring_Key__c)) {
-                openHistoryByKey.put(hist.Scoring_Key__c, new List<Campaign_Scoring_History__c>());
+            if (!byKey.containsKey(hist.Scoring_Key__c)) {
+                byKey.put(hist.Scoring_Key__c, new List<Campaign_Scoring_History__c>());
             }
-            openHistoryByKey.get(hist.Scoring_Key__c).add(hist);
+            byKey.get(hist.Scoring_Key__c).add(hist);
         }
+        return byKey;
+    }
 
-        List<ScoreInput> changed = new List<ScoreInput>();
-        for (String key : keys) {
-            ScoreInput input = inputsByKey.get(key);
-            List<Campaign_Scoring_History__c> openRows = openHistoryByKey.get(key);
-            Boolean unchanged = openRows != null
-                && openRows.size() == 1
-                && statesByKey.containsKey(key)
-                && matchesSnapshot(openRows[0], input);
-            if (!unchanged) {
-                changed.add(input);
-            }
+    private static Map<String, Campaign_Scoring_State__c> reloadStates(List<String> keys) {
+        Map<String, Campaign_Scoring_State__c> byKey = new Map<String, Campaign_Scoring_State__c>();
+        for (Campaign_Scoring_State__c state : [
+            SELECT Id, Scoring_Key__c, Score_Id__c, Product_Family_Dict__c, Topic_Dict__c,
+                   Apriori_Score__c, Apriori_Status__c, Apriori_Status_Description__c, Apriori_Live_Since__c,
+                   Apriori_Last_Modified_By__c, Last_Modified_By_Campaign__c, Last_Modified_By_Campaign_Name__c,
+                   ML_Status__c, ML_Status_Description__c, ML_Live_Since__c, ML_Last_Modified_By__c,
+                   Model_Definition__c, Model_Definition_Id__c, Data_Source_Object_API_Name__c,
+                   Source_Model_Id__c, Model_Source__c, ML_Score_Definition_Setting__c
+            FROM Campaign_Scoring_State__c
+            WHERE Scoring_Key__c IN :keys
+        ]) {
+            byKey.put(state.Scoring_Key__c, state);
         }
-        if (changed.isEmpty()) {
-            return;
-        }
+        return byKey;
+    }
 
-        Map<Id, String> dictionaryNames = loadDictionaryNames(changed);
-        Map<String, Decimal> scoreIdByPair = loadScoreIdsByPair(changed);
-        Decimal nextScoreId = loadMaxScoreId();
-
-        List<Campaign_Scoring_State__c> statesToUpsert = new List<Campaign_Scoring_State__c>();
-        Map<String, Campaign_Scoring_State__c> upsertedByKey = new Map<String, Campaign_Scoring_State__c>();
-        for (ScoreInput input : changed) {
-            String pairKey = buildPairKey(input.productFamilyId, input.topicId);
-            Decimal scoreId = scoreIdByPair.get(pairKey);
-            if (scoreId == null) {
-                nextScoreId += 1;
-                scoreId = nextScoreId;
-                scoreIdByPair.put(pairKey, scoreId);
-            }
-            Campaign_Scoring_State__c state = new Campaign_Scoring_State__c();
-            fillSnapshot(state, input, scoreId, dictionaryNames);
-            statesToUpsert.add(state);
-            upsertedByKey.put(input.key(), state);
-        }
-        upsert statesToUpsert Campaign_Scoring_State__c.Fields.Scoring_Key__c;
-
-        Map<String, Decimal> lastVersionByKey = new Map<String, Decimal>();
+    private static Map<String, Decimal> loadLastVersions(List<String> keys) {
+        Map<String, Decimal> byKey = new Map<String, Decimal>();
         for (AggregateResult agg : [
             SELECT Scoring_Key__c k, MAX(Version_Number__c) v
             FROM Campaign_Scoring_History__c
             WHERE Scoring_Key__c IN :keys
             GROUP BY Scoring_Key__c
         ]) {
-            lastVersionByKey.put((String) agg.get('k'), (Decimal) agg.get('v'));
+            byKey.put((String) agg.get('k'), (Decimal) agg.get('v'));
         }
-
-        Datetime now = System.now();
-        List<Campaign_Scoring_History__c> toClose = new List<Campaign_Scoring_History__c>();
-        List<Campaign_Scoring_History__c> toInsert = new List<Campaign_Scoring_History__c>();
-        for (ScoreInput input : changed) {
-            String key = input.key();
-            List<Campaign_Scoring_History__c> openRows = openHistoryByKey.get(key);
-            if (openRows != null) {
-                for (Campaign_Scoring_History__c hist : openRows) {
-                    toClose.add(new Campaign_Scoring_History__c(Id = hist.Id, End_Date_Time__c = now));
-                }
-            }
-            Campaign_Scoring_State__c state = upsertedByKey.get(key);
-            Decimal version = lastVersionByKey.containsKey(key) ? lastVersionByKey.get(key) + 1 : 1;
-            Campaign_Scoring_History__c hist = new Campaign_Scoring_History__c();
-            fillSnapshot(hist, input, (Decimal) state.Score_Id__c, dictionaryNames);
-            hist.Name = buildHistoryName(input, dictionaryNames, version);
-            hist.Scoring_State__c = state.Id;
-            hist.Version_Number__c = version;
-            hist.Start_Date_Time__c = now;
-            hist.End_Date_Time__c = null;
-            if (input.setting != null) {
-                Scoring_Model_Setting__c s = input.setting;
-                hist.Base_Score_Column__c = s.Base_Score_Column__c;
-                hist.Base_Score_Formula_Mode__c = s.Base_Score_Formula_Mode__c;
-                hist.Base_Score_Factor__c = s.Base_Score_Factor__c;
-                hist.Base_Score_Formula__c = s.Base_Score_Formula__c;
-                hist.Calibrated_Base_Score_Column__c = s.Calibrated_Base_Score_Column__c;
-                hist.Calibrated_Score_Formula_Mode__c = s.Calibrated_Score_Formula_Mode__c;
-                hist.Calibrated_Score_Factor__c = s.Calibrated_Score_Factor__c;
-                hist.Calibrated_Score_Formula__c = s.Calibrated_Score_Formula__c;
-                hist.Model_From_Date__c = s.Model_From_Date__c;
-                hist.Model_To_Date__c = s.Model_To_Date__c;
-            }
-            toInsert.add(hist);
-        }
-        if (!toClose.isEmpty()) {
-            update toClose;
-        }
-        insert toInsert;
+        return byKey;
     }
 
-    private static void fillSnapshot(
-        SObject target,
-        ScoreInput input,
-        Decimal scoreId,
-        Map<Id, String> dictionaryNames
-    ) {
-        Boolean isApriori = input.scoringType == TYPE_APRIORI;
-        target.put('Name', buildScoringName(input, dictionaryNames));
-        target.put('Scoring_Key__c', input.key());
-        target.put('Scoring_Type__c', input.scoringType);
-        target.put('Score_Id__c', scoreId);
-        target.put('Product_Family_Dict__c', input.productFamilyId);
-        target.put('Topic_Dict__c', input.topicId);
-        target.put('Activated_By__c', input.activatedBy);
-        target.put('Apriori_Score__c', isApriori ? input.aprioriScore : null);
-        target.put('Last_Modified_By_Campaign__c', isApriori ? input.campaignId : null);
-        target.put('Last_Modified_By_Campaign_Name__c', isApriori ? input.campaignName : null);
-        target.put('Model_Definition__c', isApriori ? null : input.modelDefinition.Id);
-        target.put('Model_Definition_Id__c', isApriori ? null : input.modelDefinition.Model_Id__c);
-        target.put('Data_Source_Object_API_Name__c', isApriori ? null : input.setting.Data360_DMO__c);
-        target.put('Source_Model_Id__c', isApriori ? null : input.setting.Source_Model_Id_Column__c);
-        target.put('Model_Source__c', isApriori ? null : input.setting.Model_Source__c);
-        target.put('ML_Score_Definition_Setting__c', isApriori ? null : input.setting.Id);
-        target.put('Status__c', STATUS_ACTIVE);
-        target.put('Status_Description__c', null);
-    }
-
-    private static Boolean matchesSnapshot(Campaign_Scoring_History__c hist, ScoreInput input) {
-        if (input.scoringType == TYPE_APRIORI) {
-            return hist.Apriori_Score__c == input.aprioriScore;
-        }
-        Scoring_Model_Setting__c s = input.setting;
-        return hist.Model_Definition__c == input.modelDefinition.Id
-            && hist.Data_Source_Object_API_Name__c == s.Data360_DMO__c
-            && hist.Source_Model_Id__c == s.Source_Model_Id_Column__c
-            && hist.Model_Source__c == s.Model_Source__c
-            && hist.Base_Score_Column__c == s.Base_Score_Column__c
-            && hist.Base_Score_Formula_Mode__c == s.Base_Score_Formula_Mode__c
-            && hist.Base_Score_Factor__c == s.Base_Score_Factor__c
-            && hist.Base_Score_Formula__c == s.Base_Score_Formula__c
-            && hist.Calibrated_Base_Score_Column__c == s.Calibrated_Base_Score_Column__c
-            && hist.Calibrated_Score_Formula_Mode__c == s.Calibrated_Score_Formula_Mode__c
-            && hist.Calibrated_Score_Factor__c == s.Calibrated_Score_Factor__c
-            && hist.Calibrated_Score_Formula__c == s.Calibrated_Score_Formula__c
-            && hist.Model_From_Date__c == s.Model_From_Date__c
-            && hist.Model_To_Date__c == s.Model_To_Date__c;
-    }
-
-    private static Map<Id, String> loadDictionaryNames(List<ScoreInput> inputs) {
+    private static Map<Id, String> loadDictionaryNames(Map<String, PairChange> pairs, List<String> changedKeys) {
         Set<Id> ids = new Set<Id>();
-        for (ScoreInput input : inputs) {
-            ids.add(input.productFamilyId);
-            ids.add(input.topicId);
+        for (String key : changedKeys) {
+            ids.add(pairs.get(key).productFamilyId);
+            ids.add(pairs.get(key).topicId);
         }
         Map<Id, String> names = new Map<Id, String>();
         for (Marketing_Dictionary__c rec : [SELECT Id, Name FROM Marketing_Dictionary__c WHERE Id IN :ids]) {
@@ -390,40 +489,32 @@ public with sharing class CampaignScoringService {
         return names;
     }
 
-    /** Score ID already used by any Scoring Type for the same Product Family and Topic. */
-    private static Map<String, Decimal> loadScoreIdsByPair(List<ScoreInput> inputs) {
-        Set<Id> pfIds = new Set<Id>();
-        Set<Id> topicIds = new Set<Id>();
-        for (ScoreInput input : inputs) {
-            pfIds.add(input.productFamilyId);
-            topicIds.add(input.topicId);
-        }
-        Map<String, Decimal> byPair = new Map<String, Decimal>();
-        for (Campaign_Scoring_State__c state : [
-            SELECT Product_Family_Dict__c, Topic_Dict__c, Score_Id__c
-            FROM Campaign_Scoring_State__c
-            WHERE Product_Family_Dict__c IN :pfIds
-            AND Topic_Dict__c IN :topicIds
-            AND Score_Id__c != NULL
-        ]) {
-            byPair.put(buildPairKey(state.Product_Family_Dict__c, state.Topic_Dict__c), state.Score_Id__c);
-        }
-        return byPair;
-    }
-
     private static Decimal loadMaxScoreId() {
         AggregateResult agg = [SELECT MAX(Score_Id__c) m FROM Campaign_Scoring_State__c];
         Decimal maxValue = (Decimal) agg.get('m');
         return maxValue == null ? 0 : maxValue;
     }
 
+    @TestVisible
+    private static String buildScoringName(Id productFamilyId, Id topicId, Map<Id, String> names) {
+        String pfName = names.get(productFamilyId);
+        String topicName = names.get(topicId);
+        String value = (pfName == null ? '' : pfName) + '_' + (topicName == null ? '' : topicName);
+        return value.length() > NAME_MAX_LENGTH ? value.substring(0, NAME_MAX_LENGTH) : value;
+    }
+
     /** The version suffix is always kept; the base name is shortened to make room for it. */
     @TestVisible
-    private static String buildHistoryName(ScoreInput input, Map<Id, String> names, Decimal version) {
+    private static String buildHistoryName(Id productFamilyId, Id topicId, Map<Id, String> names, Decimal version) {
         String suffix = '_' + String.valueOf(version.intValue());
-        String base = buildScoringName(input, names);
+        String base = buildScoringName(productFamilyId, topicId, names);
         Integer room = NAME_MAX_LENGTH - suffix.length();
         return (base.length() > room ? base.substring(0, room) : base) + suffix;
+    }
+
+    @TestVisible
+    private static String buildScoringKey(Id productFamilyId, Id topicId) {
+        return String.valueOf(productFamilyId) + '_' + String.valueOf(topicId);
     }
 
     /** Called from the before-delete triggers on State and History. */
@@ -434,23 +525,6 @@ public with sharing class CampaignScoringService {
         for (SObject row : rows) {
             row.addError(MANUAL_DELETE_MESSAGE);
         }
-    }
-
-    @TestVisible
-    private static String buildScoringName(ScoreInput input, Map<Id, String> names) {
-        String pfName = names.get(input.productFamilyId);
-        String topicName = names.get(input.topicId);
-        String value = input.scoringType + '_' + (pfName == null ? '' : pfName) + '_' + (topicName == null ? '' : topicName);
-        return value.length() > NAME_MAX_LENGTH ? value.substring(0, NAME_MAX_LENGTH) : value;
-    }
-
-    @TestVisible
-    private static String buildScoringKey(String scoringType, Id productFamilyId, Id topicId) {
-        return scoringType + '_' + String.valueOf(productFamilyId) + '_' + String.valueOf(topicId);
-    }
-
-    private static String buildPairKey(Id productFamilyId, Id topicId) {
-        return String.valueOf(productFamilyId) + '_' + String.valueOf(topicId);
     }
 
     private static List<Id> parseIds(String semicolonSeparated) {

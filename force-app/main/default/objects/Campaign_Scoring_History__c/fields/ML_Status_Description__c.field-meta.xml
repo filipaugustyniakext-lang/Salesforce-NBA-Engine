@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ML_Status_Description__c</fullName>
+    <description>Why the ML status is what it is, for example "no active settings for this ML Model Definition".</description>
+    <externalId>false</externalId>
+    <label>ML Status Description</label>
+    <length>255</length>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

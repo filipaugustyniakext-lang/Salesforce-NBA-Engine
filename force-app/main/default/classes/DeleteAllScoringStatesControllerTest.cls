@@ -14,24 +14,25 @@ private class DeleteAllScoringStatesControllerTest {
         insert new List<Marketing_Dictionary__c>{ pf, topic };
 
         Campaign_Scoring_State__c state = new Campaign_Scoring_State__c(
-            Name = 'APR_PF Test_Topic Test',
-            Scoring_Key__c = 'APR_' + pf.Id + '_' + topic.Id,
-            Scoring_Type__c = 'APR',
+            Name = 'PF Test_Topic Test',
+            Scoring_Key__c = pf.Id + '_' + topic.Id,
             Score_Id__c = 1,
             Product_Family_Dict__c = pf.Id,
             Topic_Dict__c = topic.Id,
-            Apriori_Score__c = 300
+            Apriori_Score__c = 300,
+            Apriori_Status__c = 'Active'
         );
         insert state;
         insert new Campaign_Scoring_History__c(
             Name = state.Name,
             Scoring_Key__c = state.Scoring_Key__c,
-            Scoring_Type__c = 'APR',
             Score_Id__c = 1,
             Scoring_State__c = state.Id,
             Product_Family_Dict__c = pf.Id,
             Topic_Dict__c = topic.Id,
             Apriori_Score__c = 300,
+            Apriori_Status__c = 'Active',
+            Changed_Source__c = 'Apriori',
             Version_Number__c = 1,
             Start_Date_Time__c = System.now()
         );

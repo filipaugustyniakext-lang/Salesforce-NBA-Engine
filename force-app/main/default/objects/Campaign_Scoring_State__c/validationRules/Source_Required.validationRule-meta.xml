@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Source_Required</fullName>
+    <active>true</active>
+    <description>A pair without any source has no reason to exist.</description>
+    <errorConditionFormula>AND(ISPICKVAL(Apriori_Status__c, ''), ISPICKVAL(ML_Status__c, ''))</errorConditionFormula>
+    <errorDisplayField>Apriori_Status__c</errorDisplayField>
+    <errorMessage>A scoring record needs an apriori source or an ML source.</errorMessage>
+</ValidationRule>
