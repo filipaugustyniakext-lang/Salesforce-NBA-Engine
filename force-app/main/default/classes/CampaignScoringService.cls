@@ -147,11 +147,102 @@ public with sharing class CampaignScoringService {
         publishModels(modelIds);
     }
 
-    /** Trigger entry point: a Scoring Model that is active (newly or after edits) republishes its ML state. */
-    public static void handleModelDefinitions(List<Marketing_Dictionary__c> definitions) {
+    /**
+     * Before-trigger rules for Scoring Model definitions: one Product Family per definition, and only one Active
+     * definition per Product Family + Topic. Checked when a definition is created, activated, or has its Topic or
+     * Product Family changed; unrelated edits are not blocked by legacy data.
+     */
+    public static void validateModelDefinitions(List<Marketing_Dictionary__c> newRows, Map<Id, Marketing_Dictionary__c> oldById) {
+        List<Marketing_Dictionary__c> candidates = new List<Marketing_Dictionary__c>();
+        Set<Id> topicIds = new Set<Id>();
+        Set<Id> candidateIds = new Set<Id>();
+        for (Marketing_Dictionary__c definition : newRows) {
+            if (definition.Dictionary_Sub_Type__c != 'Scoring Model' || definition.Offering_Type__c != 'Product Family') {
+                continue;
+            }
+            Marketing_Dictionary__c previous = oldById == null ? null : oldById.get(definition.Id);
+            Boolean offeringChanged = previous == null
+                || previous.Product_Family__c != definition.Product_Family__c
+                || previous.Offering_Type__c != definition.Offering_Type__c;
+            List<Id> productFamilies = parseIds(definition.Product_Family__c);
+            if (offeringChanged && productFamilies.size() > 1) {
+                definition.addError('A model definition covers exactly one Product Family.');
+                continue;
+            }
+            if (definition.Is_Active__c != true || definition.Assigned_Topic_Dict__c == null || productFamilies.isEmpty()) {
+                continue;
+            }
+            Boolean relevant = offeringChanged
+                || previous.Is_Active__c != true
+                || previous.Assigned_Topic_Dict__c != definition.Assigned_Topic_Dict__c;
+            if (relevant) {
+                candidates.add(definition);
+                topicIds.add(definition.Assigned_Topic_Dict__c);
+                if (definition.Id != null) {
+                    candidateIds.add(definition.Id);
+                }
+            }
+        }
+        if (candidates.isEmpty()) {
+            return;
+        }
+
+        Map<String, Marketing_Dictionary__c> activeByKey = new Map<String, Marketing_Dictionary__c>();
+        for (Marketing_Dictionary__c existing : [
+            SELECT Id, Name, Model_Id__c, Assigned_Topic_Dict__c, Product_Family__c
+            FROM Marketing_Dictionary__c
+            WHERE Dictionary_Sub_Type__c = 'Scoring Model'
+            AND Is_Active__c = true
+            AND Offering_Type__c = 'Product Family'
+            AND Assigned_Topic_Dict__c IN :topicIds
+            AND Id NOT IN :candidateIds
+        ]) {
+            for (Id pfId : parseIds(existing.Product_Family__c)) {
+                activeByKey.put(buildScoringKey(pfId, existing.Assigned_Topic_Dict__c), existing);
+            }
+        }
+        for (Marketing_Dictionary__c definition : candidates) {
+            String key = buildScoringKey(parseIds(definition.Product_Family__c)[0], definition.Assigned_Topic_Dict__c);
+            Marketing_Dictionary__c owner = activeByKey.get(key);
+            if (owner != null) {
+                definition.addError(
+                    'Model "' + owner.Name + '" (Model ID ' + owner.Model_Id__c + ') is already active for this Product Family and Topic. '
+                    + 'Only one active Model Definition can cover a Product Family and Topic.'
+                );
+            } else {
+                activeByKey.put(key, definition);
+            }
+        }
+    }
+
+    /**
+     * After-trigger entry point for Scoring Model definitions. A definition that stops being active, or whose Topic or
+     * Product Family changes, makes the pairs it no longer serves Inactive for ML; an active definition then
+     * (re)publishes its live setting for the pairs it serves.
+     */
+    public static void handleModelDefinitions(List<Marketing_Dictionary__c> definitions, Map<Id, Marketing_Dictionary__c> oldById) {
         Set<Id> modelIds = new Set<Id>();
         for (Marketing_Dictionary__c definition : definitions) {
-            if (definition.Dictionary_Sub_Type__c == 'Scoring Model' && definition.Is_Active__c == true) {
+            if (definition.Dictionary_Sub_Type__c != 'Scoring Model') {
+                continue;
+            }
+            Marketing_Dictionary__c previous = oldById == null ? null : oldById.get(definition.Id);
+            if (previous != null && previous.Is_Active__c == true) {
+                if (definition.Is_Active__c != true) {
+                    deactivateMlForModel(definition.Id, new Set<String>(), 'Model definition is not active.');
+                } else if (previous.Assigned_Topic_Dict__c != definition.Assigned_Topic_Dict__c
+                    || previous.Product_Family__c != definition.Product_Family__c
+                    || previous.Offering_Type__c != definition.Offering_Type__c) {
+                    Set<String> keep = new Set<String>();
+                    if (definition.Offering_Type__c == 'Product Family' && definition.Assigned_Topic_Dict__c != null) {
+                        for (Id pfId : parseIds(definition.Product_Family__c)) {
+                            keep.add(buildScoringKey(pfId, definition.Assigned_Topic_Dict__c));
+                        }
+                    }
+                    deactivateMlForModel(definition.Id, keep, 'Pair no longer covered by this model definition.');
+                }
+            }
+            if (definition.Is_Active__c == true) {
                 modelIds.add(definition.Id);
             }
         }
@@ -289,7 +380,12 @@ public with sharing class CampaignScoringService {
         }
 
         Datetime now = System.now();
-        Map<Id, String> names = loadDictionaryNames(pairs, changedKeys);
+        Set<Id> dictionaryIds = new Set<Id>();
+        for (String key : changedKeys) {
+            dictionaryIds.add(pairs.get(key).productFamilyId);
+            dictionaryIds.add(pairs.get(key).topicId);
+        }
+        Map<Id, String> names = loadDictionaryNames(dictionaryIds);
         Decimal nextScoreId = loadMaxScoreId();
 
         List<Campaign_Scoring_State__c> statesToUpsert = new List<Campaign_Scoring_State__c>();
@@ -315,13 +411,38 @@ public with sharing class CampaignScoringService {
         }
         upsert statesToUpsert Campaign_Scoring_State__c.Fields.Scoring_Key__c;
 
-        Map<String, Campaign_Scoring_State__c> currentByKey = reloadStates(changedKeys);
-        Map<String, Decimal> lastVersionByKey = loadLastVersions(changedKeys);
+        Map<String, String> changedSourceByKey = new Map<String, String>();
+        Map<String, Scoring_Model_Setting__c> mlSettingByKey = new Map<String, Scoring_Model_Setting__c>();
+        for (String key : changedKeys) {
+            PairChange pair = pairs.get(key);
+            changedSourceByKey.put(key, pair.aprioriChanged && pair.mlChanged
+                ? SOURCE_BOTH
+                : (pair.aprioriChanged ? SOURCE_APRIORI : SOURCE_ML));
+            if (pair.mlChanged) {
+                mlSettingByKey.put(key, pair.ml.setting);
+            }
+        }
+        writeSnapshots(changedKeys, changedSourceByKey, mlSettingByKey, openHistoryByKey, names, now);
+    }
+
+    /**
+     * Closes the open History version of each pair and writes the next one from the pair's current State row.
+     * The ML setting detail is taken from mlSettingByKey when ML changed, otherwise carried over from the previous version.
+     */
+    private static void writeSnapshots(
+        List<String> keys,
+        Map<String, String> changedSourceByKey,
+        Map<String, Scoring_Model_Setting__c> mlSettingByKey,
+        Map<String, List<Campaign_Scoring_History__c>> openHistoryByKey,
+        Map<Id, String> names,
+        Datetime now
+    ) {
+        Map<String, Campaign_Scoring_State__c> currentByKey = reloadStates(keys);
+        Map<String, Decimal> lastVersionByKey = loadLastVersions(keys);
 
         List<Campaign_Scoring_History__c> toClose = new List<Campaign_Scoring_History__c>();
         List<Campaign_Scoring_History__c> toInsert = new List<Campaign_Scoring_History__c>();
-        for (String key : changedKeys) {
-            PairChange pair = pairs.get(key);
+        for (String key : keys) {
             Campaign_Scoring_State__c state = currentByKey.get(key);
             List<Campaign_Scoring_History__c> openRows = openHistoryByKey.get(key);
             Campaign_Scoring_History__c previous = openRows != null && !openRows.isEmpty() ? openRows[0] : null;
@@ -341,16 +462,15 @@ public with sharing class CampaignScoringService {
             snapshot.Product_Family_Dict__c = state.Product_Family_Dict__c;
             snapshot.Topic_Dict__c = state.Topic_Dict__c;
             snapshot.Scoring_State__c = state.Id;
-            snapshot.Name = buildHistoryName(pair.productFamilyId, pair.topicId, names, version);
+            snapshot.Name = buildHistoryName(state.Product_Family_Dict__c, state.Topic_Dict__c, names, version);
             snapshot.Version_Number__c = version;
             snapshot.Start_Date_Time__c = now;
             snapshot.End_Date_Time__c = null;
-            snapshot.Changed_Source__c = pair.aprioriChanged && pair.mlChanged
-                ? SOURCE_BOTH
-                : (pair.aprioriChanged ? SOURCE_APRIORI : SOURCE_ML);
+            snapshot.Changed_Source__c = changedSourceByKey.get(key);
 
-            if (pair.mlChanged) {
-                applyMlDetail(snapshot, pair.ml.setting);
+            Scoring_Model_Setting__c mlSetting = mlSettingByKey.get(key);
+            if (mlSetting != null) {
+                applyMlDetail(snapshot, mlSetting);
             } else if (previous != null) {
                 for (String field : ML_DETAIL_FIELDS) {
                     snapshot.put(field, previous.get(field));
@@ -362,6 +482,48 @@ public with sharing class CampaignScoringService {
             update toClose;
         }
         insert toInsert;
+    }
+
+    /**
+     * Marks the ML source Inactive on every pair currently owned by the given model definition, except the pairs in
+     * keepKeys, and writes a History version for each. The last values stay on the record for reference.
+     */
+    @TestVisible
+    private static void deactivateMlForModel(Id modelDefinitionId, Set<String> keepKeys, String description) {
+        List<Campaign_Scoring_State__c> states = [
+            SELECT Id, Scoring_Key__c, Product_Family_Dict__c, Topic_Dict__c
+            FROM Campaign_Scoring_State__c
+            WHERE Model_Definition__c = :modelDefinitionId
+            AND ML_Status__c = :STATUS_ACTIVE
+            AND Scoring_Key__c NOT IN :keepKeys
+        ];
+        if (states.isEmpty()) {
+            return;
+        }
+        List<String> keys = new List<String>();
+        Set<Id> dictionaryIds = new Set<Id>();
+        for (Campaign_Scoring_State__c state : states) {
+            state.ML_Status__c = STATUS_INACTIVE;
+            state.ML_Status_Description__c = description;
+            state.ML_Score_Definition_Setting__c = null;
+            keys.add(state.Scoring_Key__c);
+            dictionaryIds.add(state.Product_Family_Dict__c);
+            dictionaryIds.add(state.Topic_Dict__c);
+        }
+        update states;
+
+        Map<String, String> changedSourceByKey = new Map<String, String>();
+        for (String key : keys) {
+            changedSourceByKey.put(key, SOURCE_ML);
+        }
+        writeSnapshots(
+            keys,
+            changedSourceByKey,
+            new Map<String, Scoring_Model_Setting__c>(),
+            loadOpenHistory(new Set<String>(keys)),
+            loadDictionaryNames(dictionaryIds),
+            System.now()
+        );
     }
 
     private static void applyApriori(Campaign_Scoring_State__c state, SourceInput input, Datetime now) {
@@ -476,12 +638,7 @@ public with sharing class CampaignScoringService {
         return byKey;
     }
 
-    private static Map<Id, String> loadDictionaryNames(Map<String, PairChange> pairs, List<String> changedKeys) {
-        Set<Id> ids = new Set<Id>();
-        for (String key : changedKeys) {
-            ids.add(pairs.get(key).productFamilyId);
-            ids.add(pairs.get(key).topicId);
-        }
+    private static Map<Id, String> loadDictionaryNames(Set<Id> ids) {
         Map<Id, String> names = new Map<Id, String>();
         for (Marketing_Dictionary__c rec : [SELECT Id, Name FROM Marketing_Dictionary__c WHERE Id IN :ids]) {
             names.put(rec.Id, rec.Name);

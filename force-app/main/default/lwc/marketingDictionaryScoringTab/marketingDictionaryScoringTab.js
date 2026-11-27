@@ -18,6 +18,7 @@ import getProductFamilyByRecordType from '@salesforce/apex/MarketingDictionaryCo
 import getProductFamilyCustomerTypes from '@salesforce/apex/MarketingDictionaryController.getProductFamilyCustomerTypes';
 import getFamilyOfNeedsCustomerTypes from '@salesforce/apex/MarketingDictionaryController.getFamilyOfNeedsCustomerTypes';
 import getProductOfferingCatalogue from '@salesforce/apex/MarketingDictionaryManagerController.getProductOfferingCatalogue';
+import getOfferingDefinitionSettings from '@salesforce/apex/MarketingDictionaryManagerController.getOfferingDefinitionSettings';
 import getData360DmoFields from '@salesforce/apex/MarketingDictionaryManagerController.getData360DmoFields';
 import getScoringModelSettings from '@salesforce/apex/MarketingDictionaryManagerController.getScoringModelSettings';
 import saveScoringModelSetting from '@salesforce/apex/MarketingDictionaryManagerController.saveScoringModelSetting';
@@ -82,7 +83,8 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
     @track productFamilyOptions = [];
     @track familyOfNeedsOptions = [];
     @track groupedProductFamilyOptions = [];
-    @track selectAllProductFamilies = false;
+    @track productFamiliesOfferingEnabled = true;
+    @track familiesOfNeedsOfferingEnabled = false;
     @track selectAllFamilyOfNeeds = false;
     @track pfFilterCustomerTypes = [];
     @track pfFilterRecordTypes = [];
@@ -120,6 +122,7 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
 
     connectedCallback() {
         this._loadOfferingOptions();
+        this._loadOfferingDefinitionSettings();
     }
 
     @wire(getCampaignRecords)
@@ -176,6 +179,52 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
         });
     }
 
+    _loadOfferingDefinitionSettings() {
+        getOfferingDefinitionSettings()
+            .then(settings => {
+                this.productFamiliesOfferingEnabled = settings?.productFamilies !== false;
+                this.familiesOfNeedsOfferingEnabled = settings?.familiesOfNeeds === true;
+                this._syncOfferingTypeAvailability();
+            })
+            .catch(() => {
+                this.productFamiliesOfferingEnabled = true;
+                this.familiesOfNeedsOfferingEnabled = false;
+            });
+    }
+
+    /** Product Family is the default; Family of Needs only becomes selectable once the dictionary allows it. */
+    _syncOfferingTypeAvailability() {
+        const productEnabled = this.productFamiliesOfferingEnabled !== false;
+        const needsEnabled = this.familiesOfNeedsOfferingEnabled === true;
+        const current = this.editScoring?.Offering_Type__c;
+        if (!this.isScoringModalOpen || this.editScoring?.Id) return;
+        if (current === 'Product Family' && !productEnabled && needsEnabled) {
+            this.editScoring = { ...this.editScoring, Offering_Type__c: 'Family of Needs' };
+        } else if (current === 'Family of Needs' && !needsEnabled && productEnabled) {
+            this.editScoring = { ...this.editScoring, Offering_Type__c: 'Product Family' };
+        }
+    }
+
+    _guideFiltersFromProduct(productId) {
+        const opt = (this.productFamilyOptions || []).find(item => item.value === productId);
+        if (!opt) return;
+        const customerType = (opt.customerTypes || [])[0];
+        if (customerType) {
+            this.pfFilterCustomerTypes = [customerType];
+        }
+        for (const [recordType, names] of Object.entries(this.productFamilyByRecordType || {})) {
+            if ((names || []).includes(opt.name)) {
+                this.pfFilterRecordTypes = [recordType];
+                break;
+            }
+        }
+    }
+
+    _clearProductFamilySelection() {
+        this.productFamilyOptions = (this.productFamilyOptions || []).map(item => ({ ...item, checked: false }));
+        this._persistProductFamilySelection();
+    }
+
     _idSafe(prefix, value) {
         return `${prefix}-${String(value).replace(/[^a-zA-Z0-9]/g, '-')}`;
     }
@@ -229,8 +278,13 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
                 customerTypes: this.productFamilyCustomerTypes[name] || []
             };
         });
-        this.selectAllProductFamilies = this.productFamilyOptions.length > 0
-            && this.productFamilyOptions.every(o => o.checked);
+        const checkedProductIds = this.productFamilyOptions.filter(o => o.checked).map(o => o.value);
+        if (checkedProductIds.length === 1) {
+            this._guideFiltersFromProduct(checkedProductIds[0]);
+        } else {
+            this.pfFilterCustomerTypes = [];
+            this.pfFilterRecordTypes = [];
+        }
 
         this.familyOfNeedsOptions = this.rawFamilyOfNeeds.map(rec => {
             const name = rec.Name;
@@ -533,11 +587,18 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
     }
 
     get offeringTypeOptions() {
-        return OFFERING_TYPES.map(o => ({
-            ...o,
-            uniqueId: `scoring-offering-${o.value.replace(/\s+/g, '-')}`,
-            isChecked: this.editScoring.Offering_Type__c === o.value
-        }));
+        return OFFERING_TYPES.map(o => {
+            const enabled = o.value === 'Family of Needs'
+                ? this.familiesOfNeedsOfferingEnabled === true
+                : this.productFamiliesOfferingEnabled !== false;
+            return {
+                ...o,
+                uniqueId: `scoring-offering-${o.value.replace(/\s+/g, '-')}`,
+                isChecked: this.editScoring.Offering_Type__c === o.value,
+                isDisabled: !enabled,
+                buttonClass: `slds-button slds-radio_button${enabled ? '' : ' offering-type-disabled'}`
+            };
+        });
     }
 
     get isScoringOfferingProductFamily() {
@@ -553,7 +614,8 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
         return [...types].sort().map(ct => ({
             label: ct,
             value: ct,
-            className: `pf-filter-pill ${this.pfFilterCustomerTypes.includes(ct) ? 'pf-filter-pill-active' : ''}`
+            isSelected: this.pfFilterCustomerTypes[0] === ct,
+            className: `pf-filter-pill ${this.pfFilterCustomerTypes[0] === ct ? 'pf-filter-pill-active' : ''}`
         }));
     }
 
@@ -561,8 +623,13 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
         return Object.keys(this.productFamilyByRecordType || {}).sort().map(rt => ({
             label: rt,
             value: rt,
-            className: `pf-filter-pill ${this.pfFilterRecordTypes.includes(rt) ? 'pf-filter-pill-active' : ''}`
+            isSelected: this.pfFilterRecordTypes[0] === rt,
+            className: `pf-filter-pill ${this.pfFilterRecordTypes[0] === rt ? 'pf-filter-pill-active' : ''}`
         }));
+    }
+
+    get showProductFamilyGuide() {
+        return this.pfFilterCustomerTypes.length !== 1 || this.pfFilterRecordTypes.length !== 1;
     }
 
     get fonCustomerTypeFilterOptions() {
@@ -576,8 +643,8 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
     }
 
     get filteredGroupedProductFamilyOptions() {
-        if (!this.pfFilterCustomerTypes.length && !this.pfFilterRecordTypes.length) {
-            return this.groupedProductFamilyOptions;
+        if (this.showProductFamilyGuide) {
+            return [];
         }
         const result = [];
         for (const group of this.groupedProductFamilyOptions) {
@@ -729,8 +796,6 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
             ...this.editScoring,
             Product_Family__c: this.productFamilyOptions.filter(o => o.checked).map(o => o.value).join('; ')
         };
-        this.selectAllProductFamilies = this.productFamilyOptions.length > 0
-            && this.productFamilyOptions.every(o => o.checked);
         this._buildGroupedProductFamilies();
     }
 
@@ -876,6 +941,7 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
         this.editScoring = EMPTY_SCORING();
         this._loadOfferingOptions();
         this.isScoringModalOpen = true;
+        this._syncOfferingTypeAvailability();
     }
 
     handleNewScoringVersion(e) {
@@ -973,21 +1039,13 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
     }
 
     handleCustomerTypeFilter(e) {
-        const val = e.currentTarget.dataset.value;
-        if (this.pfFilterCustomerTypes.includes(val)) {
-            this.pfFilterCustomerTypes = this.pfFilterCustomerTypes.filter(v => v !== val);
-        } else {
-            this.pfFilterCustomerTypes = [...this.pfFilterCustomerTypes, val];
-        }
+        this.pfFilterCustomerTypes = [e.currentTarget.dataset.value];
+        this._clearProductFamilySelection();
     }
 
     handleRecordTypeFilterBadge(e) {
-        const val = e.currentTarget.dataset.value;
-        if (this.pfFilterRecordTypes.includes(val)) {
-            this.pfFilterRecordTypes = this.pfFilterRecordTypes.filter(v => v !== val);
-        } else {
-            this.pfFilterRecordTypes = [...this.pfFilterRecordTypes, val];
-        }
+        this.pfFilterRecordTypes = [e.currentTarget.dataset.value];
+        this._clearProductFamilySelection();
     }
 
     handleFonCustomerTypeFilter(e) {
@@ -999,13 +1057,6 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
         }
     }
 
-    handleSelectAllProductFamilies(e) {
-        const checked = e.target.checked;
-        this.selectAllProductFamilies = checked;
-        this.productFamilyOptions = this.productFamilyOptions.map(o => ({ ...o, checked }));
-        this._persistProductFamilySelection();
-    }
-
     handleSelectAllFamilyOfNeeds(e) {
         const checked = e.target.checked;
         this.selectAllFamilyOfNeeds = checked;
@@ -1015,10 +1066,7 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
 
     handleScoringProductFamilyToggle(e) {
         const value = e.target.dataset.value;
-        const checked = e.target.checked;
-        this.productFamilyOptions = this.productFamilyOptions.map(o =>
-            o.value === value ? { ...o, checked } : o
-        );
+        this.productFamilyOptions = this.productFamilyOptions.map(o => ({ ...o, checked: o.value === value }));
         this._persistProductFamilySelection();
     }
 

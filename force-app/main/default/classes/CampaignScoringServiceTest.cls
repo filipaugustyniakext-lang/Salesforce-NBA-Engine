@@ -333,4 +333,128 @@ private class CampaignScoringServiceTest {
         Campaign_Scoring_State__c state = [SELECT Name FROM Campaign_Scoring_State__c WHERE Product_Family_Dict__c = :longPf.Id LIMIT 1];
         System.assertEquals(80, state.Name.length());
     }
+
+    private static Marketing_Dictionary__c modelDefinitionFor(String name, String modelId, String productFamilyIds, Boolean active) {
+        Id campaignRt = Schema.SObjectType.Marketing_Dictionary__c
+            .getRecordTypeInfosByDeveloperName().get('Campaign').getRecordTypeId();
+        return new Marketing_Dictionary__c(
+            Name = name,
+            RecordTypeId = campaignRt,
+            Dictionary_Sub_Type__c = 'Scoring Model',
+            Is_Active__c = active,
+            Model_Id__c = modelId,
+            Offering_Type__c = 'Product Family',
+            Assigned_Topic_Dict__c = topic().Id,
+            Product_Family__c = productFamilyIds
+        );
+    }
+
+    @IsTest
+    static void onlyOneActiveModelCanCoverAProductFamilyAndTopic() {
+        modelDefinition(true);
+
+        Marketing_Dictionary__c second = modelDefinitionFor('Model B', '8', String.valueOf(pf('PF Test').Id), true);
+        String message;
+        try {
+            insert second;
+        } catch (DmlException e) {
+            message = e.getMessage();
+        }
+        System.assertNotEquals(null, message, 'A second active model on the same pair must be rejected');
+        System.assert(message.contains('Model "Model A"'), message);
+        System.assert(message.contains('already active'), message);
+
+        Marketing_Dictionary__c draft = modelDefinitionFor('Model B', '8', String.valueOf(pf('PF Test').Id), false);
+        insert draft;
+        draft.Is_Active__c = true;
+        String activationMessage;
+        try {
+            update draft;
+        } catch (DmlException e) {
+            activationMessage = e.getMessage();
+        }
+        System.assertNotEquals(null, activationMessage, 'Activating a draft must run the same check');
+        System.assert(activationMessage.contains('already active'), activationMessage);
+
+        Marketing_Dictionary__c otherPair = modelDefinitionFor('Model C', '9', String.valueOf(pf('PF Other').Id), true);
+        insert otherPair;
+        System.assertNotEquals(null, otherPair.Id, 'A different Product Family is fine');
+    }
+
+    @IsTest
+    static void aModelCoversExactlyOneProductFamily() {
+        Marketing_Dictionary__c model = modelDefinitionFor(
+            'Model A', '7', pf('PF Test').Id + '; ' + pf('PF Other').Id, false
+        );
+        String message;
+        try {
+            insert model;
+        } catch (DmlException e) {
+            message = e.getMessage();
+        }
+        System.assertNotEquals(null, message);
+        System.assert(message.contains('exactly one Product Family'), message);
+    }
+
+    @IsTest
+    static void deactivatingAModelMakesItsMlSourceInactive() {
+        aprioriCampaign(250, true);
+        Marketing_Dictionary__c model = modelDefinition(true);
+        modelSetting(model.Id, 2);
+
+        model.Is_Active__c = false;
+        update model;
+
+        Campaign_Scoring_State__c state = [
+            SELECT Apriori_Status__c, ML_Status__c, ML_Status_Description__c, ML_Score_Definition_Setting__c,
+                   Model_Definition_Id__c, Combined_Status__c, Scoring_Sources__c
+            FROM Campaign_Scoring_State__c
+            WHERE Product_Family_Dict__c = :pf('PF Test').Id
+        ];
+        System.assertEquals('Inactive', state.ML_Status__c);
+        System.assertEquals('Model definition is not active.', state.ML_Status_Description__c);
+        System.assertEquals(null, state.ML_Score_Definition_Setting__c);
+        System.assertEquals('7', state.Model_Definition_Id__c, 'Last values stay for reference');
+        System.assertEquals('Active', state.Apriori_Status__c, 'Apriori is not affected');
+        System.assertEquals('Active', state.Combined_Status__c);
+        System.assertEquals('APR + ML', state.Scoring_Sources__c);
+
+        List<Campaign_Scoring_History__c> history = [
+            SELECT Version_Number__c, End_Date_Time__c, Changed_Source__c, ML_Status__c, Apriori_Score__c, Base_Score_Column__c
+            FROM Campaign_Scoring_History__c
+            WHERE Product_Family_Dict__c = :pf('PF Test').Id
+            ORDER BY Version_Number__c
+        ];
+        System.assertEquals(3, history.size());
+        System.assertEquals('ML', history[2].Changed_Source__c);
+        System.assertEquals('Inactive', history[2].ML_Status__c);
+        System.assertEquals(250, history[2].Apriori_Score__c);
+        System.assertEquals('base__c', history[2].Base_Score_Column__c, 'ML setting detail is carried over');
+        System.assertEquals(null, history[2].End_Date_Time__c);
+        System.assertNotEquals(null, history[1].End_Date_Time__c);
+    }
+
+    @IsTest
+    static void changingTheProductFamilyMovesTheMlSourceToTheNewPair() {
+        Marketing_Dictionary__c model = modelDefinition(true);
+        modelSetting(model.Id, 2);
+
+        model.Product_Family__c = String.valueOf(pf('PF Other').Id);
+        update model;
+
+        Campaign_Scoring_State__c oldPair = [
+            SELECT ML_Status__c, ML_Status_Description__c FROM Campaign_Scoring_State__c
+            WHERE Product_Family_Dict__c = :pf('PF Test').Id
+        ];
+        System.assertEquals('Inactive', oldPair.ML_Status__c);
+        System.assertEquals('Pair no longer covered by this model definition.', oldPair.ML_Status_Description__c);
+
+        Campaign_Scoring_State__c newPair = [
+            SELECT ML_Status__c, Model_Definition__c, ML_Score_Definition_Setting__c FROM Campaign_Scoring_State__c
+            WHERE Product_Family_Dict__c = :pf('PF Other').Id
+        ];
+        System.assertEquals('Active', newPair.ML_Status__c);
+        System.assertEquals(model.Id, newPair.Model_Definition__c);
+        System.assertNotEquals(null, newPair.ML_Score_Definition_Setting__c);
+    }
 }

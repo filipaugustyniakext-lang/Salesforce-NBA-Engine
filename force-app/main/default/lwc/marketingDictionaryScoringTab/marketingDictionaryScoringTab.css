@@ -424,3 +424,8 @@
     align-items: center;
     min-width: 0;
 }
+
+.offering-type-disabled {
+    opacity: 0.45;
+    pointer-events: none;
+}

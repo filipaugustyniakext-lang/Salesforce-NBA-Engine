@@ -956,6 +956,9 @@ public with sharing class MarketingDictionaryManagerController {
                 record.Product_Family__c, 'Product Family'
             );
             record.Family_of_Needs__c = null;
+            if (record.Product_Family__c.split(';').size() > 1) {
+                throw new AuraHandledException('A model definition covers exactly one Product Family.');
+            }
         } else if (record.Offering_Type__c == 'Family of Needs') {
             if (String.isBlank(record.Family_of_Needs__c)) {
                 throw new AuraHandledException('Select at least one Family of Needs.');
