@@ -190,7 +190,7 @@ private class CampaignScoringServiceTest {
         System.assertEquals(1, states.size(), 'APR and ML share one record per pair');
         Campaign_Scoring_State__c state = states[0];
         System.assertEquals('PF Test_Topic Test', state.Name);
-        System.assertEquals('APR + ML', state.Scoring_Sources__c);
+        System.assertEquals('APR, ML', state.Scoring_Sources__c);
         System.assertEquals(250, state.Apriori_Score__c, 'Apriori side is untouched by the ML publish');
         System.assertEquals('Active', state.Apriori_Status__c);
         System.assertEquals('Active', state.ML_Status__c);
@@ -436,7 +436,7 @@ private class CampaignScoringServiceTest {
         System.assertEquals('7', state.Model_Definition_Id__c, 'Last values stay for reference');
         System.assertEquals('Active', state.Apriori_Status__c, 'Apriori is not affected');
         System.assertEquals('Active', state.Combined_Status__c);
-        System.assertEquals('APR + ML', state.Scoring_Sources__c);
+        System.assertEquals('APR, ML', state.Scoring_Sources__c);
 
         List<Campaign_Scoring_History__c> history = [
             SELECT Version_Number__c, End_Date_Time__c, Changed_Source__c, ML_Status__c, Apriori_Score__c, Base_Score_Column__c
