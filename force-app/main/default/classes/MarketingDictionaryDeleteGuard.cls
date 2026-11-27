@@ -377,14 +377,14 @@ public with sharing class MarketingDictionaryDeleteGuard {
             'Campaign (Product Family)',
             dependencies
         );
-        for (Campaign_Scoring_Apriori_State__c state : [
+        for (Campaign_Scoring_State__c state : [
             SELECT Name
-            FROM Campaign_Scoring_Apriori_State__c
+            FROM Campaign_Scoring_State__c
             WHERE Product_Family_Dict__c = :recordId
             ORDER BY Name ASC
             LIMIT :MAX_DEPENDENCY_LABELS
         ]) {
-            addDependency(dependencies, 'Apriori scoring state', state);
+            addDependency(dependencies, 'Scoring state', state);
         }
         for (Offer_Attribute_Rule__c rule : [
             SELECT Id, Offer_Attribute__r.Name
@@ -562,23 +562,23 @@ public with sharing class MarketingDictionaryDeleteGuard {
         ]) {
             addDependency(dependencies, 'Scoring Model', model);
         }
-        for (Campaign_Scoring_Apriori_State__c state : [
+        for (Campaign_Scoring_State__c state : [
             SELECT Name
-            FROM Campaign_Scoring_Apriori_State__c
+            FROM Campaign_Scoring_State__c
             WHERE Topic_Dict__c = :recordId
             ORDER BY Name ASC
             LIMIT :MAX_DEPENDENCY_LABELS
         ]) {
-            addDependency(dependencies, 'Apriori scoring state', state);
+            addDependency(dependencies, 'Scoring state', state);
         }
-        for (Campaign_Scoring_Apriori_History__c hist : [
+        for (Campaign_Scoring_History__c hist : [
             SELECT Name
-            FROM Campaign_Scoring_Apriori_History__c
+            FROM Campaign_Scoring_History__c
             WHERE Topic_Dict__c = :recordId
             ORDER BY Name ASC
             LIMIT :MAX_DEPENDENCY_LABELS
         ]) {
-            addDependency(dependencies, 'Apriori scoring history', hist);
+            addDependency(dependencies, 'Scoring history', hist);
         }
         collectCopyTopicTextReferences(recordId, dependencies);
     }

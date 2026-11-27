@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Scoring_Key__c</fullName>
+    <externalId>true</externalId>
+    <description>Scoring Type, Product Family Id and Topic Id joined. One row per key; maintained by trigger.</description>
+    <label>Scoring Key</label>
+    <length>80</length>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>true</unique>
+</CustomField>

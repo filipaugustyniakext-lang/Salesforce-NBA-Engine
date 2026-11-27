@@ -20,8 +20,6 @@
         <members>CampaignPathControllerTest</members>
         <members>CampaignRuntimeCatalogService</members>
         <members>CampaignRuntimeCatalogServiceTest</members>
-        <members>CampaignScoringAprioriController</members>
-        <members>CampaignScoringAprioriControllerTest</members>
         <members>CcMirrorMetadataSync</members>
         <members>CcMirrorObjectMap</members>
         <members>CcMirrorRest</members>
@@ -135,6 +133,11 @@
         <members>UnifiedMessagingBlockoutSync</members>
         <members>WeatherService</members>
         <members>WeatherServiceTest</members>
+        <members>CampaignScoringService</members>
+        <members>CampaignScoringServiceTest</members>
+        <members>DeleteAllScoringStatesController</members>
+        <members>DeleteAllScoringStatesControllerTest</members>
+        <members>ScoringDataDeleteBatch</members>
         <name>ApexClass</name>
     </types>
     <types>
@@ -143,6 +146,7 @@
         <members>MassUpdateFamilyOfNeeds</members>
         <members>MassUpdateProductFamily</members>
         <members>MassUpdateProductType</members>
+        <members>DeleteAllScoringStates</members>
         <name>ApexPage</name>
     </types>
     <types>
@@ -153,6 +157,9 @@
         <members>ChannelTemplateFileVersionTrigger</members>
         <members>ChannelTemplateTrigger</members>
         <members>Product2DictSync</members>
+        <members>CampaignScoringPublishTrigger</members>
+        <members>ScoringModelSettingScoringTrigger</members>
+        <members>ScoringModelDefinitionScoringTrigger</members>
         <name>ApexTrigger</name>
     </types>
     <types>
@@ -192,8 +199,8 @@
         <members>Campaign_Copy_Variant__c</members>
         <members>Campaign_Offer__c</members>
         <members>Campaign_Path_Allocation__c</members>
-        <members>Campaign_Scoring_Apriori_History__c</members>
-        <members>Campaign_Scoring_Apriori_State__c</members>
+        <members>Campaign_Scoring_History__c</members>
+        <members>Campaign_Scoring_State__c</members>
         <members>Campaign_Tier__c</members>
         <members>Channel_Banner_Intent_Target__c</members>
         <members>Channel_Banner_Intent__c</members>
@@ -238,8 +245,8 @@
         <members>CC_Message_Metadata__c</members>
         <members>CC_Message_VersionHistoryLog__c</members>
         <members>CC_Staging_Changes__c</members>
-        <members>Campaign_Scoring_Apriori_History__c</members>
-        <members>Campaign_Scoring_Apriori_State__c</members>
+        <members>Campaign_Scoring_History__c</members>
+        <members>Campaign_Scoring_State__c</members>
         <members>Copy_Cockpit_Editor</members>
         <members>D360_NRT_Sync_State__c</members>
         <members>Exclusion_Reason_Dictionary__c</members>
@@ -343,8 +350,8 @@
         <members>Campaign_Copy_Variant__c-Campaign Copy Variant Layout</members>
         <members>Campaign_Offer__c-Campaign Offer Layout</members>
         <members>Campaign_Path_Allocation__c-Campaign Path Allocation Layout</members>
-        <members>Campaign_Scoring_Apriori_History__c-Campaign Scoring Apriori History Layout</members>
-        <members>Campaign_Scoring_Apriori_State__c-Campaign Scoring Apriori State Layout</members>
+        <members>Campaign_Scoring_History__c-Campaign Scoring History Layout</members>
+        <members>Campaign_Scoring_State__c-Campaign Scoring State Layout</members>
         <members>Campaign_Tier__c-Campaign Tier Layout</members>
         <members>Channel_Banner_Intent_Target__c-Channel Banner Intent Target Layout</members>
         <members>Channel_Banner_Intent__c-Channel Banner Intent Layout</members>
@@ -429,6 +436,7 @@
         <members>rangeSlider</members>
         <members>topicManager</members>
         <members>updateCustomerType</members>
+        <members>campaignAprioriCopy</members>
         <name>LightningComponentBundle</name>
     </types>
     <types>

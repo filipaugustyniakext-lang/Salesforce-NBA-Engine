@@ -1,0 +1,21 @@
+<apex:page standardController="Campaign_Scoring_State__c" recordSetVar="states" extensions="DeleteAllScoringStatesController" lightningStylesheets="true">
+    <apex:form >
+        <apex:pageBlock title="Delete All Scoring Records">
+            <apex:pageMessages />
+
+            <apex:pageBlockSection columns="1" rendered="{!canDelete}">
+                <apex:outputText value="This permanently deletes ALL {!stateCount} Campaign Scoring State record(s) and ALL {!historyCount} Campaign Scoring History record(s), not only the ones shown in this list view. This cannot be undone."
+                                 style="color:red; font-weight:bold;"/>
+            </apex:pageBlockSection>
+            <apex:pageBlockSection columns="1" rendered="{!NOT(canDelete)}">
+                <apex:outputText value="You do not have permission to delete Campaign Scoring State and History records."
+                                 style="color:red; font-weight:bold;"/>
+            </apex:pageBlockSection>
+
+            <apex:pageBlockButtons location="bottom">
+                <apex:commandButton value="Delete All" action="{!deleteAll}" rendered="{!canDelete}" styleClass="slds-button slds-button_destructive" />
+                <apex:commandButton value="Cancel" action="{!cancel}" immediate="true" />
+            </apex:pageBlockButtons>
+        </apex:pageBlock>
+    </apex:form>
+</apex:page>

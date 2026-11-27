@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Scoring_State__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description>Current scoring state row this version belongs to.</description>
+    <label>Scoring State</label>
+    <referenceTo>Campaign_Scoring_State__c</referenceTo>
+    <relationshipLabel>Campaign Scoring Histories</relationshipLabel>
+    <relationshipName>Campaign_Scoring_Histories</relationshipName>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>
