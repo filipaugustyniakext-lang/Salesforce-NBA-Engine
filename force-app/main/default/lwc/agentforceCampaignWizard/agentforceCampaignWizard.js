@@ -24,7 +24,8 @@ import saveCampaignCopyVariants from '@salesforce/apex/MarketingDictionaryContro
 import getOfferSummaries from '@salesforce/apex/MarketingDictionaryController.getOfferSummaries';
 import getPublishedVariantsForWizard from '@salesforce/apex/CopyCockpitController.getPublishedVariantsForWizard';
 import getAprioriContext from '@salesforce/apex/CampaignScoringService.getAprioriContext';
-import { aprioriChangeAlertMessage, aprioriSharedStateHint } from 'c/campaignAprioriCopy';
+import checkAprioriBeforePublish from '@salesforce/apex/CampaignScoringService.checkAprioriBeforePublish';
+import { aprioriChangeAlertMessage, aprioriSharedStateHint, aprioriOverwriteMessage } from 'c/campaignAprioriCopy';
 import { parseFullName } from 'c/copyMessageNaming';
 import getCampaignTiers from '@salesforce/apex/MarketingDictionaryController.getCampaignTiers';
 import getCampaignTypes from '@salesforce/apex/MarketingDictionaryController.getCampaignTypes';
@@ -498,6 +499,11 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     @track aprioriHasMixedSharedScores = false;
     @track aprioriChangeConfirmed = false;
     @track showAprioriChangePopover = false;
+    @track aprioriSourceCampaignName = '';
+    @track aprioriLiveSince = null;
+    @track showAprioriOverwriteModal = false;
+    @track aprioriOverwriteCheck = null;
+    _ownAprioriPairKey = '';
     @track pendingAprioriScore = null;
     aprioriSliderResetKey = 0;
     _aprioriScoreCommitTimer = null;
@@ -1321,9 +1327,17 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             this.scoringConfigurationMethod = 'apriori';
             const score = campaign.Overall_Score__c;
             this.aprioriScore = this.isValidScoreValue(score) ? Number(score) : 500;
+            // The campaign's own saved score must survive the live-score lookup for the pair it was saved with.
+            this._ownAprioriPairKey = this.isValidScoreValue(score)
+                ? this._aprioriPairKey(
+                    campaign.Topic_Dict__c,
+                    (campaign.Product_Family_Ids__c || '').split(';').map(v => v.trim()).filter(Boolean)
+                )
+                : '';
         } else {
             this.scoringConfigurationMethod = 'model';
             this.aprioriScore = 500;
+            this._ownAprioriPairKey = '';
         }
 
         if (campaign.Assigned_Channels__c) {
@@ -2805,13 +2819,19 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
                 this.aprioriHasMixedSharedScores = !!result?.hasMixedScores;
                 this.aprioriHasSharedState = !!result?.hasExistingState;
                 this.aprioriChangeConfirmed = false;
+                this.aprioriSourceCampaignName = result?.sourceCampaignName || '';
+                this.aprioriLiveSince = result?.liveSince ?? null;
                 if (this.aprioriHasMixedSharedScores) {
                     this.aprioriBaselineScore = null;
                     return;
                 }
                 if (this.aprioriHasSharedState && result.suggestedScore !== null && result.suggestedScore !== undefined) {
                     this.aprioriBaselineScore = Number(result.suggestedScore);
-                    this.aprioriScore = this.aprioriBaselineScore;
+                    const keepOwnScore = !!this._ownAprioriPairKey
+                        && this._ownAprioriPairKey === this._aprioriPairKey(this.selectedTopicId, this.aprioriProductFamilyIds);
+                    if (!keepOwnScore) {
+                        this.aprioriScore = this.aprioriBaselineScore;
+                    }
                 } else {
                     this.aprioriBaselineScore = null;
                 }
@@ -2822,7 +2842,13 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             });
     }
 
+    _aprioriPairKey(topicId, productFamilyIds) {
+        return `${topicId || ''}|${[...(productFamilyIds || [])].sort().join(',')}`;
+    }
+
     _resetAprioriSharedStateFlags(resetScore) {
+        this.aprioriSourceCampaignName = '';
+        this.aprioriLiveSince = null;
         this.aprioriHasSharedState = false;
         this.aprioriHasMixedSharedScores = false;
         this.aprioriBaselineScore = null;
@@ -3295,7 +3321,12 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
     }
 
     get aprioriSummaryChangeAlertMessage() {
-        return aprioriChangeAlertMessage(this.aprioriBaselineScore, this.aprioriScore);
+        return aprioriChangeAlertMessage(
+            this.aprioriBaselineScore,
+            this.aprioriScore,
+            this.aprioriSourceCampaignName,
+            this.aprioriLiveSince
+        );
     }
 
     get aprioriSharedStateHint() {
@@ -3505,12 +3536,6 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
             }
             if (this.aprioriHasMixedSharedScores) {
                 issues.push(this._issue('apriori-mixed', 'Selected product families have different shared apriori scores. Align states before continuing.'));
-            }
-            if (this.aprioriHasSharedState
-                && this.aprioriBaselineScore !== null
-                && this.aprioriScore !== this.aprioriBaselineScore
-                && !this.aprioriChangeConfirmed) {
-                issues.push(this._issue('apriori-confirm', 'Confirm the shared apriori score change in the popover before activating.'));
             }
             if (!this.isValidScoreValue(this.aprioriScore)) {
                 issues.push(this._issue('apriori-score', 'Set an apriori score between 0 and 1000.'));
@@ -4493,8 +4518,66 @@ export default class AgentforceCampaignWizard extends NavigationMixin(LightningE
 
     handleActivate() {
         if (!this.isActivationReady || isActivationBlockedByClone(this.isCloneMode)) return;
+        if (this.isAprioriScoreConfiguration && this.aprioriContextReady && this.isValidScoreValue(this.aprioriScore)) {
+            this._checkAprioriBeforeActivation();
+            return;
+        }
+        this._activateCampaign();
+    }
+
+    _activateCampaign() {
         this.isLoading = true;
         this.executeSubCampaignSave({ activate: true, closeOnSuccess: true });
+    }
+
+    /**
+     * Activating publishes the apriori score. Ask the server for the score that is live right now (it may have changed
+     * since the wizard opened, or since this draft was saved) and require a confirmation when it differs.
+     */
+    _checkAprioriBeforeActivation() {
+        this.isLoading = true;
+        checkAprioriBeforePublish({
+            topicId: this.selectedTopicId,
+            productFamilyIds: this.aprioriProductFamilyIds,
+            score: this.aprioriScore
+        })
+            .then(check => {
+                const confirmedAgainstLive = this.aprioriChangeConfirmed && check?.liveScore === this.aprioriBaselineScore;
+                if (check?.differs && !confirmedAgainstLive) {
+                    this.isLoading = false;
+                    this.aprioriOverwriteCheck = check;
+                    this.showAprioriOverwriteModal = true;
+                    return;
+                }
+                this._activateCampaign();
+            })
+            .catch(err => {
+                this.isLoading = false;
+                this.showErrorToast(err);
+            });
+    }
+
+    handleAprioriOverwriteConfirm() {
+        this.showAprioriOverwriteModal = false;
+        this.aprioriOverwriteCheck = null;
+        this._activateCampaign();
+    }
+
+    handleAprioriOverwriteCancel() {
+        this.showAprioriOverwriteModal = false;
+        this.aprioriOverwriteCheck = null;
+    }
+
+    get aprioriOverwriteText() {
+        const check = this.aprioriOverwriteCheck;
+        if (!check) return '';
+        return aprioriOverwriteMessage({
+            hasMixedScores: check.hasMixedScores,
+            liveScore: check.liveScore,
+            newScore: this.aprioriScore,
+            sourceCampaignName: check.sourceCampaignName,
+            liveSince: check.liveSince
+        });
     }
 
     executeSubCampaignSave({ activate = false, closeOnSuccess = true } = {}) {
