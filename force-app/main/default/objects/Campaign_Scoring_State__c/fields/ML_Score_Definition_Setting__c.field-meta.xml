@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ML_Score_Definition_Setting__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description>Currently live Model Setting for this ML pair. Empty when no setting is live or for APR rows.</description>
+    <label>ML Score Definition Setting Id</label>
+    <referenceTo>Scoring_Model_Setting__c</referenceTo>
+    <relationshipLabel>Campaign Scoring States</relationshipLabel>
+    <relationshipName>Campaign_Scoring_States_Setting</relationshipName>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

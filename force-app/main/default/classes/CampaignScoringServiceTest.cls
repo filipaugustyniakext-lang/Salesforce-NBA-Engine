@@ -100,7 +100,7 @@ private class CampaignScoringServiceTest {
 
         List<Campaign_Scoring_State__c> states = [
             SELECT Name, Scoring_Type__c, Score_Id__c, Apriori_Score__c, Activated_By__c,
-                   Last_Modified_By_Campaign__c, Last_Modified_By_Campaign_Name__c, Scoring_Key__c
+                   Last_Modified_By_Campaign__c, Last_Modified_By_Campaign_Name__c, Scoring_Key__c, Status__c
             FROM Campaign_Scoring_State__c
             ORDER BY Name
         ];
@@ -113,14 +113,21 @@ private class CampaignScoringServiceTest {
         System.assertEquals('Apriori Source', states[0].Last_Modified_By_Campaign_Name__c);
         System.assertNotEquals(states[0].Score_Id__c, states[1].Score_Id__c, 'Different pairs get different Score IDs');
 
+        for (Campaign_Scoring_State__c state : states) {
+            System.assertEquals('Active', state.Status__c);
+        }
+
         List<Campaign_Scoring_History__c> history = [
-            SELECT Version_Number__c, End_Date_Time__c, Scoring_State__c FROM Campaign_Scoring_History__c
+            SELECT Name, Version_Number__c, End_Date_Time__c, Scoring_State__c, Status__c
+            FROM Campaign_Scoring_History__c
         ];
         System.assertEquals(2, history.size());
         for (Campaign_Scoring_History__c hist : history) {
             System.assertEquals(1, hist.Version_Number__c);
             System.assertEquals(null, hist.End_Date_Time__c);
             System.assertNotEquals(null, hist.Scoring_State__c);
+            System.assertEquals('Active', hist.Status__c);
+            System.assert(hist.Name.endsWith('_1'), hist.Name);
         }
     }
 
@@ -132,12 +139,14 @@ private class CampaignScoringServiceTest {
 
         aprioriCampaign(400, true);
         List<Campaign_Scoring_History__c> pfHistory = [
-            SELECT Version_Number__c, End_Date_Time__c, Apriori_Score__c
+            SELECT Name, Version_Number__c, End_Date_Time__c, Apriori_Score__c
             FROM Campaign_Scoring_History__c
             WHERE Product_Family_Dict__c = :pf('PF Test').Id
             ORDER BY Version_Number__c
         ];
         System.assertEquals(2, pfHistory.size());
+        System.assertEquals('APR_PF Test_Topic Test_1', pfHistory[0].Name);
+        System.assertEquals('APR_PF Test_Topic Test_2', pfHistory[1].Name);
         System.assertEquals(250, pfHistory[0].Apriori_Score__c);
         System.assertNotEquals(null, pfHistory[0].End_Date_Time__c);
         System.assertEquals(400, pfHistory[1].Apriori_Score__c);
@@ -162,11 +171,12 @@ private class CampaignScoringServiceTest {
     static void modelSettingOfActiveModelPublishesMlStateSharingScoreId() {
         aprioriCampaign(250, true);
         Marketing_Dictionary__c model = modelDefinition(true);
-        modelSetting(model.Id, 2);
+        Scoring_Model_Setting__c setting = modelSetting(model.Id, 2);
 
         List<Campaign_Scoring_State__c> states = [
             SELECT Scoring_Type__c, Score_Id__c, Model_Definition__c, Model_Definition_Id__c,
-                   Data_Source_Object_API_Name__c, Source_Model_Id__c, Model_Source__c, Apriori_Score__c, Name
+                   Data_Source_Object_API_Name__c, Source_Model_Id__c, Model_Source__c, Apriori_Score__c, Name,
+                   ML_Score_Definition_Setting__c, Status__c
             FROM Campaign_Scoring_State__c
             WHERE Product_Family_Dict__c = :pf('PF Test').Id
             ORDER BY Scoring_Type__c
@@ -182,6 +192,9 @@ private class CampaignScoringServiceTest {
         System.assertEquals('GCP', states[1].Model_Source__c);
         System.assertEquals(null, states[1].Apriori_Score__c);
         System.assertEquals('ML_PF Test_Topic Test', states[1].Name);
+        System.assertEquals(setting.Id, states[1].ML_Score_Definition_Setting__c);
+        System.assertEquals('Active', states[1].Status__c);
+        System.assertEquals(null, states[0].ML_Score_Definition_Setting__c);
     }
 
     @IsTest
@@ -217,5 +230,59 @@ private class CampaignScoringServiceTest {
         update model;
         System.assertEquals(1, [SELECT COUNT() FROM Campaign_Scoring_State__c WHERE Scoring_Type__c = 'ML']);
         System.assertEquals(1, [SELECT COUNT() FROM Campaign_Scoring_History__c WHERE Scoring_Type__c = 'ML']);
+    }
+
+    @IsTest
+    static void manualDeleteOfStateAndHistoryIsBlocked() {
+        aprioriCampaign(250, true);
+        Campaign_Scoring_State__c state = [SELECT Id FROM Campaign_Scoring_State__c LIMIT 1];
+        Campaign_Scoring_History__c hist = [SELECT Id FROM Campaign_Scoring_History__c LIMIT 1];
+
+        String stateMessage;
+        try {
+            delete state;
+        } catch (DmlException e) {
+            stateMessage = e.getMessage();
+        }
+        System.assertNotEquals(null, stateMessage, 'Manual delete of a State row must be blocked');
+        System.assert(stateMessage.contains('Delete All Scoring Records'), stateMessage);
+
+        String histMessage;
+        try {
+            delete hist;
+        } catch (DmlException e) {
+            histMessage = e.getMessage();
+        }
+        System.assertNotEquals(null, histMessage, 'Manual delete of a History row must be blocked');
+
+        System.assertEquals(2, [SELECT COUNT() FROM Campaign_Scoring_State__c]);
+        System.assertEquals(2, [SELECT COUNT() FROM Campaign_Scoring_History__c]);
+    }
+
+    @IsTest
+    static void historyNameKeepsVersionWhenBaseNameIsLong() {
+        Id productRt = Schema.SObjectType.Marketing_Dictionary__c
+            .getRecordTypeInfosByDeveloperName().get('Product').getRecordTypeId();
+        Marketing_Dictionary__c longPf = new Marketing_Dictionary__c(
+            Name = 'Long' + 'x'.repeat(76),
+            RecordTypeId = productRt,
+            Dictionary_Sub_Type__c = 'Product Family',
+            Is_Active__c = true
+        );
+        insert longPf;
+        Campaign camp = new Campaign(
+            Name = 'Long Name Source',
+            Status = 'Active',
+            IsActive = true,
+            Scoring_Method__c = 'A-priori',
+            Overall_Score__c = 300,
+            Topic_Dict__c = topic().Id,
+            Product_Family_Ids__c = longPf.Id
+        );
+        insert camp;
+
+        Campaign_Scoring_History__c hist = [SELECT Name FROM Campaign_Scoring_History__c WHERE Product_Family_Dict__c = :longPf.Id LIMIT 1];
+        System.assertEquals(80, hist.Name.length());
+        System.assert(hist.Name.endsWith('_1'), hist.Name);
     }
 }

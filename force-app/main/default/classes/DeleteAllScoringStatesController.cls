@@ -38,8 +38,13 @@ public with sharing class DeleteAllScoringStatesController {
         Integer historyCount = getHistoryCount();
         try {
             if (stateCount + historyCount <= MAX_SYNC_ROWS) {
-                delete [SELECT Id FROM Campaign_Scoring_History__c];
-                delete [SELECT Id FROM Campaign_Scoring_State__c];
+                CampaignScoringService.maintenanceDeleteInProgress = true;
+                try {
+                    delete [SELECT Id FROM Campaign_Scoring_History__c];
+                    delete [SELECT Id FROM Campaign_Scoring_State__c];
+                } finally {
+                    CampaignScoringService.maintenanceDeleteInProgress = false;
+                }
             } else {
                 Database.executeBatch(new ScoringDataDeleteBatch('Campaign_Scoring_History__c'), 2000);
             }
