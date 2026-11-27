@@ -17,7 +17,12 @@ public with sharing class ScoringDataDeleteBatch implements Database.Batchable<S
     }
 
     public void execute(Database.BatchableContext context, List<SObject> scope) {
-        delete scope;
+        CampaignScoringService.maintenanceDeleteInProgress = true;
+        try {
+            delete scope;
+        } finally {
+            CampaignScoringService.maintenanceDeleteInProgress = false;
+        }
     }
 
     public void finish(Database.BatchableContext context) {

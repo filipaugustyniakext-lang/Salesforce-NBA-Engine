@@ -13,6 +13,14 @@ public with sharing class CampaignScoringService {
     private static final Decimal MIN_SCORE = 0;
     private static final Decimal MAX_SCORE = 1000;
     private static final Integer NAME_MAX_LENGTH = 80;
+    public static final String STATUS_ACTIVE = 'Active';
+    public static final String STATUS_INACTIVE = 'Inactive';
+    private static final String MANUAL_DELETE_MESSAGE =
+        'Campaign Scoring State and History rows are maintained by the system and cannot be deleted one by one. '
+        + 'Use the Delete All Scoring Records button to remove them.';
+
+    /** Set only by the bulk delete paths (Delete All Scoring Records). Manual deletes are blocked otherwise. */
+    public static Boolean maintenanceDeleteInProgress = false;
 
     public class AprioriContextResult {
         @AuraEnabled public Decimal suggestedScore;
@@ -295,6 +303,7 @@ public with sharing class CampaignScoringService {
             Decimal version = lastVersionByKey.containsKey(key) ? lastVersionByKey.get(key) + 1 : 1;
             Campaign_Scoring_History__c hist = new Campaign_Scoring_History__c();
             fillSnapshot(hist, input, (Decimal) state.Score_Id__c, dictionaryNames);
+            hist.Name = buildHistoryName(input, dictionaryNames, version);
             hist.Scoring_State__c = state.Id;
             hist.Version_Number__c = version;
             hist.Start_Date_Time__c = now;
@@ -342,6 +351,9 @@ public with sharing class CampaignScoringService {
         target.put('Data_Source_Object_API_Name__c', isApriori ? null : input.setting.Data360_DMO__c);
         target.put('Source_Model_Id__c', isApriori ? null : input.setting.Source_Model_Id_Column__c);
         target.put('Model_Source__c', isApriori ? null : input.setting.Model_Source__c);
+        target.put('ML_Score_Definition_Setting__c', isApriori ? null : input.setting.Id);
+        target.put('Status__c', STATUS_ACTIVE);
+        target.put('Status_Description__c', null);
     }
 
     private static Boolean matchesSnapshot(Campaign_Scoring_History__c hist, ScoreInput input) {
@@ -403,6 +415,25 @@ public with sharing class CampaignScoringService {
         AggregateResult agg = [SELECT MAX(Score_Id__c) m FROM Campaign_Scoring_State__c];
         Decimal maxValue = (Decimal) agg.get('m');
         return maxValue == null ? 0 : maxValue;
+    }
+
+    /** The version suffix is always kept; the base name is shortened to make room for it. */
+    @TestVisible
+    private static String buildHistoryName(ScoreInput input, Map<Id, String> names, Decimal version) {
+        String suffix = '_' + String.valueOf(version.intValue());
+        String base = buildScoringName(input, names);
+        Integer room = NAME_MAX_LENGTH - suffix.length();
+        return (base.length() > room ? base.substring(0, room) : base) + suffix;
+    }
+
+    /** Called from the before-delete triggers on State and History. */
+    public static void blockManualDelete(List<SObject> rows) {
+        if (maintenanceDeleteInProgress) {
+            return;
+        }
+        for (SObject row : rows) {
+            row.addError(MANUAL_DELETE_MESSAGE);
+        }
     }
 
     @TestVisible
