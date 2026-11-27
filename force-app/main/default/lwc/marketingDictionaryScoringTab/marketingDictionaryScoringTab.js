@@ -23,6 +23,8 @@ import getData360DmoFields from '@salesforce/apex/MarketingDictionaryManagerCont
 import getScoringModelSettings from '@salesforce/apex/MarketingDictionaryManagerController.getScoringModelSettings';
 import saveScoringModelSetting from '@salesforce/apex/MarketingDictionaryManagerController.saveScoringModelSetting';
 import deleteScoringModelSetting from '@salesforce/apex/MarketingDictionaryManagerController.deleteScoringModelSetting';
+import activateScoringModelSetting from '@salesforce/apex/MarketingDictionaryManagerController.activateScoringModelSetting';
+import deactivateScoringModelSetting from '@salesforce/apex/MarketingDictionaryManagerController.deactivateScoringModelSetting';
 
 const EMPTY_MODEL_GROUP = () => ({ Name: '', Dictionary_Sub_Type__c: 'Scoring Model Group' });
 const EMPTY_SCORING = () => ({
@@ -1242,8 +1244,11 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
         ];
     }
 
+    /** Only Active definitions can be configured; the definition of the setting being edited is always listed. */
     get modelDefinitionOptions() {
+        const selectedId = this.editSetting?.Scoring_Model__c;
         return this.allScorings
+            .filter(r => r.Is_Active__c === true || r.Id === selectedId)
             .slice()
             .sort((a, b) => (a.Name || '').localeCompare(b.Name || ''))
             .map(r => ({
@@ -1283,13 +1288,56 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
     }
 
     get modelSettingRows() {
-        return (this.modelSettings || []).map(row => ({
+        return (this.modelSettings || []).map(row => {
+            const status = row.Status__c || 'Draft';
+            return {
             ...row,
+            statusLabel: status,
+            statusBadgeClass: status === 'Active'
+                ? 'slds-badge cd-badge-active'
+                : (status === 'Scheduled' ? 'slds-badge slds-theme_warning' : 'slds-badge slds-badge_lightest'),
+            canEdit: status !== 'Historized',
+            canActivate: status === 'Draft' || status === 'Scheduled',
+            canDeactivate: status === 'Active' || status === 'Scheduled',
+            canDelete: status !== 'Active',
             modelName: row.Scoring_Model__r?.Name || row.Name || '',
             modelId: row.Scoring_Model__r?.Model_Id__c || '',
             fromDisplay: this._formatSettingDate(row.Model_From_Date__c),
             toDisplay: this._formatSettingDate(row.Model_To_Date__c)
-        }));
+            };
+        });
+    }
+
+    get saveAndActivateLabel() {
+        const from = this.editSetting?.Model_From_Date__c;
+        return from && from > this._todayIso() ? 'Save and schedule' : 'Save and activate';
+    }
+
+    _todayIso() {
+        const now = new Date();
+        const pad = n => String(n).padStart(2, '0');
+        return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    }
+
+    async handleActivateModelSetting(e) {
+        await this._runSettingAction(activateScoringModelSetting, e.currentTarget.dataset.id, 'Model setting updated.');
+    }
+
+    async handleDeactivateModelSetting(e) {
+        await this._runSettingAction(deactivateScoringModelSetting, e.currentTarget.dataset.id, 'Model setting deactivated.');
+    }
+
+    async _runSettingAction(action, recordId, successMessage) {
+        this.isSaving = true;
+        try {
+            await action({ recordId });
+            this._showToast('Success', successMessage, 'success');
+            await refreshApex(this._wiredSettingsResult);
+        } catch (err) {
+            this._showToast('Error', err.body?.message || 'Action failed.', 'error');
+        } finally {
+            this.isSaving = false;
+        }
     }
 
     handleNewModelSetting() {
@@ -1318,7 +1366,8 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
             Calibrated_Score_Formula_Mode__c: row.Calibrated_Score_Formula_Mode__c || 'AsIs',
             Calibrated_Score_Factor__c: row.Calibrated_Score_Factor__c,
             Model_From_Date__c: row.Model_From_Date__c,
-            Model_To_Date__c: row.Model_To_Date__c
+            Model_To_Date__c: row.Model_To_Date__c,
+            Status__c: row.Status__c || 'Draft'
         };
         this.dmoColumnError = '';
         this.dmoColumnStatus = '';
@@ -1400,7 +1449,15 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
         this.editSetting = { ...this.editSetting, [field]: Number.isFinite(num) ? num : null };
     }
 
-    async handleSaveModelSetting() {
+    handleSaveModelSetting() {
+        return this._saveModelSetting(false);
+    }
+
+    handleSaveAndActivateModelSetting() {
+        return this._saveModelSetting(true);
+    }
+
+    async _saveModelSetting(activateNow) {
         const s = this.editSetting || {};
         const missing = [];
         if (!s.Data360_DMO__c) missing.push('Data360 DMO API name');
@@ -1445,9 +1502,13 @@ export default class MarketingDictionaryScoringTab extends LightningElement {
                     Calibrated_Score_Factor__c: this._formulaNeedsFactor(s.Calibrated_Score_Formula_Mode__c) ? s.Calibrated_Score_Factor__c : null,
                     Model_From_Date__c: s.Model_From_Date__c,
                     Model_To_Date__c: s.Model_To_Date__c
-                }
+                },
+                activateNow
             });
-            this._showToast('Success', 'Model setting saved.', 'success');
+            const scheduled = activateNow && s.Model_From_Date__c > this._todayIso();
+            this._showToast('Success', activateNow
+                ? (scheduled ? 'Model setting saved and scheduled.' : 'Model setting saved and activated.')
+                : 'Model setting saved.', 'success');
             this.isConfigureModalOpen = false;
             await refreshApex(this._wiredSettingsResult);
         } catch (err) {

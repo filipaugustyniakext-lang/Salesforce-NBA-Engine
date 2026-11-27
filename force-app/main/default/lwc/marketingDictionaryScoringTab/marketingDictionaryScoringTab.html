@@ -193,6 +193,7 @@
                                     <tr class="slds-line-height_reset">
                                         <th scope="col">Model</th>
                                         <th scope="col">Model ID</th>
+                                        <th scope="col">Status</th>
                                         <th scope="col">Data360 DMO</th>
                                         <th scope="col">Source</th>
                                         <th scope="col">Source Model ID</th>
@@ -208,6 +209,7 @@
                                         <tr key={row.Id}>
                                             <td><span class="slds-truncate" title={row.modelName}>{row.modelName}</span></td>
                                             <td><code class="scoring-model-id" title={row.modelId}>{row.modelId}</code></td>
+                                            <td><span class={row.statusBadgeClass}>{row.statusLabel}</span></td>
                                             <td><span class="slds-truncate" title={row.Data360_DMO__c}>{row.Data360_DMO__c}</span></td>
                                             <td>{row.Model_Source__c}</td>
                                             <td><span class="slds-truncate" title={row.Source_Model_Id_Column__c}>{row.Source_Model_Id_Column__c}</span></td>
@@ -217,14 +219,30 @@
                                             <td>{row.toDisplay}</td>
                                             <td>
                                                 <div class="scoring-actions">
-                                                    <lightning-button-icon icon-name="utility:edit" variant="border-filled"
-                                                        size="x-small" alternative-text="Edit" title="Edit"
-                                                        data-id={row.Id} onclick={handleEditModelSetting}>
-                                                    </lightning-button-icon>
-                                                    <lightning-button-icon icon-name="utility:delete" variant="border-filled"
-                                                        size="x-small" alternative-text="Delete" title="Delete"
-                                                        data-id={row.Id} data-name={row.modelName} onclick={handleDeleteModelSetting}>
-                                                    </lightning-button-icon>
+                                                    <template lwc:if={row.canActivate}>
+                                                        <lightning-button-icon icon-name="utility:success" variant="border-filled"
+                                                            size="x-small" alternative-text="Activate" title="Activate"
+                                                            data-id={row.Id} onclick={handleActivateModelSetting}>
+                                                        </lightning-button-icon>
+                                                    </template>
+                                                    <template lwc:if={row.canDeactivate}>
+                                                        <lightning-button-icon icon-name="utility:ban" variant="border-filled"
+                                                            size="x-small" alternative-text="Deactivate" title="Deactivate"
+                                                            data-id={row.Id} onclick={handleDeactivateModelSetting}>
+                                                        </lightning-button-icon>
+                                                    </template>
+                                                    <template lwc:if={row.canEdit}>
+                                                        <lightning-button-icon icon-name="utility:edit" variant="border-filled"
+                                                            size="x-small" alternative-text="Edit" title="Edit"
+                                                            data-id={row.Id} onclick={handleEditModelSetting}>
+                                                        </lightning-button-icon>
+                                                    </template>
+                                                    <template lwc:if={row.canDelete}>
+                                                        <lightning-button-icon icon-name="utility:delete" variant="border-filled"
+                                                            size="x-small" alternative-text="Delete" title="Delete"
+                                                            data-id={row.Id} data-name={row.modelName} onclick={handleDeleteModelSetting}>
+                                                        </lightning-button-icon>
+                                                    </template>
                                                 </div>
                                             </td>
                                         </tr>
@@ -729,8 +747,11 @@
                 </div>
                 <div class="slds-modal__footer">
                     <lightning-button label="Cancel" onclick={closeConfigureModal}></lightning-button>
-                    <lightning-button label="Save" variant="brand" class="slds-m-left_x-small"
+                    <lightning-button label="Save" class="slds-m-left_x-small"
                         onclick={handleSaveModelSetting} disabled={isConfigureSaveDisabled}>
+                    </lightning-button>
+                    <lightning-button label={saveAndActivateLabel} variant="brand" class="slds-m-left_x-small"
+                        onclick={handleSaveAndActivateModelSetting} disabled={isConfigureSaveDisabled}>
                     </lightning-button>
                 </div>
             </div>
