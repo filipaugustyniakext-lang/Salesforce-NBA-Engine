@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
-    <fullName>Apriori_Score_Required_For_APR</fullName>
-    <active>true</active>
-    <description>APR rows need a score.</description>
-    <errorConditionFormula>AND(ISPICKVAL(Scoring_Type__c, 'APR'), ISBLANK(Apriori_Score__c))</errorConditionFormula>
-    <errorDisplayField>Apriori_Score__c</errorDisplayField>
-    <errorMessage>Apriori Score is required when Scoring Type is APR.</errorMessage>
-</ValidationRule>

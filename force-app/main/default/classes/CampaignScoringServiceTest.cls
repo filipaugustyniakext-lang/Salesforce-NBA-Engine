@@ -64,16 +64,16 @@ private class CampaignScoringServiceTest {
             Name = 'Model A',
             Scoring_Model__c = modelId,
             Model_Definition_Key__c = String.valueOf(modelId),
-            Base_Score_Formula__c = 'base__c * ' + factor,
-            Calibrated_Score_Formula__c = 'calibrated__c',
             Data360_DMO__c = 'Sample_ScoringModels__dlm',
             Source_Model_Id_Column__c = 'source_model_id__c',
             Model_Source__c = 'GCP',
             Base_Score_Column__c = 'base__c',
             Base_Score_Formula_Mode__c = 'Multiply',
             Base_Score_Factor__c = factor,
+            Base_Score_Formula__c = 'base__c * ' + factor,
             Calibrated_Base_Score_Column__c = 'calibrated__c',
             Calibrated_Score_Formula_Mode__c = 'AsIs',
+            Calibrated_Score_Formula__c = 'calibrated__c',
             Model_From_Date__c = Date.today(),
             Model_To_Date__c = Date.today().addDays(30)
         );
@@ -99,26 +99,27 @@ private class CampaignScoringServiceTest {
         update camp;
 
         List<Campaign_Scoring_State__c> states = [
-            SELECT Name, Scoring_Type__c, Score_Id__c, Apriori_Score__c, Activated_By__c,
-                   Last_Modified_By_Campaign__c, Last_Modified_By_Campaign_Name__c, Scoring_Key__c, Status__c
+            SELECT Name, Score_Id__c, Apriori_Score__c, Apriori_Status__c, Apriori_Live_Since__c,
+                   Apriori_Last_Modified_By__c, Last_Modified_By_Campaign__c, Last_Modified_By_Campaign_Name__c,
+                   Scoring_Key__c, ML_Status__c, Scoring_Sources__c, Combined_Status__c
             FROM Campaign_Scoring_State__c
             ORDER BY Name
         ];
         System.assertEquals(2, states.size());
-        System.assertEquals('APR_PF Other_Topic Test', states[0].Name);
-        System.assertEquals('APR', states[0].Scoring_Type__c);
+        System.assertEquals('PF Other_Topic Test', states[0].Name);
         System.assertEquals(250, states[0].Apriori_Score__c);
-        System.assertEquals(UserInfo.getUserId(), states[0].Activated_By__c);
+        System.assertEquals('Active', states[0].Apriori_Status__c);
+        System.assertNotEquals(null, states[0].Apriori_Live_Since__c);
+        System.assertEquals(UserInfo.getUserId(), states[0].Apriori_Last_Modified_By__c);
         System.assertEquals(camp.Id, states[0].Last_Modified_By_Campaign__c);
         System.assertEquals('Apriori Source', states[0].Last_Modified_By_Campaign_Name__c);
+        System.assertEquals(null, states[0].ML_Status__c);
+        System.assertEquals('APR', states[0].Scoring_Sources__c);
+        System.assertEquals('Active', states[0].Combined_Status__c);
         System.assertNotEquals(states[0].Score_Id__c, states[1].Score_Id__c, 'Different pairs get different Score IDs');
 
-        for (Campaign_Scoring_State__c state : states) {
-            System.assertEquals('Active', state.Status__c);
-        }
-
         List<Campaign_Scoring_History__c> history = [
-            SELECT Name, Version_Number__c, End_Date_Time__c, Scoring_State__c, Status__c
+            SELECT Name, Version_Number__c, End_Date_Time__c, Scoring_State__c, Changed_Source__c, Apriori_Status__c
             FROM Campaign_Scoring_History__c
         ];
         System.assertEquals(2, history.size());
@@ -126,7 +127,8 @@ private class CampaignScoringServiceTest {
             System.assertEquals(1, hist.Version_Number__c);
             System.assertEquals(null, hist.End_Date_Time__c);
             System.assertNotEquals(null, hist.Scoring_State__c);
-            System.assertEquals('Active', hist.Status__c);
+            System.assertEquals('Apriori', hist.Changed_Source__c);
+            System.assertEquals('Active', hist.Apriori_Status__c);
             System.assert(hist.Name.endsWith('_1'), hist.Name);
         }
     }
@@ -145,14 +147,13 @@ private class CampaignScoringServiceTest {
             ORDER BY Version_Number__c
         ];
         System.assertEquals(2, pfHistory.size());
-        System.assertEquals('APR_PF Test_Topic Test_1', pfHistory[0].Name);
-        System.assertEquals('APR_PF Test_Topic Test_2', pfHistory[1].Name);
+        System.assertEquals('PF Test_Topic Test_1', pfHistory[0].Name);
+        System.assertEquals('PF Test_Topic Test_2', pfHistory[1].Name);
         System.assertEquals(250, pfHistory[0].Apriori_Score__c);
         System.assertNotEquals(null, pfHistory[0].End_Date_Time__c);
         System.assertEquals(400, pfHistory[1].Apriori_Score__c);
         System.assertEquals(null, pfHistory[1].End_Date_Time__c);
-        System.assertEquals(2, pfHistory[1].Version_Number__c);
-        System.assertEquals(2, [SELECT COUNT() FROM Campaign_Scoring_State__c], 'One state per pair and type');
+        System.assertEquals(2, [SELECT COUNT() FROM Campaign_Scoring_State__c], 'One state per pair');
 
         CampaignScoringService.AprioriContextResult ctx = CampaignScoringService.getAprioriContext(
             topic().Id, new List<Id>{ pf('PF Test').Id, pf('PF Other').Id }
@@ -168,33 +169,78 @@ private class CampaignScoringServiceTest {
     }
 
     @IsTest
-    static void modelSettingOfActiveModelPublishesMlStateSharingScoreId() {
+    static void mlSourceJoinsTheSameRecordAsApriori() {
         aprioriCampaign(250, true);
         Marketing_Dictionary__c model = modelDefinition(true);
         Scoring_Model_Setting__c setting = modelSetting(model.Id, 2);
 
         List<Campaign_Scoring_State__c> states = [
-            SELECT Scoring_Type__c, Score_Id__c, Model_Definition__c, Model_Definition_Id__c,
-                   Data_Source_Object_API_Name__c, Source_Model_Id__c, Model_Source__c, Apriori_Score__c, Name,
-                   ML_Score_Definition_Setting__c, Status__c
+            SELECT Name, Score_Id__c, Apriori_Score__c, Apriori_Status__c, ML_Status__c, ML_Status_Description__c,
+                   ML_Live_Since__c, ML_Last_Modified_By__c, Model_Definition__c, Model_Definition_Id__c,
+                   Data_Source_Object_API_Name__c, Source_Model_Id__c, Model_Source__c,
+                   ML_Score_Definition_Setting__c, Scoring_Sources__c
             FROM Campaign_Scoring_State__c
             WHERE Product_Family_Dict__c = :pf('PF Test').Id
-            ORDER BY Scoring_Type__c
         ];
-        System.assertEquals(2, states.size(), 'APR and ML coexist for the same pair');
-        System.assertEquals('APR', states[0].Scoring_Type__c);
-        System.assertEquals('ML', states[1].Scoring_Type__c);
-        System.assertEquals(states[0].Score_Id__c, states[1].Score_Id__c);
-        System.assertEquals(model.Id, states[1].Model_Definition__c);
-        System.assertEquals('7', states[1].Model_Definition_Id__c);
-        System.assertEquals('Sample_ScoringModels__dlm', states[1].Data_Source_Object_API_Name__c);
-        System.assertEquals('source_model_id__c', states[1].Source_Model_Id__c);
-        System.assertEquals('GCP', states[1].Model_Source__c);
-        System.assertEquals(null, states[1].Apriori_Score__c);
-        System.assertEquals('ML_PF Test_Topic Test', states[1].Name);
-        System.assertEquals(setting.Id, states[1].ML_Score_Definition_Setting__c);
-        System.assertEquals('Active', states[1].Status__c);
-        System.assertEquals(null, states[0].ML_Score_Definition_Setting__c);
+        System.assertEquals(1, states.size(), 'APR and ML share one record per pair');
+        Campaign_Scoring_State__c state = states[0];
+        System.assertEquals('PF Test_Topic Test', state.Name);
+        System.assertEquals('APR + ML', state.Scoring_Sources__c);
+        System.assertEquals(250, state.Apriori_Score__c, 'Apriori side is untouched by the ML publish');
+        System.assertEquals('Active', state.Apriori_Status__c);
+        System.assertEquals('Active', state.ML_Status__c);
+        System.assertEquals(null, state.ML_Status_Description__c);
+        System.assertNotEquals(null, state.ML_Live_Since__c);
+        System.assertEquals(UserInfo.getUserId(), state.ML_Last_Modified_By__c);
+        System.assertEquals(model.Id, state.Model_Definition__c);
+        System.assertEquals('7', state.Model_Definition_Id__c);
+        System.assertEquals('Sample_ScoringModels__dlm', state.Data_Source_Object_API_Name__c);
+        System.assertEquals('source_model_id__c', state.Source_Model_Id__c);
+        System.assertEquals('GCP', state.Model_Source__c);
+        System.assertEquals(setting.Id, state.ML_Score_Definition_Setting__c);
+
+        List<Campaign_Scoring_History__c> history = [
+            SELECT Name, Version_Number__c, End_Date_Time__c, Changed_Source__c, Apriori_Score__c, ML_Status__c,
+                   Base_Score_Column__c
+            FROM Campaign_Scoring_History__c
+            WHERE Product_Family_Dict__c = :pf('PF Test').Id
+            ORDER BY Version_Number__c
+        ];
+        System.assertEquals(2, history.size());
+        System.assertEquals('Apriori', history[0].Changed_Source__c);
+        System.assertNotEquals(null, history[0].End_Date_Time__c);
+        System.assertEquals('ML', history[1].Changed_Source__c);
+        System.assertEquals('PF Test_Topic Test_2', history[1].Name);
+        System.assertEquals(null, history[1].End_Date_Time__c);
+        System.assertEquals(250, history[1].Apriori_Score__c, 'Snapshot holds both sources');
+        System.assertEquals('Active', history[1].ML_Status__c);
+        System.assertEquals('base__c', history[1].Base_Score_Column__c);
+    }
+
+    @IsTest
+    static void aprioriChangeKeepsTheMlPictureInTheSnapshot() {
+        aprioriCampaign(250, true);
+        Marketing_Dictionary__c model = modelDefinition(true);
+        modelSetting(model.Id, 2);
+        aprioriCampaign(400, true);
+
+        List<Campaign_Scoring_History__c> history = [
+            SELECT Version_Number__c, End_Date_Time__c, Changed_Source__c, Apriori_Score__c, ML_Status__c,
+                   Base_Score_Column__c, Base_Score_Factor__c
+            FROM Campaign_Scoring_History__c
+            WHERE Product_Family_Dict__c = :pf('PF Test').Id
+            ORDER BY Version_Number__c
+        ];
+        System.assertEquals(3, history.size());
+        Campaign_Scoring_History__c latest = history[2];
+        System.assertEquals('Apriori', latest.Changed_Source__c);
+        System.assertEquals(400, latest.Apriori_Score__c);
+        System.assertEquals('Active', latest.ML_Status__c, 'ML side is carried into the new snapshot');
+        System.assertEquals('base__c', latest.Base_Score_Column__c);
+        System.assertEquals(2, latest.Base_Score_Factor__c);
+        System.assertEquals(null, latest.End_Date_Time__c);
+        System.assertEquals(1, [SELECT COUNT() FROM Campaign_Scoring_History__c
+                                WHERE Product_Family_Dict__c = :pf('PF Test').Id AND End_Date_Time__c = NULL]);
     }
 
     @IsTest
@@ -202,14 +248,13 @@ private class CampaignScoringServiceTest {
         Marketing_Dictionary__c model = modelDefinition(true);
         Scoring_Model_Setting__c setting = modelSetting(model.Id, 2);
         update setting;
-        System.assertEquals(1, [SELECT COUNT() FROM Campaign_Scoring_History__c WHERE Scoring_Type__c = 'ML']);
+        System.assertEquals(1, [SELECT COUNT() FROM Campaign_Scoring_History__c WHERE ML_Status__c = 'Active']);
 
         setting.Base_Score_Factor__c = 3;
         update setting;
         List<Campaign_Scoring_History__c> history = [
-            SELECT Version_Number__c, End_Date_Time__c, Base_Score_Factor__c
+            SELECT Version_Number__c, End_Date_Time__c, Base_Score_Factor__c, Changed_Source__c
             FROM Campaign_Scoring_History__c
-            WHERE Scoring_Type__c = 'ML'
             ORDER BY Version_Number__c
         ];
         System.assertEquals(2, history.size());
@@ -217,7 +262,8 @@ private class CampaignScoringServiceTest {
         System.assertNotEquals(null, history[0].End_Date_Time__c);
         System.assertEquals(3, history[1].Base_Score_Factor__c);
         System.assertEquals(null, history[1].End_Date_Time__c);
-        System.assertEquals(1, [SELECT COUNT() FROM Campaign_Scoring_State__c WHERE Scoring_Type__c = 'ML']);
+        System.assertEquals('ML', history[1].Changed_Source__c);
+        System.assertEquals(1, [SELECT COUNT() FROM Campaign_Scoring_State__c WHERE ML_Status__c = 'Active']);
     }
 
     @IsTest
@@ -228,8 +274,8 @@ private class CampaignScoringServiceTest {
 
         model.Is_Active__c = true;
         update model;
-        System.assertEquals(1, [SELECT COUNT() FROM Campaign_Scoring_State__c WHERE Scoring_Type__c = 'ML']);
-        System.assertEquals(1, [SELECT COUNT() FROM Campaign_Scoring_History__c WHERE Scoring_Type__c = 'ML']);
+        System.assertEquals(1, [SELECT COUNT() FROM Campaign_Scoring_State__c WHERE ML_Status__c = 'Active']);
+        System.assertEquals(1, [SELECT COUNT() FROM Campaign_Scoring_History__c WHERE ML_Status__c = 'Active']);
     }
 
     @IsTest
@@ -284,5 +330,7 @@ private class CampaignScoringServiceTest {
         Campaign_Scoring_History__c hist = [SELECT Name FROM Campaign_Scoring_History__c WHERE Product_Family_Dict__c = :longPf.Id LIMIT 1];
         System.assertEquals(80, hist.Name.length());
         System.assert(hist.Name.endsWith('_1'), hist.Name);
+        Campaign_Scoring_State__c state = [SELECT Name FROM Campaign_Scoring_State__c WHERE Product_Family_Dict__c = :longPf.Id LIMIT 1];
+        System.assertEquals(80, state.Name.length());
     }
 }

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Combined_Status__c</fullName>
+    <description>Active when at least one source is live, Inactive otherwise.</description>
+    <externalId>false</externalId>
+    <formula>IF(OR(ISPICKVAL(Apriori_Status__c, 'Active'), ISPICKVAL(ML_Status__c, 'Active')), 'Active', 'Inactive')</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Status</label>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Scoring_Sources__c</fullName>
+    <description>Which sources exist for this pair: APR, ML or APR + ML.</description>
+    <externalId>false</externalId>
+    <formula>IF(ISPICKVAL(Apriori_Status__c, ''), '', 'APR') &amp; IF(OR(ISPICKVAL(Apriori_Status__c, ''), ISPICKVAL(ML_Status__c, '')), '', ' + ') &amp; IF(ISPICKVAL(ML_Status__c, ''), '', 'ML')</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Scoring Sources</label>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

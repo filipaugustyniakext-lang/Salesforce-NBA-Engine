@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Apriori_Active_Requires_Score</fullName>
+    <active>true</active>
+    <description>Active apriori rows need a score.</description>
+    <errorConditionFormula>AND(ISPICKVAL(Apriori_Status__c, 'Active'), ISBLANK(Apriori_Score__c))</errorConditionFormula>
+    <errorDisplayField>Apriori_Score__c</errorDisplayField>
+    <errorMessage>An active apriori source needs an Apriori Score.</errorMessage>
+</ValidationRule>

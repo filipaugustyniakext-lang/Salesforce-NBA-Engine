@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
-    <fullName>Model_Fields_Required_For_ML</fullName>
-    <active>true</active>
-    <description>ML rows need a model definition and source.</description>
-    <errorConditionFormula>AND(ISPICKVAL(Scoring_Type__c, 'ML'), OR(ISBLANK(Model_Definition__c), ISBLANK(Data_Source_Object_API_Name__c)))</errorConditionFormula>
-    <errorDisplayField>Model_Definition__c</errorDisplayField>
-    <errorMessage>Model Definition and Model Source Data Lake Object API Name are required when Scoring Type is ML.</errorMessage>
-</ValidationRule>
