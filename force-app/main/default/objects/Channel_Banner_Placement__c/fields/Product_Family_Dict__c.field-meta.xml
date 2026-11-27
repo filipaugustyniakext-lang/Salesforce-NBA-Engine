@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Product_Family_Dict__c</fullName>
+    <deleteConstraint>Restrict</deleteConstraint>
+    <description>Optional. The Product Family this banner placeholder belongs to. Empty when the placeholder is not tied to a product family.</description>
+    <label>Product Family</label>
+    <lookupFilter>
+        <active>true</active>
+        <errorMessage>Only Product Family dictionary entries are allowed.</errorMessage>
+        <filterItems>
+            <field>Marketing_Dictionary__c.Dictionary_Sub_Type__c</field>
+            <operation>equals</operation>
+            <value>Product Family</value>
+        </filterItems>
+        <isOptional>false</isOptional>
+    </lookupFilter>
+    <referenceTo>Marketing_Dictionary__c</referenceTo>
+    <relationshipLabel>Banner Placeholders (Product Family)</relationshipLabel>
+    <relationshipName>Channel_Banner_Placements_PF</relationshipName>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

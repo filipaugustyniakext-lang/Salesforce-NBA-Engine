@@ -644,4 +644,60 @@ private class MarketingDictionaryManagerControllerTest {
         System.assertEquals(true, flags.get('PH_HOME_MAIN'));
         System.assertEquals(false, flags.get('PH_HOME_TOP'));
     }
+
+    @IsTest
+    static void bannerPlaceholdersCanBeMappedToAProductFamilyAndStayEmptyOtherwise() {
+        Marketing_Dictionary__c channel = new Marketing_Dictionary__c(
+            Name = 'Banner',
+            RecordTypeId = Schema.SObjectType.Marketing_Dictionary__c.getRecordTypeInfosByDeveloperName().get('Channel').getRecordTypeId()
+        );
+        Marketing_Dictionary__c family = new Marketing_Dictionary__c(
+            Name = 'Cash Loan',
+            RecordTypeId = Schema.SObjectType.Marketing_Dictionary__c.getRecordTypeInfosByDeveloperName().get('Product').getRecordTypeId(),
+            Dictionary_Sub_Type__c = 'Product Family'
+        );
+        insert new List<Marketing_Dictionary__c>{ channel, family };
+
+        MarketingDictionaryManagerController.saveBannerPlacement(JSON.serialize(new Channel_Banner_Placement__c(
+            Name = 'PH_LOANS_MAIN', Channel__c = channel.Id, Product_Family_Dict__c = family.Id
+        )));
+        MarketingDictionaryManagerController.saveBannerPlacementsBulk(JSON.serialize(new List<Channel_Banner_Placement__c>{
+            new Channel_Banner_Placement__c(Name = 'PH_HOME_TOP', Channel__c = channel.Id)
+        }));
+
+        Map<String, String> familyNames = new Map<String, String>();
+        for (Marketing_Dictionary__c record : MarketingDictionaryManagerController.getChannelRecords()) {
+            if (record.Id == channel.Id) {
+                for (Channel_Banner_Placement__c placement : record.Channel_Banner_Placements__r) {
+                    familyNames.put(placement.Name, placement.Product_Family_Dict__r?.Name);
+                }
+            }
+        }
+        System.assertEquals('Cash Loan', familyNames.get('PH_LOANS_MAIN'));
+        System.assertEquals(null, familyNames.get('PH_HOME_TOP'), 'A placeholder without a product family stays empty');
+    }
+
+    @IsTest
+    static void onlyProductFamiliesCanBeMappedToABannerPlaceholder() {
+        Marketing_Dictionary__c channel = new Marketing_Dictionary__c(
+            Name = 'Banner',
+            RecordTypeId = Schema.SObjectType.Marketing_Dictionary__c.getRecordTypeInfosByDeveloperName().get('Channel').getRecordTypeId()
+        );
+        Marketing_Dictionary__c topic = new Marketing_Dictionary__c(
+            Name = 'Cross-sell',
+            RecordTypeId = Schema.SObjectType.Marketing_Dictionary__c.getRecordTypeInfosByDeveloperName().get('Campaign').getRecordTypeId(),
+            Dictionary_Sub_Type__c = 'Topic'
+        );
+        insert new List<Marketing_Dictionary__c>{ channel, topic };
+
+        String message;
+        try {
+            MarketingDictionaryManagerController.saveBannerPlacement(JSON.serialize(new Channel_Banner_Placement__c(
+                Name = 'PH_WRONG', Channel__c = channel.Id, Product_Family_Dict__c = topic.Id
+            )));
+        } catch (Exception e) {
+            message = e.getMessage();
+        }
+        System.assertNotEquals(null, message, 'A topic is not a product family');
+    }
 }

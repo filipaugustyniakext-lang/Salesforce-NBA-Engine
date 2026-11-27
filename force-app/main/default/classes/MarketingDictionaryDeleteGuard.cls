@@ -386,6 +386,15 @@ public with sharing class MarketingDictionaryDeleteGuard {
         ]) {
             addDependency(dependencies, 'Scoring state', state);
         }
+        for (Channel_Banner_Placement__c placeholder : [
+            SELECT Name
+            FROM Channel_Banner_Placement__c
+            WHERE Product_Family_Dict__c = :recordId
+            ORDER BY Name ASC
+            LIMIT :MAX_DEPENDENCY_LABELS
+        ]) {
+            addDependency(dependencies, 'Banner placeholder', placeholder);
+        }
         for (Offer_Attribute_Rule__c rule : [
             SELECT Id, Offer_Attribute__r.Name
             FROM Offer_Attribute_Rule__c

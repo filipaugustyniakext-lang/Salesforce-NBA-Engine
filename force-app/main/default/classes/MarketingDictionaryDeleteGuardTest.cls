@@ -17,6 +17,31 @@ private class MarketingDictionaryDeleteGuardTest {
     }
 
     @IsTest
+    static void productFamilyWithABannerPlaceholderIsReportedAsADependency() {
+        Marketing_Dictionary__c channel = new Marketing_Dictionary__c(
+            Name = 'Banner', RecordTypeId = channelDictRt()
+        );
+        Marketing_Dictionary__c family = new Marketing_Dictionary__c(
+            Name = 'Cash Loan', RecordTypeId = productDictRt(), Dictionary_Sub_Type__c = 'Product Family'
+        );
+        insert new List<Marketing_Dictionary__c>{ channel, family };
+        insert new Channel_Banner_Placement__c(Name = 'PH_LOANS_MAIN', Channel__c = channel.Id, Product_Family_Dict__c = family.Id);
+
+        MarketingDictionaryDeleteGuard.DependencyReport report =
+            MarketingDictionaryDeleteGuard.getDictionaryDeleteDependencies(family.Id);
+
+        System.assert(report.hasDependencies(), 'A mapped placeholder must block deleting its product family');
+        MarketingDictionaryDeleteGuard.DependencyGroup placeholders;
+        for (MarketingDictionaryDeleteGuard.DependencyGroup dependencyGroup : report.groups) {
+            if (dependencyGroup.category == 'Banner placeholder') {
+                placeholders = dependencyGroup;
+            }
+        }
+        System.assertNotEquals(null, placeholders);
+        System.assertEquals('PH_LOANS_MAIN', placeholders.references[0].label);
+    }
+
+    @IsTest
     static void campaignGroupBlockedWhenCampaignReferences() {
         Marketing_Dictionary__c groupRec = new Marketing_Dictionary__c(
             Name = 'Spring Group',

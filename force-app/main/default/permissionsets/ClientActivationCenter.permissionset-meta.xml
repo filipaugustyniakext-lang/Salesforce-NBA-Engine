@@ -1543,6 +1543,11 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
+        <field>Channel_Banner_Placement__c.Product_Family_Dict__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
         <field>Channel_Banner_Type__c.Description__c</field>
         <readable>true</readable>
     </fieldPermissions>
