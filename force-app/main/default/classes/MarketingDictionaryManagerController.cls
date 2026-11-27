@@ -2281,18 +2281,25 @@ public with sharing class MarketingDictionaryManagerController {
                    Base_Score_Column__c, Base_Score_Formula_Mode__c, Base_Score_Factor__c, Base_Score_Formula__c,
                    Calibrated_Base_Score_Column__c, Calibrated_Score_Formula_Mode__c,
                    Calibrated_Score_Factor__c, Calibrated_Score_Formula__c,
-                   Model_From_Date__c, Model_To_Date__c
+                   Model_From_Date__c, Model_To_Date__c,
+                   Status__c, Activated_On__c, Historized_On__c, Scoring_Model__r.Is_Active__c
             FROM Scoring_Model_Setting__c
-            ORDER BY Scoring_Model__r.Name ASC NULLS LAST, Name ASC
+            ORDER BY Scoring_Model__r.Name ASC NULLS LAST, Status__c ASC, Model_From_Date__c DESC
             LIMIT 2000
         ];
     }
 
     @AuraEnabled
-    public static Id saveScoringModelSetting(Scoring_Model_Setting__c record) {
+    public static Id saveScoringModelSetting(Scoring_Model_Setting__c record, Boolean activateNow) {
         try {
             if (record == null || record.Scoring_Model__c == null) {
                 throw new AuraHandledException('Model ID is required.');
+            }
+            if (record.Id != null) {
+                String currentStatus = [SELECT Status__c FROM Scoring_Model_Setting__c WHERE Id = :record.Id LIMIT 1].Status__c;
+                if (currentStatus == 'Historized') {
+                    throw new AuraHandledException('A historized setting cannot be edited. Create a new setting instead.');
+                }
             }
             List<Marketing_Dictionary__c> models = [
                 SELECT Id, Name, Dictionary_Sub_Type__c
@@ -2352,17 +2359,6 @@ public with sharing class MarketingDictionaryManagerController {
                 throw new AuraHandledException('Model From Date must be on or before Model To Date.');
             }
 
-            List<Scoring_Model_Setting__c> dupes = [
-                SELECT Id
-                FROM Scoring_Model_Setting__c
-                WHERE Scoring_Model__c = :model.Id
-                AND Id != :record.Id
-                LIMIT 1
-            ];
-            if (!dupes.isEmpty()) {
-                throw new AuraHandledException('This model already has a setting. Edit the existing configuration.');
-            }
-
             String settingName = model.Name == null ? 'Model Setting' : model.Name.trim();
             if (settingName.length() > 80) {
                 settingName = settingName.substring(0, 80);
@@ -2386,16 +2382,43 @@ public with sharing class MarketingDictionaryManagerController {
                 Model_From_Date__c = record.Model_From_Date__c,
                 Model_To_Date__c = record.Model_To_Date__c
             );
+            if (record.Id == null) {
+                row.Status__c = activateNow == true ? 'Active' : 'Draft';
+            } else if (activateNow == true) {
+                row.Status__c = 'Active';
+            }
             upsert row;
             return row.Id;
         } catch (AuraHandledException ahe) {
             throw ahe;
         } catch (DmlException dml) {
-            String msg = dml.getDmlMessage(0);
-            if (msg != null && msg.toLowerCase().contains('duplicate')) {
-                throw new AuraHandledException('This model already has a setting. Edit the existing configuration.');
-            }
-            throw new AuraHandledException(msg);
+            throw new AuraHandledException(dml.getDmlMessage(0));
+        } catch (Exception e) {
+            throw new AuraHandledException(e.getMessage());
+        }
+    }
+
+    @AuraEnabled
+    public static void activateScoringModelSetting(Id recordId) {
+        try {
+            ScoringModelSettingService.activateSetting(recordId);
+        } catch (AuraHandledException ahe) {
+            throw ahe;
+        } catch (DmlException dml) {
+            throw new AuraHandledException(dml.getDmlMessage(0));
+        } catch (Exception e) {
+            throw new AuraHandledException(e.getMessage());
+        }
+    }
+
+    @AuraEnabled
+    public static void deactivateScoringModelSetting(Id recordId) {
+        try {
+            ScoringModelSettingService.deactivateSetting(recordId);
+        } catch (AuraHandledException ahe) {
+            throw ahe;
+        } catch (DmlException dml) {
+            throw new AuraHandledException(dml.getDmlMessage(0));
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());
         }
@@ -2406,6 +2429,11 @@ public with sharing class MarketingDictionaryManagerController {
         try {
             if (recordId == null) {
                 throw new AuraHandledException('Model setting is required.');
+            }
+            for (Scoring_Model_Setting__c existing : [SELECT Status__c FROM Scoring_Model_Setting__c WHERE Id = :recordId LIMIT 1]) {
+                if (existing.Status__c == 'Active') {
+                    throw new AuraHandledException('The live setting cannot be deleted. Deactivate it first.');
+                }
             }
             delete [
                 SELECT Id

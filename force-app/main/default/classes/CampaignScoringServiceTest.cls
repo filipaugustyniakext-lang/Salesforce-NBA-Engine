@@ -60,7 +60,12 @@ private class CampaignScoringServiceTest {
     }
 
     private static Scoring_Model_Setting__c modelSetting(Id modelId, Decimal factor) {
+        return modelSettingWithStatus(modelId, factor, 'Active');
+    }
+
+    private static Scoring_Model_Setting__c modelSettingWithStatus(Id modelId, Decimal factor, String status) {
         Scoring_Model_Setting__c setting = new Scoring_Model_Setting__c(
+            Status__c = status,
             Name = 'Model A',
             Scoring_Model__c = modelId,
             Model_Definition_Key__c = String.valueOf(modelId),
@@ -267,13 +272,27 @@ private class CampaignScoringServiceTest {
     }
 
     @IsTest
-    static void inactiveModelPublishesOnlyOnceActivated() {
+    static void onlyAnActiveDefinitionCanHaveALiveSetting() {
         Marketing_Dictionary__c model = modelDefinition(false);
-        modelSetting(model.Id, 2);
-        System.assertEquals(0, [SELECT COUNT() FROM Campaign_Scoring_State__c]);
+
+        Scoring_Model_Setting__c draft = modelSettingWithStatus(model.Id, 2, 'Draft');
+        System.assertEquals(0, [SELECT COUNT() FROM Campaign_Scoring_State__c], 'A draft setting publishes nothing');
+
+        String message;
+        try {
+            modelSettingWithStatus(model.Id, 2, 'Active');
+        } catch (DmlException e) {
+            message = e.getMessage();
+        }
+        System.assertNotEquals(null, message, 'A live setting needs an active definition');
+        System.assert(message.contains('Only Active model definitions'), message);
 
         model.Is_Active__c = true;
         update model;
+        System.assertEquals(0, [SELECT COUNT() FROM Campaign_Scoring_State__c], 'Activating the definition alone publishes nothing');
+
+        draft.Status__c = 'Active';
+        update draft;
         System.assertEquals(1, [SELECT COUNT() FROM Campaign_Scoring_State__c WHERE ML_Status__c = 'Active']);
         System.assertEquals(1, [SELECT COUNT() FROM Campaign_Scoring_History__c WHERE ML_Status__c = 'Active']);
     }

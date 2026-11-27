@@ -18,6 +18,7 @@ public with sharing class CampaignScoringService {
     private static final Decimal MIN_SCORE = 0;
     private static final Decimal MAX_SCORE = 1000;
     private static final Integer NAME_MAX_LENGTH = 80;
+    public static final String NO_LIVE_SETTING_DESCRIPTION = 'No active settings for this ML Model Definition.';
     private static final String MANUAL_DELETE_MESSAGE =
         'Campaign Scoring State and History rows are maintained by the system and cannot be deleted one by one. '
         + 'Use the Delete All Scoring Records button to remove them.';
@@ -279,8 +280,9 @@ public with sharing class CampaignScoringService {
     }
 
     /**
-     * Publishes ML scoring state for the given Scoring Model definitions. Only active Product Family models that
-     * have a Model Setting and a Topic produce rows; one row per Product Family.
+     * Publishes ML scoring state for the given Scoring Model definitions. Only active Product Family models with a Topic
+     * produce rows, one per Product Family, from the definition's live (Active) Model Setting. A definition without a
+     * live setting makes its ML pairs Inactive.
      */
     public static void publishModels(Set<Id> modelDefinitionIds) {
         if (modelDefinitionIds == null || modelDefinitionIds.isEmpty()) {
@@ -300,6 +302,7 @@ public with sharing class CampaignScoringService {
         }
 
         List<SourceInput> inputs = new List<SourceInput>();
+        Set<Id> liveModelIds = new Set<Id>();
         for (Scoring_Model_Setting__c setting : [
             SELECT Id, Scoring_Model__c, Data360_DMO__c, Source_Model_Id_Column__c, Model_Source__c,
                    Base_Score_Column__c, Base_Score_Formula_Mode__c, Base_Score_Factor__c, Base_Score_Formula__c,
@@ -308,7 +311,9 @@ public with sharing class CampaignScoringService {
                    Model_From_Date__c, Model_To_Date__c
             FROM Scoring_Model_Setting__c
             WHERE Scoring_Model__c IN :models.keySet()
+            AND Status__c = 'Active'
         ]) {
+            liveModelIds.add(setting.Scoring_Model__c);
             Marketing_Dictionary__c model = models.get(setting.Scoring_Model__c);
             for (Id pfId : parseIds(model.Product_Family__c)) {
                 SourceInput input = new SourceInput();
@@ -322,6 +327,11 @@ public with sharing class CampaignScoringService {
             }
         }
         publish(inputs);
+        for (Id modelId : models.keySet()) {
+            if (!liveModelIds.contains(modelId)) {
+                deactivateMlForModel(modelId, new Set<String>(), NO_LIVE_SETTING_DESCRIPTION);
+            }
+        }
     }
 
     @TestVisible

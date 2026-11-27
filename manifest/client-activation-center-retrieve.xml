@@ -138,6 +138,9 @@
         <members>DeleteAllScoringStatesController</members>
         <members>DeleteAllScoringStatesControllerTest</members>
         <members>ScoringDataDeleteBatch</members>
+        <members>ScoringModelSettingService</members>
+        <members>ScoringLifecycleJob</members>
+        <members>ScoringLifecycleTest</members>
         <name>ApexClass</name>
     </types>
     <types>
