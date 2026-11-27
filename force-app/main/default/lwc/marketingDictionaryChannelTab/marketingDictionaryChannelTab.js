@@ -13,6 +13,7 @@ import deleteBlackoutDayRule from '@salesforce/apex/MarketingDictionaryManagerCo
 import saveBannerPlacement from '@salesforce/apex/MarketingDictionaryManagerController.saveBannerPlacement';
 import saveBannerPlacementsBulk from '@salesforce/apex/MarketingDictionaryManagerController.saveBannerPlacementsBulk';
 import deleteBannerPlacement from '@salesforce/apex/MarketingDictionaryManagerController.deleteBannerPlacement';
+import getProductOfferingCatalogue from '@salesforce/apex/MarketingDictionaryManagerController.getProductOfferingCatalogue';
 import { confirmDictionaryRenameIfNeeded } from 'c/marketingDictionaryRenamePrompt';
 import {
     runDictionaryDeleteWithDependencyCheck,
@@ -41,7 +42,8 @@ let _key = 0;
 const newKey = () => String(++_key);
 const IMPACT_SCORE_LOGIC_HELP =
     'All Campaigns Associated with Placeholders marked with this flag will be considered for Customer Propensity Recount Logic in Data360 Transformation';
-const newPlRow = () => ({ key: newKey(), placeholderId: '', appScreen: '', bannerTypeId: '', description: '', impact: false });
+const newPlRow = () => ({ key: newKey(), placeholderId: '', appScreen: '', bannerTypeId: '', productFamilyId: '', description: '', impact: false });
+const NO_PRODUCT_FAMILY = '__none';
 const newITRow = (i) => ({ key: newKey(), name: '', label: `Target ${i}` });
 const newIntentRow = () => ({ key: newKey(), intentValue: '', intentTargetId: '' });
 
@@ -63,12 +65,13 @@ const EMPTY_DAY_RULE = (day, channelId) => ({
     Blocked_From_Hour__c: 22,
     Blocked_To_Hour__c: 8
 });
-const EMPTY_PLACEMENT = () => ({ Name: '', App_Screen__c: '', Banner_Type__c: null, Position_Description__c: '', Channel__c: null, Impact_Campaign_Score_Logic__c: false });
+const EMPTY_PLACEMENT = () => ({ Name: '', App_Screen__c: '', Banner_Type__c: null, Product_Family_Dict__c: null, Position_Description__c: '', Channel__c: null, Impact_Campaign_Score_Logic__c: false });
 
 // Per-channel UI state (not part of wire data)
 const defaultChState = () => ({
     activeTab: 'cooldown',
     placementSearch: '',
+    placementFamily: '',
     sortCol: 'Name',
     sortAsc: true,
     intentSearch: '',
@@ -115,6 +118,21 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
     _pendingDeleteType = '';
 
     @track _audienceTypeRecords = [];
+    @track _productFamilies = [];
+
+    connectedCallback() {
+        Promise.resolve(getProductOfferingCatalogue())
+            .then(rows => {
+                this._productFamilies = (rows || []).filter(r => r.Dictionary_Sub_Type__c === 'Product Family');
+            })
+            .catch(() => { this._productFamilies = []; });
+    }
+
+    /** Product families a placeholder can be mapped to; empty is allowed. */
+    get productFamilyPickerOptions() {
+        const options = this._productFamilies.map(r => ({ label: r.Name, value: r.Id }));
+        return [{ label: '— None —', value: '' }, ...options];
+    }
 
     @wire(getPersonRecords)
     wiredPersonRecords({ data }) {
@@ -185,8 +203,10 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
             const placements = ch.Channel_Banner_Placements__r || [];
             const filtered = this._filterAndSort(placements, state).map(placement => ({
                 ...placement,
-                bannerTypeName: placement.Banner_Type__r?.Name || '—'
+                bannerTypeName: placement.Banner_Type__r?.Name || '—',
+                productFamilyName: placement.Product_Family_Dict__r?.Name || '—'
             }));
+            const placementFamilyOptions = this._buildPlacementFamilyOptions(placements);
             const intents = ch.Channel_Banner_Intents__r || [];
             const filteredIntents = this._filterAndSortIntents(intents, state).map(intent => ({
                 ...intent,
@@ -226,11 +246,21 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
                 sidebarClass: `ch-sidebar__item${isActive ? ' ch-sidebar__item_active' : ''}${ch.Is_Active__c === false ? ' ch-sidebar__item_inactive' : ''}`,
                 activeTab,
                 placementSearch: state.placementSearch,
+                placementFamily: state.placementFamily || '',
+                placementFamilyOptions,
                 filteredPlacements: filtered.length ? filtered : null,
-                placementCountLabel: this._countLabel(filtered.length, placements.length, state.placementSearch),
+                placementEmptyLabel: placements.length
+                    ? 'No placeholders match the current search and filter.'
+                    : 'No placeholders defined yet.',
+                placementCountLabel: this._countLabel(
+                    filtered.length,
+                    placements.length,
+                    this._placementFilterDescription(state, placementFamilyOptions)
+                ),
                 sortIconName: this._sortIcon(state, 'Name'),
                 sortIconScreen: this._sortIcon(state, 'App_Screen__c'),
                 sortIconType: this._sortIcon(state, 'Banner_Type__r.Name'),
+                sortIconFamily: this._sortIcon(state, 'Product_Family_Dict__r.Name'),
                 intentSearch: state.intentSearch,
                 filteredIntents: filteredIntents.length ? filteredIntents : null,
                 intentCountLabel: this._intentCountLabel(filteredIntents.length, intents.length, state.intentSearch),
@@ -321,8 +351,15 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
                 (p.Name || '').toLowerCase().includes(q) ||
                 (p.App_Screen__c || '').toLowerCase().includes(q) ||
                 (p.Banner_Type__r?.Name || '').toLowerCase().includes(q) ||
+                (p.Product_Family_Dict__r?.Name || '').toLowerCase().includes(q) ||
                 (p.Position_Description__c || '').toLowerCase().includes(q)
             );
+        }
+        const family = state.placementFamily || '';
+        if (family === NO_PRODUCT_FAMILY) {
+            list = list.filter(p => !p.Product_Family_Dict__c);
+        } else if (family) {
+            list = list.filter(p => p.Product_Family_Dict__c === family);
         }
         const col = state.sortCol;
         const asc = state.sortAsc ? 1 : -1;
@@ -331,6 +368,9 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
             if (col === 'Banner_Type__r.Name') {
                 av = (a.Banner_Type__r?.Name || '').toLowerCase();
                 bv = (b.Banner_Type__r?.Name || '').toLowerCase();
+            } else if (col === 'Product_Family_Dict__r.Name') {
+                av = (a.Product_Family_Dict__r?.Name || '').toLowerCase();
+                bv = (b.Product_Family_Dict__r?.Name || '').toLowerCase();
             } else {
                 av = (a[col] || '').toLowerCase();
                 bv = (b[col] || '').toLowerCase();
@@ -342,8 +382,43 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
         return list;
     }
 
+    /**
+     * Filter choices for one channel: everything, placeholders without a product family, and the product families
+     * that this channel's placeholders actually use.
+     */
+    _buildPlacementFamilyOptions(placements) {
+        const used = new Map();
+        let hasUnmapped = false;
+        placements.forEach(p => {
+            if (p.Product_Family_Dict__c) {
+                used.set(p.Product_Family_Dict__c, p.Product_Family_Dict__r?.Name || p.Product_Family_Dict__c);
+            } else {
+                hasUnmapped = true;
+            }
+        });
+        const families = [...used.entries()]
+            .map(([value, label]) => ({ label, value }))
+            .sort((a, b) => a.label.localeCompare(b.label));
+        return [
+            { label: 'All product families', value: '' },
+            ...(hasUnmapped ? [{ label: 'No product family', value: NO_PRODUCT_FAMILY }] : []),
+            ...families
+        ];
+    }
+
+    _placementFilterDescription(state, familyOptions) {
+        const parts = [];
+        const search = (state.placementSearch || '').trim();
+        if (search) parts.push(`"${search}"`);
+        if (state.placementFamily) {
+            const option = familyOptions.find(o => o.value === state.placementFamily);
+            parts.push(option ? option.label : 'the selected product family');
+        }
+        return parts.join(' and ');
+    }
+
     _countLabel(shown, total, search) {
-        if (search && shown < total) return `Showing ${shown} of ${total} placeholders matching "${search}"`;
+        if (search && shown < total) return `Showing ${shown} of ${total} placeholders matching ${search}`;
         return `${total} placeholder${total !== 1 ? 's' : ''}`;
     }
 
@@ -568,6 +643,11 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
     handlePlacementSearch(event) {
         const channelId = event.currentTarget.dataset.channelid;
         this._updateChState(channelId, { placementSearch: event.detail.value });
+    }
+
+    handlePlacementFamilyFilter(event) {
+        const channelId = event.currentTarget.dataset.channelid;
+        this._updateChState(channelId, { placementFamily: event.detail.value || '' });
     }
 
     handleIntentSort(event) {
@@ -832,6 +912,7 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
             placeholderId: p.Name || '',
             appScreen: p.App_Screen__c || '',
             bannerTypeId: p.Banner_Type__c || '',
+            productFamilyId: p.Product_Family_Dict__c || '',
             description: p.Position_Description__c || '',
             impact: p.Impact_Campaign_Score_Logic__c === true
         }));
@@ -882,6 +963,7 @@ export default class MarketingDictionaryChannelTab extends LightningElement {
                     Name: r.placeholderId.trim(),
                     App_Screen__c: r.appScreen.trim() || null,
                     Banner_Type__c: r.bannerTypeId || null,
+                    Product_Family_Dict__c: r.productFamilyId || null,
                     Position_Description__c: r.description.trim() || null,
                     Impact_Campaign_Score_Logic__c: r.impact === true,
                     Channel__c: this._activeBannerChannelId

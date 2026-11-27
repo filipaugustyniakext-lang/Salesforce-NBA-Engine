@@ -295,6 +295,11 @@
     flex: 0 0 160px;
 }
 
+.tab-toolbar__filter {
+    flex: 0 0 200px;
+    margin-left: 0.5rem;
+}
+
 .tab-toolbar__actions {
     margin-left: auto;
     display: flex;

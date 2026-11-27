@@ -264,6 +264,16 @@
                                                 onchange={handlePlacementSearch}
                                                 class="tab-toolbar__search">
                                             </lightning-input>
+                                            <lightning-combobox
+                                                variant="label-hidden"
+                                                label="Product family filter"
+                                                placeholder="All product families"
+                                                options={activeChannel.placementFamilyOptions}
+                                                value={activeChannel.placementFamily}
+                                                data-channelid={activeChannel.Id}
+                                                onchange={handlePlacementFamilyFilter}
+                                                class="tab-toolbar__filter">
+                                            </lightning-combobox>
                                             <div class="tab-toolbar__actions">
                                                 <lightning-button label="Edit All" icon-name="utility:edit" variant="neutral"
                                                     size="x-small" data-channelid={activeChannel.Id} onclick={handleEditAllPlacements}>
@@ -297,10 +307,16 @@
                                                                     <lightning-icon icon-name={activeChannel.sortIconType} size="xx-small" class="slds-m-left_xx-small"></lightning-icon>
                                                                 </div>
                                                             </th>
+                                                            <th class="sortable-col" data-channelid={activeChannel.Id} data-col="Product_Family_Dict__r.Name" onclick={handlePlacementSort}>
+                                                                <div class="slds-grid slds-grid_vertical-align-center">
+                                                                    <span class="slds-truncate">Product Family</span>
+                                                                    <lightning-icon icon-name={activeChannel.sortIconFamily} size="xx-small" class="slds-m-left_xx-small"></lightning-icon>
+                                                                </div>
+                                                            </th>
                                                             <th><div class="slds-truncate">Position</div></th>
                                                             <th class="placement-col-flag">
                                                                 <div class="placement-th-inline">
-                                                                    <span class="slds-truncate" title="Impact Campaign Score Logic">Score Logic</span>
+                                                                    <span class="slds-truncate" title="Is Main Channel">Is Main Channel</span>
                                                                     <lightning-helptext class="slds-m-left_xx-small" content={impactScoreLogicHelp}>
                                                                     </lightning-helptext>
                                                                 </div>
@@ -314,11 +330,12 @@
                                                                 <td><div class="vid-row"><div class="slds-truncate slds-text-body_small" title={pl.Name}>{pl.Name}</div><c-marketing-dictionary-value-id record-id={pl.Id}></c-marketing-dictionary-value-id></div></td>
                                                                 <td><div class="slds-truncate slds-text-body_small" title={pl.App_Screen__c}>{pl.App_Screen__c}</div></td>
                                                                 <td><div class="slds-truncate slds-text-body_small">{pl.bannerTypeName}</div></td>
+                                                                <td><div class="slds-truncate slds-text-body_small" title={pl.productFamilyName}>{pl.productFamilyName}</div></td>
                                                                 <td><div class="placement-desc slds-text-body_small">{pl.Position_Description__c}</div></td>
                                                                 <td class="placement-col-flag">
                                                                     <template lwc:if={pl.Impact_Campaign_Score_Logic__c}>
                                                                         <lightning-icon icon-name="utility:check" size="xx-small"
-                                                                            alternative-text="Yes" title="Impacts campaign score logic" class="placement-check-icon">
+                                                                            alternative-text="Yes" title="Is Main Channel" class="placement-check-icon">
                                                                         </lightning-icon>
                                                                     </template>
                                                                 </td>
@@ -342,7 +359,7 @@
                                             <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">{activeChannel.placementCountLabel}</p>
                                         </template>
                                         <template lwc:else>
-                                            <p class="slds-text-body_small slds-text-color_weak">No placeholders defined yet.</p>
+                                            <p class="slds-text-body_small slds-text-color_weak">{activeChannel.placementEmptyLabel}</p>
                                         </template>
                                     </div>
                             </template>
@@ -673,6 +690,13 @@
                                     data-field="Banner_Type__c" onchange={handlePlacementFieldChange}>
                                 </lightning-combobox>
                             </div>
+                            <div class="slds-col slds-size_1-of-2 slds-m-top_small">
+                                <lightning-combobox label="Product Family" value={editPlacement.Product_Family_Dict__c}
+                                    options={productFamilyPickerOptions} placeholder="None"
+                                    field-level-help="Optional. Leave empty when this placeholder does not belong to a product family."
+                                    data-field="Product_Family_Dict__c" onchange={handlePlacementFieldChange}>
+                                </lightning-combobox>
+                            </div>
                             <div class="slds-col slds-size_1-of-1 slds-m-top_small">
                                 <lightning-textarea label="Position Description" value={editPlacement.Position_Description__c}
                                     placeholder="Describe where on screen this placeholder appears..."
@@ -681,7 +705,7 @@
                             </div>
                             <div class="slds-col slds-size_1-of-1 slds-m-top_small">
                                 <div class="placement-flag-field">
-                                    <lightning-input type="checkbox" label="Impact Campaign Score Logic"
+                                    <lightning-input type="checkbox" label="Is Main Channel"
                                         checked={editPlacement.Impact_Campaign_Score_Logic__c}
                                         onchange={handlePlacementImpactChange}>
                                     </lightning-input>
@@ -697,7 +721,7 @@
                         </p>
                         <template for:each={placementRows} for:item="row">
                             <div key={row.key} class="slds-grid slds-gutters_x-small slds-m-bottom_x-small slds-grid_vertical-align-end">
-                                <div class="slds-col slds-size_3-of-12">
+                                <div class="slds-col slds-size_2-of-12">
                                     <lightning-input label="Placeholder ID" value={row.placeholderId}
                                         placeholder="PH_HOME_MAIN"
                                         data-key={row.key} data-rowfield="placeholderId"
@@ -718,7 +742,14 @@
                                         onchange={handlePlacementRowChange}>
                                     </lightning-combobox>
                                 </div>
-                                <div class="slds-col slds-size_3-of-12">
+                                <div class="slds-col slds-size_2-of-12">
+                                    <lightning-combobox label="Product Family" value={row.productFamilyId}
+                                        options={productFamilyPickerOptions} placeholder="None"
+                                        data-key={row.key} data-rowfield="productFamilyId"
+                                        onchange={handlePlacementRowChange}>
+                                    </lightning-combobox>
+                                </div>
+                                <div class="slds-col slds-size_2-of-12">
                                     <lightning-input label="Position" value={row.description}
                                         placeholder="Where on screen..."
                                         data-key={row.key} data-rowfield="description"
@@ -726,7 +757,7 @@
                                     </lightning-input>
                                 </div>
                                 <div class="slds-col slds-size_2-of-12">
-                                    <lightning-input type="checkbox" label="Score Logic" checked={row.impact}
+                                    <lightning-input type="checkbox" label="Is Main Channel" checked={row.impact}
                                         field-level-help={impactScoreLogicHelp}
                                         data-key={row.key} onchange={handlePlacementRowImpactChange}>
                                     </lightning-input>
