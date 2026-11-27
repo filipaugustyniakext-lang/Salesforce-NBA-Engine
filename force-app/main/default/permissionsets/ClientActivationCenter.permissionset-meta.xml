@@ -2500,6 +2500,14 @@
         <visible>true</visible>
     </recordTypeVisibilities>
     <tabSettings>
+        <tab>Campaign_Scoring_History__c</tab>
+        <visibility>Visible</visibility>
+    </tabSettings>
+    <tabSettings>
+        <tab>Campaign_Scoring_State__c</tab>
+        <visibility>Visible</visibility>
+    </tabSettings>
+    <tabSettings>
         <tab>Copy_Cockpit_Editor</tab>
         <visibility>Visible</visibility>
     </tabSettings>
