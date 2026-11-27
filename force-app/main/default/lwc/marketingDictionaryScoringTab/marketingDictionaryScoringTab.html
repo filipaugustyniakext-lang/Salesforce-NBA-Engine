@@ -372,12 +372,13 @@
                             <div class="slds-form-element__control">
                                 <div class="slds-radio_button-group">
                                     <template for:each={offeringTypeOptions} for:item="offering">
-                                        <span key={offering.value} class="slds-button slds-radio_button">
+                                        <span key={offering.value} class={offering.buttonClass}>
                                             <input type="radio"
                                                    name="scoring-offering-type"
                                                    id={offering.uniqueId}
                                                    value={offering.value}
                                                    checked={offering.isChecked}
+                                                   disabled={offering.isDisabled}
                                                    onchange={handleScoringOfferingTypeChange} />
                                             <label class="slds-radio_button__label" for={offering.uniqueId}>
                                                 <span class="slds-radio_faux">{offering.label}</span>
@@ -390,39 +391,35 @@
 
                         <template lwc:if={isScoringOfferingProductFamily}>
                             <div class="slds-m-top_medium">
-                                <label class="slds-form-element__label">Select Target Product Families <abbr class="slds-required" title="required">*</abbr></label>
+                                <label class="slds-form-element__label">Select Target Product Family <abbr class="slds-required" title="required">*</abbr></label>
+                                <p class="slds-text-body_small slds-text-color_weak">A model definition covers exactly one product family. Choose one customer type and one record type, then one product family.</p>
                                 <div class="slds-box slds-theme_default slds-m-top_xx-small scoring-offering-box">
                                     <div class="pf-filter-bar slds-p-bottom_small">
                                         <div class="slds-grid slds-wrap slds-grid_vertical-align-end slds-gutters_x-small">
                                             <div class="slds-col slds-size_1-of-2">
                                                 <label class="pf-filter-label">Customer Type</label>
-                                                <div class="pf-filter-pills">
+                                                <div class="pf-filter-pills" role="radiogroup" aria-label="Customer Type">
                                                     <template for:each={customerTypeFilterOptions} for:item="ctf">
-                                                        <span key={ctf.value} class={ctf.className} data-value={ctf.value}
-                                                              onclick={handleCustomerTypeFilter}>{ctf.label}</span>
+                                                        <span key={ctf.value} class={ctf.className} data-value={ctf.value} role="radio" tabindex="0"
+                                                              aria-checked={ctf.isSelected} onclick={handleCustomerTypeFilter}>{ctf.label}</span>
                                                     </template>
                                                 </div>
                                             </div>
                                             <div class="slds-col slds-size_1-of-2">
                                                 <label class="pf-filter-label">Record Type</label>
-                                                <div class="pf-filter-pills">
+                                                <div class="pf-filter-pills" role="radiogroup" aria-label="Record Type">
                                                     <template for:each={recordTypeFilterBadgeOptions} for:item="rtf">
-                                                        <span key={rtf.value} class={rtf.className} data-value={rtf.value}
-                                                              onclick={handleRecordTypeFilterBadge}>{rtf.label}</span>
+                                                        <span key={rtf.value} class={rtf.className} data-value={rtf.value} role="radio" tabindex="0"
+                                                              aria-checked={rtf.isSelected} onclick={handleRecordTypeFilterBadge}>{rtf.label}</span>
                                                     </template>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div class="slds-p-vertical_small select-all-row-divider">
-                                        <lightning-input type="checkbox" label="Select All"
-                                            checked={selectAllProductFamilies}
-                                            onchange={handleSelectAllProductFamilies}
-                                            class="custom-master-checkbox">
-                                        </lightning-input>
-                                    </div>
-
+                                    <template lwc:if={showProductFamilyGuide}>
+                                        <p class="slds-text-body_small slds-text-color_weak slds-p-vertical_small">Select one customer type and one record type to see product families.</p>
+                                    </template>
                                     <template for:each={filteredGroupedProductFamilyOptions} for:item="group">
                                         <div key={group.recordType} class="slds-m-top_medium">
                                             <span class="pf-group-header">{group.recordType}</span>
@@ -431,14 +428,14 @@
                                                     <div key={pf.value} class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-p-vertical_x-small">
                                                         <div class="slds-form-element">
                                                             <div class="slds-form-element__control">
-                                                                <div class="slds-checkbox">
-                                                                    <input type="checkbox" id={pf.inputId}
+                                                                <div class="slds-radio">
+                                                                    <input type="radio" id={pf.inputId} name="scoring-target-product-family"
                                                                            checked={pf.checked}
                                                                            data-value={pf.value}
                                                                            onchange={handleScoringProductFamilyToggle}
                                                                            class="scoring-native-checkbox" />
-                                                                    <label class="slds-checkbox__label" for={pf.inputId}>
-                                                                        <span class="slds-checkbox_faux"></span>
+                                                                    <label class="slds-radio__label" for={pf.inputId}>
+                                                                        <span class="slds-radio_faux"></span>
                                                                         <span class="slds-form-element__label pf-checkbox-label-wrapper">
                                                                             <span class="pf-label-text">{pf.label}</span>
                                                                             <span class="pf-badge-group">
@@ -466,6 +463,7 @@
                         <template lwc:if={isScoringOfferingFamilyOfNeeds}>
                             <div class="slds-m-top_medium">
                                 <label class="slds-form-element__label">Select Target Family of Needs <abbr class="slds-required" title="required">*</abbr></label>
+                                <p class="slds-text-body_small slds-text-color_weak">Scores are currently published for Product Family models only.</p>
                                 <div class="slds-box slds-theme_default slds-m-top_xx-small scoring-offering-box">
                                     <template lwc:if={fonCustomerTypeFilterOptions.length}>
                                         <div class="pf-filter-bar slds-p-bottom_small">
